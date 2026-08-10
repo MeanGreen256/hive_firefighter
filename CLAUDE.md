@@ -28,6 +28,7 @@ npm test         # vitest, if the change touches anything with tests
 | `src/sim/`    | The fire simulation. Renderer-agnostic.                                  | `src/sim/README.md`    |
 | `src/perf/`   | Shared, renderer-agnostic performance metrics and budget evaluation.     | `src/perf/README.md`   |
 | `src/render/` | Three.js / R3F. Reads sim state, draws it.                               | `src/render/README.md` |
+| `src/state/`  | Vanilla Zustand bridges and non-React runtime controllers.               | `src/state/README.md`  |
 | `src/ui/`     | HUD, panels, input. Plain React/DOM.                                     | `src/ui/README.md`     |
 | `src/styles/` | Art direction as swappable data.                                         | `src/styles/README.md` |
 | `content/`    | Game data as validated JSON.                                             | `content/README.md`    |

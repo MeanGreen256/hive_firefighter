@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { IsometricCameraRig } from '@render/IsometricCameraRig';
 import { getCameraFacing, type CameraFacing } from '@render/isometricCamera';
 import { PerformanceSampler } from '@render/PerformanceSampler';
 import { PerfOverlay } from '@ui/PerfOverlay';
+
+const SimDebugOverlay = import.meta.env.DEV ? lazy(() => import('@ui/SimDebugOverlay')) : null;
 
 /** Asymmetric landmarks make all four camera rotations visually verifiable. */
 function CameraCalibrationScene() {
@@ -63,6 +65,11 @@ export default function App() {
       </div>
 
       {import.meta.env.DEV ? <PerfOverlay /> : null}
+      {SimDebugOverlay ? (
+        <Suspense fallback={null}>
+          <SimDebugOverlay />
+        </Suspense>
+      ) : null}
     </>
   );
 }

@@ -6,8 +6,12 @@ import {
   FireSimulationEventType,
   calculatePropertySaved,
   createFireSimulation,
+  createFireSimulationTuning,
   createFixedTimestepRunner,
+  extinguishCell,
+  forceIgniteCell,
   igniteCell,
+  serializeFireSimulationTuning,
   stepFireSimulation,
 } from './fireSimulation';
 import { SuppressionAgent, applyWater } from './waterApplication';
@@ -169,6 +173,63 @@ describe('fire propagation', () => {
     expect(stepFireSimulation(state).processedCellCount).toBe(4);
   });
 
+  it('captures the heat delta and its source only when debug data is requested', () => {
+    const plain = createFireSimulation(createCellGrid('wood'), { seed: 6 });
+    const instrumented = copyState(plain);
+    igniteCell(plain, '0,0,0');
+    igniteCell(instrumented, '0,0,0');
+
+    expect(stepFireSimulation(plain).debug).toBeNull();
+    const result = stepFireSimulation(instrumented, { captureDebug: true });
+    const sourceDebug = result.debug?.cells['0,0,0'];
+    const neighborDebug = result.debug?.cells['1,0,0'];
+
+    expect(result.debug?.tick).toBe(1);
+    expect(sourceDebug?.contributions).toEqual([
+      expect.objectContaining({ sourceCellId: '0,0,0', kind: 'self' }),
+    ]);
+    expect(sourceDebug?.heatDelta).toBeGreaterThan(0);
+    expect(neighborDebug?.contributions).toEqual([
+      expect.objectContaining({ sourceCellId: '0,0,0', kind: 'neighbor' }),
+    ]);
+    expect(neighborDebug?.heatDelta).toBeGreaterThan(0);
+    expect(neighborDebug?.heatAfter).toBe(instrumented.grid.cells['1,0,0']?.heat);
+  });
+
+  it('applies validated live tuning without changing the committed defaults', () => {
+    const defaultState = createFireSimulation(createCellGrid('wood'), { seed: 17 });
+    const noSpreadState = copyState(defaultState);
+    igniteCell(defaultState, '0,0,0');
+    igniteCell(noSpreadState, '0,0,0');
+
+    stepFireSimulation(defaultState);
+    stepFireSimulation(noSpreadState, {
+      tuning: createFireSimulationTuning({ neighborHeatShare: 0 }),
+    });
+
+    expect(defaultState.grid.cells['1,0,0']?.heat).toBeGreaterThan(0);
+    expect(noSpreadState.grid.cells['1,0,0']?.heat).toBe(0);
+    expect(() => createFireSimulationTuning({ turbulenceVariation: 1.1 })).toThrow(/at most 1/);
+    expect(serializeFireSimulationTuning(createFireSimulationTuning())).toContain(
+      '"neighborHeatShare": 0.16',
+    );
+  });
+
+  it('supports deterministic force-ignite and force-extinguish debug inputs', () => {
+    const state = createFireSimulation(createCellGrid('wood'));
+    const cell = state.grid.cells['0,0,0']!;
+    cell.state = CellState.Wetted;
+    cell.wetness = 1;
+    state.activeCellIds = [cell.id];
+
+    expect(forceIgniteCell(state, cell.id)).toBe(true);
+    expect(cell).toMatchObject({ state: CellState.Burning, wetness: 0, heat: 300 });
+    expect(extinguishCell(state, cell.id)).toBe(true);
+    expect(cell).toMatchObject({ state: CellState.Clear, wetness: 0, heat: 0 });
+    expect(state.activeCellIds).not.toContain(cell.id);
+    expect(extinguishCell(state, cell.id)).toBe(false);
+  });
+
   it('advances at 10 Hz independently of elapsed-time chunking', () => {
     const initial = createFireSimulation(createCellGrid('wood'), { seed: 81 });
     igniteCell(initial, '0,0,0');
@@ -181,6 +242,20 @@ describe('fire propagation', () => {
     expect(chunked.advance(0.05)).toBe(1);
     expect(single.advance(0.5)).toBe(5);
     expect(chunked.getState()).toEqual(single.getState());
+  });
+
+  it('lets a fixed runner step once and replace tuning while collecting debug frames', () => {
+    const state = createFireSimulation(createCellGrid('wood'), { seed: 28 });
+    igniteCell(state, '0,0,0');
+    const runner = createFixedTimestepRunner(state, { captureDebug: true });
+    const tuning = createFireSimulationTuning({ neighborHeatShare: 0 });
+    runner.setTuning(tuning);
+
+    expect(runner.step().debug?.tick).toBe(1);
+    expect(runner.getTuning()).toEqual(tuning);
+    expect(runner.drainDebugFrames()).toHaveLength(1);
+    expect(runner.drainDebugFrames()).toEqual([]);
+    expect(state.grid.cells['1,0,0']?.heat).toBe(0);
   });
 
   it('queues burn-through events on the fixed-timestep runner until drained', () => {

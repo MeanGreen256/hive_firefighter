@@ -91,6 +91,73 @@ export const HEAT_RECOVERY_THRESHOLD = 0.5;
 const TURBULENCE_VARIATION = 0.1;
 const ACCUMULATOR_EPSILON_SECONDS = 1e-12;
 
+/**
+ * Runtime-adjustable constants used by one simulation tick.
+ *
+ * The committed defaults remain available as the named constants above. A
+ * tuning object lets development tooling compare alternatives without module
+ * globals or renderer state leaking into the deterministic simulation.
+ */
+export interface FireSimulationTuning {
+  burnoutFuelThreshold: number;
+  flashoverHeatMultiplier: number;
+  neighborHeatShare: number;
+  heatLossPerSecond: number;
+  minCombustibleHeatLossPerSecond: number;
+  noncombustibleHeatLossPerSecond: number;
+  minNoncombustibleHeatLossPerSecond: number;
+  heatRecoveryThreshold: number;
+  turbulenceVariation: number;
+}
+
+export const DEFAULT_FIRE_SIMULATION_TUNING: Readonly<FireSimulationTuning> = Object.freeze({
+  burnoutFuelThreshold: BURNOUT_FUEL_THRESHOLD,
+  flashoverHeatMultiplier: FLASHOVER_HEAT_MULTIPLIER,
+  neighborHeatShare: NEIGHBOR_HEAT_SHARE,
+  heatLossPerSecond: HEAT_LOSS_PER_SECOND,
+  minCombustibleHeatLossPerSecond: MIN_COMBUSTIBLE_HEAT_LOSS_PER_SECOND,
+  noncombustibleHeatLossPerSecond: NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND,
+  minNoncombustibleHeatLossPerSecond: MIN_NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND,
+  heatRecoveryThreshold: HEAT_RECOVERY_THRESHOLD,
+  turbulenceVariation: TURBULENCE_VARIATION,
+});
+
+const TUNING_KEYS = Object.keys(DEFAULT_FIRE_SIMULATION_TUNING) as (keyof FireSimulationTuning)[];
+
+/** Validate and copy a complete or partially overridden tuning set. */
+export function createFireSimulationTuning(
+  overrides: Partial<FireSimulationTuning> = {},
+): FireSimulationTuning {
+  const tuning: FireSimulationTuning = { ...DEFAULT_FIRE_SIMULATION_TUNING, ...overrides };
+
+  for (const key of TUNING_KEYS) {
+    const value = tuning[key];
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`Fire simulation tuning "${key}" must be finite and non-negative`);
+    }
+  }
+
+  if (tuning.burnoutFuelThreshold > 1) {
+    throw new Error('Fire simulation tuning "burnoutFuelThreshold" must be at most 1');
+  }
+  if (tuning.flashoverHeatMultiplier < 1) {
+    throw new Error('Fire simulation tuning "flashoverHeatMultiplier" must be at least 1');
+  }
+  if (tuning.neighborHeatShare > 1) {
+    throw new Error('Fire simulation tuning "neighborHeatShare" must be at most 1');
+  }
+  if (tuning.turbulenceVariation > 1) {
+    throw new Error('Fire simulation tuning "turbulenceVariation" must be at most 1');
+  }
+
+  return tuning;
+}
+
+/** Stable JSON payload for transferring a tuning session into source control. */
+export function serializeFireSimulationTuning(tuning: FireSimulationTuning): string {
+  return JSON.stringify(createFireSimulationTuning(tuning), null, 2);
+}
+
 export interface Wind {
   /** Direction heat is carried. It is normalized internally and may include vertical lift. */
   direction: GridPosition;
@@ -121,7 +188,42 @@ export interface FireTickResult {
   processedCellCount: number;
   /** One-shot events produced by this tick, in deterministic cell-processing order. */
   events: FireSimulationEvent[];
+  /** Optional diagnostics requested by development tooling. */
+  debug: FireTickDebug | null;
 }
+
+export interface FireHeatContribution {
+  sourceCellId: string;
+  kind: 'self' | 'neighbor';
+  /** Contribution before wetness damping. */
+  heatPerSecond: number;
+  /** Contribution applied during this tick after wetness damping. */
+  appliedHeat: number;
+}
+
+export interface FireCellTickDebug {
+  cellId: string;
+  stateBefore: CellState;
+  stateAfter: CellState;
+  heatBefore: number;
+  heatAfter: number;
+  heatDelta: number;
+  heatLost: number;
+  contributions: FireHeatContribution[];
+}
+
+export interface FireTickDebug {
+  /** One-based number of the completed tick described by this frame. */
+  tick: number;
+  cells: Record<string, FireCellTickDebug>;
+}
+
+export interface FireSimulationTickOptions {
+  tuning?: FireSimulationTuning;
+  captureDebug?: boolean;
+}
+
+export type FixedTimestepRunnerOptions = FireSimulationTickOptions;
 
 export const FireSimulationEventType = Object.freeze({
   CellBurnedThrough: 'cell-burned-through',
@@ -140,10 +242,17 @@ export interface FixedTimestepRunner {
   getState(): FireSimulationState;
   /** Replace state after an external sim input, such as water application. */
   setState(state: FireSimulationState): void;
+  getTuning(): FireSimulationTuning;
+  /** Replace constants used by subsequent ticks without restarting the scenario. */
+  setTuning(tuning: FireSimulationTuning): void;
   /** Advance by real elapsed time and return the number of fixed ticks executed. */
   advance(elapsedSeconds: number): number;
+  /** Advance exactly one tick, independent of the real-time accumulator. */
+  step(): FireTickResult;
   /** Return and clear events emitted since the previous drain. */
   drainEvents(): FireSimulationEvent[];
+  /** Return and clear captured per-tick diagnostics. */
+  drainDebugFrames(): FireTickDebug[];
   /** Fraction of a tick accumulated, for optional renderer interpolation. */
   getInterpolationAlpha(): number;
 }
@@ -233,6 +342,45 @@ export function igniteCell(state: FireSimulationState, cellId: string): boolean 
   return true;
 }
 
+/**
+ * Development-only style input that bypasses wetness but preserves permanent
+ * burn-through and material constraints. Keeping it here makes the mutation
+ * deterministic and testable without teaching the UI about cell internals.
+ */
+export function forceIgniteCell(state: FireSimulationState, cellId: string): boolean {
+  const cell = state.grid.cells[cellId];
+  if (!cell) throw new Error(`Cannot force-ignite missing cell "${cellId}"`);
+
+  const material = materialFor(cell);
+  if (
+    material.ignitionPoint === null ||
+    cell.state === CellState.Burnt ||
+    cell.fuel <= BURNOUT_FUEL_THRESHOLD
+  ) {
+    return false;
+  }
+
+  cell.wetness = 0;
+  cell.heat = Math.max(cell.heat, material.ignitionPoint);
+  cell.state = CellState.Burning;
+  if (!state.activeCellIds.includes(cellId)) state.activeCellIds.push(cellId);
+  return true;
+}
+
+/** Force a non-burnt cell back to a dry, cold Clear state for development tools. */
+export function extinguishCell(state: FireSimulationState, cellId: string): boolean {
+  const cell = state.grid.cells[cellId];
+  if (!cell) throw new Error(`Cannot extinguish missing cell "${cellId}"`);
+  if (cell.state === CellState.Burnt) return false;
+
+  const changed = cell.state !== CellState.Clear || cell.heat !== 0 || cell.wetness !== 0;
+  cell.heat = 0;
+  cell.wetness = 0;
+  cell.state = CellState.Clear;
+  state.activeCellIds = state.activeCellIds.filter((activeId) => activeId !== cellId);
+  return changed;
+}
+
 function isHeatSource(cell: Cell): boolean {
   return cell.state === CellState.Burning || cell.state === CellState.Flashover;
 }
@@ -283,14 +431,14 @@ function collectTickCellIds(state: FireSimulationState): Set<string> {
   return ids;
 }
 
-function transitionCell(cell: Cell): boolean {
+function transitionCell(cell: Cell, tuning: FireSimulationTuning): boolean {
   // A wetted cell remains non-ignitable for the whole decay period. When the
   // final moisture leaves it spends this tick Clear before heat can promote it.
   if (advanceCellWetness(cell, FIRE_TICK_SECONDS)) return false;
 
   const material = materialFor(cell);
 
-  if (isHeatSource(cell) && cell.fuel <= BURNOUT_FUEL_THRESHOLD) {
+  if (isHeatSource(cell) && cell.fuel <= tuning.burnoutFuelThreshold) {
     cell.fuel = 0;
     cell.heat = 0;
     cell.wetness = 0;
@@ -317,7 +465,7 @@ function transitionCell(cell: Cell): boolean {
   if (
     cell.state === CellState.Heating &&
     material.ignitionPoint !== null &&
-    cell.fuel > BURNOUT_FUEL_THRESHOLD &&
+    cell.fuel > tuning.burnoutFuelThreshold &&
     cell.heat >= material.ignitionPoint
   ) {
     cell.state = CellState.Burning;
@@ -327,7 +475,7 @@ function transitionCell(cell: Cell): boolean {
   if (
     cell.state === CellState.Burning &&
     material.ignitionPoint !== null &&
-    cell.heat >= material.ignitionPoint * FLASHOVER_HEAT_MULTIPLIER
+    cell.heat >= material.ignitionPoint * tuning.flashoverHeatMultiplier
   ) {
     cell.state = CellState.Flashover;
     return false;
@@ -341,7 +489,7 @@ function transitionCell(cell: Cell): boolean {
   if (
     cell.state === CellState.Flashover &&
     material.ignitionPoint !== null &&
-    cell.heat < material.ignitionPoint * FLASHOVER_HEAT_MULTIPLIER
+    cell.heat < material.ignitionPoint * tuning.flashoverHeatMultiplier
   ) {
     cell.state = CellState.Burning;
   }
@@ -356,17 +504,41 @@ function transitionCell(cell: Cell): boolean {
  * contributions are accumulated before any cell is updated, so record order
  * cannot change the result.
  */
-export function stepFireSimulation(state: FireSimulationState): FireTickResult {
+export function stepFireSimulation(
+  state: FireSimulationState,
+  options: FireSimulationTickOptions = {},
+): FireTickResult {
+  const tuning =
+    options.tuning === undefined
+      ? DEFAULT_FIRE_SIMULATION_TUNING
+      : createFireSimulationTuning(options.tuning);
   const tickCellIds = collectTickCellIds(state);
   const heatByCellId = new Map<string, number>();
+  const contributionsByCellId = options.captureDebug
+    ? new Map<string, Omit<FireHeatContribution, 'appliedHeat'>[]>()
+    : null;
   const events: FireSimulationEvent[] = [];
+  const debugCells: Record<string, FireCellTickDebug> | null = options.captureDebug ? {} : null;
+
+  const addContribution = (
+    targetId: string,
+    sourceCellId: string,
+    kind: FireHeatContribution['kind'],
+    heatPerSecond: number,
+  ): void => {
+    heatByCellId.set(targetId, (heatByCellId.get(targetId) ?? 0) + heatPerSecond);
+    if (!contributionsByCellId) return;
+    const contributions = contributionsByCellId.get(targetId) ?? [];
+    contributions.push({ sourceCellId, kind, heatPerSecond });
+    contributionsByCellId.set(targetId, contributions);
+  };
 
   for (const sourceId of state.activeCellIds) {
     const source = state.grid.cells[sourceId];
     if (!source || !isHeatSource(source)) continue;
 
     const material = materialFor(source);
-    heatByCellId.set(source.id, (heatByCellId.get(source.id) ?? 0) + material.heatOutput);
+    addContribution(source.id, source.id, 'self', material.heatOutput);
 
     for (const neighbor of source.neighbors) {
       const target = state.grid.cells[neighbor.cellId];
@@ -374,16 +546,18 @@ export function stepFireSimulation(state: FireSimulationState): FireTickResult {
 
       const turbulence =
         1 -
-        TURBULENCE_VARIATION +
-        deterministicUnit(state.seed, state.tick, source.id, target.id) * TURBULENCE_VARIATION * 2;
+        tuning.turbulenceVariation +
+        deterministicUnit(state.seed, state.tick, source.id, target.id) *
+          tuning.turbulenceVariation *
+          2;
       const heatPerSecond =
         material.heatOutput *
         material.spreadFactor *
-        NEIGHBOR_HEAT_SHARE *
+        tuning.neighborHeatShare *
         neighbor.heatTransferMultiplier *
         windMultiplier(source, target, state.wind) *
         turbulence;
-      heatByCellId.set(target.id, (heatByCellId.get(target.id) ?? 0) + heatPerSecond);
+      addContribution(target.id, source.id, 'neighbor', heatPerSecond);
     }
   }
 
@@ -393,13 +567,16 @@ export function stepFireSimulation(state: FireSimulationState): FireTickResult {
     const cell = state.grid.cells[cellId];
     if (!cell) continue;
 
+    const stateBefore = cell.state;
+    const heatBefore = cell.heat;
+    const appliedHeatMultiplier = 1 - cell.wetness;
     const wasHeatSource = isHeatSource(cell);
     const material = materialFor(cell);
     const incomingHeatPerSecond = heatByCellId.get(cellId) ?? 0;
     // Saturation damps incoming heat, not just future ignition: a soaked cell
     // absorbs less of what its burning neighbors are pushing at it, so
     // wetting buys thermal margin rather than only a fixed protection timer.
-    cell.heat += incomingHeatPerSecond * FIRE_TICK_SECONDS * (1 - cell.wetness);
+    cell.heat += incomingHeatPerSecond * FIRE_TICK_SECONDS * appliedHeatMultiplier;
 
     if (wasHeatSource) {
       cell.fuel -= cell.fuel * material.burnRate * FIRE_TICK_SECONDS;
@@ -412,19 +589,19 @@ export function stepFireSimulation(state: FireSimulationState): FireTickResult {
       const proportionalLossPerSecond =
         cell.heat *
         (isRecovering && isNonCombustible
-          ? NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND
-          : HEAT_LOSS_PER_SECOND);
+          ? tuning.noncombustibleHeatLossPerSecond
+          : tuning.heatLossPerSecond);
       const minimumLossPerSecond = !isRecovering
         ? 0
         : isNonCombustible
-          ? MIN_NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND
-          : MIN_COMBUSTIBLE_HEAT_LOSS_PER_SECOND;
+          ? tuning.minNoncombustibleHeatLossPerSecond
+          : tuning.minCombustibleHeatLossPerSecond;
       const lossPerSecond = Math.max(proportionalLossPerSecond, minimumLossPerSecond);
       cell.heat = Math.max(0, cell.heat - lossPerSecond * FIRE_TICK_SECONDS);
-      if (cell.heat < HEAT_RECOVERY_THRESHOLD) cell.heat = 0;
+      if (cell.heat < tuning.heatRecoveryThreshold) cell.heat = 0;
     }
 
-    if (transitionCell(cell)) {
+    if (transitionCell(cell, tuning)) {
       events.push({
         type: FireSimulationEventType.CellBurnedThrough,
         cellId: cell.id,
@@ -432,25 +609,71 @@ export function stepFireSimulation(state: FireSimulationState): FireTickResult {
       });
     }
     if (isActive(cell)) nextActiveIds.push(cell.id);
+
+    if (debugCells) {
+      const contributions = (contributionsByCellId?.get(cellId) ?? []).map((contribution) => ({
+        ...contribution,
+        appliedHeat: contribution.heatPerSecond * FIRE_TICK_SECONDS * appliedHeatMultiplier,
+      }));
+      const totalAppliedHeat = contributions.reduce(
+        (total, contribution) => total + contribution.appliedHeat,
+        0,
+      );
+      debugCells[cellId] = {
+        cellId,
+        stateBefore,
+        stateAfter: cell.state,
+        heatBefore,
+        heatAfter: cell.heat,
+        heatDelta: cell.heat - heatBefore,
+        heatLost: Math.max(0, heatBefore + totalAppliedHeat - cell.heat),
+        contributions,
+      };
+    }
   }
 
   state.activeCellIds = nextActiveIds;
   if (events.length > 0) state.propertySaved = calculatePropertySaved(state.grid);
   state.tick += 1;
-  return { processedCellCount: tickCellIds.size, events };
+  return {
+    processedCellCount: tickCellIds.size,
+    events,
+    debug: debugCells ? { tick: state.tick, cells: debugCells } : null,
+  };
 }
 
 /** Build a plain, non-React fixed-timestep driver around simulation state. */
-export function createFixedTimestepRunner(initialState: FireSimulationState): FixedTimestepRunner {
+export function createFixedTimestepRunner(
+  initialState: FireSimulationState,
+  options: FixedTimestepRunnerOptions = {},
+): FixedTimestepRunner {
   let state = initialState;
+  let tuning = createFireSimulationTuning(options.tuning);
   let accumulatorSeconds = 0;
   const pendingEvents: FireSimulationEvent[] = [];
+  const pendingDebugFrames: FireTickDebug[] = [];
+
+  const runTick = (): FireTickResult => {
+    const result = stepFireSimulation(state, {
+      tuning,
+      captureDebug: options.captureDebug ?? false,
+    });
+    pendingEvents.push(...result.events);
+    if (result.debug) pendingDebugFrames.push(result.debug);
+    return result;
+  };
 
   return {
     getState: () => state,
     setState: (nextState) => {
       state = nextState;
+      accumulatorSeconds = 0;
       pendingEvents.length = 0;
+      pendingDebugFrames.length = 0;
+    },
+    getTuning: () => ({ ...tuning }),
+    setTuning: (nextTuning) => {
+      tuning = createFireSimulationTuning(nextTuning);
     },
     advance: (elapsedSeconds) => {
       if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) {
@@ -462,13 +685,15 @@ export function createFixedTimestepRunner(initialState: FireSimulationState): Fi
       accumulatorSeconds += elapsedSeconds;
       let ticks = 0;
       while (accumulatorSeconds + ACCUMULATOR_EPSILON_SECONDS >= FIRE_TICK_SECONDS) {
-        pendingEvents.push(...stepFireSimulation(state).events);
+        runTick();
         accumulatorSeconds = Math.max(0, accumulatorSeconds - FIRE_TICK_SECONDS);
         ticks += 1;
       }
       return ticks;
     },
+    step: runTick,
     drainEvents: () => pendingEvents.splice(0, pendingEvents.length),
+    drainDebugFrames: () => pendingDebugFrames.splice(0, pendingDebugFrames.length),
     getInterpolationAlpha: () => accumulatorSeconds / FIRE_TICK_SECONDS,
   };
 }
