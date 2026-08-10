@@ -1,0 +1,302 @@
+import { CellState, type Cell, type CellGrid, type GridPosition } from './cellGrid';
+import { materials, type Material } from './materials';
+
+/** The simulation advances ten times per second, independently of rendering. */
+export const FIRE_TICK_RATE_HZ = 10;
+export const FIRE_TICK_SECONDS = 1 / FIRE_TICK_RATE_HZ;
+
+/** Cells are treated as spent once less than one percent of their fuel remains. */
+export const BURNOUT_FUEL_THRESHOLD = 0.01;
+
+/** Burning becomes flashover at 150% of a material's ignition point. */
+export const FLASHOVER_HEAT_MULTIPLIER = 1.5;
+
+/** Fraction of a burning material's heat output delivered to each neighbor. */
+export const NEIGHBOR_HEAT_SHARE = 0.16;
+
+const TURBULENCE_VARIATION = 0.1;
+const ACCUMULATOR_EPSILON_SECONDS = 1e-12;
+
+export interface Wind {
+  /** Direction heat is carried. It is normalized internally and may include vertical lift. */
+  direction: GridPosition;
+  /** Wind influence relative to still air. Must be finite and non-negative. */
+  strength: number;
+}
+
+/** JSON-safe state required to reproduce a fire exactly. */
+export interface FireSimulationState {
+  grid: CellGrid;
+  /** The frontier: active cells only. Neighbors are resolved from it during a tick. */
+  activeCellIds: string[];
+  /** Unsigned seed used for deterministic per-edge turbulence. */
+  seed: number;
+  tick: number;
+  wind?: Wind;
+}
+
+export interface FireSimulationOptions {
+  seed?: number;
+  wind?: Wind;
+}
+
+export interface FireTickResult {
+  /** Number of cells evaluated, useful for profiling the active-frontier guarantee. */
+  processedCellCount: number;
+}
+
+export interface FixedTimestepRunner {
+  getState(): FireSimulationState;
+  /** Replace state after an external sim input, such as water application. */
+  setState(state: FireSimulationState): void;
+  /** Advance by real elapsed time and return the number of fixed ticks executed. */
+  advance(elapsedSeconds: number): number;
+  /** Fraction of a tick accumulated, for optional renderer interpolation. */
+  getInterpolationAlpha(): number;
+}
+
+function normalizeSeed(seed: number): number {
+  if (!Number.isSafeInteger(seed)) {
+    throw new Error(`Fire simulation seed must be a safe integer, got ${String(seed)}`);
+  }
+  return seed >>> 0;
+}
+
+function cloneWind(wind: Wind): Wind {
+  if (!Number.isFinite(wind.strength) || wind.strength < 0) {
+    throw new Error(
+      `Wind strength must be a finite non-negative number, got ${String(wind.strength)}`,
+    );
+  }
+  const { x, y, z } = wind.direction;
+  if (![x, y, z].every(Number.isFinite)) {
+    throw new Error('Wind direction components must be finite numbers');
+  }
+  return { direction: { x, y, z }, strength: wind.strength };
+}
+
+function isActive(cell: Cell): boolean {
+  return (
+    cell.state === CellState.Heating ||
+    cell.state === CellState.Burning ||
+    cell.state === CellState.Flashover ||
+    cell.state === CellState.Wetted
+  );
+}
+
+function materialFor(cell: Pick<Cell, 'material'>): Material {
+  const material = materials[cell.material];
+  if (!material) throw new Error(`Cell references unknown material "${cell.material}"`);
+  return material;
+}
+
+/** Create reproducible simulation state from a cell grid. */
+export function createFireSimulation(
+  grid: CellGrid,
+  options: FireSimulationOptions = {},
+): FireSimulationState {
+  const state: FireSimulationState = {
+    grid,
+    activeCellIds: Object.values(grid.cells)
+      .filter(isActive)
+      .map((cell) => cell.id),
+    seed: normalizeSeed(options.seed ?? 0),
+    tick: 0,
+  };
+
+  if (options.wind !== undefined) state.wind = cloneWind(options.wind);
+  return state;
+}
+
+/** Ignite a combustible cell and add it to the active frontier. */
+export function igniteCell(state: FireSimulationState, cellId: string): boolean {
+  const cell = state.grid.cells[cellId];
+  if (!cell) throw new Error(`Cannot ignite missing cell "${cellId}"`);
+
+  const material = materialFor(cell);
+  if (
+    material.ignitionPoint === null ||
+    cell.state === CellState.Burnt ||
+    cell.fuel <= BURNOUT_FUEL_THRESHOLD
+  ) {
+    return false;
+  }
+
+  cell.heat = Math.max(cell.heat, material.ignitionPoint);
+  cell.state = CellState.Burning;
+  if (!state.activeCellIds.includes(cellId)) state.activeCellIds.push(cellId);
+  return true;
+}
+
+function isHeatSource(cell: Cell): boolean {
+  return cell.state === CellState.Burning || cell.state === CellState.Flashover;
+}
+
+function deterministicUnit(seed: number, tick: number, sourceId: string, targetId: string): number {
+  let hash = (seed ^ Math.imul(tick + 1, 0x9e3779b1)) >>> 0;
+  const edgeKey = `${sourceId}>${targetId}`;
+
+  for (let index = 0; index < edgeKey.length; index += 1) {
+    hash = Math.imul(hash ^ edgeKey.charCodeAt(index), 0x01000193) >>> 0;
+  }
+
+  hash ^= hash >>> 16;
+  hash = Math.imul(hash, 0x7feb352d) >>> 0;
+  hash ^= hash >>> 15;
+  hash = Math.imul(hash, 0x846ca68b) >>> 0;
+  hash ^= hash >>> 16;
+  return hash / 0x1_0000_0000;
+}
+
+function windMultiplier(source: Cell, target: Cell, wind: Wind | undefined): number {
+  if (wind === undefined || wind.strength === 0) return 1;
+
+  const windMagnitude = Math.hypot(wind.direction.x, wind.direction.y, wind.direction.z);
+  if (windMagnitude === 0) return 1;
+
+  const dx = target.gridPos.x - source.gridPos.x;
+  const dy = target.gridPos.y - source.gridPos.y;
+  const dz = target.gridPos.z - source.gridPos.z;
+  const edgeMagnitude = Math.hypot(dx, dy, dz);
+  const alignment =
+    (dx * wind.direction.x + dy * wind.direction.y + dz * wind.direction.z) /
+    (edgeMagnitude * windMagnitude);
+
+  return Math.max(0, 1 + alignment * wind.strength);
+}
+
+function collectTickCellIds(state: FireSimulationState): Set<string> {
+  const ids = new Set<string>();
+
+  for (const activeId of state.activeCellIds) {
+    const activeCell = state.grid.cells[activeId];
+    if (!activeCell) continue;
+    ids.add(activeId);
+    for (const neighbor of activeCell.neighbors) ids.add(neighbor.cellId);
+  }
+
+  return ids;
+}
+
+function transitionCell(cell: Cell): void {
+  const material = materialFor(cell);
+
+  if (isHeatSource(cell) && cell.fuel <= BURNOUT_FUEL_THRESHOLD) {
+    cell.fuel = 0;
+    cell.state = CellState.Burnt;
+    return;
+  }
+
+  if (cell.state === CellState.Clear && cell.heat > 0) {
+    cell.state = CellState.Heating;
+    return;
+  }
+
+  if (
+    cell.state === CellState.Heating &&
+    material.ignitionPoint !== null &&
+    cell.fuel > BURNOUT_FUEL_THRESHOLD &&
+    cell.heat >= material.ignitionPoint
+  ) {
+    cell.state = CellState.Burning;
+    return;
+  }
+
+  if (
+    cell.state === CellState.Burning &&
+    material.ignitionPoint !== null &&
+    cell.heat >= material.ignitionPoint * FLASHOVER_HEAT_MULTIPLIER
+  ) {
+    cell.state = CellState.Flashover;
+  }
+}
+
+/**
+ * Advance exactly one 100 ms simulation tick in place.
+ *
+ * Only the active frontier and its face-sharing neighbors are visited. Heat
+ * contributions are accumulated before any cell is updated, so record order
+ * cannot change the result.
+ */
+export function stepFireSimulation(state: FireSimulationState): FireTickResult {
+  const tickCellIds = collectTickCellIds(state);
+  const heatByCellId = new Map<string, number>();
+
+  for (const sourceId of state.activeCellIds) {
+    const source = state.grid.cells[sourceId];
+    if (!source || !isHeatSource(source)) continue;
+
+    const material = materialFor(source);
+    heatByCellId.set(source.id, (heatByCellId.get(source.id) ?? 0) + material.heatOutput);
+
+    for (const neighbor of source.neighbors) {
+      const target = state.grid.cells[neighbor.cellId];
+      if (!target || target.state === CellState.Burnt) continue;
+
+      const turbulence =
+        1 -
+        TURBULENCE_VARIATION +
+        deterministicUnit(state.seed, state.tick, source.id, target.id) * TURBULENCE_VARIATION * 2;
+      const heatPerSecond =
+        material.heatOutput *
+        material.spreadFactor *
+        NEIGHBOR_HEAT_SHARE *
+        neighbor.heatTransferMultiplier *
+        windMultiplier(source, target, state.wind) *
+        turbulence;
+      heatByCellId.set(target.id, (heatByCellId.get(target.id) ?? 0) + heatPerSecond);
+    }
+  }
+
+  const nextActiveIds: string[] = [];
+
+  for (const cellId of tickCellIds) {
+    const cell = state.grid.cells[cellId];
+    if (!cell) continue;
+
+    const wasHeatSource = isHeatSource(cell);
+    const material = materialFor(cell);
+    cell.heat += (heatByCellId.get(cellId) ?? 0) * FIRE_TICK_SECONDS;
+
+    if (wasHeatSource) {
+      cell.fuel -= cell.fuel * material.burnRate * FIRE_TICK_SECONDS;
+    }
+
+    transitionCell(cell);
+    if (isActive(cell)) nextActiveIds.push(cell.id);
+  }
+
+  state.activeCellIds = nextActiveIds;
+  state.tick += 1;
+  return { processedCellCount: tickCellIds.size };
+}
+
+/** Build a plain, non-React fixed-timestep driver around simulation state. */
+export function createFixedTimestepRunner(initialState: FireSimulationState): FixedTimestepRunner {
+  let state = initialState;
+  let accumulatorSeconds = 0;
+
+  return {
+    getState: () => state,
+    setState: (nextState) => {
+      state = nextState;
+    },
+    advance: (elapsedSeconds) => {
+      if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) {
+        throw new Error(
+          `Elapsed time must be a finite non-negative number, got ${String(elapsedSeconds)}`,
+        );
+      }
+
+      accumulatorSeconds += elapsedSeconds;
+      let ticks = 0;
+      while (accumulatorSeconds + ACCUMULATOR_EPSILON_SECONDS >= FIRE_TICK_SECONDS) {
+        stepFireSimulation(state);
+        accumulatorSeconds = Math.max(0, accumulatorSeconds - FIRE_TICK_SECONDS);
+        ticks += 1;
+      }
+      return ticks;
+    },
+    getInterpolationAlpha: () => accumulatorSeconds / FIRE_TICK_SECONDS,
+  };
+}

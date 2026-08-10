@@ -18,3 +18,12 @@ Pure data in, pure data out. That's what keeps the sim unit-testable, determinis
 ## Timing
 
 The sim runs on a fixed 10 Hz timestep, driven outside React. It is never stepped from `useFrame` and never triggers a React render directly — state reaches the UI through the Zustand store.
+
+`fireSimulation.ts` exposes both the single-tick `stepFireSimulation` operation
+and a plain `createFixedTimestepRunner` accumulator for a host game loop. The
+state is JSON-safe and contains its seed, tick number, optional wind, and active
+frontier, so a burn can be saved or reproduced without renderer state.
+
+Ticks mutate that state in place and visit only active cells plus their direct
+neighbors. External simulation inputs such as ignition — and water application
+in #8 — update the same state between fixed ticks.
