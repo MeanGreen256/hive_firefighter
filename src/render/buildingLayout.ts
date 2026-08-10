@@ -172,6 +172,8 @@ function buildWalls(
   const walls: WallInstance[] = [];
   const halfWidth = (dimensions.width * CELL_SIZE) / 2;
   const halfDepth = (dimensions.depth * CELL_SIZE) / 2;
+  const retainsEastWall = visibleSides.includes('east');
+  const retainsWestWall = visibleSides.includes('west');
 
   for (const side of visibleSides) {
     const isNorthOrSouth = side === 'north' || side === 'south';
@@ -179,7 +181,7 @@ function buildWalls(
 
     for (let y = 0; y < dimensions.height; y += 1) {
       for (let horizontal = 0; horizontal < horizontalCellCount; horizontal += 1) {
-        const x = isNorthOrSouth
+        let x = isNorthOrSouth
           ? cellCenterOnAxis(horizontal, dimensions.width)
           : side === 'east'
             ? halfWidth + WALL_THICKNESS / 2
@@ -189,13 +191,26 @@ function buildWalls(
           : side === 'south'
             ? halfDepth + WALL_THICKNESS / 2
             : -halfDepth - WALL_THICKNESS / 2;
+        let horizontalScale = CELL_SIZE;
+
+        // Let the north/south wall close the outside corner shared with the
+        // retained east/west wall. Extending only toward the retained side
+        // avoids leaving a small lip on the open cutaway edge.
+        if (isNorthOrSouth && horizontal === 0 && retainsWestWall) {
+          x -= WALL_THICKNESS / 2;
+          horizontalScale += WALL_THICKNESS;
+        }
+        if (isNorthOrSouth && horizontal === dimensions.width - 1 && retainsEastWall) {
+          x += WALL_THICKNESS / 2;
+          horizontalScale += WALL_THICKNESS;
+        }
 
         walls.push({
           side,
           position: [x, y * CELL_HEIGHT + CELL_HEIGHT / 2, z],
           scale: isNorthOrSouth
-            ? [CELL_SIZE, CELL_HEIGHT, WALL_THICKNESS]
-            : [WALL_THICKNESS, CELL_HEIGHT, CELL_SIZE],
+            ? [horizontalScale, CELL_HEIGHT, WALL_THICKNESS]
+            : [WALL_THICKNESS, CELL_HEIGHT, horizontalScale],
         });
       }
     }
