@@ -29,6 +29,13 @@ Ticks mutate that state in place and visit only active cells plus their direct
 neighbors. External simulation inputs such as ignition — and water application
 — update the same state between fixed ticks.
 
+Development tools can pass a validated `FireSimulationTuning` to a tick or
+fixed runner instead of changing module globals. `captureDebug` adds a
+per-cell, per-tick heat ledger (source contributions, cooling, before/after
+state) to the tick result; it is opt-in so normal game ticks do not pay the
+allocation cost. `forceIgniteCell` and `extinguishCell` are explicit debug
+inputs and keep all cell mutation inside this renderer-agnostic module.
+
 Burn-through is permanent: a spent cell becomes `Burnt`, snaps to zero fuel and
 heat, and cannot re-ignite. Each transition emits a one-shot
 `cell-burned-through` event from `stepFireSimulation`; hosts using the fixed-step
