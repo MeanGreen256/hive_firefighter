@@ -24,6 +24,18 @@ camera side of the scene. Camera-dependent geometry should consume
 `IsometricCameraRig` calls `onFacingChange` with the requested target facing at
 the start of each smooth Q/E rotation, as well as once on mount.
 
+## Cutaway building contract
+
+`buildingLayout.ts` converts any valid `CellGrid` dimensions into pure instance
+transforms. `CutawayBuilding` renders those transforms in one instanced layer
+for walls, floors, and roof, plus one cell layer per simulation material. It
+hides the two sides named by `cameraFacingWalls` and retains their opposites.
+
+Cell layers expose both `instanceId -> cellId` through `mesh.userData.cellIds`
+and `cellId -> { mesh, instanceIndex }` through `CutawayBuildingHandle`. Cell
+state rendering (#13) should update those instances rather than introducing one
+mesh per cell.
+
 ## Budget
 
 < 80 draw calls, < 2000 active particles, 60fps at 1080p on integrated graphics. The harness in #4 makes violations visible.
