@@ -103,6 +103,8 @@ export interface FireSimulationState {
   grid: CellGrid;
   /** The frontier: active cells only. Neighbors are resolved from it during a tick. */
   activeCellIds: string[];
+  /** Ratio of cells that have not burned through, normalized to `[0, 1]`. */
+  propertySaved: number;
   /** Unsigned seed used for deterministic per-edge turbulence. */
   seed: number;
   tick: number;
@@ -117,7 +119,22 @@ export interface FireSimulationOptions {
 export interface FireTickResult {
   /** Number of cells evaluated, useful for profiling the active-frontier guarantee. */
   processedCellCount: number;
+  /** One-shot events produced by this tick, in deterministic cell-processing order. */
+  events: FireSimulationEvent[];
 }
+
+export const FireSimulationEventType = Object.freeze({
+  CellBurnedThrough: 'cell-burned-through',
+} as const);
+
+export interface CellBurnedThroughEvent {
+  type: typeof FireSimulationEventType.CellBurnedThrough;
+  cellId: string;
+  /** One-based number of the completed tick that produced this event. */
+  tick: number;
+}
+
+export type FireSimulationEvent = CellBurnedThroughEvent;
 
 export interface FixedTimestepRunner {
   getState(): FireSimulationState;
@@ -125,6 +142,8 @@ export interface FixedTimestepRunner {
   setState(state: FireSimulationState): void;
   /** Advance by real elapsed time and return the number of fixed ticks executed. */
   advance(elapsedSeconds: number): number;
+  /** Return and clear events emitted since the previous drain. */
+  drainEvents(): FireSimulationEvent[];
   /** Fraction of a tick accumulated, for optional renderer interpolation. */
   getInterpolationAlpha(): number;
 }
@@ -164,6 +183,15 @@ function materialFor(cell: Pick<Cell, 'material'>): Material {
   return material;
 }
 
+/** Calculate the fraction of the grid that has not permanently burned through. */
+export function calculatePropertySaved(grid: CellGrid): number {
+  const cells = Object.values(grid.cells);
+  if (cells.length === 0) return 1;
+
+  const savedCellCount = cells.filter((cell) => cell.state !== CellState.Burnt).length;
+  return savedCellCount / cells.length;
+}
+
 /** Create reproducible simulation state from a cell grid. */
 export function createFireSimulation(
   grid: CellGrid,
@@ -174,6 +202,7 @@ export function createFireSimulation(
     activeCellIds: Object.values(grid.cells)
       .filter(isActive)
       .map((cell) => cell.id),
+    propertySaved: calculatePropertySaved(grid),
     seed: normalizeSeed(options.seed ?? 0),
     tick: 0,
   };
@@ -254,22 +283,24 @@ function collectTickCellIds(state: FireSimulationState): Set<string> {
   return ids;
 }
 
-function transitionCell(cell: Cell): void {
+function transitionCell(cell: Cell): boolean {
   // A wetted cell remains non-ignitable for the whole decay period. When the
   // final moisture leaves it spends this tick Clear before heat can promote it.
-  if (advanceCellWetness(cell, FIRE_TICK_SECONDS)) return;
+  if (advanceCellWetness(cell, FIRE_TICK_SECONDS)) return false;
 
   const material = materialFor(cell);
 
   if (isHeatSource(cell) && cell.fuel <= BURNOUT_FUEL_THRESHOLD) {
     cell.fuel = 0;
+    cell.heat = 0;
+    cell.wetness = 0;
     cell.state = CellState.Burnt;
-    return;
+    return true;
   }
 
   if (cell.state === CellState.Clear && cell.heat > 0) {
     cell.state = CellState.Heating;
-    return;
+    return false;
   }
 
   // Dissipation can cool a Heating cell all the way back down without it
@@ -280,7 +311,7 @@ function transitionCell(cell: Cell): void {
   // out of the frontier instead of parking in Heating forever.
   if (cell.state === CellState.Heating && cell.heat <= 0) {
     cell.state = CellState.Clear;
-    return;
+    return false;
   }
 
   if (
@@ -290,7 +321,7 @@ function transitionCell(cell: Cell): void {
     cell.heat >= material.ignitionPoint
   ) {
     cell.state = CellState.Burning;
-    return;
+    return false;
   }
 
   if (
@@ -299,7 +330,7 @@ function transitionCell(cell: Cell): void {
     cell.heat >= material.ignitionPoint * FLASHOVER_HEAT_MULTIPLIER
   ) {
     cell.state = CellState.Flashover;
-    return;
+    return false;
   }
 
   // A cell can only reach Flashover through water cooling it while it stays
@@ -314,6 +345,8 @@ function transitionCell(cell: Cell): void {
   ) {
     cell.state = CellState.Burning;
   }
+
+  return false;
 }
 
 /**
@@ -326,6 +359,7 @@ function transitionCell(cell: Cell): void {
 export function stepFireSimulation(state: FireSimulationState): FireTickResult {
   const tickCellIds = collectTickCellIds(state);
   const heatByCellId = new Map<string, number>();
+  const events: FireSimulationEvent[] = [];
 
   for (const sourceId of state.activeCellIds) {
     const source = state.grid.cells[sourceId];
@@ -390,24 +424,33 @@ export function stepFireSimulation(state: FireSimulationState): FireTickResult {
       if (cell.heat < HEAT_RECOVERY_THRESHOLD) cell.heat = 0;
     }
 
-    transitionCell(cell);
+    if (transitionCell(cell)) {
+      events.push({
+        type: FireSimulationEventType.CellBurnedThrough,
+        cellId: cell.id,
+        tick: state.tick + 1,
+      });
+    }
     if (isActive(cell)) nextActiveIds.push(cell.id);
   }
 
   state.activeCellIds = nextActiveIds;
+  if (events.length > 0) state.propertySaved = calculatePropertySaved(state.grid);
   state.tick += 1;
-  return { processedCellCount: tickCellIds.size };
+  return { processedCellCount: tickCellIds.size, events };
 }
 
 /** Build a plain, non-React fixed-timestep driver around simulation state. */
 export function createFixedTimestepRunner(initialState: FireSimulationState): FixedTimestepRunner {
   let state = initialState;
   let accumulatorSeconds = 0;
+  const pendingEvents: FireSimulationEvent[] = [];
 
   return {
     getState: () => state,
     setState: (nextState) => {
       state = nextState;
+      pendingEvents.length = 0;
     },
     advance: (elapsedSeconds) => {
       if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) {
@@ -419,12 +462,13 @@ export function createFixedTimestepRunner(initialState: FireSimulationState): Fi
       accumulatorSeconds += elapsedSeconds;
       let ticks = 0;
       while (accumulatorSeconds + ACCUMULATOR_EPSILON_SECONDS >= FIRE_TICK_SECONDS) {
-        stepFireSimulation(state);
+        pendingEvents.push(...stepFireSimulation(state).events);
         accumulatorSeconds = Math.max(0, accumulatorSeconds - FIRE_TICK_SECONDS);
         ticks += 1;
       }
       return ticks;
     },
+    drainEvents: () => pendingEvents.splice(0, pendingEvents.length),
     getInterpolationAlpha: () => accumulatorSeconds / FIRE_TICK_SECONDS,
   };
 }

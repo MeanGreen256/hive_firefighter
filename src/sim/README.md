@@ -21,12 +21,21 @@ The sim runs on a fixed 10 Hz timestep, driven outside React. It is never steppe
 
 `fireSimulation.ts` exposes both the single-tick `stepFireSimulation` operation
 and a plain `createFixedTimestepRunner` accumulator for a host game loop. The
-state is JSON-safe and contains its seed, tick number, optional wind, and active
-frontier, so a burn can be saved or reproduced without renderer state.
+state is JSON-safe and contains its seed, tick number, optional wind, active
+frontier, and live `propertySaved` ratio, so a burn can be saved or reproduced
+without renderer state.
 
 Ticks mutate that state in place and visit only active cells plus their direct
 neighbors. External simulation inputs such as ignition — and water application
 — update the same state between fixed ticks.
+
+Burn-through is permanent: a spent cell becomes `Burnt`, snaps to zero fuel and
+heat, and cannot re-ignite. Each transition emits a one-shot
+`cell-burned-through` event from `stepFireSimulation`; hosts using the fixed-step
+runner receive the same events through `drainEvents()`. Rendering can map the
+`Burnt` state to char, while audio and VFX can react to the event without either
+concern entering the simulation. Structural collapse is deliberately deferred
+to M2 and can subscribe to this event later.
 
 `waterApplication.ts` exposes `applyWater(state, cellId, litres, agent)`. Plain
 water removes 120 abstract heat units per litre at a material response of `1`,

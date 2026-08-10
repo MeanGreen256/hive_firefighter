@@ -3,6 +3,8 @@ import { CellState, createCellGrid, type CellGrid } from './cellGrid';
 import {
   FIRE_TICK_SECONDS,
   FLASHOVER_HEAT_MULTIPLIER,
+  FireSimulationEventType,
+  calculatePropertySaved,
   createFireSimulation,
   createFixedTimestepRunner,
   igniteCell,
@@ -26,11 +28,61 @@ describe('fire propagation', () => {
     const state = createFireSimulation(grid, { seed: 7 });
     expect(igniteCell(state, isolated.id)).toBe(true);
 
-    while (isolated.state !== CellState.Burnt) stepFireSimulation(state);
+    const events = [];
+    while (isolated.state !== CellState.Burnt) {
+      events.push(...stepFireSimulation(state).events);
+    }
 
     expect(state.tick * FIRE_TICK_SECONDS).toBeGreaterThanOrEqual(114);
     expect(state.tick * FIRE_TICK_SECONDS).toBeLessThanOrEqual(116);
     expect(isolated.fuel).toBe(0);
+    expect(isolated.heat).toBe(0);
+    expect(state.propertySaved).toBe(0);
+    expect(events).toEqual([
+      {
+        type: FireSimulationEventType.CellBurnedThrough,
+        cellId: isolated.id,
+        tick: state.tick,
+      },
+    ]);
+    expect(igniteCell(state, isolated.id)).toBe(false);
+
+    expect(stepFireSimulation(state).events).toEqual([]);
+    expect(isolated).toMatchObject({ state: CellState.Burnt, fuel: 0, heat: 0, wetness: 0 });
+  });
+
+  it('burns an unattended building to completion and reports no property saved', () => {
+    const state = createFireSimulation(createCellGrid('wood'), { seed: 2026 });
+    igniteCell(state, '0,0,0');
+    const burnedThroughCellIds = new Set<string>();
+
+    while (state.activeCellIds.length > 0 && state.tick < 5_000) {
+      for (const event of stepFireSimulation(state).events) {
+        burnedThroughCellIds.add(event.cellId);
+      }
+    }
+
+    expect(state.activeCellIds).toEqual([]);
+    expect(burnedThroughCellIds.size).toBe(18);
+    expect(Object.values(state.grid.cells).every((cell) => cell.state === CellState.Burnt)).toBe(
+      true,
+    );
+    expect(state.propertySaved).toBe(0);
+    expect(calculatePropertySaved(state.grid)).toBe(0);
+  });
+
+  it('reports high property saved when the first fire is extinguished early', () => {
+    const state = createFireSimulation(createCellGrid('wood'), { seed: 2026 });
+    igniteCell(state, '0,0,0');
+    applyWater(state, '0,0,0', 2, SuppressionAgent.Water);
+
+    while (state.activeCellIds.length > 0 && state.tick < 1_000) stepFireSimulation(state);
+
+    expect(state.activeCellIds).toEqual([]);
+    expect(Object.values(state.grid.cells).some((cell) => cell.state === CellState.Burnt)).toBe(
+      false,
+    );
+    expect(state.propertySaved).toBe(1);
   });
 
   it('never ignites concrete regardless of neighboring heat', () => {
@@ -129,6 +181,28 @@ describe('fire propagation', () => {
     expect(chunked.advance(0.05)).toBe(1);
     expect(single.advance(0.5)).toBe(5);
     expect(chunked.getState()).toEqual(single.getState());
+  });
+
+  it('queues burn-through events on the fixed-timestep runner until drained', () => {
+    const grid = createCellGrid('wood');
+    const cell = grid.cells['0,0,0']!;
+    cell.neighbors = [];
+    cell.state = CellState.Burning;
+    cell.heat = 300;
+    cell.fuel = 0.01;
+    grid.cells = { [cell.id]: cell };
+    grid.dimensions = { width: 1, height: 1, depth: 1 };
+    const runner = createFixedTimestepRunner(createFireSimulation(grid, { seed: 4 }));
+
+    expect(runner.advance(FIRE_TICK_SECONDS)).toBe(1);
+    expect(runner.drainEvents()).toEqual([
+      {
+        type: FireSimulationEventType.CellBurnedThrough,
+        cellId: cell.id,
+        tick: 1,
+      },
+    ]);
+    expect(runner.drainEvents()).toEqual([]);
   });
 
   it('dissipates heat on a non-heat-source cell instead of holding it forever', () => {
