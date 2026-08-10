@@ -331,7 +331,7 @@ describe('fire propagation', () => {
     expect(state.grid.cells['1,0,0']?.heat).toBe(0);
   });
 
-  it('queues burn-through events on the fixed-timestep runner until drained', () => {
+  it('preserves queued runner output across external state replacement', () => {
     const grid = createCellGrid('wood');
     const cell = grid.cells['0,0,0']!;
     cell.neighbors = [];
@@ -340,9 +340,13 @@ describe('fire propagation', () => {
     cell.fuel = 0.01;
     grid.cells = { [cell.id]: cell };
     grid.dimensions = { width: 1, height: 1, depth: 1 };
-    const runner = createFixedTimestepRunner(createFireSimulation(grid, { seed: 4 }));
+    const runner = createFixedTimestepRunner(createFireSimulation(grid, { seed: 4 }), {
+      captureDebug: true,
+    });
 
     expect(runner.advance(FIRE_TICK_SECONDS)).toBe(1);
+    runner.setState(runner.getState());
+
     expect(runner.drainEvents()).toEqual([
       {
         type: FireSimulationEventType.CellBurnedThrough,
@@ -351,6 +355,28 @@ describe('fire propagation', () => {
       },
     ]);
     expect(runner.drainEvents()).toEqual([]);
+    expect(runner.drainDebugFrames()).toHaveLength(1);
+    expect(runner.drainDebugFrames()).toEqual([]);
+  });
+
+  it('discards output from the previous scenario on reset', () => {
+    const grid = createCellGrid('wood');
+    const cell = grid.cells['0,0,0']!;
+    cell.neighbors = [];
+    cell.state = CellState.Burning;
+    cell.heat = 300;
+    cell.fuel = 0.01;
+    grid.cells = { [cell.id]: cell };
+    grid.dimensions = { width: 1, height: 1, depth: 1 };
+    const runner = createFixedTimestepRunner(createFireSimulation(grid, { seed: 5 }), {
+      captureDebug: true,
+    });
+    runner.step();
+
+    runner.reset(createFireSimulation(createCellGrid('wood'), { seed: 6 }));
+
+    expect(runner.drainEvents()).toEqual([]);
+    expect(runner.drainDebugFrames()).toEqual([]);
   });
 
   it('dissipates heat on a non-heat-source cell instead of holding it forever', () => {

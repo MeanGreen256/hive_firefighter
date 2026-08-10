@@ -694,8 +694,6 @@ export function createFixedTimestepRunner(
     getState: () => state,
     setState: (nextState) => {
       state = nextState;
-      pendingEvents.length = 0;
-      pendingDebugFrames.length = 0;
     },
     reset: (nextState) => {
       state = nextState;
