@@ -8,6 +8,7 @@ import {
   igniteCell,
   stepFireSimulation,
 } from './fireSimulation';
+import { SuppressionAgent, applyWater } from './waterApplication';
 
 function copyState<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -242,6 +243,55 @@ describe('fire propagation', () => {
     expect(concreteClearTick).toBeGreaterThan(0);
 
     const recoverySeconds = (concreteClearTick - lastFireOutTick) * FIRE_TICK_SECONDS;
+    expect(recoverySeconds).toBeLessThanOrEqual(60);
+  });
+
+  it('returns a water-defended combustible to Clear within 60s of the last fire going out', () => {
+    const state = createFireSimulation(createCellGrid('wood'), { seed: 11 });
+    const source = state.grid.cells['0,0,0']!;
+    const defended = state.grid.cells['1,0,0']!;
+    igniteCell(state, source.id);
+
+    const anyFireActive = (): boolean =>
+      Object.values(state.grid.cells).some(
+        (cell) => cell.state === CellState.Burning || cell.state === CellState.Flashover,
+      );
+
+    let defendedPeakHeat = 0;
+    let defendedIgnited = false;
+    let lastFireOutTick = -1;
+    let defendedClearTick = -1;
+
+    for (let ticks = 1; ticks <= 10_000; ticks += 1) {
+      stepFireSimulation(state);
+
+      if (anyFireActive() && ticks % 20 === 0) {
+        applyWater(state, defended.id, 0.4, SuppressionAgent.Water);
+      }
+
+      defendedPeakHeat = Math.max(defendedPeakHeat, defended.heat);
+      defendedIgnited ||=
+        defended.state === CellState.Burning ||
+        defended.state === CellState.Flashover ||
+        defended.state === CellState.Burnt;
+
+      if (lastFireOutTick === -1 && ticks > 50 && !anyFireActive()) {
+        lastFireOutTick = ticks;
+      }
+      if (lastFireOutTick !== -1 && defended.state === CellState.Clear && defended.heat === 0) {
+        defendedClearTick = ticks;
+        break;
+      }
+    }
+
+    // This is a real save, not a cell that avoided the scenario entirely:
+    // it absorbed meaningful heat but water kept it from ever igniting.
+    expect(defendedPeakHeat).toBeGreaterThan(5);
+    expect(defendedIgnited).toBe(false);
+    expect(lastFireOutTick).toBeGreaterThan(0);
+    expect(defendedClearTick).toBeGreaterThan(0);
+
+    const recoverySeconds = (defendedClearTick - lastFireOutTick) * FIRE_TICK_SECONDS;
     expect(recoverySeconds).toBeLessThanOrEqual(60);
   });
 
