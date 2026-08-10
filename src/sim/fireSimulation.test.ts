@@ -196,6 +196,41 @@ describe('fire propagation', () => {
     expect(neighborDebug?.heatAfter).toBe(instrumented.grid.cells['1,0,0']?.heat);
   });
 
+  it('reports burn-through heat clearing separately from cooling', () => {
+    const grid = createCellGrid('wood');
+    const cell = grid.cells['0,0,0']!;
+    cell.neighbors = [];
+    cell.state = CellState.Burning;
+    cell.heat = 300;
+    cell.fuel = 0.01;
+    grid.cells = { [cell.id]: cell };
+    grid.dimensions = { width: 1, height: 1, depth: 1 };
+    const state = createFireSimulation(grid, { seed: 18 });
+
+    const debug = stepFireSimulation(state, { captureDebug: true }).debug?.cells[cell.id];
+
+    expect(debug?.stateAfter).toBe(CellState.Burnt);
+    expect(debug?.heatLost).toBe(0);
+    expect(debug?.heatCleared).toEqual({ amount: 305, reason: 'burn-through' });
+  });
+
+  it('reports the recovery-threshold snap separately from calculated cooling', () => {
+    const grid = createCellGrid('wood');
+    const cell = grid.cells['0,0,0']!;
+    cell.neighbors = [];
+    cell.state = CellState.Heating;
+    cell.heat = 0.4;
+    grid.cells = { [cell.id]: cell };
+    grid.dimensions = { width: 1, height: 1, depth: 1 };
+    const state = createFireSimulation(grid, { seed: 19 });
+
+    const debug = stepFireSimulation(state, { captureDebug: true }).debug?.cells[cell.id];
+
+    expect(debug?.stateAfter).toBe(CellState.Clear);
+    expect(debug?.heatLost).toBeCloseTo(0.02);
+    expect(debug?.heatCleared).toEqual({ amount: 0.38, reason: 'recovery-threshold' });
+  });
+
   it('applies validated live tuning without changing the committed defaults', () => {
     const defaultState = createFireSimulation(createCellGrid('wood'), { seed: 17 });
     const noSpreadState = copyState(defaultState);
