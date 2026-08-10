@@ -1,5 +1,6 @@
 import { CellState, type Cell, type CellGrid, type GridPosition } from './cellGrid';
 import { materials, type Material } from './materials';
+import { advanceCellWetness } from './waterApplication';
 
 /** The simulation advances ten times per second, independently of rendering. */
 export const FIRE_TICK_RATE_HZ = 10;
@@ -117,6 +118,8 @@ export function igniteCell(state: FireSimulationState, cellId: string): boolean 
   if (
     material.ignitionPoint === null ||
     cell.state === CellState.Burnt ||
+    cell.state === CellState.Wetted ||
+    cell.wetness > 0 ||
     cell.fuel <= BURNOUT_FUEL_THRESHOLD
   ) {
     return false;
@@ -179,6 +182,10 @@ function collectTickCellIds(state: FireSimulationState): Set<string> {
 }
 
 function transitionCell(cell: Cell): void {
+  // A wetted cell remains non-ignitable for the whole decay period. When the
+  // final moisture leaves it spends this tick Clear before heat can promote it.
+  if (advanceCellWetness(cell, FIRE_TICK_SECONDS)) return;
+
   const material = materialFor(cell);
 
   if (isHeatSource(cell) && cell.fuel <= BURNOUT_FUEL_THRESHOLD) {
