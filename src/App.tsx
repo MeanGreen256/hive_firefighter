@@ -1,6 +1,8 @@
 import { useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type { Mesh } from 'three';
+import { PerformanceSampler } from '@render/PerformanceSampler';
+import { PerfOverlay } from '@ui/PerfOverlay';
 
 /**
  * Scaffold scene: one lit box, nothing more (#1).
@@ -45,6 +47,7 @@ export default function App() {
             shadow-mapSize={[1024, 1024]}
           />
           <SpinningBox />
+          {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
       </div>
 
@@ -53,6 +56,8 @@ export default function App() {
         <br />
         <b>M1 · scaffold</b> — render loop live
       </div>
+
+      {import.meta.env.DEV ? <PerfOverlay /> : null}
     </>
   );
 }
