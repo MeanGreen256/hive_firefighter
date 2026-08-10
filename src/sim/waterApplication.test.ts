@@ -110,6 +110,26 @@ describe('water application', () => {
     expect(igniteCell(state, cell.id)).toBe(true);
   });
 
+  it('damps incoming heat by saturation instead of only delaying it', () => {
+    const state = createFireSimulation(createCellGrid('wood'), { seed: 8 });
+    const source = state.grid.cells['0,0,0']!;
+    const target = state.grid.cells['1,0,0']!;
+    igniteCell(state, source.id);
+
+    applyWater(state, target.id, 3, SuppressionAgent.Water);
+    expect(target.state).toBe(CellState.Wetted);
+    expect(target.wetness).toBeCloseTo(0.72);
+    expect(target.heat).toBe(0);
+
+    for (let tick = 0; tick < 100; tick += 1) stepFireSimulation(state);
+
+    // Regression: pre-fix, heat kept accumulating at full rate underneath
+    // the Wetted state and this cell came out the other side at 71.5 heat
+    // — the same as if it had never been sprayed at all. Damping by
+    // (1 - wetness) should leave it well below that.
+    expect(target.heat).toBeLessThan(50);
+  });
+
   it('knocks fire down in a couple seconds and allows hot neighbors to re-ignite it', () => {
     const state = createFireSimulation(createCellGrid('wood'), { seed: 8 });
     const source = state.grid.cells['0,0,0']!;

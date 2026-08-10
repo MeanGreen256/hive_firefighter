@@ -15,6 +15,23 @@ export const FLASHOVER_HEAT_MULTIPLIER = 1.5;
 /** Fraction of a burning material's heat output delivered to each neighbor. */
 export const NEIGHBOR_HEAT_SHARE = 0.16;
 
+/**
+ * Fraction of a non-heat-source cell's heat lost per second to conduction,
+ * radiation, and ambient cooling. A single global constant for M1 — see #36's
+ * review discussion for why this isn't a per-material field yet. Cells that
+ * are actively generating heat (Burning/Flashover) are exempt: they are the
+ * source, not something shedding heat back to the room.
+ */
+export const HEAT_LOSS_PER_SECOND = 0.006;
+
+/**
+ * A non-heat-source cell's heat snaps to exactly zero once it decays below
+ * this. Without a floor, exponential decay approaches zero asymptotically
+ * and a Heating cell would never numerically reach the "fully cooled" state
+ * that lets it drop back to Clear and leave the active frontier.
+ */
+export const HEAT_RECOVERY_THRESHOLD = 0.5;
+
 const TURBULENCE_VARIATION = 0.1;
 const ACCUMULATOR_EPSILON_SECONDS = 1e-12;
 
@@ -199,6 +216,17 @@ function transitionCell(cell: Cell): void {
     return;
   }
 
+  // Dissipation can cool a Heating cell all the way back down without it
+  // ever igniting (a non-combustible next to a fire that later burns out,
+  // or a combustible that never got enough heat). Once heat is fully gone
+  // the cell is indistinguishable from one that was never near a fire, so
+  // it returns to Clear and — since Clear is not an active state — drops
+  // out of the frontier instead of parking in Heating forever.
+  if (cell.state === CellState.Heating && cell.heat <= 0) {
+    cell.state = CellState.Clear;
+    return;
+  }
+
   if (
     cell.state === CellState.Heating &&
     material.ignitionPoint !== null &&
@@ -215,6 +243,20 @@ function transitionCell(cell: Cell): void {
     cell.heat >= material.ignitionPoint * FLASHOVER_HEAT_MULTIPLIER
   ) {
     cell.state = CellState.Flashover;
+    return;
+  }
+
+  // A cell can only reach Flashover through water cooling it while it stays
+  // above the extinguish threshold (see applyVolumeToCell) — dissipation
+  // never touches a heat source. Once heat drops back under the flashover
+  // band the state should describe the cell, not the fact it once flashed
+  // over, so it demotes to Burning rather than sticking forever.
+  if (
+    cell.state === CellState.Flashover &&
+    material.ignitionPoint !== null &&
+    cell.heat < material.ignitionPoint * FLASHOVER_HEAT_MULTIPLIER
+  ) {
+    cell.state = CellState.Burning;
   }
 }
 
@@ -263,10 +305,16 @@ export function stepFireSimulation(state: FireSimulationState): FireTickResult {
 
     const wasHeatSource = isHeatSource(cell);
     const material = materialFor(cell);
-    cell.heat += (heatByCellId.get(cellId) ?? 0) * FIRE_TICK_SECONDS;
+    // Saturation damps incoming heat, not just future ignition: a soaked cell
+    // absorbs less of what its burning neighbors are pushing at it, so
+    // wetting buys thermal margin rather than only a fixed protection timer.
+    cell.heat += (heatByCellId.get(cellId) ?? 0) * FIRE_TICK_SECONDS * (1 - cell.wetness);
 
     if (wasHeatSource) {
       cell.fuel -= cell.fuel * material.burnRate * FIRE_TICK_SECONDS;
+    } else {
+      cell.heat = Math.max(0, cell.heat - cell.heat * HEAT_LOSS_PER_SECOND * FIRE_TICK_SECONDS);
+      if (cell.heat < HEAT_RECOVERY_THRESHOLD) cell.heat = 0;
     }
 
     transitionCell(cell);
