@@ -1,0 +1,47 @@
+{
+  "wood": {
+    "ignitionPoint": 300,
+    "burnRate": 0.04,
+    "spreadFactor": 1.0,
+    "heatOutput": 50,
+    "waterResponse": 1.0,
+    "smokeColor": "#8a8478",
+    "smokeDensity": 1.0
+  },
+  "plastic": {
+    "ignitionPoint": 260,
+    "burnRate": 0.05,
+    "spreadFactor": 0.9,
+    "heatOutput": 65,
+    "waterResponse": 0.8,
+    "smokeColor": "#141414",
+    "smokeDensity": 1.8
+  },
+  "fabric": {
+    "ignitionPoint": 200,
+    "burnRate": 0.1,
+    "spreadFactor": 1.4,
+    "heatOutput": 30,
+    "waterResponse": 1.2,
+    "smokeColor": "#c9c5bd",
+    "smokeDensity": 0.6
+  },
+  "concrete": {
+    "ignitionPoint": null,
+    "burnRate": 0,
+    "spreadFactor": 0,
+    "heatOutput": 0,
+    "waterResponse": 0,
+    "smokeColor": "#9a9a9a",
+    "smokeDensity": 0
+  },
+  "grease": {
+    "ignitionPoint": 220,
+    "burnRate": 0.08,
+    "spreadFactor": 1.1,
+    "heatOutput": 70,
+    "waterResponse": -1.5,
+    "smokeColor": "#1a1a1a",
+    "smokeDensity": 1.3
+  }
+}
