@@ -16,13 +16,56 @@ export const FLASHOVER_HEAT_MULTIPLIER = 1.5;
 export const NEIGHBOR_HEAT_SHARE = 0.16;
 
 /**
- * Fraction of a non-heat-source cell's heat lost per second to conduction,
- * radiation, and ambient cooling. A single global constant for M1 — see #36's
- * review discussion for why this isn't a per-material field yet. Cells that
- * are actively generating heat (Burning/Flashover) are exempt: they are the
- * source, not something shedding heat back to the room.
+ * Fraction of a non-heat-source, combustible cell's heat lost per second to
+ * conduction, radiation, and ambient cooling. A single global constant for
+ * M1 — see #36's review discussion for why this isn't a per-material field
+ * yet. Cells that are actively generating heat (Burning/Flashover) are
+ * exempt: they are the source, not something shedding heat back to the room.
+ *
+ * Kept deliberately gentle: a Heating combustible cell is mid-ignition-ramp,
+ * and this is the largest rate that keeps the full-building spread test
+ * (#7's 60-120s acceptance window) inside its window — see the "spread vs.
+ * recovery" note near NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND for why this can't
+ * simply be raised to also fix non-combustible recovery time.
  */
 export const HEAT_LOSS_PER_SECOND = 0.006;
+
+/**
+ * Heat lost per second by a non-heat-source, non-combustible cell
+ * (`material.ignitionPoint === null`, e.g. concrete) — applied together
+ * with a floor as `max(heat * NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND,
+ * MIN_NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND)`.
+ *
+ * Deliberately split from HEAT_LOSS_PER_SECOND and set far more
+ * aggressively: a non-combustible cell can never be a heat source
+ * (`igniteCell` and the Heating -> Burning transition both require a finite
+ * `ignitionPoint`), so it only ever *absorbs* heat from a burning neighbor
+ * and never propagates it onward. Cooling it fast has no spread-timing
+ * cost, unlike HEAT_LOSS_PER_SECOND above, which is boxed in by the spread
+ * test. See MIN_NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND for why the exponential
+ * term alone still isn't enough.
+ */
+export const NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND = 0.05;
+
+/**
+ * Heat lost per second by a non-heat-source, non-combustible cell,
+ * regardless of current heat. The exponential term above only ever
+ * approaches zero asymptotically, and at the peak heat a cell embedded next
+ * to a sustained, multi-neighbor fire can realistically reach on this
+ * material table (~1800-2000, sometimes 3000+ with multiple simultaneous
+ * ignition points), exponential-only decay takes on the order of tens of
+ * minutes — longer than an entire M1 incident. This floor dominates once
+ * heat is low enough that the exponential share drops under it, bounding
+ * recovery to a fixed, tunable time instead of an asymptote. Only applies
+ * once the cell has stopped receiving heat this tick (see the
+ * isRecoveringNonCombustible check below) — while a neighbor is still
+ * burning it uses the same gentle rate as a combustible, so it still climbs
+ * realistically instead of being suppressed the moment it starts heating.
+ * Measured against the 60s design target in the "non-combustible recovery"
+ * regression test in fireSimulation.test.ts: ~34-38s from a range of peak
+ * heats and topologies, so with room to spare.
+ */
+export const MIN_NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND = 40;
 
 /**
  * A non-heat-source cell's heat snaps to exactly zero once it decays below
@@ -305,15 +348,32 @@ export function stepFireSimulation(state: FireSimulationState): FireTickResult {
 
     const wasHeatSource = isHeatSource(cell);
     const material = materialFor(cell);
+    const incomingHeatPerSecond = heatByCellId.get(cellId) ?? 0;
     // Saturation damps incoming heat, not just future ignition: a soaked cell
     // absorbs less of what its burning neighbors are pushing at it, so
     // wetting buys thermal margin rather than only a fixed protection timer.
-    cell.heat += (heatByCellId.get(cellId) ?? 0) * FIRE_TICK_SECONDS * (1 - cell.wetness);
+    cell.heat += incomingHeatPerSecond * FIRE_TICK_SECONDS * (1 - cell.wetness);
 
     if (wasHeatSource) {
       cell.fuel -= cell.fuel * material.burnRate * FIRE_TICK_SECONDS;
     } else {
-      cell.heat = Math.max(0, cell.heat - cell.heat * HEAT_LOSS_PER_SECOND * FIRE_TICK_SECONDS);
+      // Non-combustibles can never be heat sources and never propagate heat
+      // onward (see NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND's doc comment), so
+      // once nothing is actively feeding one heat, it can shed what it
+      // absorbed far faster than a combustible mid-ignition-ramp — with no
+      // spread-timing cost, since it was never contributing to spread. While
+      // a neighbor is still burning, it uses the same gentle rate as a
+      // combustible cell so it still visibly heats up near a live fire,
+      // matching the review's own "concrete reaches 5000 heat" repro.
+      const isRecoveringNonCombustible =
+        material.ignitionPoint === null && incomingHeatPerSecond === 0;
+      const lossPerSecond = isRecoveringNonCombustible
+        ? Math.max(
+            cell.heat * NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND,
+            MIN_NONCOMBUSTIBLE_HEAT_LOSS_PER_SECOND,
+          )
+        : cell.heat * HEAT_LOSS_PER_SECOND;
+      cell.heat = Math.max(0, cell.heat - lossPerSecond * FIRE_TICK_SECONDS);
       if (cell.heat < HEAT_RECOVERY_THRESHOLD) cell.heat = 0;
     }
 
