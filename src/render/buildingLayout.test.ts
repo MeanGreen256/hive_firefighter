@@ -41,6 +41,19 @@ function createGrid(
   return { dimensions, cells };
 }
 
+function containsPoint(
+  instance: {
+    position: readonly [number, number, number];
+    scale: readonly [number, number, number];
+  },
+  point: readonly [number, number, number],
+): boolean {
+  return instance.position.every(
+    (coordinate, axis) =>
+      Math.abs(point[axis]! - coordinate) <= instance.scale[axis]! / 2 + Number.EPSILON,
+  );
+}
+
 describe('cutaway wall selection', () => {
   it('retains exactly the two exterior walls opposite every camera rotation', () => {
     expect(
@@ -115,6 +128,30 @@ describe('procedural building layout', () => {
 
     expect(layout.estimatedDrawCalls).toBe(4);
     expect(layout.estimatedDrawCalls).toBeLessThan(40);
+  });
+
+  it('closes the retained-wall corner without extending into the open cutaway', () => {
+    const dimensions = { width: 2, height: 2, depth: 3 };
+    const layout = buildBuildingLayout(createGrid(dimensions), ['east', 'south']);
+    const halfWidth = (dimensions.width * CELL_SIZE) / 2;
+    const halfDepth = (dimensions.depth * CELL_SIZE) / 2;
+
+    for (let storey = 0; storey < dimensions.height; storey += 1) {
+      const y = storey * CELL_HEIGHT + CELL_HEIGHT / 2;
+      const retainedCorner = [
+        -halfWidth - WALL_THICKNESS / 2,
+        y,
+        -halfDepth - WALL_THICKNESS / 2,
+      ] as const;
+      const openCorner = [
+        halfWidth + WALL_THICKNESS / 2,
+        y,
+        -halfDepth - WALL_THICKNESS / 2,
+      ] as const;
+
+      expect(layout.walls.some((wall) => containsPoint(wall, retainedCorner))).toBe(true);
+      expect(layout.walls.some((wall) => containsPoint(wall, openCorner))).toBe(false);
+    }
   });
 
   it('separates cell volumes from floor and roof planes to prevent z-fighting', () => {
