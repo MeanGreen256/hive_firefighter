@@ -95,7 +95,9 @@ function formatNumber(value: number, digits = 2): string {
 
 function describeHeat(debug: FireCellTickDebug | undefined): string {
   if (!debug) return 'Not processed on the last tick.';
-  if (debug.contributions.length === 0 && debug.heatLost === 0) return 'No heat exchange.';
+  if (debug.contributions.length === 0 && debug.heatLost === 0 && !debug.heatCleared) {
+    return 'No heat exchange.';
+  }
 
   const sources = debug.contributions
     .map((source) => {
@@ -104,7 +106,10 @@ function describeHeat(debug: FireCellTickDebug | undefined): string {
     })
     .join(' · ');
   const cooling = debug.heatLost > 0 ? `cooling −${formatNumber(debug.heatLost, 2)}` : '';
-  return [sources, cooling].filter(Boolean).join(' · ');
+  const cleared = debug.heatCleared
+    ? `${debug.heatCleared.reason} −${formatNumber(debug.heatCleared.amount, 2)}`
+    : '';
+  return [sources, cooling, cleared].filter(Boolean).join(' · ');
 }
 
 function CellReadout({

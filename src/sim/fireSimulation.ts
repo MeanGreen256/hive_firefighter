@@ -208,7 +208,13 @@ export interface FireCellTickDebug {
   heatBefore: number;
   heatAfter: number;
   heatDelta: number;
+  /** Heat removed by the configured per-tick heat-loss calculation. */
   heatLost: number;
+  /** Heat cleared by a discrete state-machine rule rather than cooling. */
+  heatCleared: {
+    amount: number;
+    reason: 'burn-through' | 'recovery-threshold';
+  } | null;
   contributions: FireHeatContribution[];
 }
 
@@ -573,6 +579,8 @@ export function stepFireSimulation(
     const wasHeatSource = isHeatSource(cell);
     const material = materialFor(cell);
     const incomingHeatPerSecond = heatByCellId.get(cellId) ?? 0;
+    let heatLost = 0;
+    let heatCleared: FireCellTickDebug['heatCleared'] = null;
     // Saturation damps incoming heat, not just future ignition: a soaked cell
     // absorbs less of what its burning neighbors are pushing at it, so
     // wetting buys thermal margin rather than only a fixed protection timer.
@@ -597,11 +605,23 @@ export function stepFireSimulation(
           ? tuning.minNoncombustibleHeatLossPerSecond
           : tuning.minCombustibleHeatLossPerSecond;
       const lossPerSecond = Math.max(proportionalLossPerSecond, minimumLossPerSecond);
+      const heatBeforeCooling = cell.heat;
       cell.heat = Math.max(0, cell.heat - lossPerSecond * FIRE_TICK_SECONDS);
-      if (cell.heat < tuning.heatRecoveryThreshold) cell.heat = 0;
+      heatLost = heatBeforeCooling - cell.heat;
+      if (cell.heat > 0 && cell.heat < tuning.heatRecoveryThreshold) {
+        heatCleared = { amount: cell.heat, reason: 'recovery-threshold' };
+        cell.heat = 0;
+      }
     }
 
+    const heatBeforeTransition = cell.heat;
     if (transitionCell(cell, tuning)) {
+      if (heatBeforeTransition > cell.heat) {
+        heatCleared = {
+          amount: heatBeforeTransition - cell.heat,
+          reason: 'burn-through',
+        };
+      }
       events.push({
         type: FireSimulationEventType.CellBurnedThrough,
         cellId: cell.id,
@@ -615,10 +635,6 @@ export function stepFireSimulation(
         ...contribution,
         appliedHeat: contribution.heatPerSecond * FIRE_TICK_SECONDS * appliedHeatMultiplier,
       }));
-      const totalAppliedHeat = contributions.reduce(
-        (total, contribution) => total + contribution.appliedHeat,
-        0,
-      );
       debugCells[cellId] = {
         cellId,
         stateBefore,
@@ -626,7 +642,8 @@ export function stepFireSimulation(
         heatBefore,
         heatAfter: cell.heat,
         heatDelta: cell.heat - heatBefore,
-        heatLost: Math.max(0, heatBefore + totalAppliedHeat - cell.heat),
+        heatLost,
+        heatCleared,
         contributions,
       };
     }
