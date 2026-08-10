@@ -12,13 +12,13 @@ Around that: an isometric camera you can rotate, a cutaway view so you watch fir
 
 ## Roadmap
 
-| | Milestone | The question it answers |
-|---|---|---|
-| **M1** | [The Fire Toy](https://github.com/MeanGreen256/hive_firefighter/milestone/1) | Is this fun standing still? |
-| **M2** | [One Incident](https://github.com/MeanGreen256/hive_firefighter/milestone/2) | Does scoring it make it a game? |
+|        | Milestone                                                                        | The question it answers                        |
+| ------ | -------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **M1** | [The Fire Toy](https://github.com/MeanGreen256/hive_firefighter/milestone/1)     | Is this fun standing still?                    |
+| **M2** | [One Incident](https://github.com/MeanGreen256/hive_firefighter/milestone/2)     | Does scoring it make it a game?                |
 | **M3** | [Crew & Apparatus](https://github.com/MeanGreen256/hive_firefighter/milestone/3) | Is commanding a crew better than acting alone? |
-| **M4** | [The Loop](https://github.com/MeanGreen256/hive_firefighter/milestone/4) | Do people come back for a second shift? |
-| **M5** | [Content Scale](https://github.com/MeanGreen256/hive_firefighter/milestone/5) | Can we ship a district without writing code? |
+| **M4** | [The Loop](https://github.com/MeanGreen256/hive_firefighter/milestone/4)         | Do people come back for a second shift?        |
+| **M5** | [Content Scale](https://github.com/MeanGreen256/hive_firefighter/milestone/5)    | Can we ship a district without writing code?   |
 
 ## Concept work
 
@@ -31,7 +31,7 @@ Open them in a browser; they're self-contained pages.
 
 ## Decisions so far
 
-- **Isometric camera.** Chosen over third-person because it's the only view where the player actually *watches* fire spread — in third-person the simulation is invisible unless you walk into it. Roughly half the art budget, too.
+- **Isometric camera.** Chosen over third-person because it's the only view where the player actually _watches_ fire spread — in third-person the simulation is invisible unless you walk into it. Roughly half the art budget, too.
 - **Art direction: pending.** Toy diorama is the recommendation, cel-shaded ink the close second. Both get built behind a style switcher ([#18](https://github.com/MeanGreen256/hive_firefighter/issues/18)–[#20](https://github.com/MeanGreen256/hive_firefighter/issues/20)) so the call gets made from motion rather than stills.
 - **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
 

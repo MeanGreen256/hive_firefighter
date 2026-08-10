@@ -1,6 +1,6 @@
 name: Bug
 description: Something behaves wrong
-labels: ["bug"]
+labels: ['bug']
 body:
   - type: textarea
     id: what
@@ -26,7 +26,7 @@ body:
     attributes:
       label: Sim seed
       description: If it's a simulation bug, the seed makes it reproducible. Grab it from the debug overlay.
-      placeholder: "0x4f2a91"
+      placeholder: '0x4f2a91'
 
   - type: input
     id: where
