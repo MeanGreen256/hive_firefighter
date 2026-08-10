@@ -131,7 +131,12 @@ describe('fire propagation', () => {
   });
 
   it('dissipates heat on a non-heat-source cell instead of holding it forever', () => {
-    const grid = createCellGrid('concrete');
+    // Combustible (wood), not concrete: this exercises the general
+    // HEAT_LOSS_PER_SECOND path shared by every material still short of
+    // ignition. Non-combustible cells get their own, much faster recovery
+    // path once nothing is feeding them heat — see the "returns a
+    // non-combustible to Clear within 60s" test below for that one.
+    const grid = createCellGrid('wood');
     const cell = grid.cells['0,0,0']!;
     cell.neighbors = [];
     const isolatedGrid: CellGrid = {
@@ -188,6 +193,56 @@ describe('fire propagation', () => {
     expect(concrete.state).toBe(CellState.Clear);
     expect(concrete.heat).toBe(0);
     expect(state.activeCellIds).not.toContain(concrete.id);
+  });
+
+  it('returns a non-combustible to Clear within 60s of the last fire going out', () => {
+    // The M1 acceptance target: once nothing is burning anywhere near a
+    // non-combustible, it should read as "no longer hot" within roughly one
+    // incident-scale window, not linger for the 22+ minutes a pure
+    // proportional-to-heat decay would take from a realistic peak (~1800+
+    // heat is reachable with just one neighbor — see the peak assertion
+    // below). Regression: before splitting non-combustible dissipation out
+    // with its own floor, this cell was still Heating a full 1348s (22.5
+    // min) after the fire beside it burned out.
+    const grid = createCellGrid('wood');
+    const source = grid.cells['0,0,0']!;
+    const concrete = grid.cells['1,0,0']!;
+    concrete.material = 'concrete';
+
+    const state = createFireSimulation(grid, { seed: 12 });
+    igniteCell(state, source.id);
+
+    const anyFireActive = (): boolean =>
+      Object.values(state.grid.cells).some(
+        (cell) => cell.state === CellState.Burning || cell.state === CellState.Flashover,
+      );
+
+    let peakHeat = 0;
+    let lastFireOutTick = -1;
+    let concreteClearTick = -1;
+    let ticks = 0;
+
+    while (ticks < 10_000) {
+      stepFireSimulation(state);
+      ticks += 1;
+      if (concrete.heat > peakHeat) peakHeat = concrete.heat;
+      // Guard against the tick where ignition itself hasn't caught yet.
+      if (lastFireOutTick === -1 && ticks > 50 && !anyFireActive()) lastFireOutTick = ticks;
+      if (lastFireOutTick !== -1 && concrete.state === CellState.Clear) {
+        concreteClearTick = ticks;
+        break;
+      }
+    }
+
+    // Sanity: this scenario does exercise realistic, substantial heat
+    // exposure — it isn't passing by never having gotten hot in the first
+    // place (that was an earlier, wrong attempt at this fix).
+    expect(peakHeat).toBeGreaterThan(1000);
+    expect(lastFireOutTick).toBeGreaterThan(0);
+    expect(concreteClearTick).toBeGreaterThan(0);
+
+    const recoverySeconds = (concreteClearTick - lastFireOutTick) * FIRE_TICK_SECONDS;
+    expect(recoverySeconds).toBeLessThanOrEqual(60);
   });
 
   it('demotes Flashover back to Burning once it cools below the flashover threshold', () => {

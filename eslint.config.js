@@ -6,7 +6,12 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'docs'] },
+  // `.claude` holds agent definitions and settings, never lintable source.
+  // Agent sessions also materialise full repo checkouts under
+  // `.claude/worktrees/`, which ESLint would otherwise try to lint against
+  // the root tsconfig and fail on. CI never sees them (they're excluded
+  // locally, not committed) so this only bites during local verification.
+  { ignores: ['dist', 'node_modules', 'docs', '.claude'] },
 
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
