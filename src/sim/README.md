@@ -26,4 +26,11 @@ frontier, so a burn can be saved or reproduced without renderer state.
 
 Ticks mutate that state in place and visit only active cells plus their direct
 neighbors. External simulation inputs such as ignition — and water application
-in #8 — update the same state between fixed ticks.
+— update the same state between fixed ticks.
+
+`waterApplication.ts` exposes `applyWater(state, cellId, litres, agent)`. Plain
+water removes 120 abstract heat units per litre at a material response of `1`,
+with 20% of the delivered volume divided between face-adjacent cells as
+overspray. Positive responses add normalized wetness; negative responses such
+as grease add heat and do not grant wetness protection. Wetness decays by `0.1`
+per second during the fixed tick, then releases the cell back to `Clear`.

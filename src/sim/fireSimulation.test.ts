@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { CellState, createCellGrid } from './cellGrid';
+import { CellState, createCellGrid, type CellGrid } from './cellGrid';
 import {
   FIRE_TICK_SECONDS,
+  FLASHOVER_HEAT_MULTIPLIER,
   createFireSimulation,
   createFixedTimestepRunner,
   igniteCell,
@@ -127,6 +128,92 @@ describe('fire propagation', () => {
     expect(chunked.advance(0.05)).toBe(1);
     expect(single.advance(0.5)).toBe(5);
     expect(chunked.getState()).toEqual(single.getState());
+  });
+
+  it('dissipates heat on a non-heat-source cell instead of holding it forever', () => {
+    const grid = createCellGrid('concrete');
+    const cell = grid.cells['0,0,0']!;
+    cell.neighbors = [];
+    const isolatedGrid: CellGrid = {
+      dimensions: { width: 1, height: 1, depth: 1 },
+      cells: { [cell.id]: cell },
+    };
+    cell.heat = 100;
+    cell.state = CellState.Heating;
+
+    const state = createFireSimulation(isolatedGrid, { seed: 1 });
+    expect(state.activeCellIds).toContain(cell.id);
+
+    // Regression: with no dissipation term, this cell sat at exactly 100
+    // heat forever — never losing heat and never leaving the frontier.
+    for (let tick = 0; tick < 300; tick += 1) stepFireSimulation(state);
+    expect(cell.heat).toBeLessThan(100);
+    expect(cell.heat).toBeGreaterThan(0);
+
+    let ticks = 300;
+    while ((cell.state as CellState) !== CellState.Clear && ticks < 15_000) {
+      stepFireSimulation(state);
+      ticks += 1;
+    }
+
+    expect(cell.state).toBe(CellState.Clear);
+    expect(cell.heat).toBe(0);
+    expect(state.activeCellIds).not.toContain(cell.id);
+  });
+
+  it('lets a non-combustible cool back to Clear and leave the frontier once its neighbor burns out', () => {
+    const grid = createCellGrid('wood');
+    const source = grid.cells['0,0,0']!;
+    const concrete = grid.cells['1,0,0']!;
+    concrete.material = 'concrete';
+
+    const state = createFireSimulation(grid, { seed: 12 });
+    igniteCell(state, source.id);
+
+    let ticks = 0;
+    // Drive it into the frontier first — concrete starts Clear, so a naive
+    // "until Clear" loop would exit immediately without ever heating up.
+    while (concrete.state !== CellState.Heating && ticks < 5_000) {
+      stepFireSimulation(state);
+      ticks += 1;
+    }
+    expect(concrete.state).toBe(CellState.Heating);
+
+    while (concrete.state !== CellState.Clear && ticks < 50_000) {
+      stepFireSimulation(state);
+      ticks += 1;
+    }
+
+    expect(source.state).toBe(CellState.Burnt);
+    expect(concrete.state).toBe(CellState.Clear);
+    expect(concrete.heat).toBe(0);
+    expect(state.activeCellIds).not.toContain(concrete.id);
+  });
+
+  it('demotes Flashover back to Burning once it cools below the flashover threshold', () => {
+    const grid = createCellGrid('wood');
+    const cell = grid.cells['0,0,0']!;
+    cell.neighbors = [];
+    const isolatedGrid: CellGrid = {
+      dimensions: { width: 1, height: 1, depth: 1 },
+      cells: { [cell.id]: cell },
+    };
+    // Placed directly in the band between ignitionPoint (300) and the
+    // flashover threshold (450) — a state only reachable in practice via
+    // water cooling a Flashover cell without dropping it below the
+    // extinguish threshold. Regression: before the fix, nothing ever
+    // demoted Flashover, so the cell stayed Flashover forever.
+    cell.state = CellState.Flashover;
+    cell.fuel = 1;
+    cell.heat = 400;
+
+    const state = createFireSimulation(isolatedGrid, { seed: 5 });
+    state.activeCellIds = [cell.id];
+    expect(cell.heat).toBeLessThan(300 * FLASHOVER_HEAT_MULTIPLIER);
+
+    stepFireSimulation(state);
+
+    expect(cell.state).toBe(CellState.Burning);
   });
 
   it('keeps an all-active 18-cell tick below the 3 ms budget', () => {
