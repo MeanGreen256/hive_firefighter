@@ -279,6 +279,31 @@ describe('fire propagation', () => {
     expect(chunked.getState()).toEqual(single.getState());
   });
 
+  it('preserves accumulated tick time when external inputs replace state', () => {
+    const runner = createFixedTimestepRunner(
+      createFireSimulation(createCellGrid('wood'), { seed: 82 }),
+    );
+
+    for (let frame = 0; frame < 600; frame += 1) {
+      runner.advance(1 / 60);
+      runner.setState(runner.getState());
+    }
+
+    expect(runner.getState().tick).toBe(100);
+  });
+
+  it('starts a reset scenario with an empty tick accumulator', () => {
+    const runner = createFixedTimestepRunner(
+      createFireSimulation(createCellGrid('wood'), { seed: 83 }),
+    );
+    runner.advance(FIRE_TICK_SECONDS * 0.9);
+
+    runner.reset(createFireSimulation(createCellGrid('wood'), { seed: 84 }));
+
+    expect(runner.advance(FIRE_TICK_SECONDS * 0.2)).toBe(0);
+    expect(runner.getState().tick).toBe(0);
+  });
+
   it('lets a fixed runner step once and replace tuning while collecting debug frames', () => {
     const state = createFireSimulation(createCellGrid('wood'), { seed: 28 });
     igniteCell(state, '0,0,0');
