@@ -1,0 +1,1214 @@
+<title>Fire — Isometric Style Directions</title>
+
+<style>
+  :root {
+    --ground:   #101319;
+    --ground-2: #161a22;
+    --panel:    #1b202a;
+    --line:     #2b3240;
+    --line-2:   #39424f;
+    --ink:      #e2e7ef;
+    --ink-2:    #99a3b5;
+    --ink-3:    #6c7688;
+    --ember:    #ff7a2f;
+    --amber:    #ffc247;
+    --shadow:   0 24px 60px -20px rgba(0,0,0,.7);
+
+    --display: "Helvetica Neue", "HelveticaNeue-CondensedBold", "Arial Narrow",
+               "Roboto Condensed", "Liberation Sans Narrow", system-ui, sans-serif;
+    --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground:#eceef3; --ground-2:#ffffff; --panel:#ffffff; --line:#d7dbe3;
+      --line-2:#c2c8d4; --ink:#151920; --ink-2:#4f5868; --ink-3:#7b8497;
+      --ember:#cf5510; --amber:#9c6404; --shadow:0 20px 48px -22px rgba(20,26,38,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#101319; --ground-2:#161a22; --panel:#1b202a; --line:#2b3240;
+    --line-2:#39424f; --ink:#e2e7ef; --ink-2:#99a3b5; --ink-3:#6c7688;
+    --ember:#ff7a2f; --amber:#ffc247; --shadow:0 24px 60px -20px rgba(0,0,0,.7);
+  }
+  :root[data-theme="light"] {
+    --ground:#eceef3; --ground-2:#ffffff; --panel:#ffffff; --line:#d7dbe3;
+    --line-2:#c2c8d4; --ink:#151920; --ink-2:#4f5868; --ink-3:#7b8497;
+    --ember:#cf5510; --amber:#9c6404; --shadow:0 20px 48px -22px rgba(20,26,38,.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--body); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 28px 120px; }
+
+  .masthead {
+    border-bottom: 1px solid var(--line); padding: 44px 0 26px;
+    display: flex; flex-wrap: wrap; align-items: flex-end;
+    justify-content: space-between; gap: 20px;
+  }
+  .masthead h1 {
+    font-family: var(--display); font-stretch: condensed; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .02em;
+    font-size: clamp(30px, 5.2vw, 54px); line-height: .95; margin: 0;
+    text-wrap: balance;
+  }
+  .masthead h1 em { font-style: normal; color: var(--ember); }
+  .stamp {
+    font-family: var(--mono); font-size: 11px; line-height: 1.7;
+    color: var(--ink-3); text-transform: uppercase; letter-spacing: .09em;
+    text-align: right;
+  }
+
+  /* ---- finding ---- */
+  .finding { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); gap: 36px; margin: 40px 0 20px; align-items: start; }
+  .finding p { margin: 0 0 14px; max-width: 62ch; }
+  .finding .big {
+    font-family: var(--display); font-stretch: condensed; font-weight: 700;
+    font-size: clamp(21px, 2.6vw, 28px); line-height: 1.22; color: var(--ink);
+  }
+  .finding .big b { color: var(--ember); font-weight: 700; }
+  .finding .muted { color: var(--ink-2); font-size: 15px; }
+
+  .scan { border: 1px solid var(--line); background: var(--ground-2); padding: 18px 20px; }
+  .scan .hd {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--ember); display: block; margin-bottom: 12px;
+  }
+  .scan dl { margin: 0; display: grid; gap: 11px; }
+  .scan .row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: baseline;
+               border-bottom: 1px dotted var(--line); padding-bottom: 9px; }
+  .scan .row:last-child { border-bottom: 0; padding-bottom: 0; }
+  .scan dt { font-size: 14px; color: var(--ink); font-weight: 600; }
+  .scan dd { margin: 0; font-family: var(--mono); font-size: 11px; letter-spacing: .05em;
+             color: var(--ink-3); text-transform: uppercase; white-space: nowrap; }
+
+  /* ---- rules ---- */
+  .rule { display: flex; align-items: center; gap: 16px; margin: 76px 0 34px; }
+  .rule h3 {
+    font-family: var(--display); font-stretch: condensed; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .1em; font-size: 13px;
+    margin: 0; color: var(--ember); white-space: nowrap;
+  }
+  .rule::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .rule .note {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+    color: var(--ink-3); text-transform: uppercase; white-space: nowrap;
+  }
+
+  /* ---- swatch grid ---- */
+  .board { display: grid; grid-template-columns: 1fr 1fr; gap: 34px 30px; }
+  .swatch { display: flex; flex-direction: column; }
+  .shot {
+    background: #080a0f; border: 1px solid var(--line);
+    box-shadow: var(--shadow); overflow: hidden; line-height: 0;
+  }
+  .shot svg { display: block; width: 100%; height: auto; }
+
+  .meta { padding: 16px 2px 0; }
+  .meta .idx {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+  .meta h2 {
+    font-family: var(--display); font-stretch: condensed; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .015em;
+    font-size: 27px; line-height: 1; margin: 7px 0 10px;
+  }
+  .meta p { margin: 0 0 12px; color: var(--ink-2); font-size: 14.5px; max-width: 54ch; }
+  .meta p em { color: var(--ink); font-style: normal; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  .chip {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+    text-transform: uppercase; padding: 4px 8px; border: 1px solid var(--line-2);
+    color: var(--ink-3);
+  }
+  .chip.hot { border-color: var(--ember); color: var(--ember); }
+  .chip.warn { border-color: var(--line-2); color: var(--ink-3); }
+
+  /* ---- hero pick ---- */
+  .pick-frame { margin-top: 6px; }
+  .pick-cap { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); gap: 32px; padding: 22px 2px 0; }
+  .pick-cap h2 {
+    font-family: var(--display); font-stretch: condensed; font-weight: 800;
+    text-transform: uppercase; font-size: clamp(24px,3vw,34px); line-height: 1; margin: 8px 0 12px;
+  }
+  .pick-cap p { margin: 0 0 12px; color: var(--ink-2); max-width: 60ch; }
+  .pick-cap p.lede { color: var(--ink); }
+  .verdict {
+    display: inline-block; font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: .12em; text-transform: uppercase; padding: 4px 9px;
+    border: 1px solid var(--ember); color: var(--ember); margin-bottom: 10px;
+  }
+  .tradeoffs { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+  .tradeoffs li { display: grid; grid-template-columns: 18px 1fr; gap: 8px;
+                  font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+  .tradeoffs .m { font-family: var(--mono); font-weight: 700; text-align: center; }
+  .tradeoffs .up .m { color: var(--ember); }
+  .tradeoffs .dn .m { color: var(--ink-3); }
+
+  /* ---- matrix ---- */
+  .matrix-scroll { overflow-x: auto; border: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 720px; background: var(--ground-2); }
+  th, td { text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  thead th {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: .1em; color: var(--ink-3); font-weight: 400; background: var(--panel);
+  }
+  tbody th { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  td { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+  tr.pick th, tr.pick td { background: color-mix(in srgb, var(--ember) 8%, transparent); }
+  tr.pick th { color: var(--ember); }
+  .score { font-family: var(--mono); font-size: 12px; letter-spacing: .05em; }
+  .score b { color: var(--ember); font-weight: 700; }
+  .score i { font-style: normal; color: var(--ink-3); }
+
+  /* ---- laws ---- */
+  .laws { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .law { border-top: 2px solid var(--ember); padding-top: 16px; }
+  .law h4 {
+    font-family: var(--display); font-stretch: condensed; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .02em; font-size: 19px; margin: 0 0 8px;
+  }
+  .law p { margin: 0; color: var(--ink-2); font-size: 14.5px; }
+
+  .decide {
+    border: 1px solid var(--line); border-top: 3px solid var(--ember);
+    background: var(--ground-2); padding: 32px 34px; margin-top: 34px;
+  }
+  .decide h3 {
+    font-family: var(--display); font-stretch: condensed; font-weight: 800;
+    text-transform: uppercase; font-size: 26px; margin: 0 0 18px;
+  }
+  .decide p { color: var(--ink-2); max-width: 68ch; margin: 0 0 14px; }
+  .decide p b { color: var(--ink); font-weight: 600; }
+  .decide p:last-child { margin-bottom: 0; }
+
+  .srcs { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line);
+          font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: .04em; }
+  .srcs a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+  .srcs a:hover, .srcs a:focus-visible { color: var(--ember); border-color: var(--ember); }
+  .srcs ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }
+
+  :focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; }
+
+  @media (max-width: 900px) {
+    .board, .finding, .pick-cap, .laws { grid-template-columns: 1fr; gap: 26px; }
+    .stamp { text-align: left; }
+    .wrap { padding: 0 18px 80px; }
+  }
+
+  @keyframes flicker { 0%,100%{opacity:.92} 24%{opacity:1} 45%{opacity:.76} 68%{opacity:1} 84%{opacity:.86} }
+  @keyframes drift { from{transform:translate(0,0)} to{transform:translate(-14px,-18px)} }
+  .fx-flicker { animation: flicker 2.9s ease-in-out infinite; }
+  .fx-drift { animation: drift 12s ease-in-out infinite alternate; }
+  @media (prefers-reduced-motion: reduce) { .fx-flicker, .fx-drift { animation: none; } }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Isometric —<br><em>Six</em> Style Directions</h1>
+    <div class="stamp">
+      Concept pass 02<br>
+      Same scene, same camera, six treatments<br>
+      Warehouse fire · 3&times;3 cell grid
+    </div>
+  </header>
+
+  <section class="finding">
+    <div>
+      <p class="big">I looked at what's already shipped in this genre. Every isometric firefighting game on the market looks like <b>the same muted tactical RTS</b>.</p>
+      <p class="muted">Fire Commander, EMERGENCY HQ, Rescue HQ, the old Fire Department series — all semi-realistic, all grey-brown, all reading as slightly dated command sims. Reviewers keep landing on the same note: competent, a bit drab, graphics that feel a generation behind.</p>
+      <p class="muted">That's a gap, not a template. The strongest move here is to look nothing like any of them. So below is one scene — a three-storey warehouse with a fire spreading through a 3&times;3 cell grid — drawn six different ways. Identical geometry, identical camera, identical fire state. Only the treatment changes.</p>
+    </div>
+    <div class="scan">
+      <span class="hd">What's on the shelf</span>
+      <dl>
+        <div class="row"><dt>Fire Commander (2022)</dt><dd>Semi-real · muted</dd></div>
+        <div class="row"><dt>EMERGENCY HQ</dt><dd>Semi-real · mobile</dd></div>
+        <div class="row"><dt>Rescue HQ: The Tycoon</dt><dd>Semi-real · sim</dd></div>
+        <div class="row"><dt>Fire Department 1–3</dt><dd>Semi-real · dated</dd></div>
+        <div class="row"><dt>Stylized / toy / graphic</dt><dd style="color:var(--ember)">Nobody</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <div class="rule"><h3>The six</h3><span class="note">Same building · same fire · same camera</span></div>
+
+  <div class="board">
+
+    <!-- ============ 01 FLAT LOW-POLY ============ -->
+    <article class="swatch">
+      <div class="shot">
+        <svg viewBox="0 0 800 560" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Flat-shaded low-poly treatment: faceted grey-blue warehouse with cutaway rooms colored by fire state.">
+          <defs>
+            <radialGradient id="a1g" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="#ff8a2b" stop-opacity=".42"/>
+              <stop offset="1" stop-color="#ff6a18" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="a1b" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="18"/></filter>
+          </defs>
+          <rect width="800" height="560" fill="#131722"/>
+          <g stroke="#1c212d" stroke-width="1.5">
+            <path d="M-120,300 L560,690"/><path d="M20,260 L700,650"/><path d="M160,220 L840,610"/>
+            <path d="M300,180 L980,570"/><path d="M900,300 L220,690"/><path d="M760,260 L80,650"/>
+            <path d="M620,220 L-60,610"/>
+          </g>
+          <polygon points="120,440 420,614 800,394 500,220" fill="#1a1f2b"/>
+          <ellipse cx="390" cy="250" rx="260" ry="180" fill="url(#a1g)"/>
+
+          <g class="fx-drift" opacity=".65">
+            <ellipse cx="400" cy="86" rx="110" ry="72" fill="#4a4038" filter="url(#a1b)"/>
+            <ellipse cx="452" cy="20" rx="140" ry="66" fill="#3b3740" filter="url(#a1b)"/>
+          </g>
+
+          <!-- roof + right wall -->
+          <polygon points="330,120 528,234 396,310 198,196" fill="#39414f"/>
+          <polygon points="528,234 396,310 396,520 528,444" fill="#1f2531"/>
+          <!-- cutaway cells -->
+          <g>
+            <polygon points="198,196 264,234 264,304 198,266" fill="#7d3d18"/>
+            <polygon points="264,234 330,272 330,342 264,304" fill="#e0561a"/>
+            <polygon points="330,272 396,310 396,380 330,342" fill="#ff9d3c"/>
+            <polygon points="198,266 264,304 264,374 198,336" fill="#2e3543"/>
+            <polygon points="264,304 330,342 330,412 264,374" fill="#7d3d18"/>
+            <polygon points="330,342 396,380 396,450 330,412" fill="#e0561a"/>
+            <polygon points="198,336 264,374 264,444 198,406" fill="#33506b"/>
+            <polygon points="264,374 330,412 330,482 264,444" fill="#2e3543"/>
+            <polygon points="330,412 396,450 396,520 330,482" fill="#2e3543"/>
+          </g>
+          <g stroke="#0d1017" stroke-width="2" fill="none" opacity=".7">
+            <path d="M198,196 L396,310 M198,266 L396,380 M198,336 L396,450 M198,406 L396,520"/>
+            <path d="M198,196 L198,406 M264,234 L264,444 M330,272 L330,482 M396,310 L396,520"/>
+          </g>
+          <g class="fx-flicker">
+            <polygon points="342,292 352,258 362,286 374,252 386,290 396,266 402,306 336,306" fill="#ffb44a"/>
+            <polygon points="352,294 362,268 372,292 382,266 390,300 346,300" fill="#ffe08a"/>
+            <polygon points="286,372 294,346 302,368 312,348 320,378 280,378" fill="#ff8f2e" opacity=".85"/>
+          </g>
+
+          <!-- truck -->
+          <g>
+            <polygon points="552,398 660,460 628,478 520,416" fill="#d84433"/>
+            <polygon points="660,460 628,478 628,512 660,494" fill="#8f2a20"/>
+            <polygon points="520,416 628,478 628,512 520,450" fill="#b03325"/>
+            <rect x="576" y="392" width="30" height="9" rx="3" fill="#4f9dff"/>
+          </g>
+          <!-- units -->
+          <g>
+            <ellipse cx="278" cy="474" rx="14" ry="7" fill="#000" opacity=".4"/>
+            <rect x="271" y="446" width="14" height="28" rx="6" fill="#3a4250"/>
+            <circle cx="278" cy="442" r="9" fill="#e8b736"/>
+            <ellipse cx="332" cy="504" rx="14" ry="7" fill="#000" opacity=".4"/>
+            <rect x="325" y="476" width="14" height="28" rx="6" fill="#3a4250"/>
+            <circle cx="332" cy="472" r="9" fill="#8fb8c9"/>
+          </g>
+          <!-- tree -->
+          <polygon points="126,432 148,420 148,444 126,456" fill="#22301f"/>
+          <polygon points="126,414 148,402 170,414 148,426" fill="#31462c"/>
+        </svg>
+      </div>
+      <div class="meta">
+        <span class="idx">Treatment 01 · baseline</span>
+        <h2>Flat low-poly</h2>
+        <p>What you already saw. Faceted geometry, cool desaturated city, fire as the only saturated hue. <em>Safe, clean, and closest to what the genre already does</em> — which is exactly its weakness.</p>
+        <div class="chips"><span class="chip">Cheap</span><span class="chip">Fast to build</span><span class="chip warn">Low differentiation</span></div>
+      </div>
+    </article>
+
+    <!-- ============ 02 TOY DIORAMA ============ -->
+    <article class="swatch">
+      <div class="shot">
+        <svg viewBox="0 0 800 560" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Toy diorama treatment: soft rounded matte building in cream and terracotta on a floating grass base, with fluffy smoke.">
+          <defs>
+            <linearGradient id="a2sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#bcd8e8"/><stop offset="1" stop-color="#e6dfd2"/>
+            </linearGradient>
+            <filter id="a2sh" x="-60%" y="-60%" width="220%" height="220%">
+              <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#6b5f52" flood-opacity=".32"/>
+            </filter>
+            <filter id="a2b" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="9"/></filter>
+          </defs>
+          <rect width="800" height="560" fill="url(#a2sky)"/>
+
+          <g filter="url(#a2sh)">
+            <!-- base slab -->
+            <polygon points="400,196 780,414 400,632 20,414" fill="#9dc48c"
+                     stroke="#9dc48c" stroke-width="18" stroke-linejoin="round"/>
+            <polygon points="20,414 400,632 400,668 20,450" fill="#7ba46c"
+                     stroke="#7ba46c" stroke-width="14" stroke-linejoin="round"/>
+            <polygon points="780,414 400,632 400,668 780,450" fill="#6d9560"
+                     stroke="#6d9560" stroke-width="14" stroke-linejoin="round"/>
+          </g>
+          <!-- road -->
+          <polygon points="470,262 790,446 700,498 380,314" fill="#cfc7ba"
+                   stroke="#cfc7ba" stroke-width="12" stroke-linejoin="round"/>
+
+          <!-- building: chunky rounded -->
+          <g>
+            <polygon points="528,234 396,310 396,520 528,444" fill="#d9b89a"
+                     stroke="#d9b89a" stroke-width="16" stroke-linejoin="round"/>
+            <polygon points="198,196 264,234 264,304 198,266" fill="#f0e2cf" stroke="#f0e2cf" stroke-width="9" stroke-linejoin="round"/>
+            <polygon points="264,234 330,272 330,342 264,304" fill="#ef8f3c" stroke="#ef8f3c" stroke-width="9" stroke-linejoin="round"/>
+            <polygon points="330,272 396,310 396,380 330,342" fill="#ffb648" stroke="#ffb648" stroke-width="9" stroke-linejoin="round"/>
+            <polygon points="198,266 264,304 264,374 198,336" fill="#e4d3bd" stroke="#e4d3bd" stroke-width="9" stroke-linejoin="round"/>
+            <polygon points="264,304 330,342 330,412 264,374" fill="#f0e2cf" stroke="#f0e2cf" stroke-width="9" stroke-linejoin="round"/>
+            <polygon points="330,342 396,380 396,450 330,412" fill="#ef8f3c" stroke="#ef8f3c" stroke-width="9" stroke-linejoin="round"/>
+            <polygon points="198,336 264,374 264,444 198,406" fill="#8fc4d6" stroke="#8fc4d6" stroke-width="9" stroke-linejoin="round"/>
+            <polygon points="264,374 330,412 330,482 264,444" fill="#e4d3bd" stroke="#e4d3bd" stroke-width="9" stroke-linejoin="round"/>
+            <polygon points="330,412 396,450 396,520 330,482" fill="#e4d3bd" stroke="#e4d3bd" stroke-width="9" stroke-linejoin="round"/>
+            <!-- roof -->
+            <polygon points="330,120 528,234 396,310 198,196" fill="#e0705c"
+                     stroke="#e0705c" stroke-width="18" stroke-linejoin="round"/>
+            <polygon points="330,132 500,230 396,290 226,192" fill="#ee8a72"
+                     stroke="#ee8a72" stroke-width="10" stroke-linejoin="round" opacity=".8"/>
+          </g>
+
+          <g class="fx-flicker">
+            <ellipse cx="366" cy="286" rx="40" ry="26" fill="#ffd166"/>
+            <path d="M336,300 C 340,258 356,268 362,240 C 372,266 390,250 394,286 C 400,266 408,286 402,304 Z" fill="#ff9a3c"/>
+            <path d="M350,300 C 354,272 366,278 370,256 C 378,276 388,268 390,296 Z" fill="#ffe8a3"/>
+          </g>
+
+          <!-- fluffy smoke -->
+          <g class="fx-drift">
+            <circle cx="386" cy="150" r="40" fill="#f2f0ec"/>
+            <circle cx="428" cy="120" r="52" fill="#fbfaf7"/>
+            <circle cx="368" cy="98" r="44" fill="#eeece7"/>
+            <circle cx="440" cy="66" r="58" fill="#fdfcfa"/>
+            <circle cx="378" cy="46" r="42" fill="#f0eee9"/>
+            <circle cx="396" cy="182" r="26" fill="#e3dcd3" opacity=".9"/>
+          </g>
+
+          <!-- truck: rounded toy -->
+          <g filter="url(#a2sh)">
+            <polygon points="552,398 660,460 628,478 520,416" fill="#f45f4a" stroke="#f45f4a" stroke-width="14" stroke-linejoin="round"/>
+            <polygon points="660,460 628,478 628,508 660,490" fill="#c9432f" stroke="#c9432f" stroke-width="12" stroke-linejoin="round"/>
+            <polygon points="520,416 628,478 628,508 520,446" fill="#e0503b" stroke="#e0503b" stroke-width="12" stroke-linejoin="round"/>
+            <rect x="574" y="386" width="34" height="12" rx="6" fill="#5fb7e8"/>
+          </g>
+          <!-- units: chunky -->
+          <g>
+            <ellipse cx="278" cy="476" rx="16" ry="8" fill="#5d7f52" opacity=".45"/>
+            <rect x="266" y="440" width="24" height="38" rx="12" fill="#4a6d8f"/>
+            <circle cx="278" cy="436" r="13" fill="#ffcf4a"/>
+            <ellipse cx="336" cy="506" rx="16" ry="8" fill="#5d7f52" opacity=".45"/>
+            <rect x="324" y="470" width="24" height="38" rx="12" fill="#4a6d8f"/>
+            <circle cx="336" cy="466" r="13" fill="#ffcf4a"/>
+          </g>
+          <!-- trees: lollipop -->
+          <g>
+            <rect x="140" y="418" width="12" height="34" rx="6" fill="#a8825e"/>
+            <circle cx="146" cy="406" r="30" fill="#6fae63"/>
+            <circle cx="136" cy="398" r="18" fill="#83c073"/>
+            <rect x="620" y="330" width="10" height="26" rx="5" fill="#a8825e"/>
+            <circle cx="625" cy="322" r="22" fill="#6fae63"/>
+          </g>
+        </svg>
+      </div>
+      <div class="meta">
+        <span class="idx">Treatment 02</span>
+        <h2>Toy diorama</h2>
+        <p>Soft matte clay, rounded corners, high-key daylight, a base slab that reads as a model on a shelf. Bright pastels make the fire <em>hotter</em> by contrast than the dark palette does. Nothing in the genre looks remotely like this.</p>
+        <div class="chips"><span class="chip hot">Max differentiation</span><span class="chip">Cheapest to polish</span><span class="chip warn">Reads light-hearted</span></div>
+      </div>
+    </article>
+
+    <!-- ============ 03 CEL / INK ============ -->
+    <article class="swatch">
+      <div class="shot">
+        <svg viewBox="0 0 800 560" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Cel-shaded ink treatment: heavy black outlines, flat saturated fills, halftone dot smoke, comic-book styling.">
+          <defs>
+            <pattern id="a3tone" width="9" height="9" patternUnits="userSpaceOnUse">
+              <rect width="9" height="9" fill="#e8e2d6"/>
+              <circle cx="4.5" cy="4.5" r="2.4" fill="#7d7566"/>
+            </pattern>
+            <pattern id="a3hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="8" height="8" fill="none"/>
+              <rect width="2.6" height="8" fill="#16120e" opacity=".3"/>
+            </pattern>
+          </defs>
+          <rect width="800" height="560" fill="#f0e7d6"/>
+          <rect width="800" height="560" fill="url(#a3hatch)" opacity=".18"/>
+
+          <g stroke="#16120e" stroke-width="5" stroke-linejoin="round">
+            <polygon points="120,440 420,614 800,394 500,220" fill="#c9bda6"/>
+            <polygon points="470,262 790,446 700,498 380,314" fill="#a89c86"/>
+          </g>
+
+          <!-- halftone smoke -->
+          <g class="fx-drift">
+            <g stroke="#16120e" stroke-width="5" stroke-linejoin="round">
+              <path d="M352,180 C 300,140 340,86 396,100 C 384,50 452,30 476,74
+                       C 528,62 546,124 500,144 C 512,190 436,214 400,186 Z"
+                    fill="url(#a3tone)"/>
+            </g>
+          </g>
+
+          <!-- building -->
+          <g stroke="#16120e" stroke-width="5" stroke-linejoin="round">
+            <polygon points="528,234 396,310 396,520 528,444" fill="#6d6350"/>
+            <polygon points="330,120 528,234 396,310 198,196" fill="#8e8471"/>
+            <polygon points="198,196 264,234 264,304 198,266" fill="#c4b79e"/>
+            <polygon points="264,234 330,272 330,342 264,304" fill="#e8541c"/>
+            <polygon points="330,272 396,310 396,380 330,342" fill="#ffa227"/>
+            <polygon points="198,266 264,304 264,374 198,336" fill="#4b4638"/>
+            <polygon points="264,304 330,342 330,412 264,374" fill="#a05a1f"/>
+            <polygon points="330,342 396,380 396,450 330,412" fill="#e8541c"/>
+            <polygon points="198,336 264,374 264,444 198,406" fill="#3f7aa0"/>
+            <polygon points="264,374 330,412 330,482 264,444" fill="#4b4638"/>
+            <polygon points="330,412 396,450 396,520 330,482" fill="#4b4638"/>
+          </g>
+          <!-- speed/heat lines -->
+          <g stroke="#16120e" stroke-width="4" stroke-linecap="round" opacity=".8">
+            <path d="M414,268 L446,250"/><path d="M420,292 L458,278"/><path d="M410,242 L436,220"/>
+          </g>
+          <g class="fx-flicker" stroke="#16120e" stroke-width="5" stroke-linejoin="round">
+            <path d="M334,306 C 340,256 356,272 364,238 C 374,270 392,250 396,290
+                     C 404,266 412,290 404,308 Z" fill="#ffb52e"/>
+            <path d="M350,304 C 354,274 366,282 370,256 C 378,280 388,270 390,300 Z" fill="#fff0a8"/>
+          </g>
+
+          <!-- truck -->
+          <g stroke="#16120e" stroke-width="5" stroke-linejoin="round">
+            <polygon points="552,398 660,460 628,478 520,416" fill="#e33b28"/>
+            <polygon points="660,460 628,478 628,512 660,494" fill="#93261a"/>
+            <polygon points="520,416 628,478 628,512 520,450" fill="#c02f20"/>
+            <rect x="576" y="390" width="32" height="11" rx="4" fill="#2f8fd8"/>
+          </g>
+          <!-- units -->
+          <g stroke="#16120e" stroke-width="4.5" stroke-linejoin="round">
+            <rect x="268" y="442" width="20" height="34" rx="9" fill="#37506b"/>
+            <circle cx="278" cy="436" r="12" fill="#ffc93c"/>
+            <rect x="326" y="472" width="20" height="34" rx="9" fill="#37506b"/>
+            <circle cx="336" cy="466" r="12" fill="#8fd0e0"/>
+          </g>
+          <ellipse cx="278" cy="480" rx="16" ry="6" fill="#16120e" opacity=".3"/>
+          <ellipse cx="336" cy="510" rx="16" ry="6" fill="#16120e" opacity=".3"/>
+          <!-- tree -->
+          <g stroke="#16120e" stroke-width="5" stroke-linejoin="round">
+            <rect x="140" y="418" width="12" height="32" fill="#8a6440"/>
+            <polygon points="146,372 176,414 116,414" fill="#5f9b52"/>
+          </g>
+        </svg>
+      </div>
+      <div class="meta">
+        <span class="idx">Treatment 03</span>
+        <h2>Cel-shaded ink</h2>
+        <p>Heavy black outlines, flat fills, halftone smoke, heat lines borrowed from comic panels. Everything reads instantly — <em>an outline is the strongest readability tool there is</em>, which matters when you're parsing nine cell states at a glance.</p>
+        <div class="chips"><span class="chip hot">High differentiation</span><span class="chip">Best readability</span><span class="chip warn">Outline shader work</span></div>
+      </div>
+    </article>
+
+    <!-- ============ 04 VOXEL ============ -->
+    <article class="swatch">
+      <div class="shot">
+        <svg viewBox="0 0 800 560" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Voxel treatment: the warehouse built from visible cubes with charred, knocked-out blocks around the fire and cubes tumbling loose.">
+          <defs>
+            <radialGradient id="a4g" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="#ff8a2b" stop-opacity=".4"/>
+              <stop offset="1" stop-color="#ff6a18" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="a4b" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="16"/></filter>
+          </defs>
+          <rect width="800" height="560" fill="#1a2130"/>
+          <polygon points="120,440 420,614 800,394 500,220" fill="#2b3548"/>
+          <!-- ground voxel grid -->
+          <g stroke="#222b3b" stroke-width="2">
+            <path d="M186,404 L486,578"/><path d="M252,368 L552,542"/><path d="M318,332 L618,506"/>
+            <path d="M384,296 L684,470"/><path d="M450,260 L750,434"/>
+            <path d="M186,476 L486,302"/><path d="M252,512 L552,338"/><path d="M318,548 L618,374"/>
+          </g>
+          <ellipse cx="380" cy="270" rx="250" ry="170" fill="url(#a4g)"/>
+
+          <g class="fx-drift" opacity=".7">
+            <rect x="340" y="120" width="40" height="40" fill="#4a4038" opacity=".8"/>
+            <rect x="384" y="86" width="52" height="52" fill="#453c34" opacity=".85"/>
+            <rect x="330" y="52" width="44" height="44" fill="#3d3730" opacity=".7"/>
+            <rect x="410" y="30" width="60" height="60" fill="#4a4038" opacity=".75"/>
+            <rect x="366" y="-6" width="48" height="48" fill="#3b3740" opacity=".6"/>
+            <ellipse cx="400" cy="80" rx="130" ry="90" fill="#3f3830" opacity=".35" filter="url(#a4b)"/>
+          </g>
+
+          <!-- building as stacked cubes: right face -->
+          <polygon points="528,234 396,310 396,520 528,444" fill="#243044"/>
+          <g stroke="#1a2130" stroke-width="2.5" fill="none">
+            <path d="M462,272 L462,482 M528,304 L396,380 M528,374 L396,450"/>
+          </g>
+          <!-- roof with stepped/notched edge -->
+          <polygon points="330,120 528,234 396,310 198,196" fill="#3d4a63"/>
+          <g stroke="#2a3448" stroke-width="2.5" fill="none">
+            <path d="M264,158 L462,272 M396,196 L198,272"/>
+            <path d="M264,234 L462,120 M330,272 L132,158"/>
+          </g>
+          <!-- knocked-out roof cubes near fire -->
+          <polygon points="396,196 462,234 396,272 330,234" fill="#120e0a"/>
+          <polygon points="462,234 528,272 462,310 396,272" fill="#1a140e" opacity=".7"/>
+
+          <!-- cutaway cells, voxel-subdivided -->
+          <g>
+            <polygon points="198,196 264,234 264,304 198,266" fill="#6b3616"/>
+            <polygon points="264,234 330,272 330,342 264,304" fill="#d8511a"/>
+            <polygon points="330,272 396,310 396,380 330,342" fill="#ff9d3c"/>
+            <polygon points="198,266 264,304 264,374 198,336" fill="#28303f"/>
+            <polygon points="264,304 330,342 330,412 264,374" fill="#6b3616"/>
+            <polygon points="330,342 396,380 396,450 330,412" fill="#d8511a"/>
+            <polygon points="198,336 264,374 264,444 198,406" fill="#2d4a63"/>
+            <polygon points="264,374 330,412 330,482 264,444" fill="#28303f"/>
+            <polygon points="330,412 396,450 396,520 330,482" fill="#28303f"/>
+          </g>
+          <!-- voxel subdivision lines -->
+          <g stroke="#141a26" stroke-width="2" fill="none" opacity=".75">
+            <path d="M231,215 L231,425 M297,253 L297,463 M363,291 L363,501"/>
+            <path d="M198,231 L396,345 M198,301 L396,415 M198,371 L396,485"/>
+            <path d="M198,196 L396,310 M198,266 L396,380 M198,336 L396,450 M198,406 L396,520"/>
+            <path d="M198,196 L198,406 M264,234 L264,444 M330,272 L330,482 M396,310 L396,520"/>
+          </g>
+          <!-- charred / missing cubes -->
+          <polygon points="330,307 363,326 363,361 330,342" fill="#0f0b08"/>
+          <polygon points="297,323 330,342 330,377 297,358" fill="#160f0a"/>
+          <!-- tumbling debris cubes -->
+          <g opacity=".9">
+            <g transform="translate(452,344) rotate(18)">
+              <polygon points="0,0 20,11 0,22 -20,11" fill="#5a4230"/>
+              <polygon points="-20,11 0,22 0,42 -20,31" fill="#3d2c20"/>
+              <polygon points="20,11 0,22 0,42 20,31" fill="#4a3626"/>
+            </g>
+            <g transform="translate(494,296) rotate(-12)">
+              <polygon points="0,0 14,8 0,16 -14,8" fill="#6b4a2a"/>
+              <polygon points="-14,8 0,16 0,30 -14,22" fill="#42301c"/>
+              <polygon points="14,8 0,16 0,30 14,22" fill="#523a22"/>
+            </g>
+          </g>
+          <g class="fx-flicker">
+            <rect x="334" y="276" width="18" height="18" fill="#ffb44a"/>
+            <rect x="352" y="258" width="18" height="18" fill="#ffd66e"/>
+            <rect x="370" y="276" width="18" height="18" fill="#ff8f2e"/>
+            <rect x="352" y="294" width="18" height="18" fill="#ffe08a"/>
+            <rect x="286" y="352" width="15" height="15" fill="#ff8f2e" opacity=".85"/>
+            <rect x="301" y="338" width="15" height="15" fill="#ffb44a" opacity=".85"/>
+          </g>
+
+          <!-- truck, blocky -->
+          <g>
+            <polygon points="552,398 660,460 628,478 520,416" fill="#d84433"/>
+            <polygon points="660,460 628,478 628,512 660,494" fill="#8f2a20"/>
+            <polygon points="520,416 628,478 628,512 520,450" fill="#b03325"/>
+            <g stroke="#7a2419" stroke-width="2" fill="none">
+              <path d="M556,438 L556,472 M592,459 L592,493"/>
+            </g>
+            <rect x="576" y="390" width="30" height="11" fill="#4f9dff"/>
+          </g>
+          <!-- units, blocky -->
+          <g>
+            <rect x="268" y="444" width="20" height="30" fill="#3a4250"/>
+            <rect x="268" y="430" width="20" height="14" fill="#e8b736"/>
+            <rect x="326" y="474" width="20" height="30" fill="#3a4250"/>
+            <rect x="326" y="460" width="20" height="14" fill="#8fb8c9"/>
+          </g>
+          <!-- tree, blocky -->
+          <g>
+            <rect x="140" y="416" width="12" height="30" fill="#4a3524"/>
+            <rect x="122" y="380" width="48" height="38" fill="#3d6b38"/>
+            <rect x="132" y="366" width="28" height="16" fill="#4a7d42"/>
+          </g>
+        </svg>
+      </div>
+      <div class="meta">
+        <span class="idx">Treatment 04</span>
+        <h2>Voxel</h2>
+        <p>Everything is cubes, which means destruction is <em>free and legible</em> — a burnt cell literally loses blocks, char spreads block by block, debris tumbles. The fire sim and the art style become the same data structure.</p>
+        <div class="chips"><span class="chip hot">Sim = art</span><span class="chip">MagicaVoxel pipeline</span><span class="chip warn">Reads &ldquo;Minecraft clone&rdquo;</span></div>
+      </div>
+    </article>
+
+    <!-- ============ 05 BLUEPRINT ============ -->
+    <article class="swatch">
+      <div class="shot">
+        <svg viewBox="0 0 800 560" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Blueprint schematic treatment: the building drawn as cyan technical line work on a dark grid board, with fire as the only solid fill.">
+          <defs>
+            <pattern id="a5grid" width="26" height="26" patternUnits="userSpaceOnUse">
+              <rect width="26" height="26" fill="#0b1622"/>
+              <path d="M26,0 L0,0 L0,26" fill="none" stroke="#12283c" stroke-width="1"/>
+            </pattern>
+            <filter id="a5b" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="12"/></filter>
+          </defs>
+          <rect width="800" height="560" fill="url(#a5grid)"/>
+          <g stroke="#183551" stroke-width="1.6" opacity=".8">
+            <path d="M0,130 H800"/><path d="M0,430 H800"/><path d="M130,0 V560"/><path d="M670,0 V560"/>
+          </g>
+
+          <!-- site outline -->
+          <polygon points="120,440 420,614 800,394 500,220" fill="none"
+                   stroke="#2f6e94" stroke-width="1.6" stroke-dasharray="9 7"/>
+          <polygon points="470,262 790,446 700,498 380,314" fill="#0f2436" stroke="#2a5f80" stroke-width="1.4"/>
+
+          <!-- building line work -->
+          <g fill="none" stroke="#5cc8e0" stroke-width="2.2">
+            <polygon points="330,120 528,234 396,310 198,196"/>
+            <polygon points="528,234 396,310 396,520 528,444"/>
+            <polygon points="198,196 396,310 396,520 198,406"/>
+            <path d="M198,266 L396,380 M198,336 L396,450"/>
+            <path d="M264,234 L264,444 M330,272 L330,482"/>
+            <path d="M396,310 L396,520 M528,234 L528,444"/>
+            <path d="M462,272 L462,482" stroke-dasharray="6 6" opacity=".55"/>
+          </g>
+          <!-- occupancy fills -->
+          <g opacity=".16">
+            <polygon points="198,336 264,374 264,444 198,406" fill="#5cc8e0"/>
+            <polygon points="264,374 330,412 330,482 264,444" fill="#5cc8e0"/>
+          </g>
+          <!-- FIRE: the only solid colour on the board -->
+          <g>
+            <ellipse cx="330" cy="330" rx="150" ry="120" fill="#ff6a18" opacity=".22" filter="url(#a5b)"/>
+            <polygon points="264,234 330,272 330,342 264,304" fill="#ff6a18" opacity=".8"/>
+            <polygon points="330,272 396,310 396,380 330,342" fill="#ffa927"/>
+            <polygon points="264,304 330,342 330,412 264,374" fill="#c74a13" opacity=".65"/>
+            <polygon points="330,342 396,380 396,450 330,412" fill="#ff6a18" opacity=".8"/>
+            <polygon points="198,196 264,234 264,304 198,266" fill="#8a3a12" opacity=".45"/>
+          </g>
+          <g class="fx-flicker">
+            <polygon points="338,296 348,262 358,290 370,256 382,294 394,270 400,310 332,310" fill="#ffc247"/>
+          </g>
+
+          <!-- smoke as contour lines -->
+          <g fill="none" stroke="#5cc8e0" stroke-width="1.4" opacity=".45" class="fx-drift">
+            <ellipse cx="392" cy="176" rx="62" ry="40"/>
+            <ellipse cx="404" cy="130" rx="92" ry="54"/>
+            <ellipse cx="392" cy="76" rx="122" ry="64"/>
+            <ellipse cx="416" cy="26" rx="150" ry="66"/>
+          </g>
+
+          <!-- annotation -->
+          <g font-family="ui-monospace, SF Mono, Menlo, monospace" fill="#5cc8e0">
+            <path d="M400,364 L520,364 L560,340" stroke="#5cc8e0" stroke-width="1.4" fill="none"/>
+            <circle cx="400" cy="364" r="3.5" fill="#5cc8e0"/>
+            <text x="566" y="336" font-size="14" letter-spacing="2">CELL C2 · FLASHOVER</text>
+            <text x="566" y="356" font-size="12" letter-spacing="1.5" fill="#2f7fa0">FUEL 0.42 · 690°C</text>
+
+            <path d="M198,406 L150,440 L104,440" stroke="#5cc8e0" stroke-width="1.4" fill="none"/>
+            <text x="18" y="436" font-size="13" letter-spacing="2">ENTRY A</text>
+
+            <!-- dimension line -->
+            <g stroke="#2f7fa0" stroke-width="1.2">
+              <path d="M186,214 L174,540"/><path d="M384,328 L372,654"/>
+            </g>
+            <text x="120" y="500" font-size="12" letter-spacing="2" fill="#2f7fa0">18.0 m</text>
+
+            <!-- title block -->
+            <g>
+              <rect x="556" y="440" width="228" height="96" fill="#0a1420" stroke="#2a5f80" stroke-width="1.4"/>
+              <path d="M556,466 H784" stroke="#2a5f80" stroke-width="1.2"/>
+              <text x="568" y="459" font-size="12" letter-spacing="3">PRE-PLAN · WAREHOUSE 4</text>
+              <text x="568" y="486" font-size="11" letter-spacing="1.5" fill="#2f7fa0">CONSTR · TYPE II · UNSPRINKLERED</text>
+              <text x="568" y="504" font-size="11" letter-spacing="1.5" fill="#2f7fa0">HAZMAT · PROPANE, N-CORNER</text>
+              <text x="568" y="524" font-size="11" letter-spacing="1.5" fill="#ff8f3c">STATUS · ACTIVE FIRE</text>
+            </g>
+          </g>
+
+          <!-- units as symbols -->
+          <g stroke="#5cc8e0" stroke-width="2" fill="none">
+            <circle cx="278" cy="454" r="11"/><path d="M272,454 H284 M278,448 V460"/>
+            <circle cx="336" cy="484" r="11"/><path d="M330,484 H342 M336,478 V490"/>
+            <rect x="536" y="416" width="112" height="52" transform="skewY(30)" opacity=".9"/>
+          </g>
+        </svg>
+      </div>
+      <div class="meta">
+        <span class="idx">Treatment 05</span>
+        <h2>Incident pre-plan</h2>
+        <p>The world rendered the way a fire department actually documents a building: schematic line work, occupancy shading, hazard notes, a title block. Fire is <em>the only solid colour on the board</em>. Cold, precise, and completely unlike anything shipping.</p>
+        <div class="chips"><span class="chip hot">Most distinctive</span><span class="chip">Near-zero art cost</span><span class="chip warn">Emotionally cold</span></div>
+      </div>
+    </article>
+
+    <!-- ============ 06 TILT-SHIFT ============ -->
+    <article class="swatch">
+      <div class="shot">
+        <svg viewBox="0 0 800 560" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Tilt-shift miniature treatment: realistically shaded warehouse with warm sunlight, soft shadows and blurred frame edges suggesting a photographed model.">
+          <defs>
+            <linearGradient id="a6roof" x1="0" y1="0" x2=".6" y2="1">
+              <stop offset="0" stop-color="#6f6a63"/><stop offset="1" stop-color="#4d4943"/>
+            </linearGradient>
+            <linearGradient id="a6wall" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#4a463f"/><stop offset="1" stop-color="#332f2b"/>
+            </linearGradient>
+            <linearGradient id="a6grnd" x1="0" y1="0" x2=".4" y2="1">
+              <stop offset="0" stop-color="#3f4a3a"/><stop offset="1" stop-color="#2a3128"/>
+            </linearGradient>
+            <linearGradient id="a6road" x1="0" y1="0" x2="1" y2=".4">
+              <stop offset="0" stop-color="#59564f"/><stop offset="1" stop-color="#403d38"/>
+            </linearGradient>
+            <radialGradient id="a6glow" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="#ff9436" stop-opacity=".6"/>
+              <stop offset="1" stop-color="#ff6a18" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="a6dof" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+            <filter id="a6soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="14"/></filter>
+            <linearGradient id="a6top" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#141a22" stop-opacity=".55"/>
+              <stop offset="1" stop-color="#141a22" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="a6bot" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0" stop-color="#141a22" stop-opacity=".6"/>
+              <stop offset="1" stop-color="#141a22" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <rect width="800" height="560" fill="#232a2c"/>
+
+          <!-- blurred far background -->
+          <g filter="url(#a6dof)">
+            <polygon points="120,440 420,614 800,394 500,220" fill="url(#a6grnd)"/>
+            <polygon points="470,262 790,446 700,498 380,314" fill="url(#a6road)"/>
+            <g fill="#3a4038">
+              <polygon points="612,208 700,258 640,292 552,242"/>
+              <polygon points="552,242 640,292 640,330 552,280"/>
+              <polygon points="700,258 640,292 640,330 700,296"/>
+            </g>
+          </g>
+          <polygon points="120,440 420,614 800,394 500,220" fill="url(#a6grnd)" opacity=".55"/>
+          <polygon points="470,262 790,446 700,498 380,314" fill="url(#a6road)" opacity=".7"/>
+
+          <!-- contact shadow -->
+          <ellipse cx="360" cy="500" rx="230" ry="70" fill="#0d1114" opacity=".55" filter="url(#a6soft)"/>
+          <ellipse cx="380" cy="270" rx="250" ry="180" fill="url(#a6glow)"/>
+
+          <!-- building -->
+          <polygon points="528,234 396,310 396,520 528,444" fill="url(#a6wall)"/>
+          <polygon points="330,120 528,234 396,310 198,196" fill="url(#a6roof)"/>
+          <!-- roof detail: seams + vents -->
+          <g stroke="#5b5750" stroke-width="1.6" opacity=".7">
+            <path d="M264,158 L462,272 M330,196 L132,272"/>
+          </g>
+          <g fill="#7a746b">
+            <polygon points="440,206 462,218 440,230 418,218"/>
+            <polygon points="418,218 440,230 440,244 418,232"/>
+            <polygon points="462,218 440,230 440,244 462,232"/>
+          </g>
+          <!-- wall detail -->
+          <g opacity=".5">
+            <rect x="412" y="352" width="96" height="56" transform="skewY(-30)" fill="#2b2825"/>
+          </g>
+
+          <!-- cells with soft shading -->
+          <g>
+            <polygon points="198,196 264,234 264,304 198,266" fill="#4a3320"/>
+            <polygon points="264,234 330,272 330,342 264,304" fill="#c1521c"/>
+            <polygon points="330,272 396,310 396,380 330,342" fill="#ff9b34"/>
+            <polygon points="198,266 264,304 264,374 198,336" fill="#292724"/>
+            <polygon points="264,304 330,342 330,412 264,374" fill="#4a3320"/>
+            <polygon points="330,342 396,380 396,450 330,412" fill="#c1521c"/>
+            <polygon points="198,336 264,374 264,444 198,406" fill="#2e4150"/>
+            <polygon points="264,374 330,412 330,482 264,444" fill="#292724"/>
+            <polygon points="330,412 396,450 396,520 330,482" fill="#292724"/>
+          </g>
+          <g stroke="#1a1815" stroke-width="3" fill="none" opacity=".8">
+            <path d="M198,196 L396,310 M198,266 L396,380 M198,336 L396,450 M198,406 L396,520"/>
+            <path d="M198,196 L198,406 M264,234 L264,444 M330,272 L330,482 M396,310 L396,520"/>
+          </g>
+          <!-- interior glow bleed -->
+          <ellipse cx="340" cy="330" rx="90" ry="80" fill="#ff8a2b" opacity=".25" filter="url(#a6soft)"/>
+
+          <g class="fx-flicker">
+            <polygon points="336,300 346,262 356,292 368,254 380,294 392,266 400,308 330,308" fill="#ffab3c"/>
+            <polygon points="348,300 358,272 368,296 378,268 386,304 342,304" fill="#ffe6a0"/>
+          </g>
+          <!-- realistic smoke -->
+          <g class="fx-drift" opacity=".85">
+            <ellipse cx="392" cy="160" rx="86" ry="66" fill="#4c4038" filter="url(#a6soft)"/>
+            <ellipse cx="430" cy="96" rx="110" ry="70" fill="#3f3a36" filter="url(#a6soft)"/>
+            <ellipse cx="382" cy="42" rx="132" ry="66" fill="#37342f" filter="url(#a6soft)"/>
+          </g>
+
+          <!-- truck with shading -->
+          <g>
+            <ellipse cx="590" cy="504" rx="76" ry="18" fill="#0d1114" opacity=".5" filter="url(#a6soft)"/>
+            <polygon points="552,398 660,460 628,478 520,416" fill="#d0473a"/>
+            <polygon points="660,460 628,478 628,512 660,494" fill="#7d251b"/>
+            <polygon points="520,416 628,478 628,512 520,450" fill="#a53326"/>
+            <rect x="524" y="452" width="98" height="12" transform="skewY(30)" fill="#e8e4dc" opacity=".55"/>
+            <rect x="576" y="390" width="30" height="11" rx="3" fill="#4f9dff"/>
+            <ellipse cx="591" cy="395" rx="42" ry="24" fill="#4f9dff" opacity=".3" filter="url(#a6soft)"/>
+          </g>
+          <!-- units -->
+          <g>
+            <ellipse cx="278" cy="478" rx="14" ry="6" fill="#0d1114" opacity=".55" filter="url(#a6soft)"/>
+            <rect x="270" y="446" width="16" height="32" rx="7" fill="#39424e"/>
+            <circle cx="278" cy="441" r="10" fill="#d8a326"/>
+            <ellipse cx="336" cy="508" rx="14" ry="6" fill="#0d1114" opacity=".55" filter="url(#a6soft)"/>
+            <rect x="328" y="476" width="16" height="32" rx="7" fill="#39424e"/>
+            <circle cx="336" cy="471" r="10" fill="#8fb8c9"/>
+          </g>
+          <!-- tree -->
+          <g>
+            <rect x="142" y="416" width="9" height="30" fill="#4a3a2a"/>
+            <ellipse cx="146" cy="402" rx="30" ry="24" fill="#3d5636"/>
+            <ellipse cx="138" cy="394" rx="18" ry="14" fill="#4d6a42"/>
+          </g>
+
+          <!-- tilt-shift bands -->
+          <rect x="0" y="0" width="800" height="150" fill="url(#a6top)"/>
+          <rect x="0" y="430" width="800" height="130" fill="url(#a6bot)"/>
+          <g filter="url(#a6dof)" opacity=".9">
+            <rect x="0" y="0" width="800" height="54" fill="#232a2c" opacity=".5"/>
+            <rect x="0" y="518" width="800" height="42" fill="#1b2124" opacity=".6"/>
+          </g>
+        </svg>
+      </div>
+      <div class="meta">
+        <span class="idx">Treatment 06</span>
+        <h2>Tilt-shift miniature</h2>
+        <p>Realistic materials at model-railroad scale, with defocused frame edges selling the illusion of a photographed diorama. <em>The most premium-looking option and by far the most expensive</em> — it needs real texture and lighting work to avoid looking cheap.</p>
+        <div class="chips"><span class="chip">Premium feel</span><span class="chip warn">Highest art cost</span><span class="chip warn">Closest to competitors</span></div>
+      </div>
+    </article>
+
+  </div>
+
+  <!-- ============ RECOMMENDATION ============ -->
+
+  <div class="rule"><h3>My pick</h3><span class="note">Toy diorama · full scene</span></div>
+
+  <figure class="pick-frame" style="margin:0;">
+    <div class="shot">
+      <svg viewBox="0 0 1600 800" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="Full toy-diorama scene: a soft pastel city block on a floating base, one building on fire with fluffy smoke, fire engines, tiny firefighters, park and pond.">
+        <defs>
+          <linearGradient id="h1sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#a9d2ea"/><stop offset=".62" stop-color="#d6e3e6"/>
+            <stop offset="1" stop-color="#f0e5d4"/>
+          </linearGradient>
+          <filter id="h1sh" x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#5f5346" flood-opacity=".3"/>
+          </filter>
+          <filter id="h1ss" x="-60%" y="-60%" width="220%" height="220%">
+            <feDropShadow dx="0" dy="7" stdDeviation="6" flood-color="#5f5346" flood-opacity=".35"/>
+          </filter>
+          <radialGradient id="h1heat" cx=".5" cy=".5" r=".5">
+            <stop offset="0" stop-color="#ff9436" stop-opacity=".35"/>
+            <stop offset="1" stop-color="#ff9436" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="1600" height="800" fill="url(#h1sky)"/>
+        <g fill="#ffffff" opacity=".55">
+          <circle cx="200" cy="96" r="30"/><circle cx="244" cy="86" r="40"/><circle cx="290" cy="100" r="28"/>
+          <circle cx="1330" cy="140" r="26"/><circle cx="1372" cy="130" r="36"/><circle cx="1414" cy="144" r="24"/>
+        </g>
+
+        <!-- floating base slab -->
+        <g filter="url(#h1sh)">
+          <polygon points="800,150 1520,566 800,982 80,566" fill="#9dc48c"
+                   stroke="#9dc48c" stroke-width="22" stroke-linejoin="round"/>
+          <polygon points="80,566 800,982 800,1030 80,614" fill="#7ba46c"
+                   stroke="#7ba46c" stroke-width="18" stroke-linejoin="round"/>
+          <polygon points="1520,566 800,982 800,1030 1520,614" fill="#6b9160"
+                   stroke="#6b9160" stroke-width="18" stroke-linejoin="round"/>
+        </g>
+
+        <!-- pond -->
+        <polygon points="300,600 420,670 300,740 180,670" fill="#7cc0d8"
+                 stroke="#7cc0d8" stroke-width="16" stroke-linejoin="round"/>
+        <!-- roads -->
+        <polygon points="640,318 1330,716 1230,774 540,376" fill="#d3ccbf"
+                 stroke="#d3ccbf" stroke-width="16" stroke-linejoin="round"/>
+        <polygon points="352,470 1050,872 1140,820 442,418" fill="#d3ccbf"
+                 stroke="#d3ccbf" stroke-width="16" stroke-linejoin="round"/>
+        <g stroke="#f2ede3" stroke-width="6" stroke-dasharray="24 22" opacity=".85">
+          <path d="M596,352 L1284,748"/>
+          <path d="M400,446 L1094,846"/>
+        </g>
+
+        <!-- background buildings -->
+        <g filter="url(#h1ss)">
+          <g>
+            <polygon points="470,318 560,370 470,422 380,370" fill="#f2e6d2" stroke="#f2e6d2" stroke-width="14" stroke-linejoin="round"/>
+            <polygon points="380,370 470,422 470,510 380,458" fill="#dbccb4" stroke="#dbccb4" stroke-width="14" stroke-linejoin="round"/>
+            <polygon points="560,370 470,422 470,510 560,458" fill="#c9b99f" stroke="#c9b99f" stroke-width="14" stroke-linejoin="round"/>
+            <polygon points="470,300 566,356 470,412 374,356" fill="#7fb6d4" stroke="#7fb6d4" stroke-width="12" stroke-linejoin="round"/>
+          </g>
+          <g>
+            <polygon points="1096,398 1186,450 1096,502 1006,450" fill="#efe0cc" stroke="#efe0cc" stroke-width="14" stroke-linejoin="round"/>
+            <polygon points="1006,450 1096,502 1096,578 1006,526" fill="#d8c8ae" stroke="#d8c8ae" stroke-width="14" stroke-linejoin="round"/>
+            <polygon points="1186,450 1096,502 1096,578 1186,526" fill="#c6b599" stroke="#c6b599" stroke-width="14" stroke-linejoin="round"/>
+            <polygon points="1096,380 1192,436 1096,492 1000,436" fill="#e0a06a" stroke="#e0a06a" stroke-width="12" stroke-linejoin="round"/>
+          </g>
+          <g>
+            <polygon points="1268,540 1340,582 1268,624 1196,582" fill="#f2e6d2" stroke="#f2e6d2" stroke-width="12" stroke-linejoin="round"/>
+            <polygon points="1196,582 1268,624 1268,682 1196,640" fill="#dbccb4" stroke="#dbccb4" stroke-width="12" stroke-linejoin="round"/>
+            <polygon points="1340,582 1268,624 1268,682 1340,640" fill="#c9b99f" stroke="#c9b99f" stroke-width="12" stroke-linejoin="round"/>
+            <polygon points="1268,524 1346,570 1268,616 1190,570" fill="#8bbd7e" stroke="#8bbd7e" stroke-width="10" stroke-linejoin="round"/>
+          </g>
+        </g>
+
+        <!-- heat shimmer -->
+        <ellipse cx="800" cy="360" rx="380" ry="280" fill="url(#h1heat)"/>
+
+        <!-- ===== the burning building ===== -->
+        <g filter="url(#h1sh)">
+          <!-- right wall -->
+          <polygon points="948,378 796,466 796,700 948,612" fill="#d9b89a"
+                   stroke="#d9b89a" stroke-width="18" stroke-linejoin="round"/>
+          <g opacity=".9">
+            <polygon points="900,442 852,470 852,520 900,492" fill="#b8977a" stroke="#b8977a" stroke-width="8" stroke-linejoin="round"/>
+            <polygon points="900,540 852,568 852,618 900,590" fill="#b8977a" stroke="#b8977a" stroke-width="8" stroke-linejoin="round"/>
+          </g>
+          <!-- cutaway cells -->
+          <polygon points="568,332 644,376 644,454 568,410" fill="#f4e7d4" stroke="#f4e7d4" stroke-width="10" stroke-linejoin="round"/>
+          <polygon points="644,376 720,420 720,498 644,454" fill="#ef8f3c" stroke="#ef8f3c" stroke-width="10" stroke-linejoin="round"/>
+          <polygon points="720,420 796,464 796,542 720,498" fill="#ffbe52" stroke="#ffbe52" stroke-width="10" stroke-linejoin="round"/>
+          <polygon points="568,410 644,454 644,532 568,488" fill="#e6d5be" stroke="#e6d5be" stroke-width="10" stroke-linejoin="round"/>
+          <polygon points="644,454 720,498 720,576 644,532" fill="#f4e7d4" stroke="#f4e7d4" stroke-width="10" stroke-linejoin="round"/>
+          <polygon points="720,498 796,542 796,620 720,576" fill="#ef8f3c" stroke="#ef8f3c" stroke-width="10" stroke-linejoin="round"/>
+          <polygon points="568,488 644,532 644,610 568,566" fill="#8fc4d6" stroke="#8fc4d6" stroke-width="10" stroke-linejoin="round"/>
+          <polygon points="644,532 720,576 720,654 644,610" fill="#8fc4d6" stroke="#8fc4d6" stroke-width="10" stroke-linejoin="round"/>
+          <polygon points="720,576 796,620 796,698 720,654" fill="#e6d5be" stroke="#e6d5be" stroke-width="10" stroke-linejoin="round"/>
+          <!-- roof -->
+          <polygon points="720,242 948,374 796,462 568,330" fill="#e0705c"
+                   stroke="#e0705c" stroke-width="20" stroke-linejoin="round"/>
+          <polygon points="720,258 916,371 796,440 600,327" fill="#ee8a72"
+                   stroke="#ee8a72" stroke-width="12" stroke-linejoin="round" opacity=".75"/>
+        </g>
+
+        <!-- fire -->
+        <g class="fx-flicker">
+          <ellipse cx="752" cy="418" rx="66" ry="42" fill="#ffd166" opacity=".9"/>
+          <path d="M700,446 C 706,376 734,392 744,344 C 762,384 792,358 798,418
+                   C 808,384 822,418 812,452 Z" fill="#ff9a3c"/>
+          <path d="M722,446 C 728,398 748,408 754,370 C 768,404 784,390 788,440 Z" fill="#ffe8a3"/>
+          <path d="M660,540 C 664,506 680,514 686,486 C 696,510 710,500 712,536 Z" fill="#ff9a3c" opacity=".85"/>
+        </g>
+
+        <!-- fluffy smoke -->
+        <g class="fx-drift">
+          <circle cx="742" cy="242" r="54" fill="#f0eee9"/>
+          <circle cx="806" cy="196" r="70" fill="#fbfaf7"/>
+          <circle cx="716" cy="164" r="58" fill="#ece9e3"/>
+          <circle cx="818" cy="108" r="82" fill="#fdfcfa"/>
+          <circle cx="712" cy="76" r="62" fill="#f2f0eb"/>
+          <circle cx="826" cy="34" r="66" fill="#f8f6f2"/>
+          <circle cx="762" cy="286" r="34" fill="#e2dbd2" opacity=".9"/>
+        </g>
+
+        <!-- engines -->
+        <g filter="url(#h1ss)">
+          <polygon points="1024,606 1152,680 1116,702 988,628" fill="#f45f4a" stroke="#f45f4a" stroke-width="16" stroke-linejoin="round"/>
+          <polygon points="1152,680 1116,702 1116,738 1152,716" fill="#c9432f" stroke="#c9432f" stroke-width="14" stroke-linejoin="round"/>
+          <polygon points="988,628 1116,702 1116,738 988,664" fill="#e0503b" stroke="#e0503b" stroke-width="14" stroke-linejoin="round"/>
+          <rect x="1052" y="592" width="40" height="14" rx="7" fill="#5fb7e8"/>
+          <rect x="1000" y="676" width="106" height="14" rx="7" transform="skewY(30)" fill="#fff3d6" opacity=".8"/>
+        </g>
+        <g filter="url(#h1ss)">
+          <polygon points="420,538 520,596 490,614 390,556" fill="#f45f4a" stroke="#f45f4a" stroke-width="14" stroke-linejoin="round"/>
+          <polygon points="520,596 490,614 490,644 520,626" fill="#c9432f" stroke="#c9432f" stroke-width="12" stroke-linejoin="round"/>
+          <polygon points="390,556 490,614 490,644 390,586" fill="#e0503b" stroke="#e0503b" stroke-width="12" stroke-linejoin="round"/>
+          <rect x="442" y="526" width="34" height="12" rx="6" fill="#5fb7e8"/>
+        </g>
+
+        <!-- hose line -->
+        <path d="M1010,656 C 900,700 800,724 706,712" stroke="#f2d98a" stroke-width="11"
+              fill="none" stroke-linecap="round"/>
+        <path d="M470,596 C 540,640 606,676 664,690" stroke="#f2d98a" stroke-width="11"
+              fill="none" stroke-linecap="round"/>
+
+        <!-- tiny firefighters -->
+        <g>
+          <g filter="url(#h1ss)">
+            <ellipse cx="676" cy="722" rx="19" ry="9" fill="#5d7f52" opacity=".4"/>
+            <rect x="662" y="678" width="28" height="46" rx="14" fill="#4a6d8f"/>
+            <rect x="662" y="700" width="28" height="9" fill="#ffe066"/>
+            <circle cx="676" cy="672" r="16" fill="#ffcf4a"/>
+          </g>
+          <g filter="url(#h1ss)">
+            <ellipse cx="620" cy="760" rx="19" ry="9" fill="#5d7f52" opacity=".4"/>
+            <rect x="606" y="716" width="28" height="46" rx="14" fill="#4a6d8f"/>
+            <rect x="606" y="738" width="28" height="9" fill="#ffe066"/>
+            <circle cx="620" cy="710" r="16" fill="#e8622f"/>
+          </g>
+          <g filter="url(#h1ss)">
+            <ellipse cx="906" cy="742" rx="17" ry="8" fill="#5d7f52" opacity=".4"/>
+            <rect x="894" y="702" width="24" height="42" rx="12" fill="#4a6d8f"/>
+            <circle cx="906" cy="696" r="14" fill="#ffcf4a"/>
+          </g>
+          <!-- rescued civilian -->
+          <g filter="url(#h1ss)">
+            <ellipse cx="978" cy="776" rx="16" ry="8" fill="#5d7f52" opacity=".4"/>
+            <rect x="966" y="738" width="24" height="40" rx="12" fill="#8fb8d6"/>
+            <circle cx="978" cy="732" r="13" fill="#e8c39a"/>
+          </g>
+        </g>
+
+        <!-- hydrant -->
+        <g filter="url(#h1ss)">
+          <rect x="1002" y="640" width="14" height="26" rx="7" fill="#f45f4a"/>
+          <circle cx="1009" cy="638" r="8" fill="#ff7a63"/>
+        </g>
+
+        <!-- trees + props -->
+        <g filter="url(#h1ss)">
+          <rect x="256" y="500" width="14" height="40" rx="7" fill="#a8825e"/>
+          <circle cx="263" cy="486" r="36" fill="#6fae63"/>
+          <circle cx="250" cy="474" r="21" fill="#83c073"/>
+          <rect x="1408" y="500" width="12" height="34" rx="6" fill="#a8825e"/>
+          <circle cx="1414" cy="488" r="28" fill="#6fae63"/>
+          <rect x="596" y="742" width="10" height="28" rx="5" fill="#a8825e"/>
+          <circle cx="601" cy="734" r="22" fill="#6fae63"/>
+          <rect x="1180" y="404" width="10" height="30" rx="5" fill="#a8825e"/>
+          <circle cx="1185" cy="396" r="24" fill="#6fae63"/>
+        </g>
+
+        <!-- diegetic label -->
+        <g font-family="ui-monospace, SF Mono, Menlo, monospace">
+          <rect x="60" y="60" width="290" height="76" rx="14" fill="#ffffff" opacity=".82"/>
+          <text x="84" y="96" font-size="20" letter-spacing="3" fill="#c9502f">WAREHOUSE 4</text>
+          <text x="84" y="122" font-size="16" letter-spacing="1.5" fill="#7a6f60">3 CELLS BURNING · 1 RESCUED</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption class="pick-cap">
+      <div>
+        <span class="verdict">Recommended</span>
+        <h2>Toy diorama</h2>
+        <p class="lede">Soft matte materials, rounded silhouettes, a floating base slab, high-key daylight. It looks like a beautifully made model of a town where one building happens to be on fire — and that framing is doing a lot of work for you.</p>
+        <p>Three reasons beyond taste. It's the only direction on this page that no competitor occupies, so a screenshot is instantly identifiable as yours. It's the cheapest to make <em>look finished</em> — rounded matte shapes with baked ambient occlusion hide the imprecision that faceted or realistic styles expose. And bright pastels make the fire read hotter than a dark palette does, because the eye judges saturation relatively.</p>
+        <p>The honest risk: it reads playful, and firefighting has real stakes. That's manageable — keep civilians abstract, keep the writing straight, and let the fire behave seriously even when the world looks soft. <em>Lego City</em> and <em>Two Point</em> pull off the same trick. But if you want the dread of the night-fire frames from pass 01, this isn't the direction.</p>
+      </div>
+      <div>
+        <ul class="tradeoffs">
+          <li class="up"><span class="m">+</span><span>Unoccupied in the genre — instantly recognizable</span></li>
+          <li class="up"><span class="m">+</span><span>Forgiving to build; no texture work, bakes cheaply</span></li>
+          <li class="up"><span class="m">+</span><span>Fire pops harder against pastel than against slate</span></li>
+          <li class="up"><span class="m">+</span><span>Runs anywhere — flat colours, tiny material count</span></li>
+          <li class="up"><span class="m">+</span><span>Screenshot-friendly, which matters for a web game</span></li>
+          <li class="dn"><span class="m">−</span><span>Tone skews light; drama has to come from systems</span></li>
+          <li class="dn"><span class="m">−</span><span>Night scenes lose the palette's main advantage</span></li>
+        </ul>
+      </div>
+    </figcaption>
+  </figure>
+
+  <!-- ============ MATRIX ============ -->
+
+  <div class="rule"><h3>Scored</h3></div>
+
+  <div class="matrix-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Treatment</th>
+          <th scope="col">Differentiation</th>
+          <th scope="col">Cell state readable</th>
+          <th scope="col">Art cost</th>
+          <th scope="col">Browser perf</th>
+          <th scope="col">Tone</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="pick">
+          <th scope="row">Toy diorama</th>
+          <td class="score"><b>●●●●●</b></td>
+          <td class="score"><b>●●●●</b><i>●</i></td>
+          <td>Low</td>
+          <td>Excellent</td>
+          <td>Warm, playful</td>
+        </tr>
+        <tr>
+          <th scope="row">Cel-shaded ink</th>
+          <td class="score"><b>●●●●</b><i>●</i></td>
+          <td class="score"><b>●●●●●</b></td>
+          <td>Medium</td>
+          <td>Good</td>
+          <td>Punchy, graphic</td>
+        </tr>
+        <tr>
+          <th scope="row">Incident pre-plan</th>
+          <td class="score"><b>●●●●●</b></td>
+          <td class="score"><b>●●●●</b><i>●</i></td>
+          <td>Very low</td>
+          <td>Excellent</td>
+          <td>Cold, procedural</td>
+        </tr>
+        <tr>
+          <th scope="row">Voxel</th>
+          <td class="score"><b>●●</b><i>●●●</i></td>
+          <td class="score"><b>●●●</b><i>●●</i></td>
+          <td>Low</td>
+          <td>Good</td>
+          <td>Blocky, familiar</td>
+        </tr>
+        <tr>
+          <th scope="row">Flat low-poly</th>
+          <td class="score"><b>●●</b><i>●●●</i></td>
+          <td class="score"><b>●●●●</b><i>●</i></td>
+          <td>Low</td>
+          <td>Excellent</td>
+          <td>Neutral, clean</td>
+        </tr>
+        <tr>
+          <th scope="row">Tilt-shift miniature</th>
+          <td class="score"><b>●●</b><i>●●●</i></td>
+          <td class="score"><b>●●</b><i>●●●</i></td>
+          <td>Very high</td>
+          <td>Fair</td>
+          <td>Serious, premium</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============ LAWS ============ -->
+
+  <div class="rule"><h3>True in every direction</h3></div>
+
+  <div class="laws">
+    <div class="law">
+      <h4>Fire owns saturation</h4>
+      <p>Whatever palette you pick, nothing else on screen gets to be as saturated as the fire. That single rule survives all six treatments and is what keeps the game readable at a glance.</p>
+    </div>
+    <div class="law">
+      <h4>Cell state needs four steps</h4>
+      <p>Clear, heating, burning, wetted. Those four must be distinguishable at thumbnail size and for colour-blind players — so vary lightness, not just hue, and consider a texture or icon overlay as a backup channel.</p>
+    </div>
+    <div class="law">
+      <h4>Smoke is the wayfinder</h4>
+      <p>The plume has to be visible above rooftops from anywhere on the map, in every style. Fluffy in the diorama, halftone in the cel version, contour lines in the schematic — same job, different clothes.</p>
+    </div>
+  </div>
+
+  <section class="decide">
+    <h3>How I'd settle it</h3>
+    <p><b>If you want the widest audience and the fastest path to something that looks finished:</b> toy diorama. It's the pick above, and it's the one where a solo dev's output looks intentional rather than unfinished.</p>
+    <p><b>If you want it to feel sharper and more grown-up without going realistic:</b> cel-shaded ink. Same differentiation benefit, more edge, costs you an outline shader and stricter palette discipline. This is the close second.</p>
+    <p><b>If the fire simulation is the actual product and you want the art to get out of its way:</b> incident pre-plan. It's the boldest thing on the page, near-free to build, and it turns your biggest constraint — no art team — into a deliberate aesthetic. It will not be for everyone.</p>
+    <p>Cheapest way to be sure: I can build the fire-cell toy from Milestone 1 with a style switcher, so the same scene renders in two or three of these and you can look at them moving. Styles read very differently once the fire is animating and the smoke is drifting.</p>
+  </section>
+
+  <div class="srcs">
+    Sources
+    <ul>
+      <li><a href="https://store.steampowered.com/app/1362560/Fire_Commander/">Fire Commander — Steam</a></li>
+      <li><a href="https://store.steampowered.com/app/809720/Rescue_HQ__The_Tycoon/">Rescue HQ: The Tycoon — Steam</a></li>
+      <li><a href="https://play.google.com/store/apps/details?id=com.sgs.emhq.android&amp;hl=en_US">EMERGENCY HQ — Google Play</a></li>
+      <li><a href="https://www.gamepressure.com/games/fire-department/">Fire Department series — Gamepressure</a></li>
+      <li><a href="https://gamerant.com/games-play-as-firefighter/">Games that let you play as a firefighter — Game Rant</a></li>
+      <li><a href="https://retrostylegames.com/blog/best-looking-isometric-games/">Best-looking isometric games — RetroStyle Games</a></li>
+      <li><a href="https://pixune.com/blog/game-art-styles/">Game art styles guide — Pixune</a></li>
+      <li><a href="https://whimsygames.co/blog/7-top-3d-art-styles/">Top 3D art styles in games — Whimsy Games</a></li>
+      <li><a href="https://www.townscapergame.com/">Townscaper</a></li>
+    </ul>
+  </div>
+
+</div>

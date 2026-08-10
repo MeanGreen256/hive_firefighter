@@ -1,0 +1,1697 @@
+<title>Fire — Camera &amp; Art Direction Concepts</title>
+
+<style>
+  :root {
+    --ground:   #101319;
+    --ground-2: #161a22;
+    --panel:    #1b202a;
+    --line:     #2b3240;
+    --line-2:   #39424f;
+    --ink:      #e2e7ef;
+    --ink-2:    #99a3b5;
+    --ink-3:    #6c7688;
+    --ember:    #ff7a2f;
+    --amber:    #ffc247;
+    --truck:    #d1382a;
+    --dusk:     #6d90c4;
+    --shadow:   0 24px 60px -20px rgba(0,0,0,.7);
+
+    --display: "Helvetica Neue", "HelveticaNeue-CondensedBold", "Arial Narrow",
+               "Roboto Condensed", "Liberation Sans Narrow", system-ui, sans-serif;
+    --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground:   #eceef3;
+      --ground-2: #ffffff;
+      --panel:    #ffffff;
+      --line:     #d7dbe3;
+      --line-2:   #c2c8d4;
+      --ink:      #151920;
+      --ink-2:    #4f5868;
+      --ink-3:    #7b8497;
+      --ember:    #cf5510;
+      --amber:    #9c6404;
+      --truck:    #b02f1e;
+      --dusk:     #3a5b8c;
+      --shadow:   0 20px 48px -22px rgba(20,26,38,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#101319; --ground-2:#161a22; --panel:#1b202a; --line:#2b3240;
+    --line-2:#39424f; --ink:#e2e7ef; --ink-2:#99a3b5; --ink-3:#6c7688;
+    --ember:#ff7a2f; --amber:#ffc247; --truck:#d1382a; --dusk:#6d90c4;
+    --shadow:0 24px 60px -20px rgba(0,0,0,.7);
+  }
+  :root[data-theme="light"] {
+    --ground:#eceef3; --ground-2:#ffffff; --panel:#ffffff; --line:#d7dbe3;
+    --line-2:#c2c8d4; --ink:#151920; --ink-2:#4f5868; --ink-3:#7b8497;
+    --ember:#cf5510; --amber:#9c6404; --truck:#b02f1e; --dusk:#3a5b8c;
+    --shadow:0 20px 48px -22px rgba(20,26,38,.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 28px 120px;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    border-bottom: 1px solid var(--line);
+    padding: 44px 0 26px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .masthead h1 {
+    font-family: var(--display);
+    font-stretch: condensed;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    font-size: clamp(30px, 5.2vw, 54px);
+    line-height: .95;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .masthead h1 em {
+    font-style: normal;
+    color: var(--ember);
+  }
+  .stamp {
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    text-align: right;
+  }
+
+  /* ---------- the answer ---------- */
+
+  .answer {
+    margin: 40px 0 60px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 36px;
+    align-items: start;
+  }
+  .answer p {
+    margin: 0 0 14px;
+    max-width: 62ch;
+  }
+  .answer .big {
+    font-family: var(--display);
+    font-stretch: condensed;
+    font-weight: 700;
+    font-size: clamp(21px, 2.6vw, 28px);
+    line-height: 1.22;
+    letter-spacing: -.005em;
+    color: var(--ink);
+  }
+  .answer .big b { color: var(--ember); font-weight: 700; }
+  .answer .muted { color: var(--ink-2); font-size: 15px; }
+
+  .rig {
+    border: 1px solid var(--line);
+    background: var(--ground-2);
+    padding: 20px 22px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 2;
+    color: var(--ink-2);
+  }
+  .rig .k {
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    display: inline-block;
+    min-width: 92px;
+  }
+  .rig .v { color: var(--ink); }
+  .rig .hd {
+    color: var(--ember);
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 8px;
+    font-size: 11px;
+  }
+
+  /* ---------- frames ---------- */
+
+  .frame {
+    margin: 0 0 68px;
+  }
+  .shot {
+    position: relative;
+    background: #080a0f;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    line-height: 0;
+  }
+  .shot svg { display: block; width: 100%; height: auto; }
+
+  .cap {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 32px;
+    padding: 22px 2px 0;
+    align-items: start;
+  }
+  .cap h2 {
+    font-family: var(--display);
+    font-stretch: condensed;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .015em;
+    font-size: clamp(24px, 3vw, 34px);
+    line-height: 1;
+    margin: 8px 0 12px;
+  }
+  .cap p { margin: 0 0 12px; max-width: 60ch; color: var(--ink-2); }
+  .cap p.lede { color: var(--ink); }
+
+  .camspec {
+    font-family: var(--mono) !important;
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--ink-3) !important;
+    margin: 0 !important;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+    display: block;
+  }
+  .camspec .dot { color: var(--ember); }
+
+  .verdict {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border: 1px solid var(--ember);
+    color: var(--ember);
+    margin-bottom: 10px;
+  }
+  .verdict.alt { border-color: var(--line-2); color: var(--ink-3); }
+
+  .tradeoffs { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+  .tradeoffs li {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 8px;
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .tradeoffs .m {
+    font-family: var(--mono);
+    font-weight: 700;
+    text-align: center;
+  }
+  .tradeoffs .up .m { color: var(--ember); }
+  .tradeoffs .dn .m { color: var(--ink-3); }
+
+  /* ---------- section rule ---------- */
+
+  .rule {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 84px 0 40px;
+  }
+  .rule h3 {
+    font-family: var(--display);
+    font-stretch: condensed;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-size: 13px;
+    margin: 0;
+    color: var(--ember);
+    white-space: nowrap;
+  }
+  .rule::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* ---------- matrix ---------- */
+
+  .matrix-scroll { overflow-x: auto; border: 1px solid var(--line); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 660px;
+    background: var(--ground-2);
+  }
+  th, td {
+    text-align: left;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  thead th {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--ink-3);
+    font-weight: 400;
+    background: var(--panel);
+  }
+  tbody th {
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  td { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+  tr.pick th, tr.pick td { background: color-mix(in srgb, var(--ember) 8%, transparent); }
+  tr.pick th { color: var(--ember); }
+
+  .score { font-family: var(--mono); font-size: 12px; letter-spacing: .05em; }
+  .score b { color: var(--ember); font-weight: 700; }
+  .score i { font-style: normal; color: var(--ink-3); }
+
+  /* ---------- pair grid ---------- */
+
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+  .pair .frame { margin: 0; }
+  .pair .cap { grid-template-columns: 1fr; gap: 0; }
+
+  /* ---------- decide ---------- */
+
+  .decide {
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--ember);
+    background: var(--ground-2);
+    padding: 32px 34px;
+    margin-top: 20px;
+  }
+  .decide h3 {
+    font-family: var(--display);
+    font-stretch: condensed;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    font-size: 26px;
+    margin: 0 0 18px;
+  }
+  .decide ol { margin: 0; padding-left: 20px; display: grid; gap: 14px; }
+  .decide li { color: var(--ink-2); max-width: 68ch; }
+  .decide li b { color: var(--ink); font-weight: 600; }
+
+  @media (max-width: 860px) {
+    .answer, .cap, .pair { grid-template-columns: 1fr; gap: 22px; }
+    .stamp { text-align: left; }
+    .wrap { padding: 0 18px 80px; }
+  }
+
+  @keyframes flicker {
+    0%, 100% { opacity: .92; }
+    22%      { opacity: 1; }
+    41%      { opacity: .78; }
+    63%      { opacity: 1; }
+    78%      { opacity: .85; }
+  }
+  @keyframes drift {
+    from { transform: translate(0, 0); }
+    to   { transform: translate(-26px, -30px); }
+  }
+  @keyframes ping {
+    from { transform: scale(.55); opacity: .9; }
+    to   { transform: scale(1.5); opacity: 0; }
+  }
+  .fx-flicker { animation: flicker 2.7s ease-in-out infinite; transform-origin: center; }
+  .fx-drift   { animation: drift 11s ease-in-out infinite alternate; }
+  .fx-ping    { animation: ping 2.6s ease-out infinite; transform-origin: 1210px 452px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fx-flicker, .fx-drift, .fx-ping { animation: none; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Station 12 —<br><em>Camera</em> &amp; Art Direction</h1>
+    <div class="stamp">
+      Concept pass 01<br>
+      Browser 3D · Three.js target<br>
+      Frames are mockups, not renders
+    </div>
+  </header>
+
+  <section class="answer">
+    <div>
+      <p class="big">The direction I pitched is <b>ground level</b> — third-person, camera behind and slightly above your firefighter. Not top-down.</p>
+      <p class="muted">But top-down is a legitimate alternative and it changes almost everything downstream: how fire reads, how you aim a hose, how much art you need, and how big a team it takes. So here are all four viable cameras drawn out, plus the menu language that surrounds them.</p>
+      <p class="muted">Every frame below is hand-drawn in the target art style — flat-shaded low-poly, cool desaturated city, fire and apparatus as the only saturated things on screen.</p>
+    </div>
+    <div class="rig">
+      <span class="hd">Recommended rig</span>
+      <div><span class="k">Mode</span><span class="v">Third-person</span></div>
+      <div><span class="k">Lens</span><span class="v">45 mm equiv.</span></div>
+      <div><span class="k">Offset</span><span class="v">2.4 m back · 1.7 m high</span></div>
+      <div><span class="k">Shoulder</span><span class="v">+0.4 m right</span></div>
+      <div><span class="k">On aim</span><span class="v">Pull to 1.6 m, FOV −8°</span></div>
+      <div><span class="k">In truck</span><span class="v">Chase, 6.5 m back</span></div>
+      <div><span class="k">Size-up</span><span class="v">Free orbit, stationary</span></div>
+    </div>
+  </section>
+
+  <!-- ============ HERO FRAME: THIRD PERSON ============ -->
+
+  <figure class="frame">
+    <div class="shot">
+      <svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="Third-person over-the-shoulder view: a firefighter in the foreground sprays a hose at a burning two-story house at dusk, with a fire engine parked at the curb and a HUD showing water, air and objectives.">
+        <defs>
+          <linearGradient id="s1sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0b1120"/>
+            <stop offset=".5" stop-color="#1c2740"/>
+            <stop offset=".85" stop-color="#42364a"/>
+            <stop offset="1" stop-color="#5b3f42"/>
+          </linearGradient>
+          <radialGradient id="s1glow" cx=".5" cy=".5" r=".5">
+            <stop offset="0" stop-color="#ff8a2b" stop-opacity=".8"/>
+            <stop offset=".45" stop-color="#ff6a18" stop-opacity=".3"/>
+            <stop offset="1" stop-color="#ff6a18" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="s1smoke" x1="0" y1="1" x2=".2" y2="0">
+            <stop offset="0" stop-color="#5a4238" stop-opacity=".92"/>
+            <stop offset=".45" stop-color="#3b3740" stop-opacity=".7"/>
+            <stop offset="1" stop-color="#2c2f3a" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="s1stream" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stop-color="#cfe6ff" stop-opacity=".2"/>
+            <stop offset=".5" stop-color="#e8f4ff" stop-opacity=".62"/>
+            <stop offset="1" stop-color="#ffffff" stop-opacity=".85"/>
+          </linearGradient>
+          <filter id="s1blur" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="22"/>
+          </filter>
+          <filter id="s1soft" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="9"/>
+          </filter>
+        </defs>
+
+        <rect width="1600" height="900" fill="url(#s1sky)"/>
+
+        <!-- distant skyline -->
+        <g fill="#161d2e" opacity=".9">
+          <polygon points="0,540 0,430 70,430 70,472 138,472 138,412 210,412 210,540"/>
+          <polygon points="240,540 240,455 300,455 300,398 372,398 372,540"/>
+          <polygon points="1240,540 1240,404 1310,404 1310,448 1392,448 1392,388 1462,388 1462,540"/>
+          <polygon points="1470,540 1470,440 1536,440 1536,466 1600,466 1600,540"/>
+        </g>
+        <g fill="#ffd9a0" opacity=".28">
+          <rect x="22" y="446" width="7" height="9"/><rect x="46" y="466" width="7" height="9"/>
+          <rect x="152" y="428" width="7" height="9"/><rect x="182" y="452" width="7" height="9"/>
+          <rect x="256" y="470" width="7" height="9"/><rect x="316" y="416" width="7" height="9"/>
+          <rect x="1264" y="420" width="7" height="9"/><rect x="1330" y="464" width="7" height="9"/>
+          <rect x="1408" y="404" width="7" height="9"/><rect x="1498" y="456" width="7" height="9"/>
+        </g>
+
+        <!-- smoke column -->
+        <g class="fx-drift" opacity=".95">
+          <ellipse cx="900" cy="300" rx="150" ry="190" fill="url(#s1smoke)" filter="url(#s1blur)"/>
+          <ellipse cx="962" cy="150" rx="196" ry="170" fill="url(#s1smoke)" filter="url(#s1blur)"/>
+          <ellipse cx="880" cy="40"  rx="250" ry="150" fill="url(#s1smoke)" filter="url(#s1blur)"/>
+          <ellipse cx="856" cy="382" rx="104" ry="110" fill="#6b4630" opacity=".55" filter="url(#s1blur)"/>
+        </g>
+
+        <!-- ambient fire glow behind house -->
+        <ellipse class="fx-flicker" cx="870" cy="430" rx="420" ry="290" fill="url(#s1glow)"/>
+
+        <!-- ground -->
+        <rect x="0" y="620" width="1600" height="280" fill="#1d222c"/>
+        <rect x="0" y="620" width="1600" height="26" fill="#2a3038"/>
+        <path d="M0 646 H1600 V700 H0 Z" fill="#232830"/>
+        <!-- lawn -->
+        <path d="M560 646 H1180 L1150 620 H600 Z" fill="#26332c"/>
+        <!-- glow spill on ground -->
+        <ellipse class="fx-flicker" cx="860" cy="672" rx="440" ry="86" fill="#ff7a2f" opacity=".2" filter="url(#s1blur)"/>
+        <!-- road markings -->
+        <g fill="#5c6270" opacity=".5">
+          <rect x="120" y="790" width="90" height="7"/><rect x="330" y="790" width="90" height="7"/>
+          <rect x="540" y="790" width="90" height="7"/><rect x="750" y="790" width="90" height="7"/>
+          <rect x="960" y="790" width="90" height="7"/><rect x="1170" y="790" width="90" height="7"/>
+          <rect x="1380" y="790" width="90" height="7"/>
+        </g>
+
+        <!-- neighbor house left -->
+        <g>
+          <polygon points="330,600 330,470 470,470 470,600" fill="#333a44"/>
+          <polygon points="316,472 400,414 484,472" fill="#3d4450"/>
+          <rect x="356" y="500" width="34" height="38" fill="#4e5a6b" opacity=".7"/>
+          <rect x="412" y="500" width="34" height="38" fill="#4e5a6b" opacity=".7"/>
+        </g>
+
+        <!-- ===== burning house ===== -->
+        <g>
+          <!-- right side wall -->
+          <polygon points="1000,352 1140,392 1140,628 1000,620" fill="#3c3830"/>
+          <!-- front wall -->
+          <rect x="660" y="352" width="340" height="268" fill="#544e44"/>
+          <!-- roof -->
+          <polygon points="830,258 636,356 1024,356" fill="#4a4038"/>
+          <polygon points="830,258 1024,356 1164,396 970,296" fill="#3a322c"/>
+          <!-- roof ridge fire -->
+          <g class="fx-flicker">
+            <polygon points="880,300 898,254 912,296 930,258 946,306 958,272 972,318 866,318" fill="#ff8f2e"/>
+            <polygon points="898,300 910,268 922,302 936,276 946,312 884,312" fill="#ffd35c"/>
+          </g>
+          <!-- windows lower -->
+          <rect x="694" y="470" width="72" height="86" fill="#20242c"/>
+          <rect x="694" y="470" width="72" height="86" fill="#ff8a2b" opacity=".35"/>
+          <rect x="890" y="470" width="72" height="86" fill="#20242c"/>
+          <rect x="890" y="470" width="72" height="86" fill="#ff8a2b" opacity=".55"/>
+          <!-- door -->
+          <rect x="800" y="486" width="62" height="134" fill="#2a2620"/>
+          <rect x="800" y="486" width="62" height="134" fill="#ff7a2f" opacity=".22"/>
+          <!-- windows upper -->
+          <rect x="694" y="378" width="72" height="66" fill="#20242c"/>
+          <rect x="694" y="378" width="72" height="66" fill="#ffb04a" opacity=".3"/>
+          <!-- blown-out upper right window -->
+          <rect x="890" y="378" width="72" height="66" fill="#120c08"/>
+          <g class="fx-flicker">
+            <polygon points="890,444 890,378 962,378 962,444" fill="#ff6a18"/>
+            <polygon points="900,444 906,394 918,424 930,384 942,420 952,398 956,444" fill="#ffc247"/>
+            <polygon points="906,444 916,412 926,438 936,408 944,444" fill="#fff0b8"/>
+            <!-- flame licking out -->
+            <polygon points="962,430 1008,392 986,406 1036,352 998,396 1030,384 978,438" fill="#ff8a2b" opacity=".9"/>
+          </g>
+          <!-- porch -->
+          <polygon points="774,486 890,486 902,506 762,506" fill="#3f3a32"/>
+          <rect x="776" y="506" width="9" height="114" fill="#413c33"/>
+          <rect x="880" y="506" width="9" height="114" fill="#413c33"/>
+          <!-- steps -->
+          <rect x="792" y="620" width="78" height="9" fill="#4a4439"/>
+          <rect x="784" y="629" width="94" height="9" fill="#413c33"/>
+        </g>
+
+        <!-- hydrant + laid hose line -->
+        <path d="M1092 668 C 980 690, 760 706, 470 700" stroke="#c9b26a" stroke-width="9" fill="none" opacity=".85"/>
+        <g>
+          <rect x="1082" y="632" width="20" height="40" rx="5" fill="#c8452f"/>
+          <rect x="1072" y="646" width="40" height="9" rx="4" fill="#c8452f"/>
+          <circle cx="1092" cy="628" r="10" fill="#e0553c"/>
+        </g>
+
+        <!-- fire engine -->
+        <g>
+          <rect x="1188" y="470" width="330" height="118" rx="7" fill="#c0372a"/>
+          <rect x="1188" y="470" width="330" height="26" rx="7" fill="#d84433"/>
+          <rect x="1196" y="556" width="314" height="14" fill="#f0f3f7" opacity=".85"/>
+          <!-- cab -->
+          <rect x="1444" y="440" width="112" height="148" rx="8" fill="#c0372a"/>
+          <rect x="1460" y="456" width="82" height="52" rx="4" fill="#43536b"/>
+          <!-- compartments -->
+          <g fill="#8f2a20">
+            <rect x="1206" y="504" width="86" height="46" rx="4"/>
+            <rect x="1304" y="504" width="86" height="46" rx="4"/>
+            <rect x="1402" y="504" width="30" height="46" rx="4"/>
+          </g>
+          <!-- ladder -->
+          <rect x="1200" y="452" width="240" height="12" rx="4" fill="#8e9099"/>
+          <!-- light bar -->
+          <rect x="1452" y="424" width="96" height="16" rx="6" fill="#2a3038"/>
+          <rect x="1458" y="428" width="30" height="9" rx="3" fill="#ff4b3a"/>
+          <rect x="1512" y="428" width="30" height="9" rx="3" fill="#4f9dff"/>
+          <ellipse cx="1473" cy="432" rx="60" ry="34" fill="#ff4b3a" opacity=".3" filter="url(#s1soft)"/>
+          <ellipse cx="1527" cy="432" rx="60" ry="34" fill="#4f9dff" opacity=".3" filter="url(#s1soft)"/>
+          <!-- wheels -->
+          <circle cx="1256" cy="592" r="30" fill="#1a1d24"/><circle cx="1256" cy="592" r="13" fill="#525a68"/>
+          <circle cx="1360" cy="592" r="30" fill="#1a1d24"/><circle cx="1360" cy="592" r="13" fill="#525a68"/>
+          <circle cx="1494" cy="592" r="30" fill="#1a1d24"/><circle cx="1494" cy="592" r="13" fill="#525a68"/>
+          <text x="1216" y="492" font-family="Arial Narrow, Helvetica, sans-serif" font-size="22"
+                letter-spacing="3" fill="#ffd9a0" opacity=".9">ENGINE 12</text>
+        </g>
+
+        <!-- water stream -->
+        <path d="M452 618 C 600 560, 720 452, 892 404 L 906 440 C 736 496, 622 596, 470 654 Z"
+              fill="url(#s1stream)"/>
+        <path d="M456 626 C 604 570, 724 462, 898 418" stroke="#ffffff" stroke-width="4"
+              fill="none" opacity=".55"/>
+        <!-- impact steam -->
+        <g opacity=".8">
+          <ellipse cx="906" cy="410" rx="66" ry="46" fill="#dce8f2" opacity=".45" filter="url(#s1soft)"/>
+          <ellipse cx="950" cy="376" rx="52" ry="40" fill="#cfe0ee" opacity=".3" filter="url(#s1soft)"/>
+          <ellipse cx="864" cy="368" rx="44" ry="36" fill="#e6eef6" opacity=".22" filter="url(#s1soft)"/>
+        </g>
+        <!-- droplets -->
+        <g fill="#e8f4ff" opacity=".5">
+          <circle cx="742" cy="500" r="4"/><circle cx="806" cy="470" r="3"/>
+          <circle cx="676" cy="536" r="3"/><circle cx="856" cy="452" r="4"/>
+        </g>
+
+        <!-- ===== foreground firefighter (back view) ===== -->
+        <g>
+          <!-- rim glow behind -->
+          <ellipse cx="352" cy="700" rx="150" ry="210" fill="#ff7a2f" opacity=".13" filter="url(#s1blur)"/>
+          <!-- legs -->
+          <polygon points="286,742 344,742 350,900 276,900" fill="#242830"/>
+          <polygon points="356,742 414,742 424,900 350,900" fill="#2a2f38"/>
+          <!-- coat -->
+          <path d="M258 566 C 258 542, 300 528, 350 528 C 400 528, 442 542, 442 566
+                   L 452 760 L 248 760 Z" fill="#2f333c"/>
+          <!-- reflective bands -->
+          <path d="M252 700 L 448 700 L 450 726 L 250 726 Z" fill="#e8d24f" opacity=".9"/>
+          <path d="M254 660 L 446 660 L 447 674 L 253 674 Z" fill="#8fb8c9" opacity=".75"/>
+          <!-- SCBA cylinder -->
+          <rect x="316" y="556" width="70" height="150" rx="34" fill="#3b4450"/>
+          <rect x="330" y="572" width="42" height="118" rx="21" fill="#48525f"/>
+          <rect x="326" y="596" width="50" height="9" fill="#2b323c"/>
+          <!-- straps -->
+          <path d="M300 556 L 330 704" stroke="#1f242c" stroke-width="13" fill="none"/>
+          <path d="M402 556 L 372 704" stroke="#1f242c" stroke-width="13" fill="none"/>
+          <!-- shoulders/arms -->
+          <path d="M252 574 L 226 690 L 268 700 L 288 590 Z" fill="#343943"/>
+          <path d="M448 574 L 486 676 L 444 692 L 414 590 Z" fill="#343943"/>
+          <!-- helmet -->
+          <path d="M296 476 C 296 434, 404 434, 404 476 L 410 500 L 290 500 Z" fill="#d8a326"/>
+          <path d="M278 498 C 300 486, 400 486, 422 498 L 424 514 L 276 514 Z" fill="#e8b736"/>
+          <rect x="330" y="440" width="40" height="60" rx="8" fill="#c08f1e"/>
+          <!-- neck flap -->
+          <path d="M292 512 L 408 512 L 414 542 L 286 542 Z" fill="#3a3f49"/>
+          <!-- rim light on right edge -->
+          <path d="M442 566 L 452 760 L 434 760 L 426 570 Z" fill="#ff9d4a" opacity=".55"/>
+          <path d="M404 476 L 410 500 L 396 500 L 392 478 Z" fill="#ffb463" opacity=".6"/>
+          <!-- nozzle in hands -->
+          <path d="M420 604 L 470 622 L 462 646 L 412 628 Z" fill="#3d4550"/>
+          <polygon points="462,616 496,626 490,648 456,640" fill="#b8452c"/>
+          <circle cx="440" cy="632" r="17" fill="#22262e"/>
+          <!-- hose to ground -->
+          <path d="M412 634 C 360 690, 300 700, 200 698" stroke="#c9b26a" stroke-width="15" fill="none"/>
+        </g>
+
+        <!-- ============ HUD ============ -->
+        <g font-family="ui-monospace, SF Mono, Menlo, monospace">
+
+          <!-- top-left objectives -->
+          <g>
+            <rect x="44" y="44" width="404" height="140" fill="#0b0e14" opacity=".62"/>
+            <rect x="44" y="44" width="4" height="140" fill="#ff7a2f"/>
+            <text x="66" y="76" font-size="19" letter-spacing="3" fill="#ff9d4a">STRUCTURE FIRE · 2-STORY</text>
+            <text x="66" y="102" font-size="17" letter-spacing="1.5" fill="#e6ebf2" opacity=".9">1147 ALDER ST · RESIDENTIAL</text>
+            <line x1="66" y1="116" x2="424" y2="116" stroke="#ffffff" stroke-opacity=".16"/>
+            <text x="66" y="142" font-size="17" fill="#d8dee8" opacity=".85">▸ KNOCK DOWN 2F BEDROOM</text>
+            <text x="66" y="168" font-size="17" fill="#8f9aab">▸ SEARCH &amp; RESCUE   2 / 3</text>
+          </g>
+
+          <!-- top-center: fire growth -->
+          <g>
+            <text x="800" y="66" font-size="16" letter-spacing="4" fill="#8f9aab"
+                  text-anchor="middle">FIRE SPREAD</text>
+            <rect x="672" y="80" width="256" height="10" fill="#ffffff" fill-opacity=".13"/>
+            <rect x="672" y="80" width="118" height="10" fill="#ff6a18"/>
+            <rect x="790" y="76" width="3" height="18" fill="#ffc247"/>
+            <text x="800" y="118" font-size="16" letter-spacing="2" fill="#ff9d4a"
+                  text-anchor="middle">46%  ▲ RISING</text>
+          </g>
+
+          <!-- top-right: clock -->
+          <g text-anchor="end">
+            <text x="1556" y="72" font-size="34" letter-spacing="3" fill="#e6ebf2">04:18</text>
+            <text x="1556" y="98" font-size="15" letter-spacing="3" fill="#8f9aab">ON SCENE</text>
+          </g>
+
+          <!-- bottom-left: water + air -->
+          <g>
+            <text x="52" y="742" font-size="15" letter-spacing="3.5" fill="#8f9aab">WATER · TANK</text>
+            <rect x="52" y="754" width="300" height="16" fill="#ffffff" fill-opacity=".12"/>
+            <rect x="52" y="754" width="186" height="16" fill="#4f9dff"/>
+            <text x="362" y="768" font-size="17" fill="#cfe0f5">62%</text>
+
+            <text x="52" y="806" font-size="15" letter-spacing="3.5" fill="#8f9aab">AIR · SCBA</text>
+            <rect x="52" y="818" width="300" height="16" fill="#ffffff" fill-opacity=".12"/>
+            <rect x="52" y="818" width="234" height="16" fill="#5fd0c0"/>
+            <text x="362" y="832" font-size="17" fill="#bfeae2">78%</text>
+
+            <text x="52" y="866" font-size="14" letter-spacing="2" fill="#6c7688">HYDRANT LINE CONNECTED · +14 L/S</text>
+          </g>
+
+          <!-- bottom-center: tool selector -->
+          <g>
+            <rect x="640" y="808" width="80" height="52" fill="#0b0e14" fill-opacity=".62"/>
+            <rect x="640" y="808" width="80" height="52" fill="none" stroke="#ff7a2f" stroke-width="2"/>
+            <text x="680" y="840" font-size="17" letter-spacing="1" fill="#ffb463" text-anchor="middle">JET</text>
+            <rect x="728" y="808" width="80" height="52" fill="#0b0e14" fill-opacity=".62"/>
+            <text x="768" y="840" font-size="17" letter-spacing="1" fill="#8f9aab" text-anchor="middle">FOG</text>
+            <rect x="816" y="808" width="80" height="52" fill="#0b0e14" fill-opacity=".62"/>
+            <text x="856" y="840" font-size="17" letter-spacing="1" fill="#8f9aab" text-anchor="middle">AXE</text>
+            <rect x="904" y="808" width="80" height="52" fill="#0b0e14" fill-opacity=".62"/>
+            <text x="944" y="840" font-size="17" letter-spacing="1" fill="#8f9aab" text-anchor="middle">TIC</text>
+          </g>
+
+          <!-- bottom-right: minimap -->
+          <g>
+            <circle cx="1452" cy="762" r="94" fill="#0b0e14" fill-opacity=".66"/>
+            <circle cx="1452" cy="762" r="94" fill="none" stroke="#ffffff" stroke-opacity=".18"/>
+            <g stroke="#586274" stroke-width="3" opacity=".8">
+              <line x1="1372" y1="734" x2="1532" y2="734"/>
+              <line x1="1428" y1="682" x2="1428" y2="842"/>
+              <line x1="1372" y1="800" x2="1532" y2="800"/>
+            </g>
+            <rect x="1440" y="708" width="30" height="24" fill="#ff6a18" opacity=".9"/>
+            <circle cx="1452" cy="790" r="8" fill="#5fd0c0"/>
+            <polygon points="1452,776 1444,792 1460,792" fill="#e6ebf2"/>
+            <text x="1452" y="884" font-size="14" letter-spacing="3" fill="#8f9aab"
+                  text-anchor="middle">ALDER · DOWNTOWN</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <figcaption class="cap">
+      <div>
+        <span class="camspec">CAM <span class="dot">·</span> third-person <span class="dot">·</span> 45 mm <span class="dot">·</span> 2.4 m back / 1.7 m high / +0.4 m shoulder</span>
+        <h2>Over-the-shoulder</h2>
+        <p class="lede">The recommendation. You see your firefighter, you see the fire, and the hose stream reads as a physical arc you're aiming with the mouse. Fire is the brightest thing on screen and everything else is desaturated to let it be.</p>
+        <p>Note what the HUD is doing: water and air are the two bars that actually constrain you, the spread meter is climbing while you work, and the smoke column doubles as the map marker so you never need a floating quest arrow.</p>
+      </div>
+      <div>
+        <span class="verdict">Recommended</span>
+        <ul class="tradeoffs">
+          <li class="up"><span class="m">+</span><span>Aiming a hose feels physical — the whole game hinges on this</span></li>
+          <li class="up"><span class="m">+</span><span>Character customization is visible, so gear unlocks mean something</span></li>
+          <li class="up"><span class="m">+</span><span>Smoke, glow, and heat haze are dramatic at eye level</span></li>
+          <li class="dn"><span class="m">−</span><span>You can't see fire spreading behind walls without going in</span></li>
+          <li class="dn"><span class="m">−</span><span>Needs character animation, interiors, and collision everywhere</span></li>
+        </ul>
+      </div>
+    </figcaption>
+  </figure>
+
+  <div class="rule"><h3>Alternate cameras</h3></div>
+
+  <!-- ============ ISOMETRIC ============ -->
+
+  <figure class="frame">
+    <div class="shot">
+      <svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="Isometric tactical view: a cutaway building shown as a grid of rooms, each colored by fire state, with firefighter units and a hose line.">
+        <defs>
+          <radialGradient id="s2glow" cx=".5" cy=".5" r=".5">
+            <stop offset="0" stop-color="#ff8a2b" stop-opacity=".5"/>
+            <stop offset="1" stop-color="#ff6a18" stop-opacity="0"/>
+          </radialGradient>
+          <filter id="s2blur" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="20"/>
+          </filter>
+        </defs>
+
+        <rect width="1600" height="900" fill="#141821"/>
+        <!-- ground plane grid -->
+        <g stroke="#212734" stroke-width="1.5">
+          <path d="M-200 460 L900 1090"/><path d="M-40 460 L1060 1090"/><path d="M120 460 L1220 1090"/>
+          <path d="M280 460 L1380 1090"/><path d="M440 460 L1540 1090"/><path d="M600 460 L1700 1090"/>
+          <path d="M760 460 L1860 1090"/>
+          <path d="M1800 460 L700 1090"/><path d="M1640 460 L540 1090"/><path d="M1480 460 L380 1090"/>
+          <path d="M1320 460 L220 1090"/><path d="M1160 460 L60 1090"/><path d="M1000 460 L-100 1090"/>
+          <path d="M840 460 L-260 1090"/>
+        </g>
+
+        <!-- street -->
+        <polygon points="120,640 620,928 900,768 400,480" fill="#1b2029"/>
+        <polygon points="1000,700 1420,942 1600,838 1180,596" fill="#1b2029"/>
+
+        <!-- neighbor blocks -->
+        <g>
+          <polygon points="250,392 370,462 370,552 250,482" fill="#2b323f"/>
+          <polygon points="370,462 490,392 490,482 370,552" fill="#232935"/>
+          <polygon points="250,392 370,322 490,392 370,462" fill="#343c4b"/>
+        </g>
+        <g>
+          <polygon points="1230,432 1340,496 1340,570 1230,506" fill="#2b323f"/>
+          <polygon points="1340,496 1450,432 1450,506 1340,570" fill="#232935"/>
+          <polygon points="1230,432 1340,368 1450,432 1340,496" fill="#343c4b"/>
+        </g>
+        <!-- trees -->
+        <g>
+          <polygon points="560,596 588,580 588,608 560,624" fill="#22301f"/>
+          <polygon points="560,570 588,554 616,570 588,586" fill="#31462c"/>
+          <polygon points="1046,646 1074,630 1074,658 1046,674" fill="#22301f"/>
+          <polygon points="1046,620 1074,604 1102,620 1074,636" fill="#31462c"/>
+        </g>
+
+        <!-- fire glow -->
+        <ellipse cx="880" cy="420" rx="330" ry="240" fill="url(#s2glow)"/>
+
+        <!-- ===== cutaway building: 3 wide x 3 tall grid of fire cells ===== -->
+        <!-- R = (96,55) along facade, H = (0,-104) up.  base-left = (620,650) -->
+        <g>
+          <!-- back-left wall plane (solid) -->
+          <polygon points="620,650 620,338 428,450 428,762" fill="#232935"/>
+          <polygon points="428,450 620,338 620,338 428,450" fill="#2b323f"/>
+          <!-- roof -->
+          <polygon points="620,338 908,504 1100,392 812,226" fill="#39414f"/>
+          <polygon points="620,338 908,504 908,504 620,338" fill="#39414f"/>
+          <!-- right side wall -->
+          <polygon points="908,504 1100,392 1100,704 908,816" fill="#1e2430"/>
+
+          <!-- floor slabs (thin) -->
+          <g fill="#39414f" opacity=".95">
+            <polygon points="620,546 908,712 920,706 632,540"/>
+            <polygon points="620,442 908,608 920,602 632,436"/>
+          </g>
+
+          <!-- ROOM CELLS on facade: i = 0..2 (right/down), k = 0 top -->
+          <!-- cell(i,k): p = (620 + i*96, 338 + i*55 + k*104) -->
+          <!-- ROW k=0 (top floor) -->
+          <polygon points="620,338 716,393 716,497 620,442" fill="#7d3d18"/>
+          <polygon points="716,393 812,448 812,552 716,497" fill="#e0561a"/>
+          <polygon points="812,448 908,503 908,607 812,552" fill="#ff9d3c"/>
+          <!-- ROW k=1 (middle) -->
+          <polygon points="620,442 716,497 716,601 620,546" fill="#2e3543"/>
+          <polygon points="716,497 812,552 812,656 716,601" fill="#7d3d18"/>
+          <polygon points="812,552 908,607 908,711 812,656" fill="#e0561a"/>
+          <!-- ROW k=2 (ground) -->
+          <polygon points="620,546 716,601 716,705 620,650" fill="#33506b"/>
+          <polygon points="716,601 812,656 812,760 716,705" fill="#2e3543"/>
+          <polygon points="812,656 908,711 908,815 812,760" fill="#2e3543"/>
+
+          <!-- cell grid lines -->
+          <g stroke="#0e1219" stroke-width="2.5" fill="none" opacity=".65">
+            <path d="M620,338 L908,503 M620,442 L908,607 M620,546 L908,711 M620,650 L908,815"/>
+            <path d="M620,338 L620,650 M716,393 L716,705 M812,448 L812,760 M908,503 L908,815"/>
+          </g>
+
+          <!-- flames poking from the hot cells -->
+          <g class="fx-flicker">
+            <polygon points="828,468 840,432 852,462 864,428 876,468 890,442 896,486 822,486" fill="#ffb44a"/>
+            <polygon points="840,470 850,444 860,468 872,446 880,478 834,478" fill="#ffe08a"/>
+            <polygon points="736,568 746,540 756,564 768,542 776,576 730,576" fill="#ff8f2e" opacity=".8"/>
+            <polygon points="832,672 842,644 852,668 864,646 872,680 826,680" fill="#ff8f2e" opacity=".8"/>
+          </g>
+          <!-- smoke from roof -->
+          <g class="fx-drift" opacity=".7">
+            <ellipse cx="920" cy="330" rx="120" ry="110" fill="#4a4038" filter="url(#s2blur)"/>
+            <ellipse cx="962" cy="196" rx="164" ry="120" fill="#3b3740" filter="url(#s2blur)"/>
+          </g>
+        </g>
+
+        <!-- units + hose line -->
+        <path d="M1206 664 C 1100 700, 980 762, 862 786" stroke="#c9b26a" stroke-width="7" fill="none"/>
+        <g>
+          <!-- hydrant token -->
+          <circle cx="1210" cy="662" r="13" fill="#c8452f"/>
+          <!-- firefighter tokens -->
+          <g>
+            <ellipse cx="866" cy="792" rx="17" ry="9" fill="#000" opacity=".4"/>
+            <rect x="857" y="756" width="18" height="34" rx="7" fill="#3a4250"/>
+            <circle cx="866" cy="750" r="11" fill="#e8b736"/>
+          </g>
+          <g>
+            <ellipse cx="946" cy="836" rx="17" ry="9" fill="#000" opacity=".4"/>
+            <rect x="937" y="800" width="18" height="34" rx="7" fill="#3a4250"/>
+            <circle cx="946" cy="794" r="11" fill="#8fb8c9"/>
+          </g>
+          <!-- engine token -->
+          <g>
+            <polygon points="1240,690 1350,752 1420,712 1310,650" fill="#c0372a"/>
+            <polygon points="1240,690 1350,752 1350,790 1240,728" fill="#8f2a20"/>
+            <polygon points="1350,752 1420,712 1420,750 1350,790" fill="#a02f23"/>
+            <rect x="1300" y="638" width="26" height="8" rx="3" fill="#4f9dff"/>
+          </g>
+        </g>
+
+        <!-- callout: fire cell system -->
+        <g font-family="ui-monospace, SF Mono, Menlo, monospace">
+          <path d="M860,500 L1130,406 L1230,406" stroke="#ff9d4a" stroke-width="2" fill="none" opacity=".8"/>
+          <circle cx="860" cy="500" r="6" fill="#ff9d4a"/>
+          <text x="1244" y="398" font-size="20" letter-spacing="3" fill="#ff9d4a">ONE FIRE CELL</text>
+          <text x="1244" y="426" font-size="16" fill="#9aa4b5">heat · fuel · material · neighbors</text>
+
+          <!-- legend -->
+          <rect x="66" y="640" width="290" height="196" fill="#0b0e14" opacity=".6"/>
+          <text x="88" y="676" font-size="16" letter-spacing="3.5" fill="#8f9aab">CELL STATE</text>
+          <g>
+            <rect x="88" y="694" width="22" height="22" fill="#ff9d3c"/>
+            <text x="122" y="711" font-size="16" fill="#dfe4ec">Flashover</text>
+            <rect x="88" y="726" width="22" height="22" fill="#e0561a"/>
+            <text x="122" y="743" font-size="16" fill="#dfe4ec">Burning</text>
+            <rect x="88" y="758" width="22" height="22" fill="#7d3d18"/>
+            <text x="122" y="775" font-size="16" fill="#dfe4ec">Heating</text>
+            <rect x="88" y="790" width="22" height="22" fill="#33506b"/>
+            <text x="122" y="807" font-size="16" fill="#dfe4ec">Wetted down</text>
+          </g>
+
+          <!-- top bar -->
+          <text x="66" y="80" font-size="20" letter-spacing="4" fill="#ff9d4a">WAREHOUSE 4 · INDUSTRIAL</text>
+          <text x="66" y="110" font-size="16" letter-spacing="2" fill="#8f9aab">STRUCTURE INTEGRITY 71%  ·  WIND NE 14 KM/H</text>
+          <g text-anchor="end">
+            <text x="1534" y="80" font-size="20" letter-spacing="3" fill="#e6ebf2">CREW 2 / 4</text>
+            <text x="1534" y="110" font-size="16" letter-spacing="2" fill="#8f9aab">WATER 3200 L</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <figcaption class="cap">
+      <div>
+        <span class="camspec">CAM <span class="dot">·</span> isometric <span class="dot">·</span> orthographic <span class="dot">·</span> 35° pitch / 45° yaw / free zoom</span>
+        <h2>Isometric tactical</h2>
+        <p class="lede">The real alternative, and it's a different game — you command rather than perform. Buildings cut away so you watch fire propagate room to room, which turns the simulation from something you infer into something you read directly.</p>
+        <p>This view also makes multi-crew play obvious: send two firefighters up the stairwell while you feed the line from the hydrant. Cheaper to build, too — no interiors to model, no first-person hands, far fewer animations.</p>
+      </div>
+      <div>
+        <span class="verdict alt">Alternative</span>
+        <ul class="tradeoffs">
+          <li class="up"><span class="m">+</span><span>The fire simulation is legible — you see spread happen</span></li>
+          <li class="up"><span class="m">+</span><span>Roughly half the art and animation budget</span></li>
+          <li class="up"><span class="m">+</span><span>Natural fit for commanding a crew, not just one person</span></li>
+          <li class="dn"><span class="m">−</span><span>Loses the visceral part; aiming a hose becomes a click</span></li>
+          <li class="dn"><span class="m">−</span><span>Character select barely matters at this scale</span></li>
+        </ul>
+      </div>
+    </figcaption>
+  </figure>
+
+  <!-- ============ DRIVING ============ -->
+
+  <figure class="frame">
+    <div class="shot">
+      <svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="Chase camera behind a fire engine driving down a city street at dusk toward a distant smoke column, with a route indicator and a fire growth meter.">
+        <defs>
+          <linearGradient id="s3sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#101a30"/>
+            <stop offset=".6" stop-color="#2c3450"/>
+            <stop offset="1" stop-color="#6b4a52"/>
+          </linearGradient>
+          <linearGradient id="s3road" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#262c36"/>
+            <stop offset="1" stop-color="#161a22"/>
+          </linearGradient>
+          <linearGradient id="s3smoke" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0" stop-color="#5a4238" stop-opacity=".9"/>
+            <stop offset="1" stop-color="#2c2f3a" stop-opacity="0"/>
+          </linearGradient>
+          <filter id="s3blur" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="20"/>
+          </filter>
+          <filter id="s3soft" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="10"/>
+          </filter>
+        </defs>
+
+        <rect width="1600" height="900" fill="url(#s3sky)"/>
+
+        <!-- distant smoke column at the destination -->
+        <g class="fx-drift" opacity=".9">
+          <ellipse cx="1052" cy="300" rx="86" ry="150" fill="url(#s3smoke)" filter="url(#s3blur)"/>
+          <ellipse cx="1082" cy="130" rx="140" ry="130" fill="url(#s3smoke)" filter="url(#s3blur)"/>
+        </g>
+        <ellipse class="fx-flicker" cx="1044" cy="446" rx="90" ry="60" fill="#ff7a2f" opacity=".35" filter="url(#s3blur)"/>
+
+        <!-- road -->
+        <polygon points="0,900 700,462 900,462 1600,900" fill="url(#s3road)"/>
+        <!-- sidewalks -->
+        <polygon points="0,900 700,462 690,462 -140,900" fill="#20252e"/>
+        <polygon points="1600,900 900,462 912,462 1740,900" fill="#20252e"/>
+        <!-- centre line -->
+        <g fill="#5c6270" opacity=".55">
+          <polygon points="796,468 804,468 806,494 794,494"/>
+          <polygon points="792,516 808,516 812,562 788,562"/>
+          <polygon points="784,600 816,600 822,676 778,676"/>
+          <polygon points="770,730 830,730 842,860 758,860"/>
+        </g>
+
+        <!-- buildings left -->
+        <g>
+          <polygon points="0,860 0,300 150,340 150,760" fill="#242a36"/>
+          <polygon points="150,760 150,340 320,376 320,676" fill="#1e232e"/>
+          <polygon points="320,676 320,376 470,406 470,604" fill="#262c38"/>
+          <polygon points="470,604 470,410 590,432 590,548" fill="#1e232e"/>
+          <polygon points="590,548 590,436 690,452 690,504" fill="#232935"/>
+        </g>
+        <!-- buildings right -->
+        <g>
+          <polygon points="1600,860 1600,282 1450,324 1450,754" fill="#242a36"/>
+          <polygon points="1450,754 1450,324 1290,364 1290,672" fill="#1e232e"/>
+          <polygon points="1290,672 1290,364 1140,398 1140,600" fill="#262c38"/>
+          <polygon points="1140,600 1140,402 1020,426 1020,546" fill="#1e232e"/>
+          <polygon points="1020,546 1020,430 912,450 912,502" fill="#232935"/>
+        </g>
+        <!-- lit windows -->
+        <g fill="#ffd9a0" opacity=".35">
+          <rect x="42" y="392" width="20" height="26"/><rect x="94" y="446" width="20" height="26"/>
+          <rect x="42" y="520" width="20" height="26"/><rect x="190" y="428" width="18" height="22"/>
+          <rect x="248" y="486" width="18" height="22"/><rect x="358" y="450" width="16" height="20"/>
+          <rect x="414" y="508" width="16" height="20"/><rect x="502" y="466" width="14" height="18"/>
+          <rect x="1512" y="380" width="20" height="26"/><rect x="1472" y="452" width="20" height="26"/>
+          <rect x="1512" y="524" width="20" height="26"/><rect x="1380" y="418" width="18" height="22"/>
+          <rect x="1322" y="482" width="18" height="22"/><rect x="1212" y="446" width="16" height="20"/>
+          <rect x="1160" y="502" width="16" height="20"/><rect x="1070" y="462" width="14" height="18"/>
+        </g>
+        <!-- streetlights -->
+        <g>
+          <ellipse cx="640" cy="530" rx="44" ry="26" fill="#ffca7a" opacity=".16" filter="url(#s3soft)"/>
+          <ellipse cx="978" cy="530" rx="44" ry="26" fill="#ffca7a" opacity=".16" filter="url(#s3soft)"/>
+          <ellipse cx="480" cy="640" rx="70" ry="34" fill="#ffca7a" opacity=".14" filter="url(#s3soft)"/>
+          <ellipse cx="1140" cy="640" rx="70" ry="34" fill="#ffca7a" opacity=".14" filter="url(#s3soft)"/>
+        </g>
+
+        <!-- pulled-over traffic -->
+        <g>
+          <rect x="470" y="606" width="118" height="42" rx="10" fill="#2f4a63"/>
+          <rect x="500" y="588" width="62" height="26" rx="8" fill="#3d5c78"/>
+          <circle cx="500" cy="650" r="12" fill="#141820"/><circle cx="562" cy="650" r="12" fill="#141820"/>
+          <rect x="466" y="622" width="8" height="10" rx="3" fill="#ff8f6a"/>
+        </g>
+        <g>
+          <rect x="1044" y="588" width="96" height="34" rx="9" fill="#4a4436"/>
+          <rect x="1068" y="574" width="50" height="20" rx="7" fill="#5d5643"/>
+          <circle cx="1068" cy="624" r="10" fill="#141820"/><circle cx="1118" cy="624" r="10" fill="#141820"/>
+        </g>
+
+        <!-- AR route chevrons on road -->
+        <g fill="#4f9dff" opacity=".45">
+          <polygon points="790,530 810,530 802,548 782,548"/>
+          <polygon points="784,570 812,570 802,596 774,596"/>
+          <polygon points="776,624 820,624 806,662 762,662"/>
+        </g>
+
+        <!-- ===== engine, rear 3/4 ===== -->
+        <g>
+          <ellipse cx="800" cy="836" rx="270" ry="34" fill="#000" opacity=".45" filter="url(#s3soft)"/>
+          <!-- body -->
+          <rect x="596" y="472" width="408" height="332" rx="14" fill="#b8342700"/>
+          <polygon points="600,540 1000,540 1010,806 590,806" fill="#c0372a"/>
+          <polygon points="600,540 1000,540 996,568 604,568" fill="#d84433"/>
+          <!-- rear door -->
+          <rect x="664" y="588" width="272" height="140" rx="8" fill="#a02f23"/>
+          <rect x="664" y="588" width="272" height="140" rx="8" fill="none" stroke="#8a2a1f" stroke-width="4"/>
+          <!-- chevron striping -->
+          <g>
+            <polygon points="664,740 706,740 664,790 664,790" fill="#e8d24f"/>
+            <polygon points="712,740 754,740 712,790 670,790" fill="#3ba05e"/>
+            <polygon points="760,740 802,740 760,790 718,790" fill="#e8d24f"/>
+            <polygon points="808,740 850,740 808,790 766,790" fill="#3ba05e"/>
+            <polygon points="856,740 898,740 856,790 814,790" fill="#e8d24f"/>
+            <polygon points="904,740 936,740 904,790 862,790" fill="#3ba05e"/>
+          </g>
+          <!-- tail lights -->
+          <rect x="608" y="600" width="42" height="76" rx="8" fill="#ff3b2e"/>
+          <rect x="950" y="600" width="42" height="76" rx="8" fill="#ff3b2e"/>
+          <ellipse cx="629" cy="638" rx="60" ry="60" fill="#ff3b2e" opacity=".28" filter="url(#s3soft)"/>
+          <ellipse cx="971" cy="638" rx="60" ry="60" fill="#ff3b2e" opacity=".28" filter="url(#s3soft)"/>
+          <!-- ladder overhang -->
+          <rect x="618" y="500" width="366" height="16" rx="6" fill="#8e9099"/>
+          <rect x="618" y="522" width="366" height="10" rx="4" fill="#767881"/>
+          <!-- light bar -->
+          <rect x="700" y="470" width="200" height="24" rx="9" fill="#232833"/>
+          <rect x="712" y="476" width="76" height="12" rx="4" fill="#ff4b3a"/>
+          <rect x="812" y="476" width="76" height="12" rx="4" fill="#4f9dff"/>
+          <ellipse cx="750" cy="482" rx="150" ry="90" fill="#ff4b3a" opacity=".26" filter="url(#s3blur)"/>
+          <ellipse cx="850" cy="482" rx="150" ry="90" fill="#4f9dff" opacity=".26" filter="url(#s3blur)"/>
+          <!-- wheels -->
+          <rect x="586" y="756" width="42" height="66" rx="16" fill="#14181f"/>
+          <rect x="972" y="756" width="42" height="66" rx="16" fill="#14181f"/>
+          <text x="800" y="672" text-anchor="middle" font-family="Arial Narrow, Helvetica, sans-serif"
+                font-size="46" letter-spacing="8" fill="#ffe3b5" opacity=".9">ENGINE 12</text>
+        </g>
+        <!-- emergency light wash on the road -->
+        <ellipse cx="500" cy="740" rx="240" ry="120" fill="#ff4b3a" opacity=".1" filter="url(#s3blur)"/>
+        <ellipse cx="1120" cy="740" rx="240" ry="120" fill="#4f9dff" opacity=".1" filter="url(#s3blur)"/>
+
+        <!-- HUD -->
+        <g font-family="ui-monospace, SF Mono, Menlo, monospace">
+          <!-- distant fire marker -->
+          <g opacity=".95">
+            <polygon points="1052,378 1068,404 1036,404" fill="#ff7a2f"/>
+            <rect x="972" y="330" width="160" height="42" fill="#0b0e14" opacity=".62"/>
+            <text x="1052" y="358" text-anchor="middle" font-size="20" letter-spacing="2" fill="#ff9d4a">640 m</text>
+          </g>
+
+          <!-- top-centre urgency -->
+          <g text-anchor="middle">
+            <text x="800" y="70" font-size="17" letter-spacing="5" fill="#8f9aab">FIRE GROWING WHILE YOU DRIVE</text>
+            <rect x="640" y="86" width="320" height="12" fill="#ffffff" fill-opacity=".13"/>
+            <rect x="640" y="86" width="106" height="12" fill="#ff6a18"/>
+            <text x="800" y="128" font-size="19" letter-spacing="2" fill="#ff9d4a">33%  ▲</text>
+          </g>
+
+          <!-- left dispatch card -->
+          <g>
+            <rect x="44" y="44" width="380" height="120" fill="#0b0e14" opacity=".62"/>
+            <rect x="44" y="44" width="4" height="120" fill="#4f9dff"/>
+            <text x="66" y="78" font-size="18" letter-spacing="3" fill="#8fc0ff">DISPATCH · CODE 3</text>
+            <text x="66" y="106" font-size="17" letter-spacing="1.5" fill="#e6ebf2">1147 ALDER ST</text>
+            <text x="66" y="140" font-size="16" fill="#8f9aab">2 REPORTED INSIDE · ETA 0:38</text>
+          </g>
+
+          <!-- speedo -->
+          <g text-anchor="end">
+            <text x="1552" y="806" font-size="70" letter-spacing="2" fill="#e6ebf2">68</text>
+            <text x="1552" y="838" font-size="17" letter-spacing="4" fill="#8f9aab">KM/H</text>
+            <text x="1552" y="884" font-size="16" letter-spacing="3" fill="#ff9d4a">SIREN ON · TRAFFIC YIELDING</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <figcaption class="cap">
+      <div>
+        <span class="camspec">CAM <span class="dot">·</span> chase <span class="dot">·</span> 55 mm <span class="dot">·</span> 6.5 m back / 3.2 m high / spring-damped</span>
+        <h2>Chase cam — the drive</h2>
+        <p class="lede">The same ground-level world, different rig. This is the frame that decides whether the drive is fun or a loading screen, and the answer is the meter at the top: the fire is growing the whole time you're en route, so route choice is a real decision.</p>
+        <p>Siren-cleared traffic, wet asphalt catching the light bar, and the destination legible as a smoke column on the skyline rather than a UI arrow. Same asset set as the on-foot frames, so it costs a controller and a camera, not a new art pipeline.</p>
+      </div>
+      <div>
+        <span class="verdict alt">Pairs with over-the-shoulder</span>
+        <ul class="tradeoffs">
+          <li class="up"><span class="m">+</span><span>Reuses every city asset you already built</span></li>
+          <li class="up"><span class="m">+</span><span>Spread-while-driving makes travel a gameplay beat</span></li>
+          <li class="dn"><span class="m">−</span><span>Vehicle handling is its own polish problem; budget for it</span></li>
+          <li class="dn"><span class="m">−</span><span>Needs a drivable road network, not just a pretty backdrop</span></li>
+        </ul>
+      </div>
+    </figcaption>
+  </figure>
+
+  <!-- ============ INTERIOR / FIRST PERSON ============ -->
+
+  <figure class="frame">
+    <div class="shot">
+      <svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="First-person view through an SCBA mask inside a smoke-filled room, with a thermal-imaging outline of an unconscious civilian and a low-air warning.">
+        <defs>
+          <radialGradient id="s4room" cx=".54" cy=".46" r=".72">
+            <stop offset="0" stop-color="#4a3a30"/>
+            <stop offset=".5" stop-color="#2a2420"/>
+            <stop offset="1" stop-color="#131113"/>
+          </radialGradient>
+          <radialGradient id="s4door" cx=".5" cy=".5" r=".5">
+            <stop offset="0" stop-color="#ff8f2e" stop-opacity=".85"/>
+            <stop offset="1" stop-color="#ff6a18" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="s4vig" cx=".5" cy=".5" r=".62">
+            <stop offset=".55" stop-color="#000" stop-opacity="0"/>
+            <stop offset="1" stop-color="#000" stop-opacity=".92"/>
+          </radialGradient>
+          <linearGradient id="s4therm" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0" stop-color="#ffd24a"/>
+            <stop offset="1" stop-color="#ff5c2a"/>
+          </linearGradient>
+          <filter id="s4blur" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="26"/>
+          </filter>
+          <filter id="s4soft" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="8"/>
+          </filter>
+        </defs>
+
+        <rect width="1600" height="900" fill="url(#s4room)"/>
+
+        <!-- room geometry, barely visible through smoke -->
+        <g opacity=".5">
+          <polygon points="180,180 1420,180 1250,640 350,640" fill="#241f1c"/>
+          <polygon points="180,180 350,640 350,900 180,900" fill="#1c1817"/>
+          <polygon points="1420,180 1250,640 1250,900 1420,900" fill="#1c1817"/>
+          <polygon points="350,640 1250,640 1420,900 180,900" fill="#191514"/>
+          <!-- doorway with fire behind -->
+          <rect x="1080" y="300" width="150" height="340" fill="#100b08"/>
+        </g>
+        <ellipse class="fx-flicker" cx="1155" cy="470" rx="240" ry="290" fill="url(#s4door)"/>
+        <g class="fx-flicker" opacity=".9">
+          <polygon points="1094,640 1104,556 1124,610 1144,540 1166,606 1188,552 1204,640" fill="#ff8f2e"/>
+          <polygon points="1114,640 1128,584 1146,624 1162,578 1178,640" fill="#ffd35c"/>
+        </g>
+
+        <!-- furniture silhouettes -->
+        <g opacity=".55">
+          <rect x="400" y="500" width="230" height="120" rx="10" fill="#181513"/>
+          <rect x="700" y="540" width="150" height="90" rx="8" fill="#181513"/>
+        </g>
+
+        <!-- thermal outline of civilian -->
+        <g opacity=".95">
+          <ellipse cx="640" cy="700" rx="200" ry="60" fill="#ff5c2a" opacity=".16" filter="url(#s4blur)"/>
+          <g fill="url(#s4therm)">
+            <ellipse cx="500" cy="660" rx="34" ry="30"/>
+            <path d="M534 690 L 760 700 L 762 742 L 530 736 Z"/>
+            <path d="M760 700 L 826 726 L 818 760 L 754 740 Z"/>
+            <path d="M560 736 L 600 742 L 596 786 L 556 780 Z"/>
+          </g>
+          <g fill="#fff3c4" opacity=".75">
+            <ellipse cx="500" cy="654" rx="20" ry="16"/>
+            <rect x="560" y="700" width="170" height="16" rx="8"/>
+          </g>
+        </g>
+
+        <!-- smoke layers -->
+        <g class="fx-drift" opacity=".82">
+          <ellipse cx="500" cy="230" rx="420" ry="200" fill="#3a3129" filter="url(#s4blur)"/>
+          <ellipse cx="1050" cy="180" rx="460" ry="190" fill="#453930" filter="url(#s4blur)"/>
+          <ellipse cx="800" cy="380" rx="520" ry="150" fill="#332b25" opacity=".7" filter="url(#s4blur)"/>
+        </g>
+
+        <!-- gloved hand w/ thermal camera, bottom right -->
+        <g>
+          <path d="M1210 900 L 1180 720 L 1330 690 L 1420 900 Z" fill="#2c3039"/>
+          <path d="M1196 812 L 1372 780 L 1378 806 L 1202 838 Z" fill="#e8d24f" opacity=".85"/>
+          <rect x="1240" y="640" width="180" height="120" rx="12" fill="#1b1f27" transform="rotate(-9 1330 700)"/>
+          <rect x="1258" y="656" width="144" height="86" rx="6" fill="#0e1a24" transform="rotate(-9 1330 700)"/>
+          <g transform="rotate(-9 1330 700)" opacity=".9">
+            <rect x="1290" y="686" width="42" height="34" rx="6" fill="#ff7a2f"/>
+            <rect x="1340" y="700" width="26" height="20" rx="4" fill="#ffd24a"/>
+          </g>
+        </g>
+
+        <!-- mask vignette -->
+        <rect width="1600" height="900" fill="url(#s4vig)"/>
+        <path d="M0,0 H1600 V900 H0 Z
+                 M300,180 C300,120 420,86 800,86 C1180,86 1300,120 1300,180
+                 L1330,600 C1330,720 1120,806 800,806 C480,806 270,720 270,600 Z"
+              fill="#07080b" fill-rule="evenodd"/>
+        <path d="M300,180 C300,120 420,86 800,86 C1180,86 1300,120 1300,180
+                 L1330,600 C1330,720 1120,806 800,806 C480,806 270,720 270,600 Z"
+              fill="none" stroke="#1e232b" stroke-width="14"/>
+        <path d="M300,180 C300,120 420,86 800,86 C1180,86 1300,120 1300,180"
+              fill="none" stroke="#39414d" stroke-width="4" opacity=".7"/>
+        <!-- condensation glint -->
+        <path d="M370,240 C420,190 560,160 700,158" fill="none" stroke="#cfe0f5"
+              stroke-width="10" opacity=".1" filter="url(#s4soft)"/>
+
+        <!-- HUD inside mask -->
+        <g font-family="ui-monospace, SF Mono, Menlo, monospace">
+          <g>
+            <text x="360" y="272" font-size="18" letter-spacing="4" fill="#ff6a4a">AIR · SCBA</text>
+            <rect x="360" y="286" width="230" height="14" fill="#ffffff" fill-opacity=".14"/>
+            <rect x="360" y="286" width="60" height="14" fill="#ff5c3a"/>
+            <text x="606" y="300" font-size="19" fill="#ff8f6a">26%</text>
+            <text x="360" y="332" font-size="17" letter-spacing="2" fill="#ff6a4a">◆ LOW AIR — EXIT IN 1:10</text>
+          </g>
+          <g text-anchor="end">
+            <text x="1244" y="272" font-size="18" letter-spacing="4" fill="#8f9aab">CEILING TEMP</text>
+            <text x="1244" y="316" font-size="34" letter-spacing="2" fill="#ffb463">418°C</text>
+            <text x="1244" y="344" font-size="16" letter-spacing="2" fill="#ff6a4a">FLASHOVER RISK</text>
+          </g>
+          <g text-anchor="middle">
+            <rect x="700" y="612" width="200" height="34" fill="#0b0e14" opacity=".55"/>
+            <text x="800" y="636" font-size="18" letter-spacing="3" fill="#ffd24a">HOLD F — DRAG OUT</text>
+            <text x="800" y="686" font-size="16" letter-spacing="3" fill="#8f9aab">CIVILIAN 3 / 3 · UNCONSCIOUS</text>
+          </g>
+          <text x="800" y="152" text-anchor="middle" font-size="16" letter-spacing="6" fill="#6c7688">THERMAL IMAGING ACTIVE</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption class="cap">
+      <div>
+        <span class="camspec">CAM <span class="dot">·</span> first-person <span class="dot">·</span> 28 mm <span class="dot">·</span> mask port vignette / interior only</span>
+        <h2>First-person — interiors only</h2>
+        <p class="lede">Don't ship this as the default camera, but do use it inside burning buildings. The mask port narrows your view, smoke kills your sightlines, and the thermal camera becomes the only way to find someone — which is exactly the tension the real job has.</p>
+        <p>Switching cameras at the doorway is a strong beat: outside you're competent and in control, inside you're half-blind on a two-minute air clock. It's the same trick <em>Alien: Isolation</em> plays with locker vents.</p>
+      </div>
+      <div>
+        <span class="verdict alt">Situational</span>
+        <ul class="tradeoffs">
+          <li class="up"><span class="m">+</span><span>Cheapest possible interiors — smoke hides everything</span></li>
+          <li class="up"><span class="m">+</span><span>Makes the air timer genuinely frightening</span></li>
+          <li class="up"><span class="m">+</span><span>Gives the thermal camera a reason to exist</span></li>
+          <li class="dn"><span class="m">−</span><span>Some players get motion sick; needs an FOV slider</span></li>
+          <li class="dn"><span class="m">−</span><span>A camera transition to tune and get right</span></li>
+        </ul>
+      </div>
+    </figcaption>
+  </figure>
+
+  <!-- ============ MATRIX ============ -->
+
+  <div class="rule"><h3>Picking one</h3></div>
+
+  <div class="matrix-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Camera</th>
+          <th scope="col">Hose feels good</th>
+          <th scope="col">Fire spread readable</th>
+          <th scope="col">Character matters</th>
+          <th scope="col">Art &amp; anim cost</th>
+          <th scope="col">Solo-dev risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="pick">
+          <th scope="row">Over-the-shoulder</th>
+          <td class="score"><b>●●●●●</b></td>
+          <td class="score"><b>●●</b><i>●●●</i></td>
+          <td class="score"><b>●●●●●</b></td>
+          <td>High</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <th scope="row">Isometric tactical</th>
+          <td class="score"><b>●●</b><i>●●●</i></td>
+          <td class="score"><b>●●●●●</b></td>
+          <td class="score"><b>●</b><i>●●●●</i></td>
+          <td>Low</td>
+          <td>Low</td>
+        </tr>
+        <tr>
+          <th scope="row">Chase (driving)</th>
+          <td class="score"><i>n/a</i></td>
+          <td class="score"><b>●●</b><i>●●●</i></td>
+          <td class="score"><b>●●</b><i>●●●</i></td>
+          <td>Reuses assets</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <th scope="row">First-person interior</th>
+          <td class="score"><b>●●●●</b><i>●</i></td>
+          <td class="score"><b>●</b><i>●●●●</i></td>
+          <td class="score"><i>●●●●●</i></td>
+          <td>Low</td>
+          <td>Low</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="color:var(--ink-2);max-width:66ch;margin:22px 0 0;">
+    My call: <strong style="color:var(--ink)">over-the-shoulder as the default, chase cam in the truck, first-person inside buildings.</strong>
+    Three rigs, one world, one asset set. Isometric only wins if you'd rather build a crew-command sim than a firefighter sim — it's a genuinely good game, just a different one.
+  </p>
+
+  <!-- ============ ART DIRECTION ============ -->
+
+  <div class="rule"><h3>Art direction</h3></div>
+
+  <figure class="frame">
+    <div class="shot">
+      <svg viewBox="0 0 1600 686" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="Wide cinematic night shot of a city block with a large smoke column lit from below by fire, silhouetted fire engines and firefighters in the foreground.">
+        <defs>
+          <linearGradient id="s5sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#080d1a"/>
+            <stop offset=".55" stop-color="#131c31"/>
+            <stop offset="1" stop-color="#33283a"/>
+          </linearGradient>
+          <linearGradient id="s5smoke" x1=".15" y1="1" x2=".5" y2="0">
+            <stop offset="0" stop-color="#78462a" stop-opacity=".95"/>
+            <stop offset=".3" stop-color="#4d3a38" stop-opacity=".8"/>
+            <stop offset="1" stop-color="#252936" stop-opacity="0"/>
+          </linearGradient>
+          <radialGradient id="s5glow" cx=".5" cy=".5" r=".5">
+            <stop offset="0" stop-color="#ff9436" stop-opacity=".85"/>
+            <stop offset="1" stop-color="#ff6a18" stop-opacity="0"/>
+          </radialGradient>
+          <filter id="s5blur" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="30"/>
+          </filter>
+          <filter id="s5soft" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="10"/>
+          </filter>
+        </defs>
+
+        <rect width="1600" height="686" fill="url(#s5sky)"/>
+        <g fill="#ffffff" opacity=".25">
+          <circle cx="160" cy="76" r="2"/><circle cx="330" cy="42" r="1.6"/><circle cx="512" cy="98" r="2"/>
+          <circle cx="1290" cy="60" r="2"/><circle cx="1442" cy="112" r="1.6"/><circle cx="1122" cy="36" r="1.8"/>
+        </g>
+
+        <!-- smoke column, the signature -->
+        <g class="fx-drift">
+          <ellipse cx="800" cy="330" rx="150" ry="210" fill="url(#s5smoke)" filter="url(#s5blur)"/>
+          <ellipse cx="858" cy="170" rx="215" ry="180" fill="url(#s5smoke)" filter="url(#s5blur)"/>
+          <ellipse cx="770" cy="44"  rx="300" ry="170" fill="url(#s5smoke)" filter="url(#s5blur)"/>
+          <ellipse cx="1000" cy="-30" rx="360" ry="180" fill="#2a2e3c" opacity=".6" filter="url(#s5blur)"/>
+        </g>
+
+        <!-- skyline -->
+        <g fill="#151b2a">
+          <polygon points="0,520 0,300 96,300 96,352 190,352 190,262 286,262 286,520"/>
+          <polygon points="300,520 300,346 384,346 384,398 470,398 470,520"/>
+          <polygon points="1120,520 1120,282 1214,282 1214,338 1310,338 1310,240 1404,240 1404,520"/>
+          <polygon points="1420,520 1420,360 1520,360 1520,320 1600,320 1600,520"/>
+        </g>
+        <g fill="#ffd9a0" opacity=".22">
+          <rect x="30" y="330" width="10" height="14"/><rect x="62" y="372" width="10" height="14"/>
+          <rect x="210" y="292" width="10" height="14"/><rect x="248" y="336" width="10" height="14"/>
+          <rect x="330" y="376" width="10" height="14"/><rect x="410" y="426" width="10" height="14"/>
+          <rect x="1146" y="312" width="10" height="14"/><rect x="1238" y="366" width="10" height="14"/>
+          <rect x="1330" y="272" width="10" height="14"/><rect x="1450" y="392" width="10" height="14"/>
+        </g>
+
+        <!-- the burning block -->
+        <ellipse class="fx-flicker" cx="800" cy="470" rx="470" ry="200" fill="url(#s5glow)"/>
+        <g fill="#20242f">
+          <polygon points="560,520 560,368 700,368 700,520"/>
+          <polygon points="700,520 700,326 920,326 920,520"/>
+          <polygon points="920,520 920,384 1060,384 1060,520"/>
+        </g>
+        <g class="fx-flicker">
+          <rect x="736" y="352" width="52" height="46" fill="#ff8f2e"/>
+          <rect x="816" y="352" width="52" height="46" fill="#ffc247"/>
+          <rect x="736" y="424" width="52" height="46" fill="#ff6a18"/>
+          <rect x="816" y="424" width="52" height="46" fill="#ff8f2e"/>
+          <rect x="600" y="404" width="44" height="40" fill="#ff6a18" opacity=".8"/>
+          <rect x="962" y="424" width="44" height="40" fill="#ff8f2e" opacity=".7"/>
+          <polygon points="700,326 724,268 744,308 770,250 796,304 822,258 848,312 876,272 896,326"
+                   fill="#ff8f2e" opacity=".9"/>
+          <polygon points="740,326 762,286 784,318 808,278 830,320 852,290 866,326"
+                   fill="#ffd35c" opacity=".9"/>
+        </g>
+
+        <!-- street & reflected light -->
+        <rect x="0" y="520" width="1600" height="166" fill="#141822"/>
+        <ellipse class="fx-flicker" cx="800" cy="556" rx="520" ry="70" fill="#ff7a2f" opacity=".2" filter="url(#s5blur)"/>
+        <ellipse cx="320" cy="596" rx="260" ry="60" fill="#ff4b3a" opacity=".1" filter="url(#s5blur)"/>
+        <ellipse cx="1300" cy="596" rx="260" ry="60" fill="#4f9dff" opacity=".1" filter="url(#s5blur)"/>
+
+        <!-- foreground silhouettes -->
+        <g fill="#0a0d14">
+          <!-- engine left -->
+          <rect x="120" y="470" width="300" height="90" rx="8"/>
+          <rect x="360" y="440" width="90" height="120" rx="8"/>
+          <rect x="140" y="452" width="230" height="12" rx="4"/>
+          <circle cx="196" cy="568" r="26"/><circle cx="330" cy="568" r="26"/><circle cx="418" cy="568" r="26"/>
+          <!-- engine right -->
+          <rect x="1200" y="480" width="280" height="80" rx="8"/>
+          <rect x="1130" y="452" width="86" height="108" rx="8"/>
+          <circle cx="1268" cy="566" r="24"/><circle cx="1400" cy="566" r="24"/>
+        </g>
+        <!-- light bars still lit -->
+        <g>
+          <rect x="366" y="430" width="76" height="10" rx="4" fill="#ff4b3a"/>
+          <rect x="1136" y="442" width="72" height="10" rx="4" fill="#4f9dff"/>
+          <ellipse cx="404" cy="434" rx="90" ry="50" fill="#ff4b3a" opacity=".3" filter="url(#s5soft)"/>
+          <ellipse cx="1172" cy="446" rx="90" ry="50" fill="#4f9dff" opacity=".3" filter="url(#s5soft)"/>
+        </g>
+        <!-- firefighter silhouettes -->
+        <g fill="#090c12">
+          <g>
+            <ellipse cx="618" cy="614" rx="34" ry="8"/>
+            <path d="M596 512 C 596 498, 640 498, 640 512 L 648 606 L 588 606 Z"/>
+            <path d="M600 496 C 600 478, 636 478, 636 496 L 642 506 L 594 506 Z"/>
+            <rect x="600" y="516" width="14" height="46" rx="6"/>
+            <path d="M598 606 L 612 606 L 610 660 L 594 660 Z"/>
+            <path d="M626 606 L 642 606 L 646 660 L 628 660 Z"/>
+          </g>
+          <g>
+            <ellipse cx="700" cy="622" rx="32" ry="8"/>
+            <path d="M680 526 C 680 512, 720 512, 720 526 L 728 614 L 672 614 Z"/>
+            <path d="M684 510 C 684 494, 716 494, 716 510 L 722 520 L 678 520 Z"/>
+            <path d="M682 614 L 696 614 L 694 666 L 678 666 Z"/>
+            <path d="M708 614 L 724 614 L 728 666 L 710 666 Z"/>
+          </g>
+          <g>
+            <ellipse cx="1004" cy="618" rx="32" ry="8"/>
+            <path d="M984 520 C 984 506, 1024 506, 1024 520 L 1032 610 L 976 610 Z"/>
+            <path d="M988 504 C 988 488, 1020 488, 1020 504 L 1026 514 L 982 514 Z"/>
+            <path d="M986 610 L 1000 610 L 998 662 L 982 662 Z"/>
+            <path d="M1012 610 L 1028 610 L 1032 662 L 1014 662 Z"/>
+          </g>
+        </g>
+        <!-- rim light on the silhouettes -->
+        <g fill="#ff9d4a" opacity=".55">
+          <path d="M640 512 L 648 606 L 640 606 L 633 514 Z"/>
+          <path d="M720 526 L 728 614 L 720 614 L 713 528 Z"/>
+          <path d="M1024 520 L 1032 610 L 1024 610 L 1017 522 Z"/>
+        </g>
+        <!-- hose lines on the road -->
+        <g stroke="#1a1f28" stroke-width="10" fill="none">
+          <path d="M420 592 C 560 630, 760 620, 880 596"/>
+          <path d="M1200 604 C 1090 640, 960 634, 900 604"/>
+        </g>
+      </svg>
+    </div>
+    <figcaption class="cap">
+      <div>
+        <span class="camspec">STYLE <span class="dot">·</span> flat-shaded low-poly <span class="dot">·</span> baked static lighting <span class="dot">·</span> emissive fire + bloom</span>
+        <h2>Palette &amp; mood</h2>
+        <p class="lede">One rule governs the whole look: the city is cool and desaturated, and fire is the only saturated thing on screen. Slate blues, muted concrete, sage trees — then ember orange and apparatus red carry all the visual weight.</p>
+        <p>The smoke column is the signature. It's beautiful, it's your navigation marker from anywhere on the map, and its color and volume tell you how bad the call is before you arrive. Night shifts are where this direction pays off hardest.</p>
+      </div>
+      <div>
+        <span class="verdict alt">Locked direction</span>
+        <ul class="tradeoffs">
+          <li class="up"><span class="m">+</span><span>Runs at 60 fps in a browser; instanced, few draw calls</span></li>
+          <li class="up"><span class="m">+</span><span>One artist or asset packs can fill a whole district</span></li>
+          <li class="up"><span class="m">+</span><span>Ages well — stylized doesn't date the way half-realism does</span></li>
+          <li class="dn"><span class="m">−</span><span>Demands discipline: one saturated hue leaking in ruins it</span></li>
+        </ul>
+      </div>
+    </figcaption>
+  </figure>
+
+  <!-- ============ MENUS ============ -->
+
+  <div class="rule"><h3>Screens around the game</h3></div>
+
+  <div class="pair">
+
+    <figure class="frame">
+      <div class="shot">
+        <svg viewBox="0 0 800 560" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Character select screen showing two firefighters on lit plinths with a stats and loadout panel.">
+          <defs>
+            <radialGradient id="s6bg" cx=".42" cy=".42" r=".7">
+              <stop offset="0" stop-color="#22283a"/>
+              <stop offset="1" stop-color="#0c0f16"/>
+            </radialGradient>
+            <radialGradient id="s6spot" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="#ff8a2b" stop-opacity=".45"/>
+              <stop offset="1" stop-color="#ff6a18" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="s6soft" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="14"/>
+            </filter>
+          </defs>
+          <rect width="800" height="560" fill="url(#s6bg)"/>
+          <ellipse cx="290" cy="470" rx="290" ry="90" fill="url(#s6spot)"/>
+
+          <!-- plinths -->
+          <ellipse cx="200" cy="452" rx="96" ry="24" fill="#171c26"/>
+          <ellipse cx="200" cy="446" rx="96" ry="24" fill="#232a38"/>
+          <ellipse cx="200" cy="446" rx="96" ry="24" fill="none" stroke="#ff7a2f" stroke-width="3"/>
+          <ellipse cx="382" cy="452" rx="86" ry="21" fill="#141922"/>
+          <ellipse cx="382" cy="447" rx="86" ry="21" fill="#1d2330"/>
+
+          <!-- figure A (selected) -->
+          <g>
+            <path d="M162 262 C 162 240, 238 240, 238 262 L 250 440 L 150 440 Z" fill="#3a4150"/>
+            <path d="M152 390 L 248 390 L 250 408 L 150 408 Z" fill="#e8d24f"/>
+            <path d="M154 356 L 246 356 L 247 366 L 153 366 Z" fill="#8fb8c9"/>
+            <path d="M158 268 L 142 350 L 166 358 L 180 280 Z" fill="#434b5b"/>
+            <path d="M242 268 L 262 348 L 238 358 L 222 280 Z" fill="#434b5b"/>
+            <rect x="168" y="440" width="28" height="26" fill="#20242e"/>
+            <rect x="206" y="440" width="28" height="26" fill="#20242e"/>
+            <!-- head + helmet -->
+            <ellipse cx="200" cy="228" rx="24" ry="27" fill="#c99a72"/>
+            <path d="M170 224 C 170 190, 230 190, 230 224 L 236 240 L 164 240 Z" fill="#e8b736"/>
+            <path d="M158 238 C 176 228, 224 228, 242 238 L 243 248 L 157 248 Z" fill="#d8a326"/>
+            <path d="M188 250 L 212 250 L 214 264 L 186 264 Z" fill="#2d323d"/>
+            <!-- rim -->
+            <path d="M238 262 L 250 440 L 240 440 L 228 266 Z" fill="#ff9d4a" opacity=".5"/>
+          </g>
+
+          <!-- figure B -->
+          <g opacity=".55">
+            <path d="M350 280 C 350 260, 414 260, 414 280 L 424 442 L 340 442 Z" fill="#333a48"/>
+            <path d="M342 398 L 422 398 L 423 414 L 341 414 Z" fill="#c9b746"/>
+            <path d="M346 286 L 332 358 L 352 364 L 364 296 Z" fill="#3b4250"/>
+            <path d="M418 286 L 436 356 L 416 364 L 404 296 Z" fill="#3b4250"/>
+            <rect x="356" y="442" width="24" height="22" fill="#1c2029"/>
+            <rect x="388" y="442" width="24" height="22" fill="#1c2029"/>
+            <ellipse cx="382" cy="248" rx="21" ry="24" fill="#8a6249"/>
+            <path d="M356 244 C 356 214, 408 214, 408 244 L 413 258 L 351 258 Z" fill="#c99b2c"/>
+            <path d="M346 256 C 362 248, 402 248, 418 256 L 419 265 L 345 265 Z" fill="#b78c22"/>
+          </g>
+
+          <!-- panel -->
+          <g font-family="ui-monospace, SF Mono, Menlo, monospace">
+            <rect x="490" y="88" width="270" height="384" fill="#0b0e14" opacity=".72"/>
+            <rect x="490" y="88" width="270" height="3" fill="#ff7a2f"/>
+            <text x="512" y="128" font-size="15" letter-spacing="4" fill="#ff9d4a">PROBATIONARY</text>
+            <text x="512" y="164" font-family="Arial Narrow, Helvetica, sans-serif" font-size="34"
+                  letter-spacing="1" fill="#e6ebf2">RILEY QUINN</text>
+            <line x1="512" y1="182" x2="738" y2="182" stroke="#ffffff" stroke-opacity=".16"/>
+
+            <text x="512" y="212" font-size="13" letter-spacing="3" fill="#8f9aab">STAMINA</text>
+            <rect x="512" y="220" width="226" height="8" fill="#ffffff" fill-opacity=".13"/>
+            <rect x="512" y="220" width="158" height="8" fill="#5fd0c0"/>
+            <text x="512" y="256" font-size="13" letter-spacing="3" fill="#8f9aab">HEAT RESIST</text>
+            <rect x="512" y="264" width="226" height="8" fill="#ffffff" fill-opacity=".13"/>
+            <rect x="512" y="264" width="112" height="8" fill="#ff8f2e"/>
+            <text x="512" y="300" font-size="13" letter-spacing="3" fill="#8f9aab">CARRY</text>
+            <rect x="512" y="308" width="226" height="8" fill="#ffffff" fill-opacity=".13"/>
+            <rect x="512" y="308" width="190" height="8" fill="#4f9dff"/>
+
+            <text x="512" y="350" font-size="13" letter-spacing="3" fill="#8f9aab">LOADOUT</text>
+            <g>
+              <rect x="512" y="362" width="70" height="26" fill="none" stroke="#39414f"/>
+              <text x="547" y="380" font-size="12" letter-spacing="1" fill="#c3cbd8" text-anchor="middle">HELMET</text>
+              <rect x="590" y="362" width="60" height="26" fill="none" stroke="#39414f"/>
+              <text x="620" y="380" font-size="12" letter-spacing="1" fill="#c3cbd8" text-anchor="middle">COAT</text>
+              <rect x="658" y="362" width="80" height="26" fill="none" stroke="#ff7a2f"/>
+              <text x="698" y="380" font-size="12" letter-spacing="1" fill="#ffb463" text-anchor="middle">SCBA II</text>
+            </g>
+
+            <rect x="512" y="416" width="226" height="38" fill="#ff7a2f"/>
+            <text x="625" y="441" font-size="15" letter-spacing="4" fill="#141821"
+                  text-anchor="middle">START SHIFT</text>
+          </g>
+
+          <text x="40" y="56" font-family="Arial Narrow, Helvetica, sans-serif" font-size="26"
+                letter-spacing="7" fill="#8f9aab">SELECT FIREFIGHTER</text>
+        </svg>
+      </div>
+      <figcaption class="cap">
+        <div>
+          <span class="camspec">UI <span class="dot">·</span> character select</span>
+          <h2>Roster</h2>
+          <p>Two base rigs sharing one animation set. Gear is swappable mesh layers, so every unlock is visible on your firefighter — that's what makes rank progression feel like something instead of a number going up.</p>
+        </div>
+      </figcaption>
+    </figure>
+
+    <figure class="frame">
+      <div class="shot">
+        <svg viewBox="0 0 800 560" xmlns="http://www.w3.org/2000/svg" role="img"
+             aria-label="Dispatch map screen: a stylized top-down city divided into districts, with an active call marker, the station, and locked districts.">
+          <defs>
+            <filter id="s7soft" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="10"/>
+            </filter>
+            <pattern id="s7lock" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="12" height="12" fill="#141821"/>
+              <rect width="4" height="12" fill="#1b2029"/>
+            </pattern>
+          </defs>
+          <rect width="800" height="560" fill="#0e1119"/>
+
+          <!-- water -->
+          <path d="M0,470 C 150,440 300,500 460,478 C 600,458 700,500 800,486 L800,560 L0,560 Z" fill="#16243a"/>
+
+          <!-- districts -->
+          <g>
+            <polygon points="40,80 330,80 330,300 40,300" fill="#1e2735"/>
+            <polygon points="346,80 560,80 560,240 346,240" fill="#222c3b"/>
+            <polygon points="40,316 330,316 330,466 40,466" fill="#1c2431"/>
+            <polygon points="576,80 764,80 764,300 576,300" fill="url(#s7lock)"/>
+            <polygon points="346,256 560,256 560,462 346,462" fill="url(#s7lock)"/>
+          </g>
+          <!-- roads -->
+          <g stroke="#2c3646" stroke-width="4">
+            <path d="M40,180 H764"/><path d="M40,308 H764"/><path d="M40,392 H560"/>
+            <path d="M186,80 V466"/><path d="M338,80 V466"/><path d="M568,80 V466"/>
+            <path d="M452,80 V466"/><path d="M676,80 V300"/>
+          </g>
+          <g stroke="#374356" stroke-width="7">
+            <path d="M40,240 H764"/><path d="M264,80 V466"/>
+          </g>
+
+          <!-- park -->
+          <rect x="60" y="332" width="118" height="82" rx="6" fill="#233326"/>
+          <!-- blocks -->
+          <g fill="#2a3444" opacity=".9">
+            <rect x="60" y="96" width="52" height="42"/><rect x="126" y="96" width="42" height="42"/>
+            <rect x="200" y="96" width="48" height="42"/><rect x="284" y="96" width="36" height="42"/>
+            <rect x="60" y="196" width="42" height="34"/><rect x="118" y="196" width="56" height="34"/>
+            <rect x="200" y="196" width="48" height="34"/><rect x="284" y="196" width="36" height="34"/>
+            <rect x="366" y="96" width="66" height="70"/><rect x="472" y="96" width="70" height="70"/>
+            <rect x="366" y="196" width="66" height="30"/><rect x="472" y="196" width="70" height="30"/>
+            <rect x="196" y="332" width="52" height="34"/><rect x="196" y="382" width="52" height="34"/>
+            <rect x="284" y="332" width="34" height="84"/>
+          </g>
+
+          <!-- station -->
+          <g>
+            <rect x="120" y="248" width="34" height="34" fill="#2b3444" stroke="#5fd0c0" stroke-width="2"/>
+            <text x="137" y="272" font-family="ui-monospace, Menlo, monospace" font-size="17"
+                  fill="#5fd0c0" text-anchor="middle">12</text>
+          </g>
+
+          <!-- active call ping -->
+          <g>
+            <circle class="fx-ping" cx="1210" cy="452" r="34" fill="none" stroke="#ff7a2f" stroke-width="3"
+                    transform="translate(-806,-306)"/>
+            <circle cx="404" cy="146" r="46" fill="#ff7a2f" opacity=".14" filter="url(#s7soft)"/>
+            <circle cx="404" cy="146" r="11" fill="#ff7a2f"/>
+            <circle cx="404" cy="146" r="24" fill="none" stroke="#ff7a2f" stroke-width="2" opacity=".6"/>
+          </g>
+          <!-- secondary call -->
+          <circle cx="228" cy="356" r="8" fill="#ffc247" opacity=".75"/>
+
+          <!-- district labels -->
+          <g font-family="ui-monospace, SF Mono, Menlo, monospace" letter-spacing="3">
+            <text x="56" y="292" font-size="13" fill="#65718a">RIVERSIDE</text>
+            <text x="362" y="232" font-size="13" fill="#65718a">DOWNTOWN</text>
+            <text x="56" y="458" font-size="13" fill="#65718a">OLD MILL</text>
+            <text x="592" y="292" font-size="13" fill="#3f4859">HARBOR · RANK 4</text>
+            <text x="362" y="454" font-size="13" fill="#3f4859">INDUSTRIAL · RANK 3</text>
+          </g>
+
+          <!-- call card -->
+          <g font-family="ui-monospace, SF Mono, Menlo, monospace">
+            <rect x="440" y="88" width="316" height="152" fill="#0b0e14" opacity=".9"/>
+            <rect x="440" y="88" width="3" height="152" fill="#ff7a2f"/>
+            <text x="460" y="118" font-size="13" letter-spacing="4" fill="#ff9d4a">INCOMING · CODE 3</text>
+            <text x="460" y="146" font-family="Arial Narrow, Helvetica, sans-serif" font-size="26"
+                  letter-spacing="1" fill="#e6ebf2">1147 ALDER ST</text>
+            <text x="460" y="172" font-size="13" fill="#8f9aab">STRUCTURE · 2-STORY · WOOD FRAME</text>
+            <text x="460" y="194" font-size="13" fill="#8f9aab">2 REPORTED INSIDE · WIND NE 14</text>
+            <rect x="460" y="206" width="130" height="24" fill="#ff7a2f"/>
+            <text x="525" y="223" font-size="12" letter-spacing="3" fill="#141821"
+                  text-anchor="middle">ROLL OUT</text>
+            <text x="620" y="223" font-size="12" letter-spacing="3" fill="#65718a">PASS</text>
+          </g>
+
+          <text x="40" y="56" font-family="Arial Narrow, Helvetica, sans-serif" font-size="26"
+                letter-spacing="7" fill="#8f9aab">DISPATCH · SHIFT 04</text>
+        </svg>
+      </div>
+      <figcaption class="cap">
+        <div>
+          <span class="camspec">UI <span class="dot">·</span> dispatch map</span>
+          <h2>Dispatch</h2>
+          <p>The map screen doubles as your content roadmap. Locked districts are hatched out and gated by rank, which means shipping a new district is a data file plus one unlock rule — no new systems, no new code.</p>
+        </div>
+      </figcaption>
+    </figure>
+
+  </div>
+
+  <!-- ============ DECIDE ============ -->
+
+  <div class="rule"><h3>What to decide next</h3></div>
+
+  <section class="decide">
+    <h3>Three calls, in order</h3>
+    <ol>
+      <li><b>Ground level or isometric.</b> Everything else follows from this. Ground level is the more distinctive game and the harder build; isometric is the safer build and a genuinely different, more strategic game. Pick before any code.</li>
+      <li><b>How deep the simulation goes.</b> Arcade (spray the orange until it's gone) versus sim-lite (materials, ventilation, backdraft, the wrong agent making things worse). This sets the fire-cell data model, and retrofitting depth into an arcade model is painful.</li>
+      <li><b>Open district or mission select.</b> Whether you drive freely around a persistent city or pick a call from the dispatch map and load into it. Mission select is far cheaper and lets you ship the fire before you ship the city.</li>
+    </ol>
+  </section>
+
+</div>

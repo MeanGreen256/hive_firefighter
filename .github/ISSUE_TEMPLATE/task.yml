@@ -1,0 +1,66 @@
+name: Task
+description: A unit of work — a feature, a system, a chore
+labels: ["type:feat"]
+body:
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: One or two lines. What this unlocks, or what's broken without it.
+      placeholder: The material table is the highest-leverage data in the game — add a row, every prop made of it gets new behaviour for free.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      description: Checklist. Small enough that each line is obviously done or not done.
+      value: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: The observable condition. Prefer something you can look at over something you have to reason about.
+      placeholder: Changing wood.spreadFactor in the JSON visibly changes how fast fire moves, with no code edit.
+    validations:
+      required: true
+
+  - type: input
+    id: depends
+    attributes:
+      label: Depends on
+      description: Issue numbers that must land first.
+      placeholder: "#6, #11"
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - sim
+        - render
+        - art
+        - ui
+        - audio
+        - content
+        - infra
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options:
+        - S — under half a day
+        - M — half a day to two days
+        - L — multi-day, consider splitting
+    validations:
+      required: true
