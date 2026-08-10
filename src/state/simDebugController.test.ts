@@ -57,4 +57,14 @@ describe('sim debug controller', () => {
     expect(controller.store.getState().tuning.neighborHeatShare).toBe(0.24);
     expect(JSON.parse(controller.copyTuningAsJson())).toMatchObject({ neighborHeatShare: 0.24 });
   });
+
+  it('uses live burnout tuning when force-igniting a cell', () => {
+    const controller = createSimDebugController();
+    const cell = controller.store.getState().simulation.grid.cells['1,0,0']!;
+    cell.fuel = 0.05;
+    controller.setTuningValue('burnoutFuelThreshold', 0.1);
+
+    expect(controller.toggleCell(cell.id)).toBe(false);
+    expect(cell.state).toBe(CellState.Clear);
+  });
 });

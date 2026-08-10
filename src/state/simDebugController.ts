@@ -153,7 +153,9 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
       if (!cell) throw new Error(`Cannot toggle missing cell "${cellId}"`);
 
       const isBurning = cell.state === CellState.Burning || cell.state === CellState.Flashover;
-      const changed = isBurning ? extinguishCell(state, cellId) : forceIgniteCell(state, cellId);
+      const changed = isBurning
+        ? extinguishCell(state, cellId)
+        : forceIgniteCell(state, cellId, runner.getTuning());
       if (changed) store.setState({ simulation: state, lastTickDebug: null });
       return changed;
     },

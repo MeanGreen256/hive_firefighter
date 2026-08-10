@@ -329,7 +329,11 @@ export function createFireSimulation(
 }
 
 /** Ignite a combustible cell and add it to the active frontier. */
-export function igniteCell(state: FireSimulationState, cellId: string): boolean {
+export function igniteCell(
+  state: FireSimulationState,
+  cellId: string,
+  tuning: FireSimulationTuning = DEFAULT_FIRE_SIMULATION_TUNING,
+): boolean {
   const cell = state.grid.cells[cellId];
   if (!cell) throw new Error(`Cannot ignite missing cell "${cellId}"`);
 
@@ -339,7 +343,7 @@ export function igniteCell(state: FireSimulationState, cellId: string): boolean 
     cell.state === CellState.Burnt ||
     cell.state === CellState.Wetted ||
     cell.wetness > 0 ||
-    cell.fuel <= BURNOUT_FUEL_THRESHOLD
+    cell.fuel <= tuning.burnoutFuelThreshold
   ) {
     return false;
   }
@@ -355,7 +359,11 @@ export function igniteCell(state: FireSimulationState, cellId: string): boolean 
  * burn-through and material constraints. Keeping it here makes the mutation
  * deterministic and testable without teaching the UI about cell internals.
  */
-export function forceIgniteCell(state: FireSimulationState, cellId: string): boolean {
+export function forceIgniteCell(
+  state: FireSimulationState,
+  cellId: string,
+  tuning: FireSimulationTuning = DEFAULT_FIRE_SIMULATION_TUNING,
+): boolean {
   const cell = state.grid.cells[cellId];
   if (!cell) throw new Error(`Cannot force-ignite missing cell "${cellId}"`);
 
@@ -363,7 +371,7 @@ export function forceIgniteCell(state: FireSimulationState, cellId: string): boo
   if (
     material.ignitionPoint === null ||
     cell.state === CellState.Burnt ||
-    cell.fuel <= BURNOUT_FUEL_THRESHOLD
+    cell.fuel <= tuning.burnoutFuelThreshold
   ) {
     return false;
   }

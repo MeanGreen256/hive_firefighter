@@ -265,6 +265,19 @@ describe('fire propagation', () => {
     expect(extinguishCell(state, cell.id)).toBe(false);
   });
 
+  it('uses live burnout tuning for regular and forced ignition', () => {
+    const regularState = createFireSimulation(createCellGrid('wood'));
+    const forcedState = createFireSimulation(createCellGrid('wood'));
+    const tuning = createFireSimulationTuning({ burnoutFuelThreshold: 0.1 });
+    regularState.grid.cells['0,0,0']!.fuel = 0.05;
+    forcedState.grid.cells['0,0,0']!.fuel = 0.05;
+
+    expect(igniteCell(regularState, '0,0,0', tuning)).toBe(false);
+    expect(forceIgniteCell(forcedState, '0,0,0', tuning)).toBe(false);
+    expect(regularState.grid.cells['0,0,0']?.state).toBe(CellState.Clear);
+    expect(forcedState.grid.cells['0,0,0']?.state).toBe(CellState.Clear);
+  });
+
   it('advances at 10 Hz independently of elapsed-time chunking', () => {
     const initial = createFireSimulation(createCellGrid('wood'), { seed: 81 });
     igniteCell(initial, '0,0,0');
