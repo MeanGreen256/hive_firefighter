@@ -19,7 +19,11 @@ npx prettier --check .
 npm test         # vitest, if the change touches anything with tests
 ```
 
-`npm run check` does **not** run Prettier or tests — run those separately. CI (`.github/workflows/ci.yml`) runs `prettier --check`, `npm run check`, and `npm run build` on every push to `main` and every PR. It does **not** currently run `npm test`, even where test files exist — a green CI run is not proof tests passed; run `npm test` yourself if the change has any.
+`npm run check` does **not** run Prettier or tests — run those separately when
+working locally. CI (`.github/workflows/ci.yml`) runs `prettier --check`,
+`npm run check`, `npm test`, and `npm run build` as distinct steps on every push
+to `main` and every PR, so failures identify which validation stage needs
+attention.
 
 ## Folder layout
 
