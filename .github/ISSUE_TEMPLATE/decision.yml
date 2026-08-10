@@ -1,6 +1,6 @@
 name: Decision
 description: An open fork that needs settling before work can proceed
-labels: ["decision-needed", "type:docs"]
+labels: ['decision-needed', 'type:docs']
 body:
   - type: markdown
     attributes:
