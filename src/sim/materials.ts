@@ -24,6 +24,9 @@
 
 import materialsJson from '../../content/materials.json' with { type: 'json' };
 
+/** Material ids are derived from the content table, never duplicated in code. */
+export type MaterialId = keyof typeof materialsJson;
+
 /**
  * The fire behaviour of one material. Every prop made of this material
  * gets this behaviour automatically — that's the whole point of the
