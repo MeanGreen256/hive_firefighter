@@ -1,0 +1,56 @@
+name: Decision
+description: An open fork that needs settling before work can proceed
+labels: ["decision-needed", "type:docs"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For questions where different answers lead to materially different work. Once settled, this becomes an ADR in `docs/adr/`.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: The question
+      description: State it as a question with a real answer, not a topic.
+      placeholder: Does the player drive the truck to the scene, or is travel abstracted into a route-choice screen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: options
+    attributes:
+      label: Options
+      description: Two to four, each with what it costs and what it buys.
+      value: |
+        **Option A —**
+        - Buys:
+        - Costs:
+
+        **Option B —**
+        - Buys:
+        - Costs:
+    validations:
+      required: true
+
+  - type: textarea
+    id: blocked
+    attributes:
+      label: What's blocked
+      description: Which issues can't start, or will need rework, until this is answered.
+
+  - type: textarea
+    id: lean
+    attributes:
+      label: Current lean
+      description: The tentative answer and why. Worth recording even when it changes.
+
+  - type: dropdown
+    id: reversible
+    attributes:
+      label: How reversible
+      options:
+        - Easy — can change later at low cost
+        - Moderate — some rework
+        - Hard — structural, decide carefully
+    validations:
+      required: true

@@ -1,0 +1,48 @@
+name: Bug
+description: Something behaves wrong
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: Actual behaviour, then expected behaviour.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: seed
+    attributes:
+      label: Sim seed
+      description: If it's a simulation bug, the seed makes it reproducible. Grab it from the debug overlay.
+      placeholder: "0x4f2a91"
+
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: Preview URL, commit SHA, or branch.
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      multiple: true
+      options:
+        - Chrome
+        - Safari
+        - Firefox
+        - Edge
+        - Mobile Safari
+        - Mobile Chrome
