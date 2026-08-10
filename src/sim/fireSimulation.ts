@@ -240,8 +240,10 @@ export type FireSimulationEvent = CellBurnedThroughEvent;
 
 export interface FixedTimestepRunner {
   getState(): FireSimulationState;
-  /** Replace state after an external sim input, such as water application. */
+  /** Replace state after an external sim input without changing elapsed tick time. */
   setState(state: FireSimulationState): void;
+  /** Start a scenario from a clean clock and discard output from the previous state. */
+  reset(state: FireSimulationState): void;
   getTuning(): FireSimulationTuning;
   /** Replace constants used by subsequent ticks without restarting the scenario. */
   setTuning(tuning: FireSimulationTuning): void;
@@ -666,6 +668,11 @@ export function createFixedTimestepRunner(
   return {
     getState: () => state,
     setState: (nextState) => {
+      state = nextState;
+      pendingEvents.length = 0;
+      pendingDebugFrames.length = 0;
+    },
+    reset: (nextState) => {
       state = nextState;
       accumulatorSeconds = 0;
       pendingEvents.length = 0;
