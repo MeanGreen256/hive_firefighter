@@ -13,6 +13,17 @@ No hardcoded colour literals. Every colour, material, and particle appearance co
 - Cell state visuals (#13)
 - Flame, smoke, and the smoke column (#14)
 
+## Camera-facing contract
+
+`isometricCamera.ts` is the renderer-facing source of truth for quarter turns. Its
+coordinate convention is +X east and +Z south. `getCameraFacing()` returns the
+normalized rotation, camera quadrant, yaw, and the two exterior walls on the
+camera side of the scene. Camera-dependent geometry should consume
+`cameraFacingWalls` instead of inferring direction from Three.js camera vectors.
+
+`IsometricCameraRig` calls `onFacingChange` with the requested target facing at
+the start of each smooth Q/E rotation, as well as once on mount.
+
 ## Budget
 
 < 80 draw calls, < 2000 active particles, 60fps at 1080p on integrated graphics. The harness in #4 makes violations visible.
