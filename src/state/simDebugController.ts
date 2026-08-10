@@ -126,7 +126,7 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
       });
     },
     reset: (seed = store.getState().simulation.seed) => {
-      runner.setState(createStarterScenario(seed));
+      runner.reset(createStarterScenario(seed));
       store.setState({
         simulation: runner.getState(),
         paused: true,
