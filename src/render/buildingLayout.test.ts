@@ -130,27 +130,41 @@ describe('procedural building layout', () => {
     expect(layout.estimatedDrawCalls).toBeLessThan(40);
   });
 
-  it('closes the retained-wall corner without extending into the open cutaway', () => {
+  // Corner closure is driven by which perpendicular wall survives the cutaway,
+  // so every rotation exercises a different branch and all four need covering.
+  it('closes the retained-wall corner at every rotation without extending into the open cutaway', () => {
     const dimensions = { width: 2, height: 2, depth: 3 };
-    const layout = buildBuildingLayout(createGrid(dimensions), ['east', 'south']);
+    const grid = createGrid(dimensions);
     const halfWidth = (dimensions.width * CELL_SIZE) / 2;
     const halfDepth = (dimensions.depth * CELL_SIZE) / 2;
 
-    for (let storey = 0; storey < dimensions.height; storey += 1) {
-      const y = storey * CELL_HEIGHT + CELL_HEIGHT / 2;
-      const retainedCorner = [
-        -halfWidth - WALL_THICKNESS / 2,
-        y,
-        -halfDepth - WALL_THICKNESS / 2,
-      ] as const;
-      const openCorner = [
-        halfWidth + WALL_THICKNESS / 2,
-        y,
-        -halfDepth - WALL_THICKNESS / 2,
-      ] as const;
+    for (const rotation of [0, 1, 2, 3]) {
+      const layout = buildBuildingLayout(grid, getCameraFacing(rotation).cameraFacingWalls);
+      const retainedX = layout.visibleWalls.includes('east')
+        ? halfWidth + WALL_THICKNESS / 2
+        : -halfWidth - WALL_THICKNESS / 2;
+      const retainedZ = layout.visibleWalls.includes('south')
+        ? halfDepth + WALL_THICKNESS / 2
+        : -halfDepth - WALL_THICKNESS / 2;
 
-      expect(layout.walls.some((wall) => containsPoint(wall, retainedCorner))).toBe(true);
-      expect(layout.walls.some((wall) => containsPoint(wall, openCorner))).toBe(false);
+      for (let storey = 0; storey < dimensions.height; storey += 1) {
+        const y = storey * CELL_HEIGHT + CELL_HEIGHT / 2;
+
+        expect(
+          layout.walls.some((wall) => containsPoint(wall, [retainedX, y, retainedZ] as const)),
+        ).toBe(true);
+
+        // The other three corners each touch a cut-away wall and must stay open.
+        for (const [openX, openZ] of [
+          [-retainedX, retainedZ],
+          [retainedX, -retainedZ],
+          [-retainedX, -retainedZ],
+        ] as const) {
+          expect(layout.walls.some((wall) => containsPoint(wall, [openX, y, openZ] as const))).toBe(
+            false,
+          );
+        }
+      }
     }
   });
 
