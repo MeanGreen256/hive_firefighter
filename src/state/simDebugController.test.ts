@@ -67,4 +67,14 @@ describe('sim debug controller', () => {
     expect(controller.toggleCell(cell.id)).toBe(false);
     expect(cell.state).toBe(CellState.Clear);
   });
+
+  it('builds the reset scenario with the live tuning, not the committed defaults', () => {
+    const controller = createSimDebugController();
+    // Above any starting fuel, so the origin cell is spent by the live rule
+    // even though the committed default would happily ignite it.
+    controller.setTuningValue('burnoutFuelThreshold', 1);
+    controller.reset();
+
+    expect(controller.store.getState().simulation.grid.cells['0,0,0']?.state).toBe(CellState.Clear);
+  });
 });

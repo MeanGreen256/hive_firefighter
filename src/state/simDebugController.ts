@@ -40,15 +40,15 @@ export interface SimDebugController {
   copyTuningAsJson(): string;
 }
 
-function createStarterScenario(seed: number): FireSimulationState {
+function createStarterScenario(seed: number, tuning: FireSimulationTuning): FireSimulationState {
   const state = createFireSimulation(createCellGrid('wood'), { seed });
-  igniteCell(state, '0,0,0');
+  igniteCell(state, '0,0,0', tuning);
   return state;
 }
 
 export function createSimDebugController(initialSeed = 2026): SimDebugController {
   const initialTuning = createFireSimulationTuning(DEFAULT_FIRE_SIMULATION_TUNING);
-  const runner = createFixedTimestepRunner(createStarterScenario(initialSeed), {
+  const runner = createFixedTimestepRunner(createStarterScenario(initialSeed, initialTuning), {
     tuning: initialTuning,
     captureDebug: true,
   });
@@ -126,7 +126,7 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
       });
     },
     reset: (seed = store.getState().simulation.seed) => {
-      runner.reset(createStarterScenario(seed));
+      runner.reset(createStarterScenario(seed, runner.getTuning()));
       store.setState({
         simulation: runner.getState(),
         paused: true,
