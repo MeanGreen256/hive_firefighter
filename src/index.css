@@ -1,0 +1,59 @@
+:root {
+  --bg: #101319;
+  --ink: #e2e7ef;
+  --ink-dim: #6c7688;
+  --ember: #ff7a2f;
+
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+.scene {
+  position: fixed;
+  inset: 0;
+}
+
+.placard {
+  position: fixed;
+  left: 24px;
+  bottom: 22px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  line-height: 1.9;
+  pointer-events: none;
+  user-select: none;
+}
+
+.placard b {
+  color: var(--ember);
+  font-weight: 400;
+}
