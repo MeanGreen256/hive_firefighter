@@ -20,13 +20,14 @@ import {
 } from 'three';
 import { CellState, type CellGrid, type CellState as CellStateValue } from '@sim/cellGrid';
 import type { MaterialId } from '@sim/materials';
+import { COLLAPSE_WARNING_SECONDS, type StructuralSimulationState } from '@sim/structuralCollapse';
 import type { MaterialAppearance, Style } from '@styles/styles';
 import {
   buildBuildingLayout,
   type CellInstanceGroup,
   type InstanceTransform,
 } from './buildingLayout';
-import { getCellMarkerPose } from './cellVisuals';
+import { getCellMarkerPose, getStructuralCellPose } from './cellVisuals';
 import type { CameraFacing } from './isometricCamera';
 
 export interface CellMeshReference {
@@ -45,6 +46,7 @@ export interface CutawayBuildingHandle {
 export interface CutawayBuildingProps {
   readonly grid: CellGrid;
   readonly readLiveGrid?: () => CellGrid;
+  readonly readStructuralState?: () => StructuralSimulationState;
   readonly facing: CameraFacing;
   readonly visualStyle: Style;
   readonly onCellMeshRegistryChange?: (registry: CellMeshRegistry) => void;
@@ -205,6 +207,7 @@ interface CellLayerProps {
   readonly appearance: MaterialAppearance;
   readonly visualStyle: Style;
   readonly readLiveGrid: () => CellGrid;
+  readonly readStructuralState: () => StructuralSimulationState;
   readonly registerMesh: (groupIndex: number, mesh: InstancedMesh | null) => void;
 }
 
@@ -217,10 +220,12 @@ function AnimatedCellStateLayer({
   appearance,
   visualStyle,
   readLiveGrid,
+  readStructuralState,
 }: Omit<CellLayerProps, 'groupIndex' | 'registerMesh'> & { readonly state: CellStateValue }) {
   const colorMeshRef = useRef<InstancedMesh>(null);
   const markerMeshRef = useRef<InstancedMesh>(null);
   const colorScales = useRef<Vector3[]>([]);
+  const colorPositions = useRef<Vector3[]>([]);
   const markerPositions = useRef<Vector3[]>([]);
   const markerScales = useRef<Vector3[]>([]);
   const scratchPosition = useMemo(() => new Vector3(), []);
@@ -233,13 +238,14 @@ function AnimatedCellStateLayer({
     const markerMesh = markerMeshRef.current;
     if (!colorMesh || !markerMesh) return;
 
-    group.instances.forEach((instance, index) => {
+    group.instances.forEach((_instance, index) => {
       const colorScale = colorScales.current[index];
+      const colorPosition = colorPositions.current[index];
       const markerPosition = markerPositions.current[index];
       const markerScale = markerScales.current[index];
-      if (!colorScale || !markerPosition || !markerScale) return;
+      if (!colorScale || !colorPosition || !markerPosition || !markerScale) return;
 
-      scratchTransform.position.set(...instance.position);
+      scratchTransform.position.copy(colorPosition);
       scratchTransform.scale.copy(colorScale);
       scratchTransform.updateMatrix();
       colorMesh.setMatrixAt(index, scratchTransform.matrix);
@@ -255,12 +261,17 @@ function AnimatedCellStateLayer({
 
   useLayoutEffect(() => {
     const liveGrid = readLiveGrid();
+    const structuralState = readStructuralState();
     group.instances.forEach((instance, index) => {
       const active = liveGrid.cells[instance.cellId]?.state === state;
-      const markerPose = getCellMarkerPose(instance, active ? treatment.marker : 'none');
+      const warning = structuralState.warnings[instance.cellId];
+      const warningProgress = warning ? 1 - warning.remainingSeconds / COLLAPSE_WARNING_SECONDS : 0;
+      const structuralPose = getStructuralCellPose(instance, state, warningProgress);
+      const markerPose = getCellMarkerPose(structuralPose, active ? treatment.marker : 'none');
+      colorPositions.current[index] = new Vector3(...structuralPose.position);
       colorScales.current[index] = new Vector3(
         ...(active
-          ? instance.scale
+          ? structuralPose.scale
           : ([HIDDEN_CELL_SCALE, HIDDEN_CELL_SCALE, HIDDEN_CELL_SCALE] as const)),
       );
       markerPositions.current[index] = new Vector3(...markerPose.position);
@@ -269,22 +280,28 @@ function AnimatedCellStateLayer({
     writeTransforms();
     colorMeshRef.current?.computeBoundingSphere();
     markerMeshRef.current?.computeBoundingSphere();
-  }, [group, readLiveGrid, state, treatment.marker, writeTransforms]);
+  }, [group, readLiveGrid, readStructuralState, state, treatment.marker, writeTransforms]);
 
   useFrame((_frameState, delta) => {
     const blend = 1 - Math.exp(-delta / visualStyle.cellVisuals.transitionSeconds);
     const liveGrid = readLiveGrid();
+    const structuralState = readStructuralState();
 
     group.instances.forEach((instance, index) => {
       const colorScale = colorScales.current[index];
+      const colorPosition = colorPositions.current[index];
       const markerPosition = markerPositions.current[index];
       const markerScale = markerScales.current[index];
-      if (!colorScale || !markerPosition || !markerScale) return;
+      if (!colorScale || !colorPosition || !markerPosition || !markerScale) return;
       const active = liveGrid.cells[instance.cellId]?.state === state;
-      const markerPose = getCellMarkerPose(instance, active ? treatment.marker : 'none');
+      const warning = structuralState.warnings[instance.cellId];
+      const warningProgress = warning ? 1 - warning.remainingSeconds / COLLAPSE_WARNING_SECONDS : 0;
+      const structuralPose = getStructuralCellPose(instance, state, warningProgress);
+      const markerPose = getCellMarkerPose(structuralPose, active ? treatment.marker : 'none');
+      colorPosition.lerp(scratchPosition.set(...structuralPose.position), blend);
       colorScale.lerp(
         active
-          ? scratchScale.set(...instance.scale)
+          ? scratchScale.set(...structuralPose.scale)
           : scratchScale.set(HIDDEN_CELL_SCALE, HIDDEN_CELL_SCALE, HIDDEN_CELL_SCALE),
         blend,
       );
@@ -329,12 +346,64 @@ function AnimatedCellStateLayer({
   );
 }
 
+function AnimatedCellOutlineLayer({
+  group,
+  appearance,
+  readLiveGrid,
+  readStructuralState,
+}: Pick<CellLayerProps, 'group' | 'appearance' | 'readLiveGrid' | 'readStructuralState'>) {
+  const meshRef = useRef<InstancedMesh>(null);
+  const scratchTransform = useMemo(() => new Object3D(), []);
+  const outlineScale = appearance.outline?.scale ?? 1;
+
+  const writeTransforms = useCallback(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const liveGrid = readLiveGrid();
+    const structuralState = readStructuralState();
+    group.instances.forEach((instance, index) => {
+      const cellState = liveGrid.cells[instance.cellId]?.state ?? CellState.Clear;
+      const warning = structuralState.warnings[instance.cellId];
+      const warningProgress = warning ? 1 - warning.remainingSeconds / COLLAPSE_WARNING_SECONDS : 0;
+      const pose = getStructuralCellPose(instance, cellState, warningProgress);
+      scratchTransform.position.set(...pose.position);
+      scratchTransform.scale.set(
+        pose.scale[0] * outlineScale,
+        pose.scale[1] * outlineScale,
+        pose.scale[2] * outlineScale,
+      );
+      scratchTransform.updateMatrix();
+      mesh.setMatrixAt(index, scratchTransform.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [group.instances, outlineScale, readLiveGrid, readStructuralState, scratchTransform]);
+
+  useLayoutEffect(() => {
+    writeTransforms();
+    meshRef.current?.computeBoundingSphere();
+  }, [writeTransforms]);
+  useFrame(writeTransforms);
+
+  if (!appearance.outline) return null;
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[undefined, undefined, group.instances.length]}
+      frustumCulled={false}
+    >
+      <UnitGeometry appearance={appearance} />
+      <meshBasicMaterial color={appearance.outline.color} side={BackSide} />
+    </instancedMesh>
+  );
+}
+
 function CellLayer({
   group,
   groupIndex,
   appearance,
   visualStyle,
   readLiveGrid,
+  readStructuralState,
   registerMesh,
 }: CellLayerProps) {
   const meshRef = useRef<InstancedMesh>(null);
@@ -359,7 +428,12 @@ function CellLayer({
         <UnitGeometry appearance={appearance} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
       </instancedMesh>
-      <OutlineLayer transforms={group.instances} appearance={appearance} />
+      <AnimatedCellOutlineLayer
+        group={group}
+        appearance={appearance}
+        readLiveGrid={readLiveGrid}
+        readStructuralState={readStructuralState}
+      />
       {CELL_STATES.map((state) => (
         <AnimatedCellStateLayer
           key={state}
@@ -368,6 +442,7 @@ function CellLayer({
           appearance={appearance}
           visualStyle={visualStyle}
           readLiveGrid={readLiveGrid}
+          readStructuralState={readStructuralState}
         />
       ))}
     </>
@@ -377,11 +452,20 @@ function CellLayer({
 /** Procedural, instanced dollhouse shell driven entirely by CellGrid data. */
 export const CutawayBuilding = forwardRef<CutawayBuildingHandle, CutawayBuildingProps>(
   function CutawayBuilding(
-    { grid, readLiveGrid, facing, visualStyle, onCellMeshRegistryChange },
+    { grid, readLiveGrid, readStructuralState, facing, visualStyle, onCellMeshRegistryChange },
     forwardedRef,
   ) {
     const fallbackGridReader = useCallback(() => grid, [grid]);
+    const fallbackStructuralState = useMemo<StructuralSimulationState>(
+      () => ({ warnings: {} }),
+      [],
+    );
+    const fallbackStructuralReader = useCallback(
+      () => fallbackStructuralState,
+      [fallbackStructuralState],
+    );
     const liveGridReader = readLiveGrid ?? fallbackGridReader;
+    const structuralStateReader = readStructuralState ?? fallbackStructuralReader;
     const layout = useMemo(
       () => buildBuildingLayout(grid, facing.cameraFacingWalls),
       [facing.cameraFacingWalls, grid],
@@ -441,6 +525,7 @@ export const CutawayBuilding = forwardRef<CutawayBuildingHandle, CutawayBuilding
             appearance={visualStyle.createMaterial('cell', group.materialId)}
             visualStyle={visualStyle}
             readLiveGrid={liveGridReader}
+            readStructuralState={structuralStateReader}
             registerMesh={registerCellMesh}
           />
         ))}

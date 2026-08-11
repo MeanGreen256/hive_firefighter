@@ -23,6 +23,7 @@ function validScenarioData(): Record<string, unknown> {
     civilians: [],
     hazards: [],
     waterTankCapacityLitres: 90,
+    foamTankCapacityLitres: 12,
     hydrants: [{ id: 'hydrant', position: { x: -1, y: 0, z: 0 } }],
     parTimeSeconds: 120,
   };
@@ -35,6 +36,7 @@ describe('scenario content', () => {
       name: 'Starter cutaway',
       seed: 2026,
       waterTankCapacityLitres: 90,
+      foamTankCapacityLitres: 12,
     });
   });
 

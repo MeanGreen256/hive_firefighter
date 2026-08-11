@@ -16,6 +16,10 @@ export function IncidentHud() {
   const [searchStatus, setSearchStatus] = useState('Scan ready');
   const civilians = Object.values(snapshot.civilians.civilians);
   const hazards = Object.values(snapshot.hazards.hazards);
+  const structuralWarnings = Object.values(snapshot.structures.warnings).sort(
+    (left, right) =>
+      left.remainingSeconds - right.remainingSeconds || left.cellId.localeCompare(right.cellId),
+  );
   const located = civilians.filter((civilian) => civilian.located).length;
   const searchable = civilians.filter(
     (civilian) =>
@@ -40,7 +44,10 @@ export function IncidentHud() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [scan]);
 
-  if (civilians.length === 0 && hazards.length === 0) return null;
+  if (civilians.length === 0 && hazards.length === 0 && structuralWarnings.length === 0) {
+    return null;
+  }
+  const structuralWarning = structuralWarnings[0] ?? null;
   const hazardStatus = !urgentHazard
     ? null
     : urgentHazard.state === PropaneHazardState.Countdown
@@ -93,6 +100,27 @@ export function IncidentHud() {
               />
             </div>
           ) : null}
+        </section>
+      ) : null}
+      {structuralWarning ? (
+        <section aria-label="Structural warning">
+          <header>
+            <span>Collapse risk</span>
+            <output>{structuralWarning.cellId}</output>
+          </header>
+          <p role="alert">
+            Floor sagging · {structuralWarning.remainingSeconds.toFixed(1)} s warning
+          </p>
+          <div
+            className="incident-tools__countdown"
+            role="progressbar"
+            aria-label="Collapse warning"
+            aria-valuemin={0}
+            aria-valuemax={3}
+            aria-valuenow={structuralWarning.remainingSeconds}
+          >
+            <span style={{ transform: `scaleX(${structuralWarning.remainingSeconds / 3})` }} />
+          </div>
         </section>
       ) : null}
     </aside>

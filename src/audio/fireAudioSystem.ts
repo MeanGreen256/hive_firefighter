@@ -11,6 +11,7 @@ import type { FireSimulationState } from '@sim/fireSimulation';
 import type { WaterApplicationResult } from '@sim/waterApplication';
 import { getMostUrgentHazard, PropaneHazardState, type HazardSimulationState } from '@sim/hazards';
 import type { CivilianSearchCue } from '@sim/search';
+import type { StructuralSimulationState } from '@sim/structuralCollapse';
 
 export interface FireAudioSnapshot {
   enabled: boolean;
@@ -73,6 +74,7 @@ export function createFireAudioSystem(
   let nextWaterHissTime = 0;
   let nextCivilianCueTime = 0;
   let nextPropanePulseTime = 0;
+  let nextCollapseCreakTime = 0;
 
   const applyMasterGain = (): void => {
     if (!context || !masterGain) return;
@@ -144,6 +146,8 @@ export function createFireAudioSystem(
       if (context.currentTime < nextWaterHissTime) return;
       nextWaterHissTime = context.currentTime + 0.16;
       playNoiseBurst(getWaterHissFrequency(event.heat, event.ignitionPoint), 0.28, 0.28);
+    } else if (event.type === 'foam-burst') {
+      playNoiseBurst(920, 0.34, 0.2);
     } else if (event.type === 'steam-burst') {
       playNoiseBurst(2800, 0.18, 0.24);
     } else if (event.type === 'burn-through') {
@@ -152,8 +156,12 @@ export function createFireAudioSystem(
       playNoiseBurst(720, 0.18, 0.34);
     } else if (event.type === 'propane-reset') {
       playNoiseBurst(1320, 0.12, 0.22);
-    } else {
+    } else if (event.type === 'propane-failure') {
       playNoiseBurst(95, 0.75, 0.72);
+    } else if (event.type === 'collapse-warning') {
+      playNoiseBurst(145, 0.58, 0.3);
+    } else {
+      playNoiseBurst(72, 0.9, 0.76);
     }
   };
 
@@ -188,7 +196,11 @@ export function createFireAudioSystem(
       latestMix = getFireAudioMix(calculateFireIntensity(state));
       applyMix();
     },
-    syncIncident: (searchCue: CivilianSearchCue | null, hazards: HazardSimulationState): void => {
+    syncIncident: (
+      searchCue: CivilianSearchCue | null,
+      hazards: HazardSimulationState,
+      structures: StructuralSimulationState,
+    ): void => {
       if (!context) return;
       const now = context.currentTime;
       if (searchCue && now >= nextCivilianCueTime) {
@@ -200,6 +212,10 @@ export function createFireAudioSystem(
         playNoiseBurst(760, 0.1, 0.28);
         const urgency = Math.max(0.22, urgent.countdownRemainingSeconds / 8);
         nextPropanePulseTime = now + urgency;
+      }
+      if (Object.keys(structures.warnings).length > 0 && now >= nextCollapseCreakTime) {
+        playNoiseBurst(135, 0.48, 0.2);
+        nextCollapseCreakTime = now + 2.4;
       }
     },
     handleWaterApplication: (result: WaterApplicationResult): void => {

@@ -8,11 +8,12 @@ Fiber; UI components subscribe to low-frequency snapshots from here.
 timestep runner and exposes transport/tuning actions without placing functions
 or browser APIs inside the JSON-safe simulation state.
 
-The same controller is the incident host: it owns the finite water tank,
+The same controller is the incident host: it owns separate finite water and foam tanks,
 authored hydrant line, civilian simulation, elapsed scenario time, end-state
 detection, immutable debrief snapshot, thermal search mode, and propane hazard
-state. It is the mutation boundary for connect/disconnect, reach-limited spray,
-civilian search/pickup/move/drop actions, and hazard cooling. Fire and incident
-events share one subscription stream so audio can react without entering the
-simulation. `sessionStats.ts` keeps outcome and grading calculations pure so
-the UI only formats and presents store data.
+state, and structural warning state. It is the mutation boundary for agent
+selection, apparatus foam refill, connect/disconnect, reach-limited spray,
+civilian search/pickup/move/drop actions, hazard cooling, and collapse host
+effects. Fire and incident events share one subscription stream so audio can
+react without entering the simulation. `sessionStats.ts` keeps outcome and
+grading calculations pure so the UI only formats and presents store data.

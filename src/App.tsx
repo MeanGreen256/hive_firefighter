@@ -95,6 +95,7 @@ export default function App() {
   const buildingRef = useRef<CutawayBuildingHandle>(null);
   const buildingBounds = useMemo(() => getBuildingBounds(grid.dimensions), [grid.dimensions]);
   const readLiveGrid = useCallback(() => simDebugController.store.getState().simulation.grid, []);
+  const readStructuralState = useCallback(() => simDebugController.store.getState().structures, []);
   const [facing, setFacing] = useState<CameraFacing>(() => getCameraFacing(0));
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
   const setActiveStyle = useStore(styleStore, (state) => state.setActiveStyle);
@@ -136,6 +137,7 @@ export default function App() {
             ref={buildingRef}
             grid={grid}
             readLiveGrid={readLiveGrid}
+            readStructuralState={readStructuralState}
             facing={facing}
             visualStyle={visualStyle}
           />
@@ -162,7 +164,7 @@ export default function App() {
         <br />
         {grid.dimensions.width} × {grid.dimensions.height} × {grid.dimensions.depth} cells
         <br />
-        Hold click to spray · T thermal · F scan · H connect line
+        Hold click to spray · 1 water · 2 foam · T thermal · F scan
         <br />Q / E rotate · wheel zoom · WASD / middle-drag pan
         <label className="style-switcher">
           <span>Visual style</span>

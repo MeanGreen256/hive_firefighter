@@ -13,6 +13,8 @@ import {
   getWaterHissFrequency,
 } from './fireAudioMix';
 import { IncidentEventType, type IncidentSimulationEvent } from '@sim/hazards';
+import { StructuralEventType, type StructuralSimulationEvent } from '@sim/structuralCollapse';
+import { SuppressionAgent } from '@sim/waterApplication';
 
 describe('fire audio mix', () => {
   it('grows the layered crackle and low roar as more cells burn', () => {
@@ -81,6 +83,42 @@ describe('fire audio mix', () => {
       { type: 'propane-warning' },
       { type: 'propane-reset' },
       { type: 'propane-failure' },
+    ]);
+  });
+
+  it('maps foam contact and structural events to distinct one-shots', () => {
+    const events: StructuralSimulationEvent[] = [
+      {
+        type: StructuralEventType.CollapseWarning,
+        cellId: '0,1,0',
+        supportCellId: '0,0,0',
+        warningSeconds: 3,
+      },
+      {
+        type: StructuralEventType.CellCollapsed,
+        cellId: '0,1,0',
+        supportCellId: '0,0,0',
+        destination: { x: 0, y: 0, z: 0 },
+        lostCivilianIds: [],
+        fallenHazardIds: [],
+        playerAffected: false,
+      },
+    ];
+
+    expect(
+      getFireAudioEvents(events, [
+        {
+          agent: SuppressionAgent.Foam,
+          heatBefore: 300,
+          ignitionPoint: 220,
+          crossedExtinguish: true,
+        },
+      ]),
+    ).toEqual([
+      { type: 'foam-burst' },
+      { type: 'steam-burst' },
+      { type: 'collapse-warning' },
+      { type: 'collapse-impact' },
     ]);
   });
 

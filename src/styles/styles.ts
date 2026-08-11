@@ -284,6 +284,11 @@ const diorama: Style = {
         markerColor: '#d9cdb8',
         marker: 'inset-frame',
       },
+      [CellState.Collapsed]: {
+        color: '#55504a',
+        markerColor: '#f3e7d2',
+        marker: 'inset-frame',
+      },
     },
     transitionSeconds: 0.42,
     markerOpacity: 0.82,
@@ -376,6 +381,11 @@ const ink: Style = {
       [CellState.Burnt]: {
         color: '#16120e',
         markerColor: '#f0dfb6',
+        marker: 'inset-frame',
+      },
+      [CellState.Collapsed]: {
+        color: '#292723',
+        markerColor: '#fff2cb',
         marker: 'inset-frame',
       },
     },

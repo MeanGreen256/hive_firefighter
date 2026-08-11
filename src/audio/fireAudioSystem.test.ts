@@ -3,6 +3,7 @@ import { createCellGrid } from '@sim/cellGrid';
 import { createFireSimulation, igniteCell } from '@sim/fireSimulation';
 import { createFireAudioSystem } from './fireAudioSystem';
 import { createHazardSimulation, IncidentEventType } from '@sim/hazards';
+import { createStructuralSimulation } from '@sim/structuralCollapse';
 
 function createRunningContextDouble(targetGains: number[]): AudioContext {
   const createNode = () => ({
@@ -57,7 +58,7 @@ describe('fire audio autoplay guard', () => {
     const state = createFireSimulation(createCellGrid());
 
     audio.syncFire(state);
-    audio.syncIncident(null, createHazardSimulation([]));
+    audio.syncIncident(null, createHazardSimulation([]), createStructuralSimulation());
     audio.handleSimulationEvents([]);
     audio.handleSimulationEvents([
       { type: IncidentEventType.PropaneCountdownStarted, hazardId: 'tank' },

@@ -1,10 +1,13 @@
 import type { CellMarkerTreatment } from '@styles/styles';
 import type { InstanceTransform, Vector3Tuple } from './buildingLayout';
+import { CellState, type CellState as CellStateValue } from '@sim/cellGrid';
 
 export interface CellMarkerPose {
   readonly position: Vector3Tuple;
   readonly scale: Vector3Tuple;
 }
+
+export type StructuralCellPose = InstanceTransform;
 
 const HIDDEN_SCALE = 0.0001;
 
@@ -52,4 +55,31 @@ export function getCellMarkerPose(
         scale: [width * 0.68, height * 0.68, depth * 0.68],
       };
   }
+}
+
+/** Sag warned cells and flatten collapsed cells without introducing new meshes. */
+export function getStructuralCellPose(
+  instance: InstanceTransform,
+  state: CellStateValue,
+  warningProgress = 0,
+): StructuralCellPose {
+  const progress = Math.max(0, Math.min(1, warningProgress));
+  if (state === CellState.Collapsed) {
+    return {
+      position: [
+        instance.position[0],
+        instance.position[1] - instance.scale[1] * 0.42,
+        instance.position[2],
+      ],
+      scale: [instance.scale[0], instance.scale[1] * 0.12, instance.scale[2]],
+    };
+  }
+  return {
+    position: [
+      instance.position[0],
+      instance.position[1] - instance.scale[1] * 0.08 * progress,
+      instance.position[2],
+    ],
+    scale: [instance.scale[0], instance.scale[1] * (1 - 0.12 * progress), instance.scale[2]],
+  };
 }
