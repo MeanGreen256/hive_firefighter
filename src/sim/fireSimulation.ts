@@ -244,9 +244,20 @@ export interface CellBurnedThroughEvent {
 
 export type FireSimulationEvent = CellBurnedThroughEvent;
 
+/**
+ * Queue ownership, stated once so it cannot drift again: only a drain consumes
+ * output. `setState` replaces simulation state and touches nothing else —
+ * neither the accumulator nor the pending queues — because it sits on the
+ * per-frame external-input path where discarding either loses ticks or events
+ * the host never saw. `reset` is the sole scenario boundary that discards both.
+ */
 export interface FixedTimestepRunner {
   getState(): FireSimulationState;
-  /** Replace state after an external sim input without changing elapsed tick time. */
+  /**
+   * Replace state after an external sim input, such as water application.
+   * Preserves elapsed tick time and any output not yet drained, so it is safe
+   * to call at frame cadence.
+   */
   setState(state: FireSimulationState): void;
   /** Start a scenario from a clean clock and discard output from the previous state. */
   reset(state: FireSimulationState): void;
