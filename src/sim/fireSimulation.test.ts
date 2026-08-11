@@ -59,7 +59,7 @@ describe('fire propagation', () => {
     expect(state.tick * FIRE_TICK_SECONDS).toBeLessThanOrEqual(116);
     expect(isolated.fuel).toBe(0);
     expect(isolated.heat).toBe(0);
-    expect(state.propertySaved).toBe(0);
+    expect(calculatePropertySaved(state.grid, state.initialCombustibleFuelMass)).toBe(0);
     expect(events).toEqual([
       {
         type: FireSimulationEventType.CellBurnedThrough,
@@ -89,8 +89,7 @@ describe('fire propagation', () => {
     expect(Object.values(state.grid.cells).every((cell) => cell.state === CellState.Burnt)).toBe(
       true,
     );
-    expect(state.propertySaved).toBe(0);
-    expect(calculatePropertySaved(state.grid)).toBe(0);
+    expect(calculatePropertySaved(state.grid, state.initialCombustibleFuelMass)).toBe(0);
   });
 
   it('reports high property saved when the first fire is extinguished early', () => {
@@ -104,7 +103,27 @@ describe('fire propagation', () => {
     expect(Object.values(state.grid.cells).some((cell) => cell.state === CellState.Burnt)).toBe(
       false,
     );
-    expect(state.propertySaved).toBe(1);
+    expect(calculatePropertySaved(state.grid, state.initialCombustibleFuelMass)).toBe(1);
+  });
+
+  it('scores only initial combustible fuel mass and always reflects live mutations', () => {
+    const mixed = createCellGrid({ width: 2, height: 1, depth: 1 }, (position) =>
+      position.x === 0 ? 'wood' : 'concrete',
+    );
+    const state = createFireSimulation(mixed);
+    expect(state.initialCombustibleFuelMass).toBe(1);
+    expect(calculatePropertySaved(state.grid, state.initialCombustibleFuelMass)).toBe(1);
+
+    state.grid.cells['0,0,0']!.fuel = 0.4;
+    expect(calculatePropertySaved(state.grid, state.initialCombustibleFuelMass)).toBeCloseTo(0.4);
+    state.grid.cells['0,0,0']!.fuel = 0;
+    expect(calculatePropertySaved(state.grid, state.initialCombustibleFuelMass)).toBe(0);
+
+    const concrete = createFireSimulation(
+      createCellGrid({ width: 1, height: 1, depth: 1 }, 'concrete'),
+    );
+    expect(concrete.initialCombustibleFuelMass).toBe(0);
+    expect(calculatePropertySaved(concrete.grid, concrete.initialCombustibleFuelMass)).toBe(0);
   });
 
   it('never ignites concrete regardless of neighboring heat', () => {

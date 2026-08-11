@@ -29,7 +29,9 @@ The sim runs on a fixed 10 Hz timestep, driven outside React. It is never steppe
 `fireSimulation.ts` exposes both the single-tick `stepFireSimulation` operation
 and a plain `createFixedTimestepRunner` accumulator for a host game loop. The
 live state contains its seed, tick number, optional wind, active frontier, and
-live `propertySaved` ratio. The frontier is a `Set` for constant-time membership;
+the immutable initial combustible-fuel baseline used by grading. Property saved
+is recomputed from live fuel rather than cached, so external incident mutations
+cannot leave the score stale. The frontier is a `Set` for constant-time membership;
 `serializeFireSimulationState` converts it to a JSON-safe array, and
 `deserializeFireSimulationState` restores the runtime form so a burn can be
 saved or reproduced without renderer state.

@@ -1,5 +1,5 @@
 import { CellState, cellIdAt, type Cell, type GridPosition } from './cellGrid';
-import { calculatePropertySaved, type FireSimulationState } from './fireSimulation';
+import type { FireSimulationState } from './fireSimulation';
 import { CivilianState, type CivilianSimulationState } from './civilians';
 import type { HazardSimulationState } from './hazards';
 import type { HosePoint } from './hoseLine';
@@ -171,9 +171,6 @@ export function advanceStructuralCollapse(
     }
   }
 
-  if (events.some((event) => event.type === StructuralEventType.CellCollapsed)) {
-    fire.propertySaved = calculatePropertySaved(fire.grid);
-  }
   return events;
 }
 

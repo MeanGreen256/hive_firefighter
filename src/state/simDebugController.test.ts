@@ -5,9 +5,17 @@ import { IncidentEventType, PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@
 import { StructuralEventType } from '@sim/structuralCollapse';
 import { SuppressionAgent } from '@sim/waterApplication';
 import { SessionStatus } from './sessionStats';
+import type { StorageLike } from './personalBests';
 import { createSimDebugController, STARTER_HOSE_TARGET_CELL_ID } from './simDebugController';
 
 describe('sim debug controller', () => {
+  const createMemoryStorage = (): StorageLike => {
+    const values = new Map<string, string>();
+    return {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value),
+    };
+  };
   it('starts a reproducible shared scenario and single-steps exactly one tick', () => {
     const controller = createSimDebugController(42);
     const initial = controller.store.getState();
@@ -215,6 +223,68 @@ describe('sim debug controller', () => {
 
     controller.resetWithNewSeed();
     expect(controller.store.getState().simulation.seed).not.toBe(15);
+  });
+
+  it('restores every scenario-owned system on same-seed retry', () => {
+    const controller = createSimDebugController(2402, { scenarioId: 'workshop' });
+    const initial = controller.store.getState();
+    const initialCell = { ...initial.simulation.grid.cells['2,1,1'] };
+    controller.setSuppressionAgent(SuppressionAgent.Foam);
+    controller.sprayCell('3,1,1', 2);
+    controller.connectHydrant();
+    controller.toggleThermalView();
+    initial.civilians.civilians['civilian-a']!.state = CivilianState.Lost;
+    initial.hazards.hazards['propane-a']!.state = PropaneHazardState.Failed;
+    controller.advance(1);
+
+    controller.reset();
+
+    const retried = controller.store.getState();
+    expect(retried).toMatchObject({
+      scenarioId: 'workshop',
+      waterRemainingLitres: 90,
+      waterUsedLitres: 0,
+      foamRemainingLitres: 18,
+      foamUsedLitres: 0,
+      suppressionAgent: SuppressionAgent.Water,
+      thermalView: false,
+      elapsedScenarioSeconds: 0,
+      sessionStatus: SessionStatus.Active,
+      debrief: null,
+      hoseLine: { connectedHydrantId: null },
+    });
+    expect(retried.simulation.seed).toBe(2402);
+    expect(retried.simulation.grid.cells['2,1,1']).toEqual(initialCell);
+    expect(retried.civilians.civilians['civilian-a']?.state).toBe(CivilianState.Conscious);
+    expect(retried.hazards.hazards['propane-a']?.state).toBe(PropaneHazardState.Stable);
+    expect(retried.structures.warnings).toEqual({});
+  });
+
+  it('persists and compares personal bests for the same scenario and seed', () => {
+    const controller = createSimDebugController(15, {
+      personalBestStorage: createMemoryStorage(),
+    });
+    controller.sprayCell(STARTER_HOSE_TARGET_CELL_ID, 1);
+    const first = controller.store.getState().debrief;
+    expect(first).toMatchObject({ previousBest: null, isNewPersonalBest: true });
+
+    controller.reset();
+    controller.sprayCell(STARTER_HOSE_TARGET_CELL_ID, 1);
+    expect(controller.store.getState().debrief).toMatchObject({
+      previousBest: {
+        grade: first?.grade,
+        overallScore: first?.scores.overall,
+        elapsedSeconds: first?.elapsedSeconds,
+      },
+      isNewPersonalBest: false,
+    });
+
+    controller.resetWithNewSeed();
+    controller.sprayCell(STARTER_HOSE_TARGET_CELL_ID, 1);
+    expect(controller.store.getState().debrief).toMatchObject({
+      previousBest: null,
+      isNewPersonalBest: true,
+    });
   });
 
   it('switches to an authored scenario with its grid, seed, wind, and water capacity', () => {

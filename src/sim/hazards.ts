@@ -1,10 +1,5 @@
 import { CellState, cellIdAt, type CellGrid, type GridPosition } from './cellGrid';
-import {
-  calculatePropertySaved,
-  igniteCell,
-  type FireSimulationState,
-  type FireSimulationTuning,
-} from './fireSimulation';
+import { igniteCell, type FireSimulationState, type FireSimulationTuning } from './fireSimulation';
 import { CivilianState, type CivilianSimulationState } from './civilians';
 import { materials } from './materials';
 import type { ScenarioHazardPlacement } from './scenarios';
@@ -113,8 +108,6 @@ function applyBlast(
       ignitedCellIds.push(cell.id);
     }
   }
-  fire.propertySaved = calculatePropertySaved(fire.grid);
-
   const lostCivilianIds: string[] = [];
   for (const civilian of Object.values(civilians.civilians)) {
     if (

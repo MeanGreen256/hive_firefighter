@@ -6,6 +6,7 @@ import {
   createFireSimulation,
   createFireSimulationTuning,
   createFixedTimestepRunner,
+  calculatePropertySaved,
   extinguishCell,
   forceIgniteCell,
   igniteCell,
@@ -22,6 +23,7 @@ import {
 } from '@sim/waterApplication';
 import {
   advanceCivilians,
+  CivilianState,
   createCivilianSimulation,
   dropCarriedCivilian,
   moveCivilianCarrier,
@@ -40,6 +42,7 @@ import {
   advanceHazards,
   coolHazardsAtCell,
   createHazardSimulation,
+  PropaneHazardState,
   type HazardSimulationState,
   type IncidentSimulationEvent,
 } from '@sim/hazards';
@@ -68,6 +71,11 @@ import {
   SessionStatus,
   type SessionDebrief,
 } from './sessionStats';
+import {
+  createPersonalBestStore,
+  getBrowserPersonalBestStorage,
+  type StorageLike,
+} from './personalBests';
 import { reportSimTick } from '../perf/metrics';
 
 export const SIMULATION_SPEEDS = [0.25, 0.5, 1, 2, 4, 8] as const;
@@ -150,6 +158,7 @@ export interface SimDebugControllerOptions {
   readonly waterCapacityLitres?: number;
   readonly foamCapacityLitres?: number;
   readonly scenarioId?: string;
+  readonly personalBestStorage?: StorageLike | null;
 }
 
 function createScenarioState(
@@ -190,6 +199,11 @@ export function createSimDebugController(
   let hazards = createHazardSimulation(scenario.hazards);
   let structures = createStructuralSimulation();
   let thermalView = false;
+  const personalBests = createPersonalBestStore(
+    options.personalBestStorage === undefined
+      ? getBrowserPersonalBestStorage()
+      : options.personalBestStorage,
+  );
   const store = createStore<SimDebugSnapshot>(() => ({
     simulation: runner.getState(),
     scenarioId: scenario.id,
@@ -259,13 +273,34 @@ export function createSimDebugController(
     if (nextStatus !== SessionStatus.Contained && nextStatus !== SessionStatus.Lost) return;
 
     sessionStatus = nextStatus;
-    debrief = createSessionDebrief({
+    const fire = runner.getState();
+    const civilianList = Object.values(civilians.civilians);
+    const hazardList = Object.values(hazards.hazards);
+    const baseDebrief = createSessionDebrief({
+      scenarioId: scenario.id,
+      seed: fire.seed,
       outcome: nextStatus,
-      propertySaved: runner.getState().propertySaved,
+      propertySaved: calculatePropertySaved(fire.grid, fire.initialCombustibleFuelMass),
+      initialPropertyFuelMass: fire.initialCombustibleFuelMass,
       elapsedSeconds: elapsedScenarioSeconds,
+      parTimeSeconds: scenario.parTimeSeconds,
       waterUsedLitres,
-      waterCapacityLitres,
+      foamUsedLitres,
+      civilianTotal: civilianList.length,
+      civiliansRescued: civilianList.filter((civilian) => civilian.state === CivilianState.Rescued)
+        .length,
+      civiliansLost: civilianList.filter((civilian) => civilian.state === CivilianState.Lost)
+        .length,
+      hazardTotal: hazardList.length,
+      hazardsFailed: hazardList.filter((hazard) => hazard.state === PropaneHazardState.Failed)
+        .length,
     });
+    const bestResult = personalBests.record(baseDebrief);
+    debrief = {
+      ...baseDebrief,
+      previousBest: bestResult.previousBest,
+      isNewPersonalBest: bestResult.isNewPersonalBest,
+    };
   };
 
   /**

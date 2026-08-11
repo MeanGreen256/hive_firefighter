@@ -11,6 +11,7 @@ HUD, panels, and player input. Plain React and DOM — not drawn inside the canv
 - Propane warning and countdown status (#71)
 - Water/foam selection, separate tanks, and apparatus refill (#72)
 - Structural warning status (#73)
+- M2 outcome grading and the scenario/retry/personal-best loop (#74–#75)
 - Sim debug overlay (#10) — press F2 in development for cell inspection,
   deterministic transport, force inputs, and live constant tuning. It is
   loaded behind `import.meta.env.DEV` and stripped from production builds.
@@ -34,3 +35,8 @@ still refills water immediately as a testing affordance.
 nozzle anchor. The same panel announces propane warning state and presents the
 active countdown as accessible progress. It also announces the most urgent
 structural warning and its remaining telegraph time.
+
+The debrief scores only fuel, lives, and hazards that were actually at risk,
+plus time against the authored par. It shows the full breakdown, compares the
+run with the previous best for that exact scenario and seed, and offers
+same-fire retry, a deterministic new fire, or a different authored scenario.
