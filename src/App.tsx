@@ -1,10 +1,20 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { Canvas } from '@react-three/fiber';
 import { useStore } from 'zustand';
 import { CutawayBuilding, type CutawayBuildingHandle } from '@render/CutawayBuilding';
 import { FireParticles } from '@render/FireParticles';
 import { HoseEffects } from '@render/HoseEffects';
 import { IsometricCameraRig } from '@render/IsometricCameraRig';
+import { ModelStage } from '@render/ModelStage';
 import { getBuildingBounds } from '@render/buildingLayout';
 import { getCameraFacing, type CameraFacing } from '@render/isometricCamera';
 import { PerformanceSampler } from '@render/PerformanceSampler';
@@ -48,6 +58,8 @@ function StyledScene({ visualStyle }: { visualStyle: Style }) {
         intensity={2.35}
         color={visualStyle.palette.scene.sunlight}
         castShadow
+        shadow-radius={3.5}
+        shadow-bias={-0.0004}
         shadow-mapSize={[2048, 2048]}
       />
     </>
@@ -76,6 +88,7 @@ export default function App() {
   const hoseController = useMemo(() => createHoseController(simDebugController), []);
   const buildingRef = useRef<CutawayBuildingHandle>(null);
   const buildingBounds = useMemo(() => getBuildingBounds(grid.dimensions), [grid.dimensions]);
+  const readLiveGrid = useCallback(() => simDebugController.store.getState().simulation.grid, []);
   const [facing, setFacing] = useState<CameraFacing>(() => getCameraFacing(0));
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
   const setActiveStyle = useStore(styleStore, (state) => state.setActiveStyle);
@@ -107,10 +120,12 @@ export default function App() {
         <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]}>
           <IsometricCameraRig initialTarget={buildingBounds.center} onFacingChange={setFacing} />
           <StyledScene visualStyle={visualStyle} />
+          <ModelStage bounds={buildingBounds} visualStyle={visualStyle} />
           <CutawayBuilding
             key={scenarioVersion}
             ref={buildingRef}
             grid={grid}
+            readLiveGrid={readLiveGrid}
             facing={facing}
             visualStyle={visualStyle}
           />

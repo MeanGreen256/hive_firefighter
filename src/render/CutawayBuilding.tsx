@@ -7,15 +7,18 @@ import {
   useRef,
   useState,
 } from 'react';
+import { RoundedBoxGeometry } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import {
   BackSide,
   DataTexture,
   NearestFilter,
   Object3D,
   RedFormat,
+  Vector3,
   type InstancedMesh,
 } from 'three';
-import type { CellGrid } from '@sim/cellGrid';
+import { CellState, type CellGrid, type CellState as CellStateValue } from '@sim/cellGrid';
 import type { MaterialId } from '@sim/materials';
 import type { MaterialAppearance, Style } from '@styles/styles';
 import {
@@ -23,6 +26,7 @@ import {
   type CellInstanceGroup,
   type InstanceTransform,
 } from './buildingLayout';
+import { getCellMarkerPose } from './cellVisuals';
 import type { CameraFacing } from './isometricCamera';
 
 export interface CellMeshReference {
@@ -40,6 +44,7 @@ export interface CutawayBuildingHandle {
 
 export interface CutawayBuildingProps {
   readonly grid: CellGrid;
+  readonly readLiveGrid?: () => CellGrid;
   readonly facing: CameraFacing;
   readonly visualStyle: Style;
   readonly onCellMeshRegistryChange?: (registry: CellMeshRegistry) => void;
@@ -104,14 +109,22 @@ function SurfaceMaterial({ appearance }: { readonly appearance: MaterialAppearan
   }
 
   return (
-    <meshStandardMaterial
+    <meshLambertMaterial
       color={appearance.color}
-      roughness={appearance.roughness}
-      metalness={appearance.metalness}
       flatShading={appearance.flatShading}
       transparent={appearance.transparent}
       opacity={appearance.opacity}
       depthWrite={appearance.depthWrite}
+    />
+  );
+}
+
+function UnitGeometry({ appearance }: { readonly appearance: MaterialAppearance }) {
+  return (
+    <RoundedBoxGeometry
+      args={[1, 1, 1]}
+      radius={appearance.cornerRadius}
+      smoothness={appearance.cornerSmoothness}
     />
   );
 }
@@ -124,6 +137,7 @@ function OutlineLayer({ transforms, appearance }: StructureLayerProps) {
       transforms={transforms}
       color={appearance.outline.color}
       scale={appearance.outline.scale}
+      appearance={appearance}
     />
   );
 }
@@ -132,9 +146,15 @@ interface InstancedOutlineLayerProps {
   readonly transforms: readonly InstanceTransform[];
   readonly color: string;
   readonly scale: number;
+  readonly appearance: MaterialAppearance;
 }
 
-function InstancedOutlineLayer({ transforms, color, scale }: InstancedOutlineLayerProps) {
+function InstancedOutlineLayer({
+  transforms,
+  color,
+  scale,
+  appearance,
+}: InstancedOutlineLayerProps) {
   const mesh = useRef<InstancedMesh>(null);
 
   useLayoutEffect(() => {
@@ -144,7 +164,7 @@ function InstancedOutlineLayer({ transforms, color, scale }: InstancedOutlineLay
 
   return (
     <instancedMesh ref={mesh} args={[undefined, undefined, transforms.length]}>
-      <boxGeometry args={[1, 1, 1]} />
+      <UnitGeometry appearance={appearance} />
       <meshBasicMaterial color={color} side={BackSide} />
     </instancedMesh>
   );
@@ -171,7 +191,7 @@ function StructureLayer({ transforms, appearance }: StructureLayerProps) {
         castShadow
         receiveShadow
       >
-        <boxGeometry args={[1, 1, 1]} />
+        <UnitGeometry appearance={appearance} />
         <SurfaceMaterial appearance={appearance} />
       </instancedMesh>
       <OutlineLayer transforms={transforms} appearance={appearance} />
@@ -183,10 +203,140 @@ interface CellLayerProps {
   readonly group: CellInstanceGroup;
   readonly groupIndex: number;
   readonly appearance: MaterialAppearance;
+  readonly visualStyle: Style;
+  readonly readLiveGrid: () => CellGrid;
   readonly registerMesh: (groupIndex: number, mesh: InstancedMesh | null) => void;
 }
 
-function CellLayer({ group, groupIndex, appearance, registerMesh }: CellLayerProps) {
+const CELL_STATES = Object.values(CellState) as readonly CellStateValue[];
+const HIDDEN_CELL_SCALE = 0.0001;
+
+function AnimatedCellStateLayer({
+  group,
+  state,
+  appearance,
+  visualStyle,
+  readLiveGrid,
+}: Omit<CellLayerProps, 'groupIndex' | 'registerMesh'> & { readonly state: CellStateValue }) {
+  const colorMeshRef = useRef<InstancedMesh>(null);
+  const markerMeshRef = useRef<InstancedMesh>(null);
+  const colorScales = useRef<Vector3[]>([]);
+  const markerPositions = useRef<Vector3[]>([]);
+  const markerScales = useRef<Vector3[]>([]);
+  const scratchPosition = useMemo(() => new Vector3(), []);
+  const scratchScale = useMemo(() => new Vector3(), []);
+  const scratchTransform = useMemo(() => new Object3D(), []);
+  const treatment = visualStyle.cellVisuals.byState[state];
+
+  const writeTransforms = useCallback(() => {
+    const colorMesh = colorMeshRef.current;
+    const markerMesh = markerMeshRef.current;
+    if (!colorMesh || !markerMesh) return;
+
+    group.instances.forEach((instance, index) => {
+      const colorScale = colorScales.current[index];
+      const markerPosition = markerPositions.current[index];
+      const markerScale = markerScales.current[index];
+      if (!colorScale || !markerPosition || !markerScale) return;
+
+      scratchTransform.position.set(...instance.position);
+      scratchTransform.scale.copy(colorScale);
+      scratchTransform.updateMatrix();
+      colorMesh.setMatrixAt(index, scratchTransform.matrix);
+
+      scratchTransform.position.copy(markerPosition);
+      scratchTransform.scale.copy(markerScale);
+      scratchTransform.updateMatrix();
+      markerMesh.setMatrixAt(index, scratchTransform.matrix);
+    });
+    colorMesh.instanceMatrix.needsUpdate = true;
+    markerMesh.instanceMatrix.needsUpdate = true;
+  }, [group.instances, scratchTransform]);
+
+  useLayoutEffect(() => {
+    const liveGrid = readLiveGrid();
+    group.instances.forEach((instance, index) => {
+      const active = liveGrid.cells[instance.cellId]?.state === state;
+      const markerPose = getCellMarkerPose(instance, active ? treatment.marker : 'none');
+      colorScales.current[index] = new Vector3(
+        ...(active
+          ? instance.scale
+          : ([HIDDEN_CELL_SCALE, HIDDEN_CELL_SCALE, HIDDEN_CELL_SCALE] as const)),
+      );
+      markerPositions.current[index] = new Vector3(...markerPose.position);
+      markerScales.current[index] = new Vector3(...markerPose.scale);
+    });
+    writeTransforms();
+    colorMeshRef.current?.computeBoundingSphere();
+    markerMeshRef.current?.computeBoundingSphere();
+  }, [group, readLiveGrid, state, treatment.marker, writeTransforms]);
+
+  useFrame((_frameState, delta) => {
+    const blend = 1 - Math.exp(-delta / visualStyle.cellVisuals.transitionSeconds);
+    const liveGrid = readLiveGrid();
+
+    group.instances.forEach((instance, index) => {
+      const colorScale = colorScales.current[index];
+      const markerPosition = markerPositions.current[index];
+      const markerScale = markerScales.current[index];
+      if (!colorScale || !markerPosition || !markerScale) return;
+      const active = liveGrid.cells[instance.cellId]?.state === state;
+      const markerPose = getCellMarkerPose(instance, active ? treatment.marker : 'none');
+      colorScale.lerp(
+        active
+          ? scratchScale.set(...instance.scale)
+          : scratchScale.set(HIDDEN_CELL_SCALE, HIDDEN_CELL_SCALE, HIDDEN_CELL_SCALE),
+        blend,
+      );
+      markerPosition.lerp(scratchPosition.set(...markerPose.position), blend);
+      markerScale.lerp(scratchScale.set(...markerPose.scale), blend);
+    });
+    writeTransforms();
+  });
+
+  return (
+    <>
+      <instancedMesh
+        ref={colorMeshRef}
+        args={[undefined, undefined, group.instances.length]}
+        frustumCulled={false}
+      >
+        <UnitGeometry appearance={appearance} />
+        <meshBasicMaterial
+          color={treatment.color}
+          transparent={appearance.transparent}
+          opacity={appearance.opacity}
+          depthWrite={appearance.depthWrite}
+          toneMapped={false}
+        />
+      </instancedMesh>
+      <instancedMesh
+        ref={markerMeshRef}
+        args={[undefined, undefined, group.instances.length]}
+        frustumCulled={false}
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial
+          color={treatment.markerColor}
+          wireframe
+          transparent
+          opacity={visualStyle.cellVisuals.markerOpacity}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </instancedMesh>
+    </>
+  );
+}
+
+function CellLayer({
+  group,
+  groupIndex,
+  appearance,
+  visualStyle,
+  readLiveGrid,
+  registerMesh,
+}: CellLayerProps) {
   const meshRef = useRef<InstancedMesh>(null);
 
   useLayoutEffect(() => {
@@ -206,17 +356,32 @@ function CellLayer({ group, groupIndex, appearance, registerMesh }: CellLayerPro
         args={[undefined, undefined, group.instances.length]}
         receiveShadow
       >
-        <boxGeometry args={[1, 1, 1]} />
-        <SurfaceMaterial appearance={appearance} />
+        <UnitGeometry appearance={appearance} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
       </instancedMesh>
       <OutlineLayer transforms={group.instances} appearance={appearance} />
+      {CELL_STATES.map((state) => (
+        <AnimatedCellStateLayer
+          key={state}
+          group={group}
+          state={state}
+          appearance={appearance}
+          visualStyle={visualStyle}
+          readLiveGrid={readLiveGrid}
+        />
+      ))}
     </>
   );
 }
 
 /** Procedural, instanced dollhouse shell driven entirely by CellGrid data. */
 export const CutawayBuilding = forwardRef<CutawayBuildingHandle, CutawayBuildingProps>(
-  function CutawayBuilding({ grid, facing, visualStyle, onCellMeshRegistryChange }, forwardedRef) {
+  function CutawayBuilding(
+    { grid, readLiveGrid, facing, visualStyle, onCellMeshRegistryChange },
+    forwardedRef,
+  ) {
+    const fallbackGridReader = useCallback(() => grid, [grid]);
+    const liveGridReader = readLiveGrid ?? fallbackGridReader;
     const layout = useMemo(
       () => buildBuildingLayout(grid, facing.cameraFacingWalls),
       [facing.cameraFacingWalls, grid],
@@ -274,6 +439,8 @@ export const CutawayBuilding = forwardRef<CutawayBuildingHandle, CutawayBuilding
             group={group}
             groupIndex={groupIndex}
             appearance={visualStyle.createMaterial('cell', group.materialId)}
+            visualStyle={visualStyle}
+            readLiveGrid={liveGridReader}
             registerMesh={registerCellMesh}
           />
         ))}
