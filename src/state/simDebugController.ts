@@ -129,10 +129,16 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
         while (remainingSeconds > 0) {
           const interval = Math.min(remainingSeconds, MAX_WATER_APPLICATION_SECONDS);
           if (waterCellId !== null) {
+            // Litres must scale with speed, not just the tick count below: wetness
+            // decays once per simulated tick regardless of wall-clock cadence, so
+            // at a fixed real-time litre rate a higher speed simulates more decay
+            // ticks per real second without delivering more water to offset them.
+            // Unscaled, spraying at 8x nets ~0 wetness gain — the hose goes dead
+            // exactly when a developer fast-forwards to test it.
             applyWater(
               runner.getState(),
               waterCellId,
-              interval * HOSE_LITRES_PER_SECOND,
+              interval * HOSE_LITRES_PER_SECOND * snapshot.speed,
               SuppressionAgent.Water,
             );
             runner.setState(runner.getState());

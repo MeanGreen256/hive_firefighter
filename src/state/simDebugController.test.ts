@@ -96,4 +96,25 @@ describe('sim debug controller', () => {
       controller.store.getState().simulation.grid.cells[STARTER_HOSE_TARGET_CELL_ID]?.wetness,
     ).toBe(0);
   });
+
+  it('keeps water effective at higher playback speeds instead of only cooling faster', () => {
+    // Wetness decays once per simulated tick, so a higher speed alone means more
+    // decay per wall-clock second. Litres must scale the same way or the hose
+    // goes net-negative on wetness the moment a developer speeds up testing.
+    const real = createSimDebugController(15);
+    real.setWaterApplication(STARTER_HOSE_TARGET_CELL_ID);
+    real.advance(1);
+
+    const fast = createSimDebugController(15);
+    fast.setWaterApplication(STARTER_HOSE_TARGET_CELL_ID);
+    fast.setSpeed(8);
+    fast.advance(1);
+
+    const wetnessAtRealTime =
+      real.store.getState().simulation.grid.cells[STARTER_HOSE_TARGET_CELL_ID]!.wetness;
+    const wetnessAtEightTimesSpeed =
+      fast.store.getState().simulation.grid.cells[STARTER_HOSE_TARGET_CELL_ID]!.wetness;
+
+    expect(wetnessAtEightTimesSpeed).toBeGreaterThan(wetnessAtRealTime);
+  });
 });
