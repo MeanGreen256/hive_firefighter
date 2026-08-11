@@ -19,6 +19,7 @@ The debug overlay subscribes to the vanilla controller in `src/state/`; the
 controller owns the fixed-timestep runner. React only starts/stops the external
 animation clock and renders snapshots—it never performs a simulation tick.
 
-The tank and debrief use semantic HUD tokens from the active style. In
-development, `R` refills the tank without resetting the incident; this is a
-testing affordance, not an M1 hydrant.
+The tank and debrief use semantic HUD tokens from the active style. The tank
+HUD shows the authored hydrant connection and fixed refill flow; `H` or its
+button connects and disconnects the supply line. In development, `R` still
+refills immediately as a testing affordance.

@@ -14,22 +14,35 @@ function isEditableTarget(target: EventTarget | null): boolean {
 export function WaterTankHud() {
   const capacity = useStore(simDebugController.store, (snapshot) => snapshot.waterCapacityLitres);
   const remaining = useStore(simDebugController.store, (snapshot) => snapshot.waterRemainingLitres);
+  const hoseLine = useStore(simDebugController.store, (snapshot) => snapshot.hoseLine);
+  const reachBlocked = useStore(simDebugController.store, (snapshot) => snapshot.hoseReachBlocked);
   const ratio = Math.max(0, Math.min(1, remaining / capacity));
   const isEmpty = remaining <= 0;
   const isLow = !isEmpty && ratio <= LOW_WATER_RATIO;
+  const isConnected = hoseLine.connectedHydrantId !== null;
+  const hasHydrant = hoseLine.hydrants.length > 0;
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
-
-    const refill = (event: KeyboardEvent): void => {
-      if (event.code !== 'KeyR' || event.repeat || isEditableTarget(event.target)) return;
-      simDebugController.refillWater();
+    const handleKey = (event: KeyboardEvent): void => {
+      if (event.repeat || isEditableTarget(event.target)) return;
+      if (event.code === 'KeyH') {
+        const connected = simDebugController.store.getState().hoseLine.connectedHydrantId !== null;
+        if (connected) simDebugController.disconnectHydrant();
+        else simDebugController.connectHydrant();
+      }
+      if (import.meta.env.DEV && event.code === 'KeyR') simDebugController.refillWater();
     };
-    window.addEventListener('keydown', refill);
-    return () => window.removeEventListener('keydown', refill);
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
-  const status = isEmpty ? 'Empty — spraying blocked' : isLow ? 'Low water' : 'Tank ready';
+  const status = reachBlocked
+    ? 'Target beyond connected line'
+    : isEmpty
+      ? 'Empty — connect to refill'
+      : isLow
+        ? 'Low water'
+        : 'Tank ready';
 
   return (
     <section
@@ -53,7 +66,26 @@ export function WaterTankHud() {
       >
         <span style={{ transform: `scaleX(${ratio})` }} />
       </div>
-      <p role={isLow || isEmpty ? 'status' : undefined}>{status}</p>
+      <p role={reachBlocked || isLow || isEmpty ? 'status' : undefined}>{status}</p>
+      <div className="water-tank__supply">
+        <span>
+          {isConnected ? `Connected · ${hoseLine.connectedHydrantId}` : 'Supply detached'}
+        </span>
+        <output>
+          {isConnected ? `+${hoseLine.refillLitresPerSecond.toFixed(1)} L/s` : '0.0 L/s'}
+        </output>
+      </div>
+      <button
+        type="button"
+        disabled={!hasHydrant}
+        onClick={() => {
+          if (isConnected) simDebugController.disconnectHydrant();
+          else simDebugController.connectHydrant();
+        }}
+      >
+        {isConnected ? 'Disconnect line' : 'Connect hydrant'}
+      </button>
+      <small>H · {isConnected ? 'disconnect' : 'connect'} line</small>
       {import.meta.env.DEV ? <small>R · refill tank</small> : null}
     </section>
   );

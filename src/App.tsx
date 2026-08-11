@@ -122,14 +122,14 @@ export default function App() {
       <div className="scene" style={sceneCssVariables}>
         <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]}>
           <IsometricCameraRig
-            key={scenarioVersion}
+            key={`camera-${scenarioVersion}`}
             initialTarget={buildingBounds.center}
             onFacingChange={setFacing}
           />
           <StyledScene visualStyle={visualStyle} />
           <ModelStage bounds={buildingBounds} visualStyle={visualStyle} />
           <CutawayBuilding
-            key={scenarioVersion}
+            key={`building-${scenarioVersion}`}
             ref={buildingRef}
             grid={grid}
             readLiveGrid={readLiveGrid}
@@ -157,7 +157,7 @@ export default function App() {
         <br />
         {grid.dimensions.width} × {grid.dimensions.height} × {grid.dimensions.depth} cells
         <br />
-        Hold click on the flame to spray · Q / E rotate · wheel zoom
+        Hold click to spray · H connect line · Q / E rotate · wheel zoom
         <br />
         WASD / middle-drag pan
         <label className="style-switcher">

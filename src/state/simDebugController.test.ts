@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
+import { CivilianState } from '@sim/civilians';
 import { SessionStatus } from './sessionStats';
 import { createSimDebugController, STARTER_HOSE_TARGET_CELL_ID } from './simDebugController';
 
@@ -234,6 +235,56 @@ describe('sim debug controller', () => {
     expect(selected.simulation.grid.cells['0,0,0']).toMatchObject({
       material: 'concrete',
       fuel: 0,
+    });
+    expect(selected.civilians.civilians['civilian-a']).toMatchObject({
+      position: { x: 1, y: 2, z: 1 },
+      state: CivilianState.Conscious,
+    });
+    expect(selected.hoseLine.hydrants).toEqual([
+      { id: 'street-hydrant', position: { x: -1, y: 0, z: 1 } },
+    ]);
+  });
+
+  it('refills from a connected hydrant and blocks targets beyond the tether', () => {
+    const controller = createSimDebugController(15, {
+      scenarioId: 'workshop',
+      waterCapacityLitres: 2,
+    });
+    controller.sprayCell('0,0,1', 1);
+    expect(controller.store.getState().waterRemainingLitres).toBe(1);
+
+    expect(controller.connectHydrant()).toBe(true);
+    controller.advance(0.5);
+    expect(controller.store.getState()).toMatchObject({
+      waterRemainingLitres: 2,
+      hoseLine: { connectedHydrantId: 'street-hydrant' },
+    });
+
+    expect(controller.canSprayCell('4,3,0')).toBe(false);
+    const waterBeforeBlockedSpray = controller.store.getState().waterUsedLitres;
+    expect(controller.sprayCell('4,3,0', 1)).toEqual({ contacts: [] });
+    expect(controller.store.getState()).toMatchObject({
+      hoseReachBlocked: true,
+      waterUsedLitres: waterBeforeBlockedSpray,
+    });
+
+    controller.disconnectHydrant();
+    expect(controller.canSprayCell('4,3,0')).toBe(true);
+  });
+
+  it('exposes renderer-independent carry actions for scenario civilians', () => {
+    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
+    const civilian = controller.store.getState().civilians.civilians['civilian-a']!;
+    civilian.state = CivilianState.Unconscious;
+
+    expect(controller.pickUpCivilian('civilian-a', { x: 1, y: 2, z: 1 })).toBe(true);
+    expect(controller.moveCarriedCivilian({ x: 1, y: 1, z: 1 })).toBe(true);
+    expect(controller.moveCarriedCivilian({ x: 1, y: 0, z: 1 })).toBe(true);
+    expect(controller.moveCarriedCivilian({ x: 0, y: 0, z: 1 })).toBe(true);
+    expect(controller.dropCarriedCivilian()).toBe(true);
+    expect(controller.store.getState().civilians.civilians['civilian-a']).toMatchObject({
+      state: CivilianState.Rescued,
+      carried: false,
     });
   });
 });

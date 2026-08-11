@@ -15,6 +15,8 @@ Pure data in, pure data out. That's what keeps the sim unit-testable, determinis
 - Water application and the wetted state (#8)
 - Burn-through and char (#9)
 - Scenario loading, validation, and grid construction (#67)
+- Hydrant connection, refill, and hose reach constraints (#68)
+- Civilian exposure, evacuation, carrying, rescue, and loss (#69)
 
 ## Timing
 
@@ -59,3 +61,17 @@ with 20% of the delivered volume divided between face-adjacent cells as
 overspray. Positive responses add normalized wetness; negative responses such
 as grease add heat and do not grant wetness protection. Wetness decays by `0.1`
 per second during the fixed tick, then releases the cell back to `Clear`.
+
+`hoseLine.ts` owns the renderer-independent supply rule. An unattached onboard
+tank can target any cell; connecting an authored hydrant refills at 3 L/s and
+constrains the route from hydrant through nozzle to target to eight grid units.
+The controller applies that reach check before any water mutation, while the
+renderer only visualizes the resulting hydrant and line state.
+
+`civilians.ts` owns plain civilian records and advances them on the same
+simulated clock as fire. Until smoke becomes its own volume, exposure derives
+from the occupied cell's heat and fire state. Conscious civilians descend and
+take a deterministic nearest route to a ground-floor perimeter exit;
+unconscious civilians stop, can be picked up, move with a `0.6` carry
+multiplier, and become rescued only when dropped at an exit. Rendering and
+grading consume these outcomes but do not define them.

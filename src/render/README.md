@@ -16,6 +16,7 @@ they do not import a preferred palette directly.
 - Cutaway building geometry generated from cell data (#12)
 - Cell state visuals (#13)
 - Flame, smoke, and the smoke column (#14)
+- Hydrant and connected supply-line visualization (#68)
 
 ## Camera-facing contract
 
