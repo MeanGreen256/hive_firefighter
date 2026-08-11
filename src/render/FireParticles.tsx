@@ -49,7 +49,7 @@ varying vec3 vColor;
 void main() {
   vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
   float flicker = 0.88 + sin(uTime * 5.0 + aPhase * 6.2831853) * 0.12;
-  gl_PointSize = min(96.0, aSize * flicker * uPixelRatio * 72.0 / max(0.35, -viewPosition.z));
+  gl_PointSize = min(96.0, aSize * flicker * uPixelRatio * 100.0 / max(0.35, -viewPosition.z));
   gl_Position = projectionMatrix * viewPosition;
   vOpacity = aOpacity;
   vPhase = aPhase;
@@ -62,6 +62,7 @@ uniform sampler2D uAtlas;
 uniform float uTime;
 uniform float uFrameRate;
 uniform float uFlame;
+uniform float uHalftone;
 uniform vec3 uCoreColor;
 uniform vec3 uEdgeColor;
 uniform float uSoftness;
@@ -73,6 +74,9 @@ void main() {
   float frame = mod(floor(vPhase + uTime * uFrameRate), ${ATLAS_FRAME_COUNT.toFixed(1)});
   vec2 atlasUv = vec2((gl_PointCoord.x + frame) / ${ATLAS_FRAME_COUNT.toFixed(1)}, gl_PointCoord.y);
   float alpha = texture2D(uAtlas, atlasUv).a;
+  vec2 halftoneCell = fract(gl_FragCoord.xy / 5.0) - 0.5;
+  float halftoneDot = 1.0 - smoothstep(0.28, 0.42, length(halftoneCell));
+  alpha *= mix(1.0, halftoneDot, uHalftone);
   vec3 flameColor = mix(uCoreColor, uEdgeColor, gl_PointCoord.y * uSoftness);
   vec3 color = mix(vColor, flameColor, uFlame);
   gl_FragColor = vec4(color, alpha * vOpacity);
@@ -152,12 +156,16 @@ function ParticleLayer({ particles, style, kind }: ParticleLayerProps) {
         uPixelRatio: { value: 1 },
         uFrameRate: { value: isFlame ? 7 : 3 },
         uFlame: { value: isFlame ? 1 : 0 },
+        uHalftone: {
+          value: !isFlame && style.particles.smoke.treatment === 'halftone' ? 1 : 0,
+        },
         uCoreColor: { value: new Color(style.particles.flame.core) },
         uEdgeColor: { value: new Color(style.particles.flame.edge) },
         uSoftness: { value: style.particles.flame.softness },
       },
       transparent: true,
       depthWrite: false,
+      depthTest: kind === 'smoke',
       ...(isFlame ? { blending: AdditiveBlending } : {}),
     });
   }, [atlas, kind, style]);

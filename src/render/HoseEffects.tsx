@@ -23,7 +23,6 @@ import {
   cellIdFromRaycastHits,
   getCellWorldPosition,
   getHoseNozzlePosition,
-  isHotWaterContact,
 } from './hoseTargeting';
 
 const STREAM_POINT_COUNT = 18;
@@ -66,7 +65,6 @@ export function HoseEffects({
   const { camera, gl, scene } = useThree();
   const cells = useMemo(() => Object.values(grid.cells), [grid.cells]);
   const targetRef = useRef<Mesh>(null);
-  const steamRef = useRef<Mesh>(null);
   const flameRef = useRef<Mesh>(null);
   const wetRefs = useRef(new Map<string, Mesh>());
   const raycaster = useMemo(() => new Raycaster(), []);
@@ -172,7 +170,7 @@ export function HoseEffects({
     };
   }, [building, camera, controller, flameAimNdc, flameAimPoint, gl, pointer, raycaster]);
 
-  useFrame(({ clock }) => {
+  useFrame(() => {
     const { input } = controller.store.getState();
     const { simulation } = simulationController.store.getState();
     const target = input.targetCellId === null ? null : simulation.grid.cells[input.targetCellId];
@@ -191,16 +189,6 @@ export function HoseEffects({
       if (isSpraying && targetPosition) updateStreamArc(hoseStream, nozzle, targetPosition);
     }
 
-    if (steamRef.current) {
-      steamRef.current.visible = isSpraying && targetPosition !== null && isHotWaterContact(target);
-      if (targetPosition) {
-        steamRef.current.position.copy(targetPosition);
-        steamRef.current.position.y += CELL_HEIGHT * 0.58 + Math.sin(clock.elapsedTime * 8) * 0.08;
-        const pulse = 1 + Math.sin(clock.elapsedTime * 11) * 0.12;
-        steamRef.current.scale.setScalar(pulse);
-      }
-    }
-
     const demoCell = simulation.grid.cells[STARTER_HOSE_TARGET_CELL_ID];
     if (flameRef.current && demoCell) {
       const burning =
@@ -208,7 +196,7 @@ export function HoseEffects({
       flameRef.current.visible = burning;
       if (burning) {
         flameRef.current.position.set(...getCellWorldPosition(demoCell.gridPos, grid.dimensions));
-        flameRef.current.position.y += CELL_HEIGHT * 0.42 + Math.sin(clock.elapsedTime * 9) * 0.06;
+        flameRef.current.position.y += CELL_HEIGHT * 0.42;
       }
     }
 
@@ -233,21 +221,15 @@ export function HoseEffects({
         <boxGeometry args={[CELL_SIZE, CELL_HEIGHT, CELL_SIZE]} />
         <meshBasicMaterial color={visualStyle.hose.target} wireframe transparent opacity={0.85} />
       </mesh>
-      <mesh ref={steamRef} visible={false}>
-        <sphereGeometry args={[CELL_SIZE * 0.3, 12, 8]} />
-        <meshBasicMaterial
-          color={visualStyle.hose.steam}
-          transparent
-          opacity={0.68}
-          depthWrite={false}
-        />
-      </mesh>
+      {/* Keep the starter cell easy to target through the roof without
+          rendering the temporary flame cue that FireParticles replaces. */}
       <mesh ref={flameRef} visible={false}>
         <coneGeometry args={[CELL_SIZE * 0.2, CELL_HEIGHT * 0.7, 6]} />
         <meshBasicMaterial
-          color={visualStyle.hose.flame}
           transparent
-          opacity={0.9}
+          opacity={0}
+          colorWrite={false}
+          depthWrite={false}
           depthTest={false}
         />
       </mesh>
