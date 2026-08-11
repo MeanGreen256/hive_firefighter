@@ -5,7 +5,7 @@ One file per significant decision — the kind where a different answer would me
 | ADR                                              | Decision                             | Status                            |
 | ------------------------------------------------- | ------------------------------------- | ---------------------------------- |
 | [001](001-isometric-camera.md)                     | Isometric camera, over third-person   | Accepted                           |
-| [002](002-art-direction.md)                        | Art direction                         | Proposed — left open on purpose    |
+| [002](002-art-direction.md)                        | Toy diorama as the primary art direction | Accepted                        |
 | [003](003-cell-based-fire-simulation.md)           | Cell-based fire simulation as the core system | Accepted                   |
 | [004](004-thermal-recovery-as-gameplay-feedback.md) | Thermal recovery as gameplay feedback | Accepted                           |
 

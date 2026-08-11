@@ -1,7 +1,8 @@
 # ADR-002: Art direction
 
-**Status:** Proposed — decision intentionally left open
-**Date:** 2026-08-09
+**Status:** Accepted — toy diorama is the primary art direction
+**Date proposed:** 2026-08-09
+**Date accepted:** 2026-08-11
 
 ## Context
 
@@ -13,9 +14,15 @@ Static frames are a poor way to settle this. What a burning cell actually looks 
 
 ## Decision
 
-**Not made here, deliberately.** Both finalists get built for real behind the runtime style switcher (`src/styles/`, see #18–#20: toy diorama is #19, cel-shaded ink is #20), and the choice gets made by comparing a live animated burn in both styles — not by picking from concept art.
+Use **toy diorama as the primary art direction**. New visual work targets its
+soft matte materials, rounded silhouettes, pastel model-stage palette, and
+high-key daylight first.
 
-This ADR exists to record the options and the criteria faithfully, and to make the open-ness of the decision explicit rather than implicit. `Proposed` is not "in progress toward `Accepted`" — it's the correct status until #18–#20 ship and a real comparison happens.
+Keep cel-shaded ink as a supported secondary style behind the runtime switcher.
+It remains useful as a high-contrast alternative, a regression test for the
+style boundary, and a distinct marketing treatment. Choosing toy diorama does
+not justify deleting the ink implementation or weakening the swappable style
+contract.
 
 ## Options on the table
 
@@ -23,18 +30,44 @@ This ADR exists to record the options and the criteria faithfully, and to make t
 - **Cel-shaded ink** (close second) — punchier, more graphic; scores highest of the six specifically on cell-state readability. Medium art cost, versus low for toy diorama.
 - Four directions scored and set aside for now: flat low-poly, voxel, incident pre-plan, tilt-shift miniature. Full scoring is in `docs/style-directions.html`; nothing here rules them out permanently if #18–#20's comparison changes the picture.
 
-## Criteria
+## Live comparison
 
-Differentiation, cell-state readability, art cost, browser performance, tone — as scored in `docs/style-directions.html`.
+The finalists were compared in the completed M1 scene after #18–#20 and the
+simulation-driven effects shipped, rather than from the concept frames alone.
 
-## What's blocked
+- **Differentiation:** toy diorama is immediately identifiable through its
+  floating sage slab, cream and terracotta shell, rounded props, and fluffy
+  smoke. Ink is cohesive, but closer to an established comic-game language.
+- **Cell-state readability:** ink's original advantage no longer decides the
+  choice. Both styles now consume the same semantic state contract: ordered
+  lightness plus distinct edge markers, audited under protanopia and
+  deuteranopia transforms and at 200px thumbnail scale.
+- **Art cost:** toy geometry and diffuse-only materials reach a finished look
+  without texture production or an outline pass. That is the better default for
+  the project's current team and scope.
+- **Browser performance:** both treatments stay inside the M1 budget. The
+  measured starter scene ran at roughly 130fps / 39 draws for toy and 128fps /
+  31 draws for ink on the development machine, against budgets of 60fps and
+  fewer than 80 draws.
+- **Tone:** the toy direction does read playful. We accept that risk and keep
+  the simulation, incident copy, and outcomes straight rather than adding grim
+  surface detail that fights the chosen visual language.
 
-Nothing structural. `src/styles/` (see its README) is designed so a `Style` is swappable data specifically so this decision can stay open without blocking other work — palette tokens, material factory, particle appearance, HUD theme, and post-processing config all live behind the same interface regardless of which direction wins.
+## Consequences
 
-## Resolution
-
-Update this ADR once #18–#20 ship and a direction is chosen from the running switcher: flip the status line to `Accepted` (naming the winner) or, if neither finalist survives contact with a live burn, record what replaced them. Do not let this file go stale once the decision is actually made — a `Proposed` ADR for a settled question is worse than no ADR.
+- Toy diorama remains the default style and receives primary polish.
+- Ink stays functional and must continue to render the same simulation without
+  resets or style-specific game logic.
+- New appearance values remain semantic style data. This decision does not
+  permit colour literals in `src/render/` or appearance literals in content.
+- Accessibility remains a shared contract, not a reason to fork simulation or
+  UI behavior by style.
+- A future reversal requires a superseding ADR; this file should not be changed
+  back to `Proposed`.
 
 ## Source material
 
-`docs/style-directions.html` — six-way isometric style comparison and scoring matrix.
+- `docs/style-directions.html` — six-way isometric style comparison and scoring
+  matrix.
+- `docs/m1-closeout.md` — implementation evidence and the remaining deployment
+  gate for M1.
