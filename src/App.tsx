@@ -11,8 +11,10 @@ import { PerformanceSampler } from '@render/PerformanceSampler';
 import { styleStore } from '@styles/styleStore';
 import { isStyleId, STYLES, STYLE_IDS, type Style } from '@styles/styles';
 import { PerfOverlay } from '@ui/PerfOverlay';
+import { AudioControls } from '@ui/AudioControls';
 import { createHoseController } from './state/hoseController';
 import { simDebugController } from './state/simDebugController';
+import { FireAudioBridge } from './audio/FireAudioBridge';
 
 const SimDebugOverlay = import.meta.env.DEV ? lazy(() => import('@ui/SimDebugOverlay')) : null;
 
@@ -143,6 +145,7 @@ export default function App() {
             ))}
           </select>
         </label>
+        <AudioControls />
       </div>
 
       {import.meta.env.DEV ? <PerfOverlay /> : null}
@@ -151,6 +154,7 @@ export default function App() {
           <SimDebugOverlay />
         </Suspense>
       ) : null}
+      <FireAudioBridge />
     </>
   );
 }

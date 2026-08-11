@@ -14,6 +14,20 @@ export interface WaterApplicationState {
   activeCellIds: string[];
 }
 
+/** One affected cell, captured at the application boundary for host effects such as audio or VFX. */
+export interface WaterContact {
+  cellId: string;
+  heatBefore: number;
+  ignitionPoint: number | null;
+  /** True only when this application crossed the material's extinguish heat band. */
+  crossedExtinguish: boolean;
+}
+
+/** Result of a water application. The simulation itself remains the source of all state changes. */
+export interface WaterApplicationResult {
+  contacts: WaterContact[];
+}
+
 /** Abstract heat removed by one litre of plain water at a 1.0 material response. */
 export const WATER_HEAT_REMOVAL_PER_LITRE = 120;
 
@@ -39,18 +53,30 @@ function isBurning(cell: Cell): boolean {
   return cell.state === CellState.Burning || cell.state === CellState.Flashover;
 }
 
-function applyVolumeToCell(state: WaterApplicationState, cell: Cell, litres: number): void {
-  if (litres <= 0 || cell.state === CellState.Burnt) return;
+function applyVolumeToCell(
+  state: WaterApplicationState,
+  cell: Cell,
+  litres: number,
+): WaterContact | null {
+  if (litres <= 0 || cell.state === CellState.Burnt) return null;
 
   const material = materials[cell.material];
   if (!material) throw new Error(`Cell references unknown material "${cell.material}"`);
 
+  const heatBefore = cell.heat;
   const heatRemoved = litres * WATER_HEAT_REMOVAL_PER_LITRE * material.waterResponse;
   cell.heat = Math.max(0, cell.heat - heatRemoved);
 
   // Zero/negative responses do not create protective wetness. In particular,
   // water on grease adds heat instead of quietly granting re-ignition immunity.
-  if (material.waterResponse <= 0) return;
+  if (material.waterResponse <= 0) {
+    return {
+      cellId: cell.id,
+      heatBefore,
+      ignitionPoint: material.ignitionPoint,
+      crossedExtinguish: false,
+    };
+  }
 
   cell.wetness = Math.min(1, cell.wetness + litres * WETNESS_PER_LITRE);
 
@@ -62,6 +88,16 @@ function applyVolumeToCell(state: WaterApplicationState, cell: Cell, litres: num
     cell.state = CellState.Wetted;
     addToActiveFrontier(state, cell.id);
   }
+
+  return {
+    cellId: cell.id,
+    heatBefore,
+    ignitionPoint: material.ignitionPoint,
+    crossedExtinguish:
+      material.ignitionPoint !== null &&
+      heatBefore >= material.ignitionPoint * EXTINGUISH_HEAT_MULTIPLIER &&
+      cell.heat < material.ignitionPoint * EXTINGUISH_HEAT_MULTIPLIER,
+  };
 }
 
 /**
@@ -76,7 +112,7 @@ export function applyWater(
   cellId: string,
   litres: number,
   agent: SuppressionAgent,
-): void {
+): WaterApplicationResult {
   if (agent !== SuppressionAgent.Water) {
     throw new Error(`Unsupported suppression agent "${String(agent)}"`);
   }
@@ -86,7 +122,7 @@ export function applyWater(
 
   const target = state.grid.cells[cellId];
   if (!target) throw new Error(`Cannot apply water to missing cell "${cellId}"`);
-  if (litres === 0) return;
+  if (litres === 0) return { contacts: [] };
 
   const neighbors = target.neighbors.flatMap((neighbor) => {
     const cell = state.grid.cells[neighbor.cellId];
@@ -94,10 +130,16 @@ export function applyWater(
   });
   const oversprayLitres = neighbors.length > 0 ? litres * WATER_OVERSPRAY_FRACTION : 0;
 
-  applyVolumeToCell(state, target, litres - oversprayLitres);
+  const contacts: WaterContact[] = [];
+  const targetContact = applyVolumeToCell(state, target, litres - oversprayLitres);
+  if (targetContact) contacts.push(targetContact);
 
   const litresPerNeighbor = neighbors.length > 0 ? oversprayLitres / neighbors.length : 0;
-  for (const neighbor of neighbors) applyVolumeToCell(state, neighbor, litresPerNeighbor);
+  for (const neighbor of neighbors) {
+    const contact = applyVolumeToCell(state, neighbor, litresPerNeighbor);
+    if (contact) contacts.push(contact);
+  }
+  return { contacts };
 }
 
 /** Advance saturation and release a wetted cell to Clear when it dries. */

@@ -53,11 +53,17 @@ describe('water application', () => {
     const cell = state.grid.cells['0,0,0']!;
     igniteCell(state, cell.id);
 
-    applyWater(state, cell.id, 1, SuppressionAgent.Water);
+    const result = applyWater(state, cell.id, 1, SuppressionAgent.Water);
 
     expect(cell.heat).toBeLessThan(300 * EXTINGUISH_HEAT_MULTIPLIER);
     expect(cell.state).toBe(CellState.Wetted);
     expect(cell.wetness).toBeCloseTo(WETNESS_PER_LITRE);
+    expect(result.contacts[0]).toMatchObject({
+      cellId: cell.id,
+      heatBefore: 300,
+      ignitionPoint: 300,
+      crossedExtinguish: true,
+    });
   });
 
   it('conserves volume while spreading a small overspray to every neighbor', () => {

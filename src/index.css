@@ -91,3 +91,40 @@ canvas {
   letter-spacing: inherit;
   text-transform: uppercase;
 }
+
+.audio-controls {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.audio-controls button,
+.audio-controls input {
+  accent-color: var(--hud-accent);
+}
+
+.audio-controls button {
+  width: 100%;
+  padding: 5px 7px;
+  border: 1px solid var(--hud-border);
+  border-radius: 3px;
+  background: var(--hud-control);
+  color: var(--hud-text);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.audio-controls label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 7px;
+  color: var(--hud-text);
+}
+
+.audio-controls output {
+  color: var(--hud-accent);
+  font-size: 9px;
+}

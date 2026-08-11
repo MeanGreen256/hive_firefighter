@@ -59,6 +59,40 @@ describe('sim debug controller', () => {
     expect(reset.lastTickDebug).toBeNull();
   });
 
+  it('routes explicit debug spray through the water API and reports its contacts once', () => {
+    const controller = createSimDebugController();
+    const reported: number[] = [];
+    const unsubscribe = controller.subscribeWaterApplications((result) => {
+      reported.push(result.contacts.length);
+    });
+    const revisionBeforeSpray = controller.store.getState().simulationRevision;
+
+    const result = controller.sprayCell('0,0,0');
+
+    expect(result.contacts.length).toBeGreaterThan(0);
+    expect(reported).toEqual([result.contacts.length]);
+    expect(controller.store.getState().simulationRevision).toBe(revisionBeforeSpray + 1);
+    expect(controller.store.getState().simulation.grid.cells['0,0,0']?.state).toBe(
+      CellState.Wetted,
+    );
+    unsubscribe();
+  });
+
+  it('reports held-hose water applications through the shared audio seam', () => {
+    const controller = createSimDebugController();
+    const reportedHeat: number[] = [];
+    const unsubscribe = controller.subscribeWaterApplications((result) => {
+      reportedHeat.push(result.contacts[0]?.heatBefore ?? 0);
+    });
+
+    controller.setWaterApplication(STARTER_HOSE_TARGET_CELL_ID);
+    controller.advance(0.1);
+
+    expect(reportedHeat).toHaveLength(1);
+    expect(reportedHeat[0]).toBeGreaterThan(0);
+    unsubscribe();
+  });
+
   it('applies live constants and exports the exact active tuning as JSON', () => {
     const controller = createSimDebugController();
     controller.setTuningValue('neighborHeatShare', 0.24);
