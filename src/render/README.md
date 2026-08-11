@@ -16,10 +16,11 @@ they do not import a preferred palette directly.
 - Cutaway building geometry generated from cell data (#12)
 - Cell state visuals (#13)
 - Flame, smoke, and the smoke column (#14)
-- Hydrant and connected supply-line visualization (#68)
+- Hydrant, connected supply-line, and near-limit tether visualization (#68, #76)
 - Persistent civilian search marks and thermal signatures (#70)
 - Propane state and countdown visualization (#71)
-- Water/foam stream distinction and structural sag/collapse (#72, #73)
+- Water/foam stream distinction and structural sag/collapse telegraphs (#72, #73, #76)
+- Shape-first incident marker language and colour-vision audit (#76)
 
 ## Camera-facing contract
 
@@ -62,12 +63,24 @@ sage slab, rounded pastel trees, and a one-frame contact-shadow bake that gives
 the procedural pieces soft AO-like grounding without a continuous full-screen
 post-process.
 
-`IncidentEntities` draws intentionally lightweight semantic markers for
-civilians and propane hazards. Unlocated civilians are absent from normal view,
-appear as warm signatures in thermal mode, and remain marked after discovery.
-Propane markers reflect stable, warning, and failed states. All marker colours
-come from the active style; later art passes can replace geometry without
-changing the simulation contract.
+`IncidentEntities` draws the semantic incident marker language. Unlocated
+civilians are absent from normal view, appear as warm ringed signatures in
+thermal mode, and remain visible through the cutaway after discovery. Upright,
+prone, raised-in-a-diamond, ringed, and crossed silhouettes distinguish
+located, unconscious, carried, rescued, and lost states without relying on
+colour. Propane uses a capped cylinder, counter-rotating countdown rings, and a
+crossed failed state. Structural warnings combine the existing floor sag with a
+pulsing diamond and falling dust.
+
+Known semantic markers deliberately render over occluding structure; discovering
+a civilian remains the gate that creates its persistent marker. Every fill has
+an outline with at least 3:1 contrast in normal, protanopia, and deuteranopia
+simulation. The palettes stay muted so fire remains the scene's saturated focal
+point.
+
+`HoseEffects` straightens and recolours the connected line from 80% of authored
+reach onward, then adds two moving rings at the nozzle. The geometric tension
+cue survives either art palette and does not depend on red/green perception.
 
 ## Budget
 

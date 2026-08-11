@@ -2,7 +2,13 @@
 
 Art direction as swappable data (#18).
 
-A `Style` supplies the palette tokens, material factory, particle appearance, HUD theme, and post-processing config. Switching one at runtime changes the entire look with the simulation still running.
+A `Style` supplies the palette tokens, material factory, particle appearance,
+incident-marker colours, HUD theme, and post-processing config. Switching one
+at runtime changes the entire look with the simulation still running.
+
+Incident states use geometry as the primary channel and colour as reinforcement.
+`colorVision.test.ts` audits marker fill/outline contrast in the supported
+protanopia and deuteranopia simulations alongside the cell-state lightness audit.
 
 Cell state is also style data. Every `CellState` resolves to a colour plus a
 semantic edge marker, while the render layer owns interpolation. The four core

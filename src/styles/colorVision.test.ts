@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
 import { STYLES, STYLE_IDS } from './styles';
-import { COLOR_VISION_MODES, colorLuminance } from './colorVision';
+import { COLOR_VISION_MODES, colorContrastRatio, colorLuminance } from './colorVision';
 
 const FOUR_BURN_STEPS = [
   CellState.Clear,
@@ -32,6 +32,23 @@ describe('cell-state colour accessibility', () => {
         (state) => STYLES[styleId].cellVisuals.byState[state].marker,
       );
       expect(new Set(markers).size).toBe(markers.length);
+    }
+  });
+
+  it('keeps incident marker fills legible against their outline in every vision mode', () => {
+    for (const styleId of STYLE_IDS) {
+      const markers = STYLES[styleId].incidentMarkers;
+      const fills = [
+        ...Object.values(markers.civilian),
+        ...Object.values(markers.hazard),
+        ...Object.values(markers.collapse),
+        ...Object.values(markers.hoseLine),
+      ];
+      for (const mode of [undefined, ...COLOR_VISION_MODES]) {
+        for (const fill of fills) {
+          expect(colorContrastRatio(fill, markers.outline, mode)).toBeGreaterThanOrEqual(3);
+        }
+      }
     }
   });
 

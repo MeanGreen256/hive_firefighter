@@ -98,6 +98,32 @@ export interface HoseAppearance {
   readonly flame: string;
 }
 
+/** Semantic incident colours; marker geometry remains the primary state channel. */
+export interface IncidentMarkerAppearance {
+  readonly outline: string;
+  readonly civilian: Readonly<{
+    located: string;
+    thermal: string;
+    unconscious: string;
+    carried: string;
+    rescued: string;
+    lost: string;
+  }>;
+  readonly hazard: Readonly<{
+    stable: string;
+    countdown: string;
+    failed: string;
+  }>;
+  readonly collapse: Readonly<{
+    warning: string;
+    dust: string;
+  }>;
+  readonly hoseLine: Readonly<{
+    normal: string;
+    strained: string;
+  }>;
+}
+
 /** The active style's visual treatment for one semantic smoke category. */
 export interface SmokeAppearance {
   readonly color: string;
@@ -145,6 +171,7 @@ export interface Style {
   readonly stage: ModelStageAppearance;
   readonly particles: ParticleAppearance;
   readonly hose: HoseAppearance;
+  readonly incidentMarkers: IncidentMarkerAppearance;
   readonly hud: HudTheme;
   readonly postProcessing: PostProcessingConfig;
 }
@@ -327,6 +354,20 @@ const diorama: Style = {
     wetCell: '#284d5e',
     flame: '#ff762f',
   },
+  incidentMarkers: {
+    outline: '#fffaf0',
+    civilian: {
+      located: '#2f515d',
+      thermal: '#8b3f27',
+      unconscious: '#5a435c',
+      carried: '#58466f',
+      rescued: '#365c45',
+      lost: '#2f3434',
+    },
+    hazard: { stable: '#435058', countdown: '#8f3027', failed: '#2f3434' },
+    collapse: { warning: '#7a492c', dust: '#5f5346' },
+    hoseLine: { normal: '#334f5e', strained: '#8f3027' },
+  },
   hud: {
     panel: '#f5eddd',
     border: '#b98f6c',
@@ -431,6 +472,20 @@ const ink: Style = {
     steam: '#fff7df',
     wetCell: '#173f55',
     flame: '#ff4937',
+  },
+  incidentMarkers: {
+    outline: '#16120e',
+    civilian: {
+      located: '#c6e1e5',
+      thermal: '#ffd36b',
+      unconscious: '#d6c2db',
+      carried: '#c8b9e0',
+      rescued: '#cfe3a8',
+      lost: '#c1bbb1',
+    },
+    hazard: { stable: '#c1cad0', countdown: '#ff9b7a', failed: '#aaa39a' },
+    collapse: { warning: '#f0b76b', dust: '#c8bda6' },
+    hoseLine: { normal: '#b7ecff', strained: '#ff9b7a' },
   },
   hud: {
     panel: '#17191d',

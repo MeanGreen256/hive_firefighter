@@ -10,6 +10,7 @@ import {
   Vector2,
   Vector3,
   type Intersection,
+  type Group,
   type Mesh,
 } from 'three';
 import type { CellGrid } from '@sim/cellGrid';
@@ -26,6 +27,7 @@ import {
   getCellWorldPosition,
   getHoseNozzlePosition,
 } from './hoseTargeting';
+import { getHoseTension } from './incidentMarkers';
 
 const STREAM_POINT_COUNT = 18;
 const TARGET_SCALE = 1.06;
@@ -38,10 +40,10 @@ interface HoseEffectsProps {
   readonly building: React.RefObject<CutawayBuildingHandle | null>;
 }
 
-function updateStreamArc(line: Line, start: Vector3, end: Vector3): void {
+function updateStreamArc(line: Line, start: Vector3, end: Vector3, tension = 0): void {
   const positions = line.geometry.getAttribute('position') as BufferAttribute;
   const control = start.clone().lerp(end, 0.5);
-  control.y += Math.max(CELL_HEIGHT, start.distanceTo(end) * 0.16);
+  control.y += Math.max(CELL_HEIGHT, start.distanceTo(end) * 0.16) * (1 - tension * 0.82);
 
   for (let index = 0; index < STREAM_POINT_COUNT; index += 1) {
     const t = index / (STREAM_POINT_COUNT - 1);
@@ -75,6 +77,7 @@ export function HoseEffects({
   const flameAimNdc = useMemo(() => new Vector2(), []);
   const streamRef = useRef<Line>(null);
   const supplyLineRef = useRef<Line>(null);
+  const tensionMarkerRef = useRef<Group>(null);
   const hydrants = simulationController.store.getState().hoseLine.hydrants;
   const nozzle = useMemo(
     () => new Vector3(...getHoseNozzlePosition(grid.dimensions)),
@@ -112,7 +115,7 @@ export function HoseEffects({
       new BufferAttribute(new Float32Array(STREAM_POINT_COUNT * 3), 3),
     );
     const material = new LineBasicMaterial({
-      color: visualStyle.hose.nozzle,
+      color: visualStyle.incidentMarkers.hoseLine.normal,
       transparent: true,
       opacity: 0.82,
     });
@@ -127,7 +130,7 @@ export function HoseEffects({
       geometry.dispose();
       material.dispose();
     };
-  }, [scene, visualStyle.hose.nozzle]);
+  }, [scene, visualStyle.incidentMarkers.hoseLine.normal]);
 
   useEffect(() => {
     const canvas = gl.domElement;
@@ -198,7 +201,7 @@ export function HoseEffects({
     };
   }, [building, camera, controller, flameAimNdc, flameAimPoint, gl, pointer, raycaster]);
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
     const { input } = controller.store.getState();
     const {
       simulation,
@@ -221,6 +224,7 @@ export function HoseEffects({
     const targetPosition = target
       ? new Vector3(...getCellWorldPosition(target.gridPos, grid.dimensions))
       : null;
+    const tension = getHoseTension(hoseLine, target?.gridPos ?? null);
 
     if (targetRef.current) {
       targetRef.current.visible = targetPosition !== null;
@@ -242,14 +246,31 @@ export function HoseEffects({
     );
     const supplyLine = supplyLineRef.current;
     if (supplyLine) {
+      const supplyMaterial = supplyLine.material as LineBasicMaterial;
+      const strained = (tension?.strainProgress ?? 0) > 0;
+      supplyMaterial.color.set(
+        strained
+          ? visualStyle.incidentMarkers.hoseLine.strained
+          : visualStyle.incidentMarkers.hoseLine.normal,
+      );
+      supplyMaterial.opacity = strained ? 0.98 : 0.82;
       supplyLine.visible = connectedHydrant !== undefined;
       if (connectedHydrant) {
         const hydrantPosition = new Vector3(
           ...getCellWorldPosition(connectedHydrant.position, grid.dimensions),
         );
         hydrantPosition.y = CELL_HEIGHT * 0.55;
-        updateStreamArc(supplyLine, hydrantPosition, nozzle);
+        updateStreamArc(supplyLine, hydrantPosition, nozzle, tension?.strainProgress ?? 0);
       }
+    }
+    const tensionMarker = tensionMarkerRef.current;
+    if (tensionMarker) {
+      const strainProgress = tension?.strainProgress ?? 0;
+      tensionMarker.visible = connectedHydrant !== undefined && strainProgress > 0;
+      tensionMarker.rotation.y = clock.elapsedTime * (1.5 + strainProgress * 2.5);
+      tensionMarker.scale.setScalar(
+        0.82 + strainProgress * 0.25 + Math.sin(clock.elapsedTime * 9) * 0.04 * strainProgress,
+      );
     }
 
     const demoCell = simulation.grid.cells[STARTER_HOSE_TARGET_CELL_ID];
@@ -280,6 +301,19 @@ export function HoseEffects({
         <cylinderGeometry args={[CELL_SIZE * 0.1, CELL_SIZE * 0.15, CELL_SIZE * 0.5, 10]} />
         <meshStandardMaterial color={visualStyle.hose.nozzle} roughness={0.45} metalness={0.45} />
       </mesh>
+      <group ref={tensionMarkerRef} position={nozzle.toArray()} visible={false}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[CELL_SIZE * 0.25, CELL_SIZE * 0.025, 4, 10]} />
+          <meshBasicMaterial
+            color={visualStyle.incidentMarkers.hoseLine.strained}
+            toneMapped={false}
+          />
+        </mesh>
+        <mesh rotation={[0, Math.PI / 2, 0]}>
+          <torusGeometry args={[CELL_SIZE * 0.31, CELL_SIZE * 0.02, 4, 10]} />
+          <meshBasicMaterial color={visualStyle.incidentMarkers.outline} toneMapped={false} />
+        </mesh>
+      </group>
       {hydrants.map((hydrant) => {
         const position = getCellWorldPosition(hydrant.position, grid.dimensions);
         return (

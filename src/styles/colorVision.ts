@@ -45,3 +45,16 @@ export function colorLuminance(color: string, mode?: ColorVisionMode): number {
   const [red, green, blue] = perceived.map(linearize) as unknown as Rgb;
   return red * 0.2126 + green * 0.7152 + blue * 0.0722;
 }
+
+/** WCAG-style contrast after an optional colour-vision-deficiency simulation. */
+export function colorContrastRatio(
+  foreground: string,
+  background: string,
+  mode?: ColorVisionMode,
+): number {
+  const foregroundLuminance = colorLuminance(foreground, mode);
+  const backgroundLuminance = colorLuminance(background, mode);
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+  const darker = Math.min(foregroundLuminance, backgroundLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+}
