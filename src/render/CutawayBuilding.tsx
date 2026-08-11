@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import { Object3D, type InstancedMesh } from 'three';
 import type { CellGrid } from '@sim/cellGrid';
@@ -120,8 +121,11 @@ export const CutawayBuilding = forwardRef<CutawayBuildingHandle, CutawayBuilding
     );
     const cellMeshRefs = useRef<(InstancedMesh | null)[]>([]);
     const registry = useRef<Map<string, CellMeshReference>>(new Map());
+    const [cellMeshVersion, setCellMeshVersion] = useState(0);
     const registerCellMesh = useCallback((groupIndex: number, mesh: InstancedMesh | null) => {
+      if (cellMeshRefs.current[groupIndex] === mesh) return;
       cellMeshRefs.current[groupIndex] = mesh;
+      setCellMeshVersion((version) => version + 1);
     }, []);
 
     useImperativeHandle(
@@ -152,7 +156,7 @@ export const CutawayBuilding = forwardRef<CutawayBuildingHandle, CutawayBuilding
       return () => {
         registry.current = new Map();
       };
-    }, [layout.cellAddressById, onCellMeshRegistryChange]);
+    }, [cellMeshVersion, layout.cellAddressById, onCellMeshRegistryChange]);
 
     return (
       <group name="cutaway-building">
