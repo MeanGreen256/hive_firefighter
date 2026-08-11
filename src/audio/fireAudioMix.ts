@@ -86,15 +86,18 @@ export function getFireAudioEvents(
     crossedExtinguish: boolean;
   }[] = [],
 ): FireAudioEvent[] {
-  const audioEvents: FireAudioEvent[] = waterContacts.flatMap((contact) => {
-    if (contact.heatBefore <= 0) return [];
-    const hiss: FireAudioEvent = {
+  const audioEvents: FireAudioEvent[] = [];
+  const targetContact = waterContacts[0];
+  if (targetContact && targetContact.heatBefore > 0) {
+    audioEvents.push({
       type: 'water-hiss',
-      heat: contact.heatBefore,
-      ignitionPoint: contact.ignitionPoint,
-    };
-    return contact.crossedExtinguish ? [hiss, { type: 'steam-burst' }] : [hiss];
-  });
+      heat: targetContact.heatBefore,
+      ignitionPoint: targetContact.ignitionPoint,
+    });
+  }
+  if (waterContacts.some((contact) => contact.crossedExtinguish)) {
+    audioEvents.push({ type: 'steam-burst' });
+  }
 
   for (const event of simulationEvents) {
     if (event.type === FireSimulationEventType.CellBurnedThrough) {

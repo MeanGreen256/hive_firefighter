@@ -67,6 +67,7 @@ export function createFireAudioSystem(
   let masterGain: GainNode | null = null;
   let voices: FireVoices | null = null;
   let latestMix = getFireAudioMix(0);
+  let nextWaterHissTime = 0;
 
   const applyMasterGain = (): void => {
     if (!context || !masterGain) return;
@@ -135,6 +136,8 @@ export function createFireAudioSystem(
   const playEvent = (event: FireAudioEvent): void => {
     if (!context || !masterGain) return;
     if (event.type === 'water-hiss') {
+      if (context.currentTime < nextWaterHissTime) return;
+      nextWaterHissTime = context.currentTime + 0.16;
       playNoiseBurst(getWaterHissFrequency(event.heat, event.ignitionPoint), 0.28, 0.28);
     } else if (event.type === 'steam-burst') {
       playNoiseBurst(2800, 0.18, 0.24);

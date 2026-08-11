@@ -67,6 +67,19 @@ describe('fire audio mix', () => {
     ).toEqual([]);
   });
 
+  it('uses the target contact for one hiss and coalesces overspray steam', () => {
+    expect(
+      getFireAudioEvents(
+        [],
+        [
+          { heatBefore: 120, ignitionPoint: 300, crossedExtinguish: false },
+          { heatBefore: 500, ignitionPoint: 250, crossedExtinguish: true },
+          { heatBefore: 450, ignitionPoint: 250, crossedExtinguish: true },
+        ],
+      ),
+    ).toEqual([{ type: 'water-hiss', heat: 120, ignitionPoint: 300 }, { type: 'steam-burst' }]);
+  });
+
   it('does not score non-burning cells as fire intensity', () => {
     const state = createFireSimulation(createCellGrid('wood'));
     const cell = state.grid.cells['0,0,0']!;
