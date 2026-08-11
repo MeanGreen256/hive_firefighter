@@ -5,6 +5,35 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import prettier from 'eslint-config-prettier';
 
+const HEX_COLOR_PATTERN = /#[0-9a-f]{3,8}\b/i;
+
+const noRenderHexColors = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: {
+      hardcodedColor:
+        'Do not hardcode colour literals in src/render. Read colour from the active style.',
+    },
+  },
+  create(context) {
+    function check(node, value) {
+      if (typeof value === 'string' && HEX_COLOR_PATTERN.test(value)) {
+        context.report({ node, messageId: 'hardcodedColor' });
+      }
+    }
+
+    return {
+      Literal(node) {
+        check(node, node.value);
+      },
+      TemplateElement(node) {
+        check(node, node.value.raw);
+      },
+    };
+  },
+};
+
 export default tseslint.config(
   // `.claude` holds agent definitions and settings, never lintable source.
   // Agent sessions also materialise full repo checkouts under
@@ -23,6 +52,7 @@ export default tseslint.config(
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
+      hive: { rules: { 'no-render-hex-colors': noRenderHexColors } },
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -35,6 +65,13 @@ export default tseslint.config(
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
+    },
+  },
+
+  {
+    files: ['src/render/**/*.{ts,tsx}'],
+    rules: {
+      'hive/no-render-hex-colors': 'error',
     },
   },
 

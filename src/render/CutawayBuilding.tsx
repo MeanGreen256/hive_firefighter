@@ -9,7 +9,7 @@ import {
 import { Object3D, type InstancedMesh } from 'three';
 import type { CellGrid } from '@sim/cellGrid';
 import type { MaterialId } from '@sim/materials';
-import { scaffoldStyle } from '@styles/scaffoldStyle';
+import type { MaterialAppearance, Style } from '@styles/styles';
 import {
   buildBuildingLayout,
   type CellInstanceGroup,
@@ -33,6 +33,7 @@ export interface CutawayBuildingHandle {
 export interface CutawayBuildingProps {
   readonly grid: CellGrid;
   readonly facing: CameraFacing;
+  readonly visualStyle: Style;
   readonly onCellMeshRegistryChange?: (registry: CellMeshRegistry) => void;
 }
 
@@ -54,11 +55,10 @@ function applyTransforms(mesh: InstancedMesh, transforms: readonly InstanceTrans
 
 interface StructureLayerProps {
   readonly transforms: readonly InstanceTransform[];
-  readonly color: string;
-  readonly roughness: number;
+  readonly appearance: MaterialAppearance;
 }
 
-function StructureLayer({ transforms, color, roughness }: StructureLayerProps) {
+function StructureLayer({ transforms, appearance }: StructureLayerProps) {
   const mesh = useRef<InstancedMesh>(null);
 
   useLayoutEffect(() => {
@@ -74,7 +74,7 @@ function StructureLayer({ transforms, color, roughness }: StructureLayerProps) {
       receiveShadow
     >
       <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color={color} roughness={roughness} />
+      <meshStandardMaterial {...appearance} />
     </instancedMesh>
   );
 }
@@ -82,10 +82,11 @@ function StructureLayer({ transforms, color, roughness }: StructureLayerProps) {
 interface CellLayerProps {
   readonly group: CellInstanceGroup;
   readonly groupIndex: number;
+  readonly appearance: MaterialAppearance;
   readonly registerMesh: (groupIndex: number, mesh: InstancedMesh | null) => void;
 }
 
-function CellLayer({ group, groupIndex, registerMesh }: CellLayerProps) {
+function CellLayer({ group, groupIndex, appearance, registerMesh }: CellLayerProps) {
   const meshRef = useRef<InstancedMesh>(null);
 
   useLayoutEffect(() => {
@@ -105,20 +106,14 @@ function CellLayer({ group, groupIndex, registerMesh }: CellLayerProps) {
       receiveShadow
     >
       <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial
-        color={scaffoldStyle.building.cellMaterialColors[group.materialId]}
-        roughness={0.82}
-        transparent
-        opacity={scaffoldStyle.building.cellOpacity}
-        depthWrite={false}
-      />
+      <meshStandardMaterial {...appearance} />
     </instancedMesh>
   );
 }
 
 /** Procedural, instanced dollhouse shell driven entirely by CellGrid data. */
 export const CutawayBuilding = forwardRef<CutawayBuildingHandle, CutawayBuildingProps>(
-  function CutawayBuilding({ grid, facing, onCellMeshRegistryChange }, forwardedRef) {
+  function CutawayBuilding({ grid, facing, visualStyle, onCellMeshRegistryChange }, forwardedRef) {
     const layout = useMemo(
       () => buildBuildingLayout(grid, facing.cameraFacingWalls),
       [facing.cameraFacingWalls, grid],
@@ -163,24 +158,16 @@ export const CutawayBuilding = forwardRef<CutawayBuildingHandle, CutawayBuilding
       <group name="cutaway-building">
         <StructureLayer
           transforms={layout.floors}
-          color={scaffoldStyle.building.floor}
-          roughness={0.88}
+          appearance={visualStyle.createMaterial('floor')}
         />
-        <StructureLayer
-          transforms={layout.walls}
-          color={scaffoldStyle.building.wall}
-          roughness={0.9}
-        />
-        <StructureLayer
-          transforms={layout.roof}
-          color={scaffoldStyle.building.roof}
-          roughness={0.84}
-        />
+        <StructureLayer transforms={layout.walls} appearance={visualStyle.createMaterial('wall')} />
+        <StructureLayer transforms={layout.roof} appearance={visualStyle.createMaterial('roof')} />
         {layout.cellGroups.map((group, groupIndex) => (
           <CellLayer
             key={group.materialId}
             group={group}
             groupIndex={groupIndex}
+            appearance={visualStyle.createMaterial('cell', group.materialId)}
             registerMesh={registerCellMesh}
           />
         ))}
