@@ -31,6 +31,7 @@ describe('sim debug controller', () => {
     controller.togglePaused();
     expect(controller.advance(0.1)).toBe(2);
     expect(controller.store.getState().simulation.tick).toBe(3);
+    expect(controller.store.getState().simulationRevision).toBe(2);
   });
 
   it('resets on a new seed and toggles cells through force inputs', () => {
@@ -38,10 +39,12 @@ describe('sim debug controller', () => {
     controller.stepOnce();
     expect(controller.store.getState().lastTickDebug).not.toBeNull();
 
+    const revisionBeforeToggle = controller.store.getState().simulationRevision;
     expect(controller.toggleCell(STARTER_HOSE_TARGET_CELL_ID)).toBe(true);
     expect(
       controller.store.getState().simulation.grid.cells[STARTER_HOSE_TARGET_CELL_ID]?.state,
     ).toBe(CellState.Clear);
+    expect(controller.store.getState().simulationRevision).toBe(revisionBeforeToggle + 1);
     expect(controller.store.getState().lastTickDebug).toBeNull();
     expect(controller.toggleCell(STARTER_HOSE_TARGET_CELL_ID)).toBe(true);
     expect(
