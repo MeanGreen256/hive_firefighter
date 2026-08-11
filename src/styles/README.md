@@ -4,6 +4,17 @@ Art direction as swappable data (#18).
 
 A `Style` supplies the palette tokens, material factory, particle appearance, HUD theme, and post-processing config. Switching one at runtime changes the entire look with the simulation still running.
 
+The ink style is intentionally an opt-in cost: its material contract requests a
+three-band cel ramp and a scaled backface outline hull. That adds one instanced
+draw per visible shell layer, rather than a full-screen edge-detect target. Its
+smoke and heat treatment are also data: `halftone` dot sizing belongs to the
+style, and ink heat is drawn-line geometry rather than a distortion shader.
+
+Until the simulation-driven smoke renderer lands, the M1 scene uses a small
+in-canvas atmosphere preview solely to compare the two treatments. It is not a
+simulation emitter: future emitters must choose the semantic smoke tint and
+consume this contract rather than treating the preview plume as game state.
+
 ## Why this exists
 
 Concept pass 02 (`docs/style-directions.html`) narrowed six isometric directions to two finalists — toy diorama (#19) and cel-shaded ink (#20). Static frames undersell motion badly, so both get built and the decision gets made from a live burn rather than a screenshot.

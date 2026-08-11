@@ -7,7 +7,14 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Object3D, type InstancedMesh } from 'three';
+import {
+  BackSide,
+  DataTexture,
+  NearestFilter,
+  Object3D,
+  RedFormat,
+  type InstancedMesh,
+} from 'three';
 import type { CellGrid } from '@sim/cellGrid';
 import type { MaterialId } from '@sim/materials';
 import type { MaterialAppearance, Style } from '@styles/styles';
@@ -38,20 +45,109 @@ export interface CutawayBuildingProps {
   readonly onCellMeshRegistryChange?: (registry: CellMeshRegistry) => void;
 }
 
-function applyTransforms(mesh: InstancedMesh, transforms: readonly InstanceTransform[]): void {
+function applyTransforms(
+  mesh: InstancedMesh,
+  transforms: readonly InstanceTransform[],
+  scaleMultiplier = 1,
+): void {
   const transform = new Object3D();
 
   for (let index = 0; index < transforms.length; index += 1) {
     const instance = transforms[index];
     if (!instance) continue;
     transform.position.set(...instance.position);
-    transform.scale.set(...instance.scale);
+    transform.scale.set(
+      instance.scale[0] * scaleMultiplier,
+      instance.scale[1] * scaleMultiplier,
+      instance.scale[2] * scaleMultiplier,
+    );
     transform.updateMatrix();
     mesh.setMatrixAt(index, transform.matrix);
   }
 
   mesh.instanceMatrix.needsUpdate = true;
   mesh.computeBoundingSphere();
+}
+
+function createCelGradientMap(bands: 2 | 3): DataTexture {
+  const values = new Uint8Array(bands);
+  for (let index = 0; index < bands; index += 1) {
+    values[index] = Math.round((index / (bands - 1)) * 255);
+  }
+
+  const gradientMap = new DataTexture(values, bands, 1, RedFormat);
+  gradientMap.minFilter = NearestFilter;
+  gradientMap.magFilter = NearestFilter;
+  gradientMap.generateMipmaps = false;
+  gradientMap.needsUpdate = true;
+  return gradientMap;
+}
+
+function SurfaceMaterial({ appearance }: { readonly appearance: MaterialAppearance }) {
+  const gradientMap = useMemo(
+    () => (appearance.shading === 'cel' ? createCelGradientMap(appearance.celBands!) : null),
+    [appearance.celBands, appearance.shading],
+  );
+
+  useLayoutEffect(() => () => gradientMap?.dispose(), [gradientMap]);
+
+  if (gradientMap) {
+    return (
+      <meshToonMaterial
+        color={appearance.color}
+        transparent={appearance.transparent}
+        opacity={appearance.opacity}
+        depthWrite={appearance.depthWrite}
+        gradientMap={gradientMap}
+      />
+    );
+  }
+
+  return (
+    <meshStandardMaterial
+      color={appearance.color}
+      roughness={appearance.roughness}
+      metalness={appearance.metalness}
+      flatShading={appearance.flatShading}
+      transparent={appearance.transparent}
+      opacity={appearance.opacity}
+      depthWrite={appearance.depthWrite}
+    />
+  );
+}
+
+function OutlineLayer({ transforms, appearance }: StructureLayerProps) {
+  if (!appearance.outline) return null;
+
+  return (
+    <InstancedOutlineLayer
+      transforms={transforms}
+      color={appearance.outline.color}
+      scale={appearance.outline.scale}
+    />
+  );
+}
+
+interface InstancedOutlineLayerProps {
+  readonly transforms: readonly InstanceTransform[];
+  readonly color: string;
+  readonly scale: number;
+}
+
+function InstancedOutlineLayer({ transforms, color, scale }: InstancedOutlineLayerProps) {
+  const mesh = useRef<InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    if (!mesh.current) return;
+    applyTransforms(mesh.current, transforms, scale);
+  }, [scale, transforms]);
+
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, transforms.length]}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshBasicMaterial color={color} side={BackSide} />
+    </instancedMesh>
+  );
 }
 
 interface StructureLayerProps {
@@ -68,15 +164,18 @@ function StructureLayer({ transforms, appearance }: StructureLayerProps) {
   }, [transforms]);
 
   return (
-    <instancedMesh
-      ref={mesh}
-      args={[undefined, undefined, transforms.length]}
-      castShadow
-      receiveShadow
-    >
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial {...appearance} />
-    </instancedMesh>
+    <>
+      <instancedMesh
+        ref={mesh}
+        args={[undefined, undefined, transforms.length]}
+        castShadow
+        receiveShadow
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <SurfaceMaterial appearance={appearance} />
+      </instancedMesh>
+      <OutlineLayer transforms={transforms} appearance={appearance} />
+    </>
   );
 }
 
@@ -101,14 +200,17 @@ function CellLayer({ group, groupIndex, appearance, registerMesh }: CellLayerPro
   }, [group, groupIndex, registerMesh]);
 
   return (
-    <instancedMesh
-      ref={meshRef}
-      args={[undefined, undefined, group.instances.length]}
-      receiveShadow
-    >
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial {...appearance} />
-    </instancedMesh>
+    <>
+      <instancedMesh
+        ref={meshRef}
+        args={[undefined, undefined, group.instances.length]}
+        receiveShadow
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <SurfaceMaterial appearance={appearance} />
+      </instancedMesh>
+      <OutlineLayer transforms={group.instances} appearance={appearance} />
+    </>
   );
 }
 

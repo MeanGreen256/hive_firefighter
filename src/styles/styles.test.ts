@@ -32,6 +32,25 @@ describe('runtime styles', () => {
     );
   });
 
+  it('gives ink a bounded cel, outline, smoke, and heat treatment', () => {
+    const inkWall = STYLES.ink.createMaterial('wall');
+    const dioramaWall = STYLES.diorama.createMaterial('wall');
+
+    expect(inkWall).toMatchObject({
+      shading: 'cel',
+      celBands: 3,
+      outline: { color: '#16120e', scale: 1.045 },
+    });
+    expect(dioramaWall).toMatchObject({ shading: 'standard' });
+    expect(dioramaWall.outline).toBeUndefined();
+    expect(STYLES.ink.particles.smoke).toMatchObject({
+      treatment: 'halftone',
+      halftone: { dotSize: 6.5, dotSpacing: 0.24 },
+    });
+    expect(STYLES.ink.particles.heat.treatment).toBe('drawn-lines');
+    expect(STYLES.diorama.particles.heat.treatment).toBe('none');
+  });
+
   it('resolves shareable style query parameters with a safe default', () => {
     expect(styleIdFromSearch('?style=ink')).toBe('ink');
     expect(styleIdFromSearch('?style=diorama&seed=42')).toBe('diorama');
@@ -39,15 +58,19 @@ describe('runtime styles', () => {
     expect(styleIdFromSearch('')).toBe('diorama');
   });
 
-  it('switches style state without touching external simulation state', () => {
+  it('switches style state without touching external simulation or canvas owners', () => {
     const writeUrl = vi.fn();
     const store = createStyleStore('diorama', writeUrl);
     const simulation = { tick: 37, seed: 2026 };
+    const canvas = { rendererId: 'shared-canvas', cameraTarget: [0, 2, 0] };
+    const grid = { id: 'same-burn' };
 
     store.getState().setActiveStyle('ink');
 
     expect(store.getState().activeStyleId).toBe('ink');
     expect(writeUrl).toHaveBeenCalledWith('ink');
     expect(simulation).toEqual({ tick: 37, seed: 2026 });
+    expect(canvas).toEqual({ rendererId: 'shared-canvas', cameraTarget: [0, 2, 0] });
+    expect(grid).toEqual({ id: 'same-burn' });
   });
 });
