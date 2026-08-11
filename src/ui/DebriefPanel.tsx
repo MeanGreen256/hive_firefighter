@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from 'zustand';
+import { SCENARIOS } from '@sim/scenarios';
 import { SessionStatus } from '../state/sessionStats';
 import { simDebugController } from '../state/simDebugController';
 
@@ -17,6 +18,8 @@ export function DebriefPanel() {
     const dialog = dialogRef.current;
     if (!debrief || !dialog || dialog.open) return;
     dialog.showModal();
+    dialog.scrollTop = 0;
+    dialog.focus();
     return () => dialog.close();
   }, [debrief]);
 
@@ -28,13 +31,16 @@ export function DebriefPanel() {
   return (
     <dialog
       ref={dialogRef}
+      tabIndex={-1}
       className={`debrief-panel${warningGrade ? ' debrief-panel--warning' : ''}`}
       aria-labelledby="debrief-title"
       onCancel={(event) => event.preventDefault()}
     >
       <header>
         <div>
-          <span>Incident debrief</span>
+          <span>
+            Incident debrief · {debrief.scenarioId} · seed {debrief.seed}
+          </span>
           <h1 id="debrief-title">{title}</h1>
         </div>
         <strong aria-label={`Grade ${debrief.grade}`}>{debrief.grade}</strong>
@@ -46,38 +52,87 @@ export function DebriefPanel() {
           <dd>{debrief.propertySavedPercent}%</dd>
         </div>
         <div>
-          <dt>Time</dt>
-          <dd>{formatElapsedTime(debrief.elapsedSeconds)}</dd>
+          <dt>Civilians</dt>
+          <dd>
+            {debrief.civilians.rescued} saved · {debrief.civilians.lost} lost
+          </dd>
         </div>
         <div>
-          <dt>Water used</dt>
-          <dd>{debrief.waterUsedLitres.toFixed(1)} L</dd>
+          <dt>Hazards</dt>
+          <dd>
+            {debrief.hazards.controlled} controlled · {debrief.hazards.failed} failed
+          </dd>
         </div>
         <div>
-          <dt>Efficiency</dt>
-          <dd>{debrief.scores.waterEfficiency}%</dd>
+          <dt>Time / par</dt>
+          <dd>
+            {formatElapsedTime(debrief.elapsedSeconds)} /{' '}
+            {formatElapsedTime(debrief.parTimeSeconds)}
+          </dd>
+        </div>
+        <div>
+          <dt>Suppression used</dt>
+          <dd>
+            {debrief.waterUsedLitres.toFixed(1)} L water · {debrief.foamUsedLitres.toFixed(1)} L
+            foam
+          </dd>
         </div>
       </dl>
 
       <section className="debrief-breakdown" aria-label="Grade breakdown">
         <h2>Why this grade</h2>
         <div>
-          <span>Property · 60%</span>
-          <output>{debrief.scores.property}</output>
+          <span>Lives · up to 50%</span>
+          <output>{debrief.civilians.total > 0 ? debrief.scores.lives : 'N/A'}</output>
         </div>
         <div>
-          <span>Time · 20%</span>
+          <span>Property · up to 25%</span>
+          <output>{debrief.initialPropertyFuelMass > 0 ? debrief.scores.property : 'N/A'}</output>
+        </div>
+        <div>
+          <span>Hazards · up to 15%</span>
+          <output>{debrief.hazards.total > 0 ? debrief.scores.hazards : 'N/A'}</output>
+        </div>
+        <div>
+          <span>Time · 10%</span>
           <output>{debrief.scores.time}</output>
         </div>
-        <div>
-          <span>Water efficiency · 20%</span>
-          <output>{debrief.scores.waterEfficiency}</output>
-        </div>
         <p>Weighted score · {debrief.scores.overall} / 100</p>
+        <p>Weights normalize to the risks present in this scenario</p>
+        {debrief.gradeCappedForCivilianLoss ? (
+          <p role="status">Grade capped at D because a civilian was lost</p>
+        ) : null}
       </section>
 
+      <section className="debrief-best" aria-label="Personal best">
+        <h2>Personal best · this scenario and seed</h2>
+        {debrief.previousBest ? (
+          <p>
+            Previous · {debrief.previousBest.grade} · {debrief.previousBest.overallScore} / 100 ·{' '}
+            {formatElapsedTime(debrief.previousBest.elapsedSeconds)}
+          </p>
+        ) : (
+          <p>First recorded run for this fire.</p>
+        )}
+        <strong>{debrief.isNewPersonalBest ? 'New personal best' : 'Best not beaten'}</strong>
+      </section>
+
+      <label className="debrief-scenario">
+        <span>Change scenario</span>
+        <select
+          value={debrief.scenarioId}
+          onChange={(event) => simDebugController.selectScenario(event.currentTarget.value)}
+        >
+          {SCENARIOS.map((scenario) => (
+            <option key={scenario.id} value={scenario.id}>
+              {scenario.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <footer>
-        <button type="button" autoFocus onClick={() => simDebugController.reset()}>
+        <button type="button" onClick={() => simDebugController.reset()}>
           Retry same fire
         </button>
         <button type="button" onClick={() => simDebugController.resetWithNewSeed()}>

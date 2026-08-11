@@ -298,6 +298,16 @@
   text-transform: uppercase;
 }
 
+.debrief-best h2,
+.debrief-scenario span {
+  margin: 0;
+  color: var(--hud-muted);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .debrief-panel h1 {
   margin: 6px 0 0;
   font-size: clamp(22px, 5vw, 34px);
@@ -327,6 +337,10 @@
   min-width: 0;
   padding: 11px 10px;
   background: var(--hud-control);
+}
+
+.debrief-summary div:last-child {
+  grid-column: 1 / -1;
 }
 
 .debrief-summary dt {
@@ -362,6 +376,53 @@
   padding: 7px 0;
   border-top: 1px solid var(--hud-border);
   font-size: 11px;
+}
+
+.debrief-best {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 18px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--hud-border);
+}
+
+.debrief-best h2 {
+  grid-column: 1 / -1;
+}
+
+.debrief-best p {
+  margin: 0;
+  color: var(--hud-muted);
+  font-size: 10px;
+}
+
+.debrief-best strong {
+  color: var(--hud-success);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.debrief-scenario {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.debrief-scenario select {
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid var(--hud-border);
+  border-radius: 3px;
+  background: var(--hud-control);
+  color: var(--hud-text);
+  font: inherit;
+  text-transform: uppercase;
+}
+
+.debrief-scenario select:focus-visible {
+  border-color: var(--hud-accent);
+  outline: none;
 }
 
 .debrief-breakdown output {
