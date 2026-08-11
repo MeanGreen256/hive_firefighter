@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
 import { CivilianState } from '@sim/civilians';
+import { IncidentEventType, PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
+import { StructuralEventType } from '@sim/structuralCollapse';
+import { SuppressionAgent } from '@sim/waterApplication';
 import { SessionStatus } from './sessionStats';
+import type { StorageLike } from './personalBests';
 import { createSimDebugController, STARTER_HOSE_TARGET_CELL_ID } from './simDebugController';
 
 describe('sim debug controller', () => {
+  const createMemoryStorage = (): StorageLike => {
+    const values = new Map<string, string>();
+    return {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value),
+    };
+  };
   it('starts a reproducible shared scenario and single-steps exactly one tick', () => {
     const controller = createSimDebugController(42);
     const initial = controller.store.getState();
@@ -214,6 +225,68 @@ describe('sim debug controller', () => {
     expect(controller.store.getState().simulation.seed).not.toBe(15);
   });
 
+  it('restores every scenario-owned system on same-seed retry', () => {
+    const controller = createSimDebugController(2402, { scenarioId: 'workshop' });
+    const initial = controller.store.getState();
+    const initialCell = { ...initial.simulation.grid.cells['2,1,1'] };
+    controller.setSuppressionAgent(SuppressionAgent.Foam);
+    controller.sprayCell('3,1,1', 2);
+    controller.connectHydrant();
+    controller.toggleThermalView();
+    initial.civilians.civilians['civilian-a']!.state = CivilianState.Lost;
+    initial.hazards.hazards['propane-a']!.state = PropaneHazardState.Failed;
+    controller.advance(1);
+
+    controller.reset();
+
+    const retried = controller.store.getState();
+    expect(retried).toMatchObject({
+      scenarioId: 'workshop',
+      waterRemainingLitres: 90,
+      waterUsedLitres: 0,
+      foamRemainingLitres: 18,
+      foamUsedLitres: 0,
+      suppressionAgent: SuppressionAgent.Water,
+      thermalView: false,
+      elapsedScenarioSeconds: 0,
+      sessionStatus: SessionStatus.Active,
+      debrief: null,
+      hoseLine: { connectedHydrantId: null },
+    });
+    expect(retried.simulation.seed).toBe(2402);
+    expect(retried.simulation.grid.cells['2,1,1']).toEqual(initialCell);
+    expect(retried.civilians.civilians['civilian-a']?.state).toBe(CivilianState.Conscious);
+    expect(retried.hazards.hazards['propane-a']?.state).toBe(PropaneHazardState.Stable);
+    expect(retried.structures.warnings).toEqual({});
+  });
+
+  it('persists and compares personal bests for the same scenario and seed', () => {
+    const controller = createSimDebugController(15, {
+      personalBestStorage: createMemoryStorage(),
+    });
+    controller.sprayCell(STARTER_HOSE_TARGET_CELL_ID, 1);
+    const first = controller.store.getState().debrief;
+    expect(first).toMatchObject({ previousBest: null, isNewPersonalBest: true });
+
+    controller.reset();
+    controller.sprayCell(STARTER_HOSE_TARGET_CELL_ID, 1);
+    expect(controller.store.getState().debrief).toMatchObject({
+      previousBest: {
+        grade: first?.grade,
+        overallScore: first?.scores.overall,
+        elapsedSeconds: first?.elapsedSeconds,
+      },
+      isNewPersonalBest: false,
+    });
+
+    controller.resetWithNewSeed();
+    controller.sprayCell(STARTER_HOSE_TARGET_CELL_ID, 1);
+    expect(controller.store.getState().debrief).toMatchObject({
+      previousBest: null,
+      isNewPersonalBest: true,
+    });
+  });
+
   it('switches to an authored scenario with its grid, seed, wind, and water capacity', () => {
     const controller = createSimDebugController();
 
@@ -225,6 +298,8 @@ describe('sim debug controller', () => {
       scenarioVersion: 1,
       waterCapacityLitres: 90,
       waterRemainingLitres: 90,
+      foamCapacityLitres: 18,
+      foamRemainingLitres: 18,
     });
     expect(selected.simulation).toMatchObject({
       seed: 2402,
@@ -239,10 +314,15 @@ describe('sim debug controller', () => {
     expect(selected.civilians.civilians['civilian-a']).toMatchObject({
       position: { x: 1, y: 2, z: 1 },
       state: CivilianState.Conscious,
+      located: false,
     });
     expect(selected.hoseLine.hydrants).toEqual([
       { id: 'street-hydrant', position: { x: -1, y: 0, z: 1 } },
     ]);
+    expect(selected.hazards.hazards['propane-a']).toMatchObject({
+      position: { x: 3, y: 1, z: 1 },
+      state: PropaneHazardState.Stable,
+    });
   });
 
   it('refills from a connected hydrant and blocks targets beyond the tether', () => {
@@ -332,5 +412,122 @@ describe('sim debug controller', () => {
       state: CivilianState.Rescued,
       carried: false,
     });
+  });
+
+  it('requires thermal search for a civilian hidden in a smoke-blocked cell', () => {
+    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
+    const state = controller.store.getState();
+    const occupied = state.simulation.grid.cells['1,2,1']!;
+    occupied.state = CellState.Burning;
+    occupied.heat = 450;
+
+    expect(controller.scanNearestCivilian()).toBeNull();
+    controller.toggleThermalView();
+    expect(controller.scanNearestCivilian()).toBe('civilian-a');
+    controller.toggleThermalView();
+
+    expect(controller.store.getState()).toMatchObject({ thermalView: false });
+    expect(controller.store.getState().civilians.civilians['civilian-a']?.located).toBe(true);
+    expect(controller.getCivilianSearchCue()).toBeNull();
+  });
+
+  it('cools a propane countdown through normal hose delivery and publishes its reset event', () => {
+    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
+    const hazard = controller.store.getState().hazards.hazards['propane-a']!;
+    controller.store.getState().simulation.grid.cells['3,1,1']!.heat = 600;
+    hazard.state = PropaneHazardState.Countdown;
+    hazard.heat = PROPANE_COUNTDOWN_HEAT + 20;
+    hazard.countdownRemainingSeconds = 2;
+    const events: string[] = [];
+    controller.subscribeEvents((batch) => events.push(...batch.map((event) => event.type)));
+
+    controller.sprayCell('3,1,1', 1);
+
+    expect(hazard).toMatchObject({
+      state: PropaneHazardState.Stable,
+      countdownRemainingSeconds: 8,
+    });
+    expect(events).toContain(IncidentEventType.PropaneCountdownReset);
+  });
+
+  it('publishes one propane failure event when an expired countdown blasts', () => {
+    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
+    const hazard = controller.store.getState().hazards.hazards['propane-a']!;
+    controller.store.getState().simulation.grid.cells['3,1,1']!.heat = 600;
+    hazard.state = PropaneHazardState.Countdown;
+    hazard.heat = PROPANE_COUNTDOWN_HEAT;
+    hazard.countdownRemainingSeconds = 0.1;
+    const failures: string[] = [];
+    controller.subscribeEvents((events) => {
+      failures.push(
+        ...events
+          .filter((event) => event.type === IncidentEventType.PropaneFailed)
+          .map((event) => event.hazardId),
+      );
+    });
+
+    controller.advance(0.1);
+    controller.advance(0.5);
+
+    expect(failures).toEqual(['propane-a']);
+    expect(hazard.state).toBe(PropaneHazardState.Failed);
+  });
+
+  it('keeps foam finite and separate from hydrant-refilled water', () => {
+    const controller = createSimDebugController(15, {
+      scenarioId: 'workshop',
+      waterCapacityLitres: 2,
+      foamCapacityLitres: 2,
+    });
+    controller.setSuppressionAgent(SuppressionAgent.Foam);
+    controller.sprayCell('3,1,1', 1);
+
+    expect(controller.store.getState()).toMatchObject({
+      suppressionAgent: SuppressionAgent.Foam,
+      waterRemainingLitres: 2,
+      foamRemainingLitres: 1,
+      foamUsedLitres: 1,
+    });
+
+    controller.setWaterApplication('3,1,1');
+    expect(controller.refillFoam()).toBe(false);
+    controller.setWaterApplication(null);
+    expect(controller.refillFoam()).toBe(true);
+    expect(controller.store.getState().foamRemainingLitres).toBe(2);
+  });
+
+  it('routes the selected agent through grease suppression', () => {
+    const water = createSimDebugController(15, { scenarioId: 'workshop' });
+    const waterCell = water.store.getState().simulation.grid.cells['3,1,1']!;
+    waterCell.state = CellState.Burning;
+    waterCell.heat = 300;
+    water.sprayCell(waterCell.id, 2);
+
+    const foam = createSimDebugController(15, { scenarioId: 'workshop' });
+    const foamCell = foam.store.getState().simulation.grid.cells['3,1,1']!;
+    foamCell.state = CellState.Burning;
+    foamCell.heat = 300;
+    foam.setSuppressionAgent(SuppressionAgent.Foam);
+    foam.sprayCell(foamCell.id, 2);
+
+    expect(waterCell.heat).toBeGreaterThan(300);
+    expect(foamCell.heat).toBeLessThan(300);
+    expect(foamCell.state).toBe(CellState.Wetted);
+  });
+
+  it('publishes warning and collapse events through the incident event stream', () => {
+    const controller = createSimDebugController(15);
+    controller.store.getState().simulation.grid.cells['0,0,0']!.state = CellState.Burnt;
+    const eventTypes: string[] = [];
+    controller.subscribeEvents((events) => eventTypes.push(...events.map((event) => event.type)));
+
+    controller.advance(0.1);
+    controller.advance(3.1);
+
+    expect(eventTypes).toContain(StructuralEventType.CollapseWarning);
+    expect(eventTypes).toContain(StructuralEventType.CellCollapsed);
+    expect(controller.store.getState().simulation.grid.cells['0,1,0']?.state).toBe(
+      CellState.Collapsed,
+    );
   });
 });

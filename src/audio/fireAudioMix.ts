@@ -5,6 +5,12 @@ import {
   type FireSimulationState,
 } from '@sim/fireSimulation';
 import { materials } from '@sim/materials';
+import { IncidentEventType, type IncidentSimulationEvent } from '@sim/hazards';
+import { StructuralEventType, type StructuralSimulationEvent } from '@sim/structuralCollapse';
+import {
+  SuppressionAgent,
+  type SuppressionAgent as SuppressionAgentValue,
+} from '@sim/waterApplication';
 
 export interface FireAudioMix {
   /** Normalized total fire energy, intended for all continuous fire voices. */
@@ -17,8 +23,17 @@ export interface FireAudioMix {
 
 export type FireAudioEvent =
   | { type: 'water-hiss'; heat: number; ignitionPoint: number | null }
+  | { type: 'foam-burst' }
   | { type: 'steam-burst' }
-  | { type: 'burn-through' };
+  | { type: 'burn-through' }
+  | { type: 'propane-warning' }
+  | { type: 'propane-reset' }
+  | { type: 'propane-failure' }
+  | { type: 'collapse-warning' }
+  | { type: 'collapse-impact' };
+
+export type AudioSimulationEvent =
+  FireSimulationEvent | IncidentSimulationEvent | StructuralSimulationEvent;
 
 function clamp(value: number, minimum = 0, maximum = 1): number {
   return Math.min(maximum, Math.max(minimum, value));
@@ -79,16 +94,19 @@ export function getWaterHissFrequency(heat: number, ignitionPoint: number | null
  * events drained from the fixed-step runner exactly once.
  */
 export function getFireAudioEvents(
-  simulationEvents: readonly FireSimulationEvent[],
+  simulationEvents: readonly AudioSimulationEvent[],
   waterContacts: readonly {
     heatBefore: number;
     ignitionPoint: number | null;
     crossedExtinguish: boolean;
+    agent?: SuppressionAgentValue;
   }[] = [],
 ): FireAudioEvent[] {
   const audioEvents: FireAudioEvent[] = [];
   const targetContact = waterContacts[0];
-  if (targetContact && targetContact.heatBefore > 0) {
+  if (targetContact?.agent === SuppressionAgent.Foam) {
+    audioEvents.push({ type: 'foam-burst' });
+  } else if (targetContact && targetContact.heatBefore > 0) {
     audioEvents.push({
       type: 'water-hiss',
       heat: targetContact.heatBefore,
@@ -102,6 +120,16 @@ export function getFireAudioEvents(
   for (const event of simulationEvents) {
     if (event.type === FireSimulationEventType.CellBurnedThrough) {
       audioEvents.push({ type: 'burn-through' });
+    } else if (event.type === IncidentEventType.PropaneCountdownStarted) {
+      audioEvents.push({ type: 'propane-warning' });
+    } else if (event.type === IncidentEventType.PropaneCountdownReset) {
+      audioEvents.push({ type: 'propane-reset' });
+    } else if (event.type === IncidentEventType.PropaneFailed) {
+      audioEvents.push({ type: 'propane-failure' });
+    } else if (event.type === StructuralEventType.CollapseWarning) {
+      audioEvents.push({ type: 'collapse-warning' });
+    } else if (event.type === StructuralEventType.CellCollapsed) {
+      audioEvents.push({ type: 'collapse-impact' });
     }
   }
   return audioEvents;

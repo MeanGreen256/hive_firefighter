@@ -8,6 +8,7 @@ export const CellState = Object.freeze({
   Flashover: 'Flashover',
   Wetted: 'Wetted',
   Burnt: 'Burnt',
+  Collapsed: 'Collapsed',
 } as const);
 
 export type CellState = (typeof CellState)[keyof typeof CellState];

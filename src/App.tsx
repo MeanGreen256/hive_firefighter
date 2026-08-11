@@ -13,6 +13,7 @@ import { useStore } from 'zustand';
 import { CutawayBuilding, type CutawayBuildingHandle } from '@render/CutawayBuilding';
 import { FireParticles } from '@render/FireParticles';
 import { HoseEffects } from '@render/HoseEffects';
+import { IncidentEntities } from '@render/IncidentEntities';
 import { IsometricCameraRig } from '@render/IsometricCameraRig';
 import { ModelStage } from '@render/ModelStage';
 import { getBuildingBounds } from '@render/buildingLayout';
@@ -25,6 +26,7 @@ import { PerfOverlay } from '@ui/PerfOverlay';
 import { AudioControls } from '@ui/AudioControls';
 import { DebriefPanel } from '@ui/DebriefPanel';
 import { WaterTankHud } from '@ui/WaterTankHud';
+import { IncidentHud } from '@ui/IncidentHud';
 import '@ui/SessionHud.css';
 import { createHoseController } from './state/hoseController';
 import { simDebugController } from './state/simDebugController';
@@ -86,12 +88,14 @@ export default function App() {
     (snapshot) => snapshot.scenarioVersion,
   );
   const scenarioId = useStore(simDebugController.store, (snapshot) => snapshot.scenarioId);
+  const thermalView = useStore(simDebugController.store, (snapshot) => snapshot.thermalView);
   const scenario = getScenario(scenarioId);
   const grid = simDebugController.store.getState().simulation.grid;
   const hoseController = useMemo(() => createHoseController(simDebugController), []);
   const buildingRef = useRef<CutawayBuildingHandle>(null);
   const buildingBounds = useMemo(() => getBuildingBounds(grid.dimensions), [grid.dimensions]);
   const readLiveGrid = useCallback(() => simDebugController.store.getState().simulation.grid, []);
+  const readStructuralState = useCallback(() => simDebugController.store.getState().structures, []);
   const [facing, setFacing] = useState<CameraFacing>(() => getCameraFacing(0));
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
   const setActiveStyle = useStore(styleStore, (state) => state.setActiveStyle);
@@ -119,7 +123,7 @@ export default function App() {
 
   return (
     <div className="app-shell" style={hudCssVariables}>
-      <div className="scene" style={sceneCssVariables}>
+      <div className={`scene${thermalView ? ' scene--thermal' : ''}`} style={sceneCssVariables}>
         <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]}>
           <IsometricCameraRig
             key={`camera-${scenarioVersion}`}
@@ -133,6 +137,7 @@ export default function App() {
             ref={buildingRef}
             grid={grid}
             readLiveGrid={readLiveGrid}
+            readStructuralState={readStructuralState}
             facing={facing}
             visualStyle={visualStyle}
           />
@@ -143,12 +148,14 @@ export default function App() {
             simulationController={simDebugController}
             building={buildingRef}
           />
+          <IncidentEntities visualStyle={visualStyle} />
           <LiveFireParticles visualStyle={visualStyle} />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
       </div>
 
       <WaterTankHud />
+      <IncidentHud />
 
       <div className="placard">
         hive firefighter
@@ -157,9 +164,8 @@ export default function App() {
         <br />
         {grid.dimensions.width} × {grid.dimensions.height} × {grid.dimensions.depth} cells
         <br />
-        Hold click to spray · H connect line · Q / E rotate · wheel zoom
-        <br />
-        WASD / middle-drag pan
+        Hold click to spray · 1 water · 2 foam · T thermal · F scan
+        <br />Q / E rotate · wheel zoom · WASD / middle-drag pan
         <label className="style-switcher">
           <span>Visual style</span>
           <select

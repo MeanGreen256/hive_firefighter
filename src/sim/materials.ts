@@ -31,6 +31,12 @@ export type MaterialId = keyof typeof materialsJson;
 export const SMOKE_TINTS = ['neutral', 'pale', 'sooty', 'toxic'] as const;
 export type SmokeTint = (typeof SMOKE_TINTS)[number];
 
+/** Material response multipliers for every supported suppression agent. */
+export interface SuppressionResponse {
+  water: number;
+  foam: number;
+}
+
 /**
  * The fire behaviour of one material. Every prop made of this material
  * gets this behaviour automatically — that's the whole point of the
@@ -91,24 +97,14 @@ export interface Material {
   heatOutput: number;
 
   /**
-   * Multiplier applied to the heat water removes from this material.
-   * Dimensionless. `1.0` is baseline effectiveness (plain water on a
-   * normal combustible, e.g. `wood`).
+   * Per-agent heat-removal multipliers. `1.0` is baseline effectiveness,
+   * `0` has no effect, and a negative response adds heat. Water therefore
+   * amplifies grease while foam can smother it; foam is intentionally less
+   * effective than water on ordinary combustibles.
    *
-   * - `0` — water has no effect either way.
-   * - Negative — water makes it *worse*: instead of removing heat, the
-   *   sim should add heat scaled by the magnitude. This is the grease
-   *   case (a thin water jet on burning fat flash-boils and flings
-   *   burning grease outward). #8 owns the actual formula; this field
-   *   only needs to be able to express "amplifies," which a plain
-   *   multiplier already does once negative values are allowed — no
-   *   separate "fights back" flag or enum was needed.
-   * - Greater than `1` — more effective than plain water (headroom for
-   *   a future foam/retardant agent; not used by any M1 seed row).
-   *
-   * Range: -5 to 5 (soft sanity cap).
+   * Every response range: -5 to 5 (soft sanity cap).
    */
-  waterResponse: number;
+  suppressionResponse: SuppressionResponse;
 
   /**
    * Style-independent smoke category. It preserves the gameplay signal
@@ -133,7 +129,7 @@ export type MaterialTable = Record<string, Material>;
 
 const HEAT_MAX = 1000;
 const SPREAD_FACTOR_MAX = 5;
-const WATER_RESPONSE_MAX = 5;
+const SUPPRESSION_RESPONSE_MAX = 5;
 const SMOKE_DENSITY_MAX = 5;
 const SMOKE_TINT_SET: ReadonlySet<string> = new Set(SMOKE_TINTS);
 
@@ -195,9 +191,24 @@ const FIELD_VALIDATORS: {
     }
     return undefined;
   },
-  waterResponse: (value) => {
-    if (!isFiniteNumber(value) || value < -WATER_RESPONSE_MAX || value > WATER_RESPONSE_MAX) {
-      return `waterResponse must be a finite number in [-${WATER_RESPONSE_MAX}, ${WATER_RESPONSE_MAX}], got ${describe(value)}`;
+  suppressionResponse: (value) => {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return `suppressionResponse must be an object with water and foam responses, got ${describe(value)}`;
+    }
+    const responses = value as Record<string, unknown>;
+    const fields = Object.keys(responses);
+    if (fields.length !== 2 || !fields.includes('water') || !fields.includes('foam')) {
+      return `suppressionResponse must contain exactly "water" and "foam"`;
+    }
+    for (const agent of ['water', 'foam'] as const) {
+      const response = responses[agent];
+      if (
+        !isFiniteNumber(response) ||
+        response < -SUPPRESSION_RESPONSE_MAX ||
+        response > SUPPRESSION_RESPONSE_MAX
+      ) {
+        return `suppressionResponse.${agent} must be a finite number in [-${SUPPRESSION_RESPONSE_MAX}, ${SUPPRESSION_RESPONSE_MAX}], got ${describe(response)}`;
+      }
     }
     return undefined;
   },
@@ -274,7 +285,9 @@ export function validateMaterialTable(data: unknown): MaterialTable {
         burnRate: row.burnRate as number,
         spreadFactor: row.spreadFactor as number,
         heatOutput: row.heatOutput as number,
-        waterResponse: row.waterResponse as number,
+        suppressionResponse: {
+          ...(row.suppressionResponse as SuppressionResponse),
+        },
         smokeTint: row.smokeTint as SmokeTint,
         smokeDensity: row.smokeDensity as number,
       };
