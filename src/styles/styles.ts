@@ -42,6 +42,16 @@ export interface ParticleAppearance {
   };
 }
 
+/** Visual tokens for the player-operated hose and its immediate feedback. */
+export interface HoseAppearance {
+  readonly nozzle: string;
+  readonly stream: string;
+  readonly target: string;
+  readonly steam: string;
+  readonly wetCell: string;
+  readonly flame: string;
+}
+
 /** The active style's visual treatment for one semantic smoke category. */
 export interface SmokeAppearance {
   readonly color: string;
@@ -68,6 +78,7 @@ export interface Style {
   readonly palette: StylePalette;
   readonly createMaterial: (surface: StyleSurface, materialId?: MaterialId) => MaterialAppearance;
   readonly particles: ParticleAppearance;
+  readonly hose: HoseAppearance;
   readonly hud: HudTheme;
   readonly postProcessing: PostProcessingConfig;
 }
@@ -168,6 +179,14 @@ const diorama: Style = {
       treatment: 'rounded',
     },
   },
+  hose: {
+    nozzle: '#40505b',
+    stream: '#b9ecff',
+    target: '#f7f0a4',
+    steam: '#eef8f5',
+    wetCell: '#284d5e',
+    flame: '#ff762f',
+  },
   hud: {
     panel: '#f5eddd',
     border: '#b98f6c',
@@ -202,6 +221,14 @@ const ink: Style = {
       opacity: 0.9,
       treatment: 'halftone',
     },
+  },
+  hose: {
+    nozzle: '#12171d',
+    stream: '#b7ecff',
+    target: '#fff2cb',
+    steam: '#fff7df',
+    wetCell: '#173f55',
+    flame: '#ff4937',
   },
   hud: {
     panel: '#17191d',

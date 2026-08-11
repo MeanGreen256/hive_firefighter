@@ -1,8 +1,8 @@
-import { lazy, Suspense, useMemo, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { useStore } from 'zustand';
-import { createCellGrid } from '@sim/cellGrid';
-import { CutawayBuilding } from '@render/CutawayBuilding';
+import { CutawayBuilding, type CutawayBuildingHandle } from '@render/CutawayBuilding';
+import { HoseEffects } from '@render/HoseEffects';
 import { IsometricCameraRig } from '@render/IsometricCameraRig';
 import { getBuildingBounds } from '@render/buildingLayout';
 import { getCameraFacing, type CameraFacing } from '@render/isometricCamera';
@@ -10,6 +10,8 @@ import { PerformanceSampler } from '@render/PerformanceSampler';
 import { styleStore } from '@styles/styleStore';
 import { isStyleId, STYLES, STYLE_IDS, type Style } from '@styles/styles';
 import { PerfOverlay } from '@ui/PerfOverlay';
+import { createHoseController } from './state/hoseController';
+import { simDebugController } from './state/simDebugController';
 
 const SimDebugOverlay = import.meta.env.DEV ? lazy(() => import('@ui/SimDebugOverlay')) : null;
 
@@ -44,7 +46,13 @@ function StyledScene({ visualStyle }: { visualStyle: Style }) {
 }
 
 export default function App() {
-  const grid = useMemo(() => createCellGrid('wood'), []);
+  const scenarioVersion = useStore(
+    simDebugController.store,
+    (snapshot) => snapshot.scenarioVersion,
+  );
+  const grid = simDebugController.store.getState().simulation.grid;
+  const hoseController = useMemo(() => createHoseController(simDebugController), []);
+  const buildingRef = useRef<CutawayBuildingHandle>(null);
   const buildingBounds = useMemo(() => getBuildingBounds(grid.dimensions), [grid.dimensions]);
   const [facing, setFacing] = useState<CameraFacing>(() => getCameraFacing(0));
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
@@ -63,13 +71,31 @@ export default function App() {
     '--hud-control': visualStyle.hud.control,
   };
 
+  useEffect(() => {
+    simDebugController.start();
+    return () => simDebugController.stop();
+  }, []);
+
   return (
     <>
       <div className="scene" style={sceneCssVariables}>
         <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]}>
           <IsometricCameraRig initialTarget={buildingBounds.center} onFacingChange={setFacing} />
           <StyledScene visualStyle={visualStyle} />
-          <CutawayBuilding grid={grid} facing={facing} visualStyle={visualStyle} />
+          <CutawayBuilding
+            key={scenarioVersion}
+            ref={buildingRef}
+            grid={grid}
+            facing={facing}
+            visualStyle={visualStyle}
+          />
+          <HoseEffects
+            grid={grid}
+            visualStyle={visualStyle}
+            controller={hoseController}
+            simulationController={simDebugController}
+            building={buildingRef}
+          />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
       </div>
@@ -80,7 +106,10 @@ export default function App() {
         <b>M1 · cutaway</b> — {facing.quadrant}
         <br />
         {grid.dimensions.width} × {grid.dimensions.height} × {grid.dimensions.depth} cells
-        <br />Q / E rotate · wheel zoom · WASD / middle-drag pan
+        <br />
+        Hold click on the flame to spray · Q / E rotate · wheel zoom
+        <br />
+        WASD / middle-drag pan
         <label className="style-switcher">
           <span>Visual style</span>
           <select
