@@ -6,6 +6,13 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import prettier from 'eslint-config-prettier';
 
 const HEX_COLOR_PATTERN = /#[0-9a-f]{3,8}\b/i;
+const CSS_COLOR_FUNCTION_PATTERN = /\b(?:rgba?|hsla?)\s*\(/i;
+// Three.js takes colours as numeric hex at least as often as strings —
+// `new Color(0xff0000)`, `color={0x101319}` — so the numeric form is the one
+// most likely to smuggle an art direction into src/render. Bounded to
+// colour-shaped widths (3, 4, 6, 8 digits) so ordinary masks like 0xff and
+// bit flags like 0x1 stay legal.
+const NUMERIC_HEX_COLOR_PATTERN = /^0x(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 const noRenderHexColors = {
   meta: {
@@ -18,13 +25,22 @@ const noRenderHexColors = {
   },
   create(context) {
     function check(node, value) {
-      if (typeof value === 'string' && HEX_COLOR_PATTERN.test(value)) {
+      if (
+        typeof value === 'string' &&
+        (HEX_COLOR_PATTERN.test(value) || CSS_COLOR_FUNCTION_PATTERN.test(value))
+      ) {
         context.report({ node, messageId: 'hardcodedColor' });
       }
     }
 
     return {
       Literal(node) {
+        if (typeof node.value === 'number') {
+          if (NUMERIC_HEX_COLOR_PATTERN.test(node.raw ?? '')) {
+            context.report({ node, messageId: 'hardcodedColor' });
+          }
+          return;
+        }
         check(node, node.value);
       },
       TemplateElement(node) {
