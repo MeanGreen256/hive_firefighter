@@ -27,6 +27,10 @@ import materialsJson from '../../content/materials.json' with { type: 'json' };
 /** Material ids are derived from the content table, never duplicated in code. */
 export type MaterialId = keyof typeof materialsJson;
 
+/** Semantic smoke categories resolved to visuals by the active style. */
+export const SMOKE_TINTS = ['neutral', 'pale', 'sooty', 'toxic'] as const;
+export type SmokeTint = (typeof SMOKE_TINTS)[number];
+
 /**
  * The fire behaviour of one material. Every prop made of this material
  * gets this behaviour automatically — that's the whole point of the
@@ -107,15 +111,12 @@ export interface Material {
   waterResponse: number;
 
   /**
-   * Base smoke colour for this material, as a 6-digit hex string
-   * (`#rrggbb`). This is content data describing what the material's
-   * smoke physically looks like (grease smoke is black, fabric smoke is
-   * pale) — it is not a style/palette literal, so it does not fall under
-   * the "no colour literals in `src/render`" rule. The active style
-   * (`@styles`, #18) may tint or reinterpret it, but the base value comes
-   * from the material.
+   * Style-independent smoke category. It preserves the gameplay signal
+   * (for example, pale fabric smoke versus sooty grease smoke) without
+   * prescribing a colour, texture, or particle shape. The active style
+   * maps this token to its own appearance.
    */
-  smokeColor: string;
+  smokeTint: SmokeTint;
 
   /**
    * Relative smoke particle density / opacity multiplier, dimensionless,
@@ -134,7 +135,7 @@ const HEAT_MAX = 1000;
 const SPREAD_FACTOR_MAX = 5;
 const WATER_RESPONSE_MAX = 5;
 const SMOKE_DENSITY_MAX = 5;
-const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+const SMOKE_TINT_SET: ReadonlySet<string> = new Set(SMOKE_TINTS);
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -200,9 +201,9 @@ const FIELD_VALIDATORS: {
     }
     return undefined;
   },
-  smokeColor: (value) => {
-    if (typeof value !== 'string' || !HEX_COLOR_PATTERN.test(value)) {
-      return `smokeColor must be a 6-digit hex string like "#a1b2c3", got ${describe(value)}`;
+  smokeTint: (value) => {
+    if (typeof value !== 'string' || !SMOKE_TINT_SET.has(value)) {
+      return `smokeTint must be one of ${SMOKE_TINTS.map((token) => JSON.stringify(token)).join(', ')}, got ${describe(value)}`;
     }
     return undefined;
   },
@@ -274,7 +275,7 @@ export function validateMaterialTable(data: unknown): MaterialTable {
         spreadFactor: row.spreadFactor as number,
         heatOutput: row.heatOutput as number,
         waterResponse: row.waterResponse as number,
-        smokeColor: row.smokeColor as string,
+        smokeTint: row.smokeTint as SmokeTint,
         smokeDensity: row.smokeDensity as number,
       };
     }

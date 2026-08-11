@@ -5,7 +5,7 @@
     "spreadFactor": 1.0,
     "heatOutput": 50,
     "waterResponse": 1.0,
-    "smokeColor": "#8a8478",
+    "smokeTint": "neutral",
     "smokeDensity": 1.0
   },
   "plastic": {
@@ -14,7 +14,7 @@
     "spreadFactor": 0.9,
     "heatOutput": 65,
     "waterResponse": 0.8,
-    "smokeColor": "#141414",
+    "smokeTint": "toxic",
     "smokeDensity": 1.8
   },
   "fabric": {
@@ -23,7 +23,7 @@
     "spreadFactor": 1.4,
     "heatOutput": 30,
     "waterResponse": 1.2,
-    "smokeColor": "#c9c5bd",
+    "smokeTint": "pale",
     "smokeDensity": 0.6
   },
   "concrete": {
@@ -32,7 +32,7 @@
     "spreadFactor": 0,
     "heatOutput": 0,
     "waterResponse": 0,
-    "smokeColor": "#9a9a9a",
+    "smokeTint": "neutral",
     "smokeDensity": 0
   },
   "grease": {
@@ -41,7 +41,7 @@
     "spreadFactor": 1.1,
     "heatOutput": 70,
     "waterResponse": -1.5,
-    "smokeColor": "#1a1a1a",
+    "smokeTint": "sooty",
     "smokeDensity": 1.3
   }
 }

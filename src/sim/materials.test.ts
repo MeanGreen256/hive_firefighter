@@ -34,6 +34,21 @@ describe('materials (loaded from content/materials.json)', () => {
   it('gives grease a negative waterResponse, i.e. water amplifies it', () => {
     expect(materials.grease?.waterResponse).toBeLessThan(0);
   });
+
+  it('loads semantic smoke tokens without appearance literals', () => {
+    expect(
+      Object.fromEntries(
+        Object.entries(materials).map(([id, material]) => [id, material.smokeTint]),
+      ),
+    ).toEqual({
+      concrete: 'neutral',
+      fabric: 'pale',
+      grease: 'sooty',
+      plastic: 'toxic',
+      wood: 'neutral',
+    });
+    expect(JSON.stringify(materials)).not.toContain('#');
+  });
 });
 
 describe('validateMaterialTable', () => {
@@ -43,7 +58,7 @@ describe('validateMaterialTable', () => {
     spreadFactor: 1.0,
     heatOutput: 50,
     waterResponse: 1.0,
-    smokeColor: '#8a8478',
+    smokeTint: 'neutral',
     smokeDensity: 1.0,
   };
 
@@ -105,9 +120,9 @@ describe('validateMaterialTable', () => {
     expect(table.grease?.waterResponse).toBe(-1.5);
   });
 
-  it('rejects a malformed smokeColor', () => {
-    expect(() => validateMaterialTable({ wood: { ...validRow, smokeColor: 'brownish' } })).toThrow(
-      /smokeColor must be a 6-digit hex string/,
+  it('rejects an unknown smokeTint', () => {
+    expect(() => validateMaterialTable({ wood: { ...validRow, smokeTint: 'brownish' } })).toThrow(
+      /smokeTint must be one of/,
     );
   });
 
@@ -115,14 +130,14 @@ describe('validateMaterialTable', () => {
     try {
       validateMaterialTable({
         wood: { ...validRow, burnRate: -1 },
-        plastic: { ...validRow, smokeColor: 'nope' },
+        plastic: { ...validRow, smokeTint: 'nope' },
       });
       expect.unreachable('validateMaterialTable should have thrown');
     } catch (error) {
       expect(error).toBeInstanceOf(MaterialValidationError);
       const message = (error as Error).message;
       expect(message).toMatch(/"wood": burnRate/);
-      expect(message).toMatch(/"plastic": smokeColor/);
+      expect(message).toMatch(/"plastic": smokeTint/);
     }
   });
 });
