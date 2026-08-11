@@ -58,6 +58,49 @@
   opacity: 0.72;
 }
 
+.water-tank__supply {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hud-border);
+  color: var(--hud-muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.water-tank__supply output {
+  color: var(--hud-accent);
+  white-space: nowrap;
+}
+
+.water-tank > button {
+  width: 100%;
+  min-height: 30px;
+  margin-top: 8px;
+  border: 1px solid var(--hud-border);
+  border-radius: 3px;
+  background: var(--hud-control);
+  color: var(--hud-text);
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.water-tank > button:hover,
+.water-tank > button:focus-visible {
+  border-color: var(--hud-accent);
+  outline: none;
+}
+
+.water-tank > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .water-tank--low output,
 .water-tank--empty output,
 .water-tank--low p,

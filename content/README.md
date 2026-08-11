@@ -6,7 +6,7 @@ Game data as JSON. **Adding content should not require writing code.**
 
 - `materials.json` — the fire behaviour table (#5). The highest-leverage data in the game: add a row, and every prop made of that material gets new behaviour everywhere.
 - `scenarios/*.json` — authored incidents: grid dimensions and materials,
-  ignition, wind, future entity placements, resources, and par time.
+  ignition, wind, entity placements, resources, and par time.
 - Later: building prefabs and district layouts.
 
 ## Rules
@@ -42,8 +42,8 @@ Each scenario declares:
   plus optional per-cell `x,y,z` overrides;
 - one or more combustible `ignitionOrigins`, a deterministic `seed`, and
   `wind`;
-- civilian, hazard, and hydrant placements for the M2 systems that consume
-  them;
+- civilian, hazard, and hydrant placements for M2 systems. Hydrants feed the
+  live hose supply and civilians seed the exposure/evacuation simulation;
 - `waterTankCapacityLitres` and `parTimeSeconds`.
 
 Appearance remains style data. Scenario content names a semantic material or

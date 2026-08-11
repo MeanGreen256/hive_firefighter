@@ -73,6 +73,8 @@ export function HoseEffects({
   const flameAimPoint = useMemo(() => new Vector3(), []);
   const flameAimNdc = useMemo(() => new Vector2(), []);
   const streamRef = useRef<Line>(null);
+  const supplyLineRef = useRef<Line>(null);
+  const hydrants = simulationController.store.getState().hoseLine.hydrants;
   const nozzle = useMemo(
     () => new Vector3(...getHoseNozzlePosition(grid.dimensions)),
     [grid.dimensions],
@@ -101,6 +103,30 @@ export function HoseEffects({
       material.dispose();
     };
   }, [scene, visualStyle.hose.stream]);
+
+  useEffect(() => {
+    const geometry = new BufferGeometry();
+    geometry.setAttribute(
+      'position',
+      new BufferAttribute(new Float32Array(STREAM_POINT_COUNT * 3), 3),
+    );
+    const material = new LineBasicMaterial({
+      color: visualStyle.hose.nozzle,
+      transparent: true,
+      opacity: 0.82,
+    });
+    const line = new Line(geometry, material);
+    line.visible = false;
+    supplyLineRef.current = line;
+    scene.add(line);
+
+    return () => {
+      supplyLineRef.current = null;
+      scene.remove(line);
+      geometry.dispose();
+      material.dispose();
+    };
+  }, [scene, visualStyle.hose.nozzle]);
 
   useEffect(() => {
     const canvas = gl.domElement;
@@ -173,12 +199,14 @@ export function HoseEffects({
 
   useFrame(() => {
     const { input } = controller.store.getState();
-    const { simulation, sessionStatus, waterRemainingLitres } =
+    const { simulation, sessionStatus, waterRemainingLitres, hoseLine } =
       simulationController.store.getState();
     const target = input.targetCellId === null ? null : simulation.grid.cells[input.targetCellId];
     const isSpraying =
       input.activePointerId !== null &&
       target !== null &&
+      target !== undefined &&
+      simulationController.canSprayCell(target.id) &&
       waterRemainingLitres > 0 &&
       sessionStatus === SessionStatus.Active;
     const targetPosition = target
@@ -193,6 +221,20 @@ export function HoseEffects({
     if (hoseStream) {
       hoseStream.visible = isSpraying;
       if (isSpraying && targetPosition) updateStreamArc(hoseStream, nozzle, targetPosition);
+    }
+    const connectedHydrant = hoseLine.hydrants.find(
+      (hydrant) => hydrant.id === hoseLine.connectedHydrantId,
+    );
+    const supplyLine = supplyLineRef.current;
+    if (supplyLine) {
+      supplyLine.visible = connectedHydrant !== undefined;
+      if (connectedHydrant) {
+        const hydrantPosition = new Vector3(
+          ...getCellWorldPosition(connectedHydrant.position, grid.dimensions),
+        );
+        hydrantPosition.y = CELL_HEIGHT * 0.55;
+        updateStreamArc(supplyLine, hydrantPosition, nozzle);
+      }
     }
 
     const demoCell = simulation.grid.cells[STARTER_HOSE_TARGET_CELL_ID];
@@ -223,6 +265,27 @@ export function HoseEffects({
         <cylinderGeometry args={[CELL_SIZE * 0.1, CELL_SIZE * 0.15, CELL_SIZE * 0.5, 10]} />
         <meshStandardMaterial color={visualStyle.hose.nozzle} roughness={0.45} metalness={0.45} />
       </mesh>
+      {hydrants.map((hydrant) => {
+        const position = getCellWorldPosition(hydrant.position, grid.dimensions);
+        return (
+          <group
+            key={hydrant.id}
+            name={`hydrant-${hydrant.id}`}
+            position={[position[0], CELL_HEIGHT * 0.32, position[2]]}
+          >
+            <mesh castShadow>
+              <cylinderGeometry
+                args={[CELL_SIZE * 0.13, CELL_SIZE * 0.16, CELL_HEIGHT * 0.64, 10]}
+              />
+              <meshStandardMaterial color={visualStyle.hose.nozzle} roughness={0.7} />
+            </mesh>
+            <mesh position={[0, CELL_HEIGHT * 0.25, 0]} castShadow>
+              <sphereGeometry args={[CELL_SIZE * 0.17, 10, 8]} />
+              <meshStandardMaterial color={visualStyle.hose.stream} roughness={0.55} />
+            </mesh>
+          </group>
+        );
+      })}
       <mesh ref={targetRef} visible={false} scale={TARGET_SCALE}>
         <boxGeometry args={[CELL_SIZE, CELL_HEIGHT, CELL_SIZE]} />
         <meshBasicMaterial color={visualStyle.hose.target} wireframe transparent opacity={0.85} />

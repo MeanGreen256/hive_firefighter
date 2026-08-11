@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
+import { CivilianState } from '@sim/civilians';
 import { SessionStatus } from './sessionStats';
 import { createSimDebugController, STARTER_HOSE_TARGET_CELL_ID } from './simDebugController';
 
@@ -234,6 +235,102 @@ describe('sim debug controller', () => {
     expect(selected.simulation.grid.cells['0,0,0']).toMatchObject({
       material: 'concrete',
       fuel: 0,
+    });
+    expect(selected.civilians.civilians['civilian-a']).toMatchObject({
+      position: { x: 1, y: 2, z: 1 },
+      state: CivilianState.Conscious,
+    });
+    expect(selected.hoseLine.hydrants).toEqual([
+      { id: 'street-hydrant', position: { x: -1, y: 0, z: 1 } },
+    ]);
+  });
+
+  it('refills from a connected hydrant and blocks targets beyond the tether', () => {
+    const controller = createSimDebugController(15, {
+      scenarioId: 'workshop',
+      waterCapacityLitres: 2,
+    });
+    controller.sprayCell('0,0,1', 1);
+    expect(controller.store.getState().waterRemainingLitres).toBe(1);
+
+    expect(controller.connectHydrant()).toBe(true);
+    controller.advance(0.5);
+    expect(controller.store.getState()).toMatchObject({
+      waterRemainingLitres: 2,
+      hoseLine: { connectedHydrantId: 'street-hydrant' },
+    });
+
+    expect(controller.canSprayCell('4,3,0')).toBe(false);
+    const waterBeforeBlockedSpray = controller.store.getState().waterUsedLitres;
+    expect(controller.sprayCell('4,3,0', 1)).toEqual({ contacts: [] });
+    expect(controller.store.getState()).toMatchObject({
+      hoseReachBlocked: true,
+      waterUsedLitres: waterBeforeBlockedSpray,
+    });
+
+    controller.disconnectHydrant();
+    expect(controller.canSprayCell('4,3,0')).toBe(true);
+  });
+
+  it('keeps water finite while the trigger is held, even with a hydrant connected', () => {
+    // The refill rate is deliberately above the hose rate, so refilling during
+    // a spray would make water infinite the moment the line is connected and
+    // silently cancel the finite tank. Connecting must never remove the drain.
+    const controller = createSimDebugController(15, {
+      scenarioId: 'workshop',
+      waterCapacityLitres: 5,
+    });
+    controller.connectHydrant();
+    controller.setWaterApplication('0,0,1');
+
+    for (let i = 0; i < 100; i += 1) controller.advance(0.1);
+
+    const drained = controller.store.getState();
+    expect(drained.waterRemainingLitres).toBe(0);
+    expect(drained.waterUsedLitres).toBeCloseTo(5);
+    expect(drained.nozzleOpen).toBe(true);
+
+    // Shutting the nozzle is what buys the water back.
+    controller.setWaterApplication(null);
+    expect(controller.store.getState().nozzleOpen).toBe(false);
+    for (let i = 0; i < 10; i += 1) controller.advance(0.1);
+
+    expect(controller.store.getState().waterRemainingLitres).toBeCloseTo(3);
+  });
+
+  it('refills identically whether time passes through advance or stepOnce', () => {
+    const build = () => {
+      const controller = createSimDebugController(15, {
+        scenarioId: 'workshop',
+        waterCapacityLitres: 20,
+      });
+      controller.connectHydrant();
+      controller.sprayCell('0,0,1', 10);
+      return controller;
+    };
+    const stepped = build();
+    for (let i = 0; i < 10; i += 1) stepped.stepOnce();
+    const advanced = build();
+    for (let i = 0; i < 10; i += 1) advanced.advance(0.1);
+
+    expect(stepped.store.getState().waterRemainingLitres).toBeCloseTo(
+      advanced.store.getState().waterRemainingLitres,
+    );
+  });
+
+  it('exposes renderer-independent carry actions for scenario civilians', () => {
+    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
+    const civilian = controller.store.getState().civilians.civilians['civilian-a']!;
+    civilian.state = CivilianState.Unconscious;
+
+    expect(controller.pickUpCivilian('civilian-a', { x: 1, y: 2, z: 1 })).toBe(true);
+    expect(controller.moveCarriedCivilian({ x: 1, y: 1, z: 1 })).toBe(true);
+    expect(controller.moveCarriedCivilian({ x: 1, y: 0, z: 1 })).toBe(true);
+    expect(controller.moveCarriedCivilian({ x: 0, y: 0, z: 1 })).toBe(true);
+    expect(controller.dropCarriedCivilian()).toBe(true);
+    expect(controller.store.getState().civilians.civilians['civilian-a']).toMatchObject({
+      state: CivilianState.Rescued,
+      carried: false,
     });
   });
 });
