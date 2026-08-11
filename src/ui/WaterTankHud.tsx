@@ -16,11 +16,13 @@ export function WaterTankHud() {
   const remaining = useStore(simDebugController.store, (snapshot) => snapshot.waterRemainingLitres);
   const hoseLine = useStore(simDebugController.store, (snapshot) => snapshot.hoseLine);
   const reachBlocked = useStore(simDebugController.store, (snapshot) => snapshot.hoseReachBlocked);
+  const nozzleOpen = useStore(simDebugController.store, (snapshot) => snapshot.nozzleOpen);
   const ratio = Math.max(0, Math.min(1, remaining / capacity));
   const isEmpty = remaining <= 0;
   const isLow = !isEmpty && ratio <= LOW_WATER_RATIO;
   const isConnected = hoseLine.connectedHydrantId !== null;
   const hasHydrant = hoseLine.hydrants.length > 0;
+  const isRefilling = isConnected && !nozzleOpen && remaining < capacity;
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent): void => {
@@ -39,10 +41,14 @@ export function WaterTankHud() {
   const status = reachBlocked
     ? 'Target beyond connected line'
     : isEmpty
-      ? 'Empty — connect to refill'
-      : isLow
-        ? 'Low water'
-        : 'Tank ready';
+      ? isConnected
+        ? 'Empty — release the trigger to refill'
+        : 'Empty — connect a hydrant'
+      : isRefilling
+        ? 'Refilling — nozzle shut'
+        : isLow
+          ? 'Low water'
+          : 'Tank ready';
 
   return (
     <section
@@ -69,10 +75,14 @@ export function WaterTankHud() {
       <p role={reachBlocked || isLow || isEmpty ? 'status' : undefined}>{status}</p>
       <div className="water-tank__supply">
         <span>
-          {isConnected ? `Connected · ${hoseLine.connectedHydrantId}` : 'Supply detached'}
+          {isConnected
+            ? nozzleOpen
+              ? `Connected · refill paused`
+              : `Connected · ${hoseLine.connectedHydrantId}`
+            : 'Supply detached'}
         </span>
         <output>
-          {isConnected ? `+${hoseLine.refillLitresPerSecond.toFixed(1)} L/s` : '0.0 L/s'}
+          {isRefilling ? `+${hoseLine.refillLitresPerSecond.toFixed(1)} L/s` : '0.0 L/s'}
         </output>
       </div>
       <button

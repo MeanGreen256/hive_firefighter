@@ -69,6 +69,8 @@ export interface SimDebugSnapshot {
   waterUsedLitres: number;
   hoseLine: HoseLineState;
   hoseReachBlocked: boolean;
+  /** True while the trigger is held. Hydrant refill is paused whenever it is. */
+  nozzleOpen: boolean;
   civilians: CivilianSimulationState;
   elapsedScenarioSeconds: number;
   sessionStatus: SessionStatus;
@@ -153,6 +155,7 @@ export function createSimDebugController(
     waterUsedLitres: 0,
     hoseLine,
     hoseReachBlocked: false,
+    nozzleOpen: false,
     civilians,
     elapsedScenarioSeconds: 0,
     sessionStatus: SessionStatus.Active,
@@ -177,6 +180,7 @@ export function createSimDebugController(
     waterUsedLitres,
     hoseLine,
     hoseReachBlocked,
+    nozzleOpen: waterCellId !== null,
     civilians,
     elapsedScenarioSeconds,
     sessionStatus,
@@ -196,6 +200,27 @@ export function createSimDebugController(
       waterUsedLitres,
       waterCapacityLitres,
     });
+  };
+
+  /**
+   * The supply line refills only while the nozzle is shut. A hydrant that
+   * topped the tank up mid-spray would make water infinite the moment it was
+   * connected — the refill rate exceeds the hose rate — which cancels the
+   * finite tank (#16) and removes the choice #68 exists to create. Breaking
+   * off to refill is the cost.
+   */
+  const refillWhileNozzleShut = (simulatedSeconds: number): void => {
+    if (waterCellId !== null) return;
+    const refill = refillFromHydrant(
+      hoseLine,
+      waterRemainingLitres,
+      waterCapacityLitres,
+      simulatedSeconds,
+    );
+    if (refill.deliveredLitres > 0) {
+      waterRemainingLitres = refill.waterRemainingLitres;
+      hostStateChanged = true;
+    }
   };
 
   const applyAvailableWater = (
@@ -280,16 +305,7 @@ export function createSimDebugController(
         while (remainingSeconds > 0 && sessionStatus === SessionStatus.Active) {
           const interval = Math.min(remainingSeconds, MAX_WATER_APPLICATION_SECONDS);
           const simulatedInterval = interval * snapshot.speed;
-          const refill = refillFromHydrant(
-            hoseLine,
-            waterRemainingLitres,
-            waterCapacityLitres,
-            simulatedInterval,
-          );
-          if (refill.deliveredLitres > 0) {
-            waterRemainingLitres = refill.waterRemainingLitres;
-            hostStateChanged = true;
-          }
+          refillWhileNozzleShut(simulatedInterval);
           if (waterCellId !== null && waterRemainingLitres > 0) {
             // Litres must scale with speed, not just the tick count below: wetness
             // decays once per simulated tick regardless of wall-clock cadence, so
@@ -324,6 +340,7 @@ export function createSimDebugController(
       if (sessionStatus !== SessionStatus.Active) return;
       store.setState({ paused: true });
       runMeasured(() => {
+        refillWhileNozzleShut(FIRE_TICK_SECONDS);
         runner.step();
         if (advanceCivilians(civilians, runner.getState().grid, FIRE_TICK_SECONDS)) {
           hostStateChanged = true;
@@ -459,9 +476,12 @@ export function createSimDebugController(
         throw new Error(`Cannot apply water to missing cell "${cellId}"`);
       }
       const canReach = cellId === null || controller.canSprayCell(cellId);
+      const wasFlowing = waterCellId !== null;
       waterCellId = canReach ? cellId : null;
       const blocked = cellId !== null && !canReach;
-      if (blocked !== hoseReachBlocked) {
+      // Opening or shutting the nozzle also starts or stops hydrant refill, so
+      // the HUD has to hear about it, not just about reach failures.
+      if (blocked !== hoseReachBlocked || wasFlowing !== (waterCellId !== null)) {
         hoseReachBlocked = blocked;
         store.setState(sessionFields());
       }

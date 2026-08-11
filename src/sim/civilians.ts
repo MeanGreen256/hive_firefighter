@@ -85,8 +85,12 @@ export function getCivilianExposureRate(cell: Cell): number {
       return 4 + heatRatio;
     case CellState.Burning:
       return 2 + heatRatio;
+    // A spent room still holds smoke and soot, but it has no fuel left to
+    // flash. Scaling with residual heat lets it cool toward survivable —
+    // a flat rate made a cold burnt-out cell deadlier than one climbing
+    // toward ignition, which inverts the gradient a rescue path reads.
     case CellState.Burnt:
-      return 2;
+      return 0.5 + heatRatio * 0.5;
     case CellState.Heating:
       return heatRatio;
     default:

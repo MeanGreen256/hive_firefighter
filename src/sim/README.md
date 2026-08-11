@@ -68,6 +68,12 @@ constrains the route from hydrant through nozzle to target to eight grid units.
 The controller applies that reach check before any water mutation, while the
 renderer only visualizes the resulting hydrant and line state.
 
+Refill runs **only while the nozzle is shut**. The refill rate deliberately
+exceeds the 1 L/s hose rate so a break in the fight buys back real water, which
+also means an always-on refill would make the tank infinite and cancel both the
+finite tank (#16) and the choice #68 exists to create. Breaking off is the cost;
+the reach limit is the second, independent cost.
+
 `civilians.ts` owns plain civilian records and advances them on the same
 simulated clock as fire. Until smoke becomes its own volume, exposure derives
 from the occupied cell's heat and fire state. Conscious civilians descend and

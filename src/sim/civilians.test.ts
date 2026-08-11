@@ -8,6 +8,7 @@ import {
   createCivilianSimulation,
   dropCarriedCivilian,
   getCarrierMovementMultiplier,
+  getCivilianExposureRate,
   moveCivilianCarrier,
   pickUpCivilian,
 } from './civilians';
@@ -37,6 +38,30 @@ describe('civilian simulation', () => {
 
     advanceCivilians(state, grid, CIVILIAN_LOST_EXPOSURE);
     expect(state.civilians['civilian-a']?.state).toBe(CivilianState.Lost);
+  });
+
+  it('makes a spent, cooled room less lethal than one still climbing toward ignition', () => {
+    // A flat burnt-out rate made a cold, fuel-free room the second deadliest
+    // place in the building — worse than a room heating toward flashover.
+    // That inverts the gradient a player reads when picking a way out.
+    const grid = createCellGrid({ width: 3, height: 1, depth: 3 });
+    const heating = grid.cells['1,0,1']!;
+    heating.state = CellState.Heating;
+    heating.heat = 250;
+    const spent = grid.cells['0,0,0']!;
+    spent.state = CellState.Burnt;
+    spent.heat = 0;
+
+    expect(getCivilianExposureRate(spent)).toBeLessThan(getCivilianExposureRate(heating));
+
+    // Still not safe, and still worse while it holds residual heat.
+    expect(getCivilianExposureRate(spent)).toBeGreaterThan(0);
+    const stillHot = { ...spent, heat: 400 };
+    expect(getCivilianExposureRate(stillHot)).toBeGreaterThan(getCivilianExposureRate(spent));
+
+    // And never worse than standing in the fire itself.
+    const burning = { ...spent, state: CellState.Burning, heat: 400 };
+    expect(getCivilianExposureRate(stillHot)).toBeLessThan(getCivilianExposureRate(burning));
   });
 
   it('carries an unconscious civilian at a movement penalty and rescues them at an exit', () => {
