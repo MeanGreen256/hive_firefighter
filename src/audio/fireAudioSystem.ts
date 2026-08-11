@@ -5,9 +5,12 @@ import {
   getFireAudioMix,
   getWaterHissFrequency,
   type FireAudioEvent,
+  type AudioSimulationEvent,
 } from './fireAudioMix';
-import type { FireSimulationEvent, FireSimulationState } from '@sim/fireSimulation';
+import type { FireSimulationState } from '@sim/fireSimulation';
 import type { WaterApplicationResult } from '@sim/waterApplication';
+import { getMostUrgentHazard, PropaneHazardState, type HazardSimulationState } from '@sim/hazards';
+import type { CivilianSearchCue } from '@sim/search';
 
 export interface FireAudioSnapshot {
   enabled: boolean;
@@ -68,6 +71,8 @@ export function createFireAudioSystem(
   let voices: FireVoices | null = null;
   let latestMix = getFireAudioMix(0);
   let nextWaterHissTime = 0;
+  let nextCivilianCueTime = 0;
+  let nextPropanePulseTime = 0;
 
   const applyMasterGain = (): void => {
     if (!context || !masterGain) return;
@@ -141,8 +146,14 @@ export function createFireAudioSystem(
       playNoiseBurst(getWaterHissFrequency(event.heat, event.ignitionPoint), 0.28, 0.28);
     } else if (event.type === 'steam-burst') {
       playNoiseBurst(2800, 0.18, 0.24);
-    } else {
+    } else if (event.type === 'burn-through') {
       playNoiseBurst(190, 0.42, 0.42);
+    } else if (event.type === 'propane-warning') {
+      playNoiseBurst(720, 0.18, 0.34);
+    } else if (event.type === 'propane-reset') {
+      playNoiseBurst(1320, 0.12, 0.22);
+    } else {
+      playNoiseBurst(95, 0.75, 0.72);
     }
   };
 
@@ -177,11 +188,25 @@ export function createFireAudioSystem(
       latestMix = getFireAudioMix(calculateFireIntensity(state));
       applyMix();
     },
+    syncIncident: (searchCue: CivilianSearchCue | null, hazards: HazardSimulationState): void => {
+      if (!context) return;
+      const now = context.currentTime;
+      if (searchCue && now >= nextCivilianCueTime) {
+        playNoiseBurst(1450, 0.09, searchCue.level);
+        nextCivilianCueTime = now + searchCue.intervalSeconds;
+      }
+      const urgent = getMostUrgentHazard(hazards);
+      if (urgent?.state === PropaneHazardState.Countdown && now >= nextPropanePulseTime) {
+        playNoiseBurst(760, 0.1, 0.28);
+        const urgency = Math.max(0.22, urgent.countdownRemainingSeconds / 8);
+        nextPropanePulseTime = now + urgency;
+      }
+    },
     handleWaterApplication: (result: WaterApplicationResult): void => {
       if (!context) return;
       for (const event of getFireAudioEvents([], result.contacts)) playEvent(event);
     },
-    handleSimulationEvents: (events: readonly FireSimulationEvent[]): void => {
+    handleSimulationEvents: (events: readonly AudioSimulationEvent[]): void => {
       if (!context) return;
       for (const event of getFireAudioEvents(events)) playEvent(event);
     },

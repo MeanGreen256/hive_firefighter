@@ -17,6 +17,8 @@ Pure data in, pure data out. That's what keeps the sim unit-testable, determinis
 - Scenario loading, validation, and grid construction (#67)
 - Hydrant connection, refill, and hose reach constraints (#68)
 - Civilian exposure, evacuation, carrying, rescue, and loss (#69)
+- Smoke-obscured civilian search and thermal discovery (#70)
+- Propane heating, cooling, countdown, and blast effects (#71)
 
 ## Timing
 
@@ -81,3 +83,16 @@ take a deterministic nearest route to a ground-floor perimeter exit;
 unconscious civilians stop, can be picked up, move with a `0.6` carry
 multiplier, and become rescued only when dropped at an exit. Rendering and
 grading consume these outcomes but do not define them.
+
+`search.ts` keeps discovery independent from presentation. A civilian starts
+unlocated, dense smoke derived from the occupied cell blocks a normal scan,
+and thermal mode permits the same explicit scan through smoke. Located status
+is permanent for the incident. The nearest conscious, unlocated civilian can
+also produce a distance-scaled search cue for the audio host.
+
+`hazards.ts` advances authored propane hazards on the fixed simulation clock.
+The occupied cell heats the tank; crossing the warning threshold begins a
+resettable countdown, while delivered water cools it. Expiry emits one incident
+event, ignites the blast radius, destroys nearby combustible cells, and marks
+affected civilians lost. Because player health is not modelled yet, the event
+records whether the current nozzle anchor was inside the blast radius.

@@ -33,6 +33,19 @@ import {
   type HoseLineState,
 } from '@sim/hoseLine';
 import {
+  advanceHazards,
+  coolHazardsAtCell,
+  createHazardSimulation,
+  type HazardSimulationState,
+  type IncidentSimulationEvent,
+} from '@sim/hazards';
+import {
+  getCivilianSearchCue,
+  locateCivilian as locateSearchCivilian,
+  scanNearestCivilian as scanNearestSearchCivilian,
+  type CivilianSearchCue,
+} from '@sim/search';
+import {
   DEFAULT_SCENARIO_ID,
   createScenarioGrid,
   getScenario,
@@ -53,6 +66,8 @@ export const STARTER_HOSE_TARGET_CELL_ID = '2,2,1';
 export const HOSE_LITRES_PER_SECOND = 1;
 const MAX_WATER_APPLICATION_SECONDS = 0.1;
 
+export type SimulationEvent = FireSimulationEvent | IncidentSimulationEvent;
+
 export interface SimDebugSnapshot {
   simulation: FireSimulationState;
   scenarioId: string;
@@ -72,6 +87,8 @@ export interface SimDebugSnapshot {
   /** True while the trigger is held. Hydrant refill is paused whenever it is. */
   nozzleOpen: boolean;
   civilians: CivilianSimulationState;
+  hazards: HazardSimulationState;
+  thermalView: boolean;
   elapsedScenarioSeconds: number;
   sessionStatus: SessionStatus;
   debrief: SessionDebrief | null;
@@ -93,6 +110,11 @@ export interface SimDebugController {
   pickUpCivilian(civilianId: string, carrierPosition: GridPosition): boolean;
   moveCarriedCivilian(position: GridPosition): boolean;
   dropCarriedCivilian(): boolean;
+  toggleThermalView(): void;
+  setThermalView(active: boolean): void;
+  locateCivilian(civilianId: string): boolean;
+  scanNearestCivilian(): string | null;
+  getCivilianSearchCue(): CivilianSearchCue | null;
   setSeed(seed: number): void;
   selectScenario(scenarioId: string): void;
   setSpeed(speed: number): void;
@@ -102,7 +124,7 @@ export interface SimDebugController {
   sprayCell(cellId: string, litres?: number): WaterApplicationResult;
   copyTuningAsJson(): string;
   /** Subscribe to runner events without giving UI or effects direct runner ownership. */
-  subscribeEvents(listener: (events: readonly FireSimulationEvent[]) => void): () => void;
+  subscribeEvents(listener: (events: readonly SimulationEvent[]) => void): () => void;
   subscribeWaterApplications(listener: (result: WaterApplicationResult) => void): () => void;
 }
 
@@ -141,6 +163,8 @@ export function createSimDebugController(
   });
   let hoseLine = createHoseLineState(scenario.hydrants, initialState.grid.dimensions);
   let civilians = createCivilianSimulation(scenario.civilians);
+  let hazards = createHazardSimulation(scenario.hazards);
+  let thermalView = false;
   const store = createStore<SimDebugSnapshot>(() => ({
     simulation: runner.getState(),
     scenarioId: scenario.id,
@@ -157,6 +181,8 @@ export function createSimDebugController(
     hoseReachBlocked: false,
     nozzleOpen: false,
     civilians,
+    hazards,
+    thermalView,
     elapsedScenarioSeconds: 0,
     sessionStatus: SessionStatus.Active,
     debrief: null,
@@ -172,7 +198,7 @@ export function createSimDebugController(
   let elapsedScenarioSeconds = 0;
   let sessionStatus: SessionStatus = SessionStatus.Active;
   let debrief: SessionDebrief | null = null;
-  const eventListeners = new Set<(events: readonly FireSimulationEvent[]) => void>();
+  const eventListeners = new Set<(events: readonly SimulationEvent[]) => void>();
   const waterApplicationListeners = new Set<(result: WaterApplicationResult) => void>();
 
   const sessionFields = () => ({
@@ -182,6 +208,8 @@ export function createSimDebugController(
     hoseReachBlocked,
     nozzleOpen: waterCellId !== null,
     civilians,
+    hazards,
+    thermalView,
     elapsedScenarioSeconds,
     sessionStatus,
     debrief,
@@ -223,6 +251,10 @@ export function createSimDebugController(
     }
   };
 
+  const notifyEvents = (events: readonly SimulationEvent[]): void => {
+    if (events.length > 0) eventListeners.forEach((listener) => listener(events));
+  };
+
   const applyAvailableWater = (
     cellId: string,
     requestedLitres: number,
@@ -234,6 +266,7 @@ export function createSimDebugController(
     }
     const deliveredLitres = Math.min(requestedLitres, waterRemainingLitres);
     const result = applyWater(runner.getState(), cellId, deliveredLitres, SuppressionAgent.Water);
+    notifyEvents(coolHazardsAtCell(hazards, cellId, deliveredLitres));
     waterRemainingLitres -= deliveredLitres;
     waterUsedLitres += deliveredLitres;
     return { result, deliveredLitres };
@@ -249,7 +282,7 @@ export function createSimDebugController(
       paused: sessionStatus === SessionStatus.Active ? snapshot.paused : true,
       ...sessionFields(),
     }));
-    if (events.length > 0) eventListeners.forEach((listener) => listener(events));
+    notifyEvents(events);
   };
 
   const runMeasured = (run: () => number): number => {
@@ -323,6 +356,19 @@ export function createSimDebugController(
             }
           }
           ticks += runner.advance(simulatedInterval);
+          const hazardEvents = advanceHazards(
+            hazards,
+            runner.getState(),
+            civilians,
+            hoseLine.nozzlePosition,
+            runner.getTuning(),
+            simulatedInterval,
+          );
+          if (hazardEvents.length > 0) {
+            hostStateChanged = true;
+            runner.setState(runner.getState());
+            notifyEvents(hazardEvents);
+          }
           if (advanceCivilians(civilians, runner.getState().grid, simulatedInterval)) {
             hostStateChanged = true;
           }
@@ -342,6 +388,19 @@ export function createSimDebugController(
       runMeasured(() => {
         refillWhileNozzleShut(FIRE_TICK_SECONDS);
         runner.step();
+        const hazardEvents = advanceHazards(
+          hazards,
+          runner.getState(),
+          civilians,
+          hoseLine.nozzlePosition,
+          runner.getTuning(),
+          FIRE_TICK_SECONDS,
+        );
+        if (hazardEvents.length > 0) {
+          hostStateChanged = true;
+          runner.setState(runner.getState());
+          notifyEvents(hazardEvents);
+        }
         if (advanceCivilians(civilians, runner.getState().grid, FIRE_TICK_SECONDS)) {
           hostStateChanged = true;
         }
@@ -354,6 +413,8 @@ export function createSimDebugController(
       runner.reset(createScenarioState(scenario, seed, runner.getTuning()));
       hoseLine = createHoseLineState(scenario.hydrants, runner.getState().grid.dimensions);
       civilians = createCivilianSimulation(scenario.civilians);
+      hazards = createHazardSimulation(scenario.hazards);
+      thermalView = false;
       waterCellId = null;
       hoseReachBlocked = false;
       waterRemainingLitres = waterCapacityLitres;
@@ -412,6 +473,35 @@ export function createSimDebugController(
       if (changed) publishRunnerState();
       return changed;
     },
+    toggleThermalView: () => {
+      thermalView = !thermalView;
+      store.setState(sessionFields());
+    },
+    setThermalView: (active) => {
+      thermalView = active;
+      store.setState(sessionFields());
+    },
+    locateCivilian: (civilianId) => {
+      const changed = locateSearchCivilian(
+        civilians,
+        runner.getState().grid,
+        civilianId,
+        thermalView,
+      );
+      if (changed) publishRunnerState();
+      return changed;
+    },
+    scanNearestCivilian: () => {
+      const civilian = scanNearestSearchCivilian(
+        civilians,
+        runner.getState().grid,
+        hoseLine.nozzlePosition,
+        thermalView,
+      );
+      if (civilian) publishRunnerState();
+      return civilian?.id ?? null;
+    },
+    getCivilianSearchCue: () => getCivilianSearchCue(civilians, hoseLine.nozzlePosition),
     setSeed: (seed) => {
       controller.reset(seed);
     },
@@ -421,6 +511,8 @@ export function createSimDebugController(
       runner.reset(createScenarioState(scenario, scenario.seed, runner.getTuning()));
       hoseLine = createHoseLineState(scenario.hydrants, runner.getState().grid.dimensions);
       civilians = createCivilianSimulation(scenario.civilians);
+      hazards = createHazardSimulation(scenario.hazards);
+      thermalView = false;
       waterCellId = null;
       hoseReachBlocked = false;
       waterRemainingLitres = waterCapacityLitres;

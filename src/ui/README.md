@@ -7,6 +7,8 @@ HUD, panels, and player input. Plain React and DOM — not drawn inside the canv
 - Hose targeting and input handling (#15)
 - Water tank bar (#16)
 - Debrief and grading panel (#17)
+- Thermal search controls and discovery status (#70)
+- Propane warning and countdown status (#71)
 - Sim debug overlay (#10) — press F2 in development for cell inspection,
   deterministic transport, force inputs, and live constant tuning. It is
   loaded behind `import.meta.env.DEV` and stripped from production builds.
@@ -23,3 +25,8 @@ The tank and debrief use semantic HUD tokens from the active style. The tank
 HUD shows the authored hydrant connection and fixed refill flow; `H` or its
 button connects and disconnects the supply line. In development, `R` still
 refills immediately as a testing affordance.
+
+`IncidentHud` exposes the search and hazard loop without simulating either.
+`T` toggles thermal view and `F` scans the nearest eligible civilian from the
+nozzle anchor. The same panel announces propane warning state and presents the
+active countdown as accessible progress.

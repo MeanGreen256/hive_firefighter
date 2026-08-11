@@ -10,7 +10,9 @@ or browser APIs inside the JSON-safe simulation state.
 
 The same controller is the incident host: it owns the finite water tank,
 authored hydrant line, civilian simulation, elapsed scenario time, end-state
-detection, and immutable debrief snapshot. It is the mutation boundary for
-connect/disconnect, reach-limited spray, and civilian pickup/move/drop actions.
-`sessionStats.ts` keeps outcome and grading calculations pure so the UI only
-formats and presents store data.
+detection, immutable debrief snapshot, thermal search mode, and propane hazard
+state. It is the mutation boundary for connect/disconnect, reach-limited spray,
+civilian search/pickup/move/drop actions, and hazard cooling. Fire and incident
+events share one subscription stream so audio can react without entering the
+simulation. `sessionStats.ts` keeps outcome and grading calculations pure so
+the UI only formats and presents store data.

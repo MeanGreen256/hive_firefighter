@@ -5,6 +5,7 @@ import {
   type FireSimulationState,
 } from '@sim/fireSimulation';
 import { materials } from '@sim/materials';
+import { IncidentEventType, type IncidentSimulationEvent } from '@sim/hazards';
 
 export interface FireAudioMix {
   /** Normalized total fire energy, intended for all continuous fire voices. */
@@ -18,7 +19,12 @@ export interface FireAudioMix {
 export type FireAudioEvent =
   | { type: 'water-hiss'; heat: number; ignitionPoint: number | null }
   | { type: 'steam-burst' }
-  | { type: 'burn-through' };
+  | { type: 'burn-through' }
+  | { type: 'propane-warning' }
+  | { type: 'propane-reset' }
+  | { type: 'propane-failure' };
+
+export type AudioSimulationEvent = FireSimulationEvent | IncidentSimulationEvent;
 
 function clamp(value: number, minimum = 0, maximum = 1): number {
   return Math.min(maximum, Math.max(minimum, value));
@@ -79,7 +85,7 @@ export function getWaterHissFrequency(heat: number, ignitionPoint: number | null
  * events drained from the fixed-step runner exactly once.
  */
 export function getFireAudioEvents(
-  simulationEvents: readonly FireSimulationEvent[],
+  simulationEvents: readonly AudioSimulationEvent[],
   waterContacts: readonly {
     heatBefore: number;
     ignitionPoint: number | null;
@@ -102,6 +108,12 @@ export function getFireAudioEvents(
   for (const event of simulationEvents) {
     if (event.type === FireSimulationEventType.CellBurnedThrough) {
       audioEvents.push({ type: 'burn-through' });
+    } else if (event.type === IncidentEventType.PropaneCountdownStarted) {
+      audioEvents.push({ type: 'propane-warning' });
+    } else if (event.type === IncidentEventType.PropaneCountdownReset) {
+      audioEvents.push({ type: 'propane-reset' });
+    } else if (event.type === IncidentEventType.PropaneFailed) {
+      audioEvents.push({ type: 'propane-failure' });
     }
   }
   return audioEvents;

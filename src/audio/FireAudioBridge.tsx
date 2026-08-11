@@ -10,8 +10,13 @@ import { fireAudioSystem } from './fireAudioSystem';
 export function FireAudioBridge() {
   useEffect(() => {
     fireAudioSystem.syncFire(simDebugController.store.getState().simulation);
+    fireAudioSystem.syncIncident(
+      simDebugController.getCivilianSearchCue(),
+      simDebugController.store.getState().hazards,
+    );
     const unsubscribeState = simDebugController.store.subscribe((snapshot) => {
       fireAudioSystem.syncFire(snapshot.simulation);
+      fireAudioSystem.syncIncident(simDebugController.getCivilianSearchCue(), snapshot.hazards);
     });
     const unsubscribeEvents = simDebugController.subscribeEvents((events) => {
       fireAudioSystem.handleSimulationEvents(events);
