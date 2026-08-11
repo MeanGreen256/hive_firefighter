@@ -13,10 +13,15 @@ export function FireAudioBridge() {
     fireAudioSystem.syncIncident(
       simDebugController.getCivilianSearchCue(),
       simDebugController.store.getState().hazards,
+      simDebugController.store.getState().structures,
     );
     const unsubscribeState = simDebugController.store.subscribe((snapshot) => {
       fireAudioSystem.syncFire(snapshot.simulation);
-      fireAudioSystem.syncIncident(simDebugController.getCivilianSearchCue(), snapshot.hazards);
+      fireAudioSystem.syncIncident(
+        simDebugController.getCivilianSearchCue(),
+        snapshot.hazards,
+        snapshot.structures,
+      );
     });
     const unsubscribeEvents = simDebugController.subscribeEvents((events) => {
       fireAudioSystem.handleSimulationEvents(events);

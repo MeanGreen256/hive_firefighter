@@ -9,6 +9,7 @@ import {
 } from './fireSimulation';
 import {
   EXTINGUISH_HEAT_MULTIPLIER,
+  FOAM_HEAT_REMOVAL_PER_LITRE,
   SuppressionAgent,
   WATER_HEAT_REMOVAL_PER_LITRE,
   WATER_OVERSPRAY_FRACTION,
@@ -60,6 +61,7 @@ describe('water application', () => {
     expect(cell.wetness).toBeCloseTo(WETNESS_PER_LITRE);
     expect(result.contacts[0]).toMatchObject({
       cellId: cell.id,
+      agent: SuppressionAgent.Water,
       heatBefore: 300,
       ignitionPoint: 300,
       crossedExtinguish: true,
@@ -93,6 +95,28 @@ describe('water application', () => {
     expect(grease.heat).toBe(heatBeforeWater + WATER_HEAT_REMOVAL_PER_LITRE * 1.5);
     expect(grease.wetness).toBe(0);
     expect(grease.state).toBe(CellState.Burning);
+  });
+
+  it('lets foam smother grease while cooling ordinary fuel less effectively than water', () => {
+    const grease = isolateCell('grease');
+    const greaseCell = grease.grid.cells['0,0,0']!;
+    igniteCell(grease, greaseCell.id);
+    const greaseHeat = greaseCell.heat;
+
+    const woodWithWater = isolateCell('wood');
+    const woodWithFoam = isolateCell('wood');
+    woodWithWater.grid.cells['0,0,0']!.heat = 600;
+    woodWithFoam.grid.cells['0,0,0']!.heat = 600;
+
+    applyWater(grease, greaseCell.id, 1, SuppressionAgent.Foam);
+    applyWater(woodWithWater, '0,0,0', 1, SuppressionAgent.Water);
+    applyWater(woodWithFoam, '0,0,0', 1, SuppressionAgent.Foam);
+
+    expect(greaseCell.heat).toBe(greaseHeat - FOAM_HEAT_REMOVAL_PER_LITRE * 1.8);
+    expect(greaseCell.state).toBe(CellState.Wetted);
+    expect(woodWithFoam.grid.cells['0,0,0']!.heat).toBeGreaterThan(
+      woodWithWater.grid.cells['0,0,0']!.heat,
+    );
   });
 
   it('blocks ignition while wet, decays deterministically, then returns to Clear', () => {
@@ -176,5 +200,8 @@ describe('water application', () => {
       /finite non-negative/,
     );
     expect(() => applyWater(state, 'missing', 1, SuppressionAgent.Water)).toThrow(/missing cell/);
+    expect(() => applyWater(state, '0,0,0', 1, 'powder' as unknown as SuppressionAgent)).toThrow(
+      /Unsupported suppression agent/,
+    );
   });
 });

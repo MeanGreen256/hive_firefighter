@@ -19,6 +19,8 @@ Pure data in, pure data out. That's what keeps the sim unit-testable, determinis
 - Civilian exposure, evacuation, carrying, rescue, and loss (#69)
 - Smoke-obscured civilian search and thermal discovery (#70)
 - Propane heating, cooling, countdown, and blast effects (#71)
+- Foam suppression and per-agent material responses (#72)
+- Telegraphed structural warning and collapse propagation (#73)
 
 ## Timing
 
@@ -48,8 +50,8 @@ heat, and cannot re-ignite. Each transition emits a one-shot
 `cell-burned-through` event from `stepFireSimulation`; hosts using the fixed-step
 runner receive the same events through `drainEvents()`. Rendering can map the
 `Burnt` state to char, while audio and VFX can react to the event without either
-concern entering the simulation. Structural collapse is deliberately deferred
-to M2 and can subscribe to this event later.
+concern entering the simulation. Structural collapse observes the weakened
+support and publishes its own warning and impact events.
 
 Only a drain consumes runner output. `setState` replaces simulation state and
 nothing else — it preserves both the tick accumulator and any undrained events
@@ -57,12 +59,13 @@ and debug frames — because it is the per-frame external-input path, and a host
 applying water every frame would otherwise stall the clock or lose burn-through
 events it never saw. `reset` is the one scenario boundary that discards both.
 
-`waterApplication.ts` exposes `applyWater(state, cellId, litres, agent)`. Plain
-water removes 120 abstract heat units per litre at a material response of `1`,
-with 20% of the delivered volume divided between face-adjacent cells as
-overspray. Positive responses add normalized wetness; negative responses such
-as grease add heat and do not grant wetness protection. Wetness decays by `0.1`
-per second during the fixed tick, then releases the cell back to `Clear`.
+`waterApplication.ts` exposes `applySuppression(state, cellId, litres, agent)`
+and retains `applyWater` as a compatibility name. Water removes 120 abstract
+heat units per litre at response `1`; foam removes 90 but carries its own
+material response, making it weaker on ordinary fuel and effective on grease.
+Twenty percent of either delivery becomes face-adjacent overspray. Positive
+responses add normalized coating/wetness, while negative responses add heat
+and grant no protection. Saturation decays by `0.1` per second.
 
 `hoseLine.ts` owns the renderer-independent supply rule. An unattached onboard
 tank can target any cell; connecting an authored hydrant refills at 3 L/s and
@@ -96,3 +99,10 @@ resettable countdown, while delivered water cools it. Expiry emits one incident
 event, ignites the blast radius, destroys nearby combustible cells, and marks
 affected civilians lost. Because player health is not modelled yet, the event
 records whether the current nozzle anchor was inside the blast radius.
+
+`structuralCollapse.ts` treats the cell directly below as column support. A
+support burning below 25% fuel starts a warning; once support is gone, the
+three-second countdown advances before a permanent `Collapsed` state. Cells
+resolve bottom-up, so one drop can warn or drop the next floor. Collapse blocks
+the cell, moves contents down one level, loses civilians caught inside, and
+emits separate warning and impact events.

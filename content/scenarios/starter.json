@@ -16,6 +16,7 @@
   "civilians": [],
   "hazards": [],
   "waterTankCapacityLitres": 90,
+  "foamTankCapacityLitres": 12,
   "hydrants": [{ "id": "street-hydrant", "position": { "x": -1, "y": 0, "z": 1 } }],
   "parTimeSeconds": 120
 }

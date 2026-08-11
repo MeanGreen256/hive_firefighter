@@ -31,8 +31,12 @@ describe('materials (loaded from content/materials.json)', () => {
     expect(materials.concrete?.heatOutput).toBe(0);
   });
 
-  it('gives grease a negative waterResponse, i.e. water amplifies it', () => {
-    expect(materials.grease?.waterResponse).toBeLessThan(0);
+  it('makes water amplify grease while foam smothers it', () => {
+    expect(materials.grease?.suppressionResponse.water).toBeLessThan(0);
+    expect(materials.grease?.suppressionResponse.foam).toBeGreaterThan(0);
+    expect(materials.wood?.suppressionResponse.foam).toBeLessThan(
+      materials.wood?.suppressionResponse.water ?? 0,
+    );
   });
 
   it('loads semantic smoke tokens without appearance literals', () => {
@@ -57,7 +61,7 @@ describe('validateMaterialTable', () => {
     burnRate: 0.04,
     spreadFactor: 1.0,
     heatOutput: 50,
-    waterResponse: 1.0,
+    suppressionResponse: { water: 1.0, foam: 0.65 },
     smokeTint: 'neutral',
     smokeDensity: 1.0,
   };
@@ -115,9 +119,22 @@ describe('validateMaterialTable', () => {
     );
   });
 
-  it('accepts a negative waterResponse (the grease case)', () => {
-    const table = validateMaterialTable({ grease: { ...validRow, waterResponse: -1.5 } });
-    expect(table.grease?.waterResponse).toBe(-1.5);
+  it('accepts opposite water and foam responses for grease', () => {
+    const table = validateMaterialTable({
+      grease: { ...validRow, suppressionResponse: { water: -1.5, foam: 1.8 } },
+    });
+    expect(table.grease?.suppressionResponse).toEqual({ water: -1.5, foam: 1.8 });
+  });
+
+  it('requires exactly one response for each supported agent', () => {
+    expect(() =>
+      validateMaterialTable({ wood: { ...validRow, suppressionResponse: { water: 1 } } }),
+    ).toThrow(/exactly "water" and "foam"/);
+    expect(() =>
+      validateMaterialTable({
+        wood: { ...validRow, suppressionResponse: { water: 1, foam: 1, powder: 1 } },
+      }),
+    ).toThrow(/exactly "water" and "foam"/);
   });
 
   it('rejects an unknown smokeTint', () => {

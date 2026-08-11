@@ -44,6 +44,7 @@ export interface ScenarioDefinition {
   civilians: ScenarioCivilianPlacement[];
   hazards: ScenarioHazardPlacement[];
   waterTankCapacityLitres: number;
+  foamTankCapacityLitres: number;
   hydrants: ScenarioHydrantPlacement[];
   parTimeSeconds: number;
 }
@@ -59,6 +60,7 @@ const ROOT_FIELDS = [
   'civilians',
   'hazards',
   'waterTankCapacityLitres',
+  'foamTankCapacityLitres',
   'hydrants',
   'parTimeSeconds',
 ] as const;
@@ -341,6 +343,11 @@ export function validateScenarioDefinition(data: unknown, id: string): ScenarioD
     waterTankCapacityLitres: readPositiveNumber(
       root.waterTankCapacityLitres,
       `${id}.waterTankCapacityLitres`,
+      problems,
+    ),
+    foamTankCapacityLitres: readPositiveNumber(
+      root.foamTankCapacityLitres,
+      `${id}.foamTankCapacityLitres`,
       problems,
     ),
     hydrants,

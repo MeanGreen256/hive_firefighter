@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
 import { CivilianState } from '@sim/civilians';
 import { IncidentEventType, PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
+import { StructuralEventType } from '@sim/structuralCollapse';
+import { SuppressionAgent } from '@sim/waterApplication';
 import { SessionStatus } from './sessionStats';
 import { createSimDebugController, STARTER_HOSE_TARGET_CELL_ID } from './simDebugController';
 
@@ -226,6 +228,8 @@ describe('sim debug controller', () => {
       scenarioVersion: 1,
       waterCapacityLitres: 90,
       waterRemainingLitres: 90,
+      foamCapacityLitres: 18,
+      foamRemainingLitres: 18,
     });
     expect(selected.simulation).toMatchObject({
       seed: 2402,
@@ -397,5 +401,63 @@ describe('sim debug controller', () => {
 
     expect(failures).toEqual(['propane-a']);
     expect(hazard.state).toBe(PropaneHazardState.Failed);
+  });
+
+  it('keeps foam finite and separate from hydrant-refilled water', () => {
+    const controller = createSimDebugController(15, {
+      scenarioId: 'workshop',
+      waterCapacityLitres: 2,
+      foamCapacityLitres: 2,
+    });
+    controller.setSuppressionAgent(SuppressionAgent.Foam);
+    controller.sprayCell('3,1,1', 1);
+
+    expect(controller.store.getState()).toMatchObject({
+      suppressionAgent: SuppressionAgent.Foam,
+      waterRemainingLitres: 2,
+      foamRemainingLitres: 1,
+      foamUsedLitres: 1,
+    });
+
+    controller.setWaterApplication('3,1,1');
+    expect(controller.refillFoam()).toBe(false);
+    controller.setWaterApplication(null);
+    expect(controller.refillFoam()).toBe(true);
+    expect(controller.store.getState().foamRemainingLitres).toBe(2);
+  });
+
+  it('routes the selected agent through grease suppression', () => {
+    const water = createSimDebugController(15, { scenarioId: 'workshop' });
+    const waterCell = water.store.getState().simulation.grid.cells['3,1,1']!;
+    waterCell.state = CellState.Burning;
+    waterCell.heat = 300;
+    water.sprayCell(waterCell.id, 2);
+
+    const foam = createSimDebugController(15, { scenarioId: 'workshop' });
+    const foamCell = foam.store.getState().simulation.grid.cells['3,1,1']!;
+    foamCell.state = CellState.Burning;
+    foamCell.heat = 300;
+    foam.setSuppressionAgent(SuppressionAgent.Foam);
+    foam.sprayCell(foamCell.id, 2);
+
+    expect(waterCell.heat).toBeGreaterThan(300);
+    expect(foamCell.heat).toBeLessThan(300);
+    expect(foamCell.state).toBe(CellState.Wetted);
+  });
+
+  it('publishes warning and collapse events through the incident event stream', () => {
+    const controller = createSimDebugController(15);
+    controller.store.getState().simulation.grid.cells['0,0,0']!.state = CellState.Burnt;
+    const eventTypes: string[] = [];
+    controller.subscribeEvents((events) => eventTypes.push(...events.map((event) => event.type)));
+
+    controller.advance(0.1);
+    controller.advance(3.1);
+
+    expect(eventTypes).toContain(StructuralEventType.CollapseWarning);
+    expect(eventTypes).toContain(StructuralEventType.CellCollapsed);
+    expect(controller.store.getState().simulation.grid.cells['0,1,0']?.state).toBe(
+      CellState.Collapsed,
+    );
   });
 });

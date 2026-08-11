@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CellMarkerTreatment } from '@styles/styles';
-import { getCellMarkerPose } from './cellVisuals';
+import { CellState } from '@sim/cellGrid';
+import { getCellMarkerPose, getStructuralCellPose } from './cellVisuals';
 
 const instance = {
   position: [2, 3, 4],
@@ -40,5 +41,18 @@ describe('cell-state marker geometry', () => {
     expect(hidden).toBeLessThan(inset);
     expect(inset).toBeLessThan(frame);
     expect(frame).toBeLessThan(flashover);
+  });
+});
+
+describe('structural cell geometry', () => {
+  it('sags warned cells and flattens collapsed cells toward the floor', () => {
+    const stable = getStructuralCellPose(instance, CellState.Clear);
+    const warned = getStructuralCellPose(instance, CellState.Clear, 1);
+    const collapsed = getStructuralCellPose(instance, CellState.Collapsed);
+
+    expect(warned.position[1]).toBeLessThan(stable.position[1]);
+    expect(warned.scale[1]).toBeLessThan(stable.scale[1]);
+    expect(collapsed.position[1]).toBeLessThan(warned.position[1]);
+    expect(collapsed.scale[1]).toBeLessThan(warned.scale[1]);
   });
 });

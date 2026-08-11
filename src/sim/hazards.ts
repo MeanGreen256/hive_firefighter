@@ -21,7 +21,7 @@ export type PropaneHazardState = (typeof PropaneHazardState)[keyof typeof Propan
 export interface PropaneHazard {
   readonly id: string;
   readonly type: 'propane';
-  readonly position: GridPosition;
+  position: GridPosition;
   heat: number;
   state: PropaneHazardState;
   countdownRemainingSeconds: number;
@@ -94,6 +94,7 @@ function applyBlast(
   const ignitedCellIds: string[] = [];
   const destroyedCellIds: string[] = [];
   for (const cell of Object.values(fire.grid.cells)) {
+    if (cell.state === CellState.Collapsed) continue;
     const blastDistance = distance(hazard.position, cell.gridPos);
     if (blastDistance > PROPANE_BLAST_RADIUS) continue;
     const material = materials[cell.material];

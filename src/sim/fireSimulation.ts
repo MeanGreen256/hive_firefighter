@@ -333,7 +333,9 @@ export function calculatePropertySaved(grid: CellGrid): number {
   const cells = Object.values(grid.cells);
   if (cells.length === 0) return 1;
 
-  const savedCellCount = cells.filter((cell) => cell.state !== CellState.Burnt).length;
+  const savedCellCount = cells.filter(
+    (cell) => cell.state !== CellState.Burnt && cell.state !== CellState.Collapsed,
+  ).length;
   return savedCellCount / cells.length;
 }
 
@@ -371,6 +373,7 @@ export function igniteCell(
   if (
     material.ignitionPoint === null ||
     cell.state === CellState.Burnt ||
+    cell.state === CellState.Collapsed ||
     cell.state === CellState.Wetted ||
     cell.wetness > 0 ||
     cell.fuel <= tuning.burnoutFuelThreshold
@@ -401,6 +404,7 @@ export function forceIgniteCell(
   if (
     material.ignitionPoint === null ||
     cell.state === CellState.Burnt ||
+    cell.state === CellState.Collapsed ||
     cell.fuel <= tuning.burnoutFuelThreshold
   ) {
     return false;
@@ -417,7 +421,7 @@ export function forceIgniteCell(
 export function extinguishCell(state: FireSimulationState, cellId: string): boolean {
   const cell = state.grid.cells[cellId];
   if (!cell) throw new Error(`Cannot extinguish missing cell "${cellId}"`);
-  if (cell.state === CellState.Burnt) return false;
+  if (cell.state === CellState.Burnt || cell.state === CellState.Collapsed) return false;
 
   const changed = cell.state !== CellState.Clear || cell.heat !== 0 || cell.wetness !== 0;
   cell.heat = 0;
@@ -588,7 +592,9 @@ export function stepFireSimulation(
 
     for (const neighbor of source.neighbors) {
       const target = state.grid.cells[neighbor.cellId];
-      if (!target || target.state === CellState.Burnt) continue;
+      if (!target || target.state === CellState.Burnt || target.state === CellState.Collapsed) {
+        continue;
+      }
 
       const turbulence =
         1 -

@@ -4,7 +4,7 @@
     "burnRate": 0.04,
     "spreadFactor": 1.0,
     "heatOutput": 50,
-    "waterResponse": 1.0,
+    "suppressionResponse": { "water": 1.0, "foam": 0.65 },
     "smokeTint": "neutral",
     "smokeDensity": 1.0
   },
@@ -13,7 +13,7 @@
     "burnRate": 0.05,
     "spreadFactor": 0.9,
     "heatOutput": 65,
-    "waterResponse": 0.8,
+    "suppressionResponse": { "water": 0.8, "foam": 0.6 },
     "smokeTint": "toxic",
     "smokeDensity": 1.8
   },
@@ -22,7 +22,7 @@
     "burnRate": 0.1,
     "spreadFactor": 1.4,
     "heatOutput": 30,
-    "waterResponse": 1.2,
+    "suppressionResponse": { "water": 1.2, "foam": 0.7 },
     "smokeTint": "pale",
     "smokeDensity": 0.6
   },
@@ -31,7 +31,7 @@
     "burnRate": 0,
     "spreadFactor": 0,
     "heatOutput": 0,
-    "waterResponse": 0,
+    "suppressionResponse": { "water": 0, "foam": 0 },
     "smokeTint": "neutral",
     "smokeDensity": 0
   },
@@ -40,7 +40,7 @@
     "burnRate": 0.08,
     "spreadFactor": 1.1,
     "heatOutput": 70,
-    "waterResponse": -1.5,
+    "suppressionResponse": { "water": -1.5, "foam": 1.8 },
     "smokeTint": "sooty",
     "smokeDensity": 1.3
   }

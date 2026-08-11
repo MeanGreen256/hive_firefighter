@@ -14,6 +14,7 @@ import {
 } from 'three';
 import type { CellGrid } from '@sim/cellGrid';
 import { CellState } from '@sim/cellGrid';
+import { SuppressionAgent } from '@sim/waterApplication';
 import { STARTER_HOSE_TARGET_CELL_ID, type SimDebugController } from '../state/simDebugController';
 import { SessionStatus } from '../state/sessionStats';
 import type { HoseController } from '../state/hoseController';
@@ -199,15 +200,23 @@ export function HoseEffects({
 
   useFrame(() => {
     const { input } = controller.store.getState();
-    const { simulation, sessionStatus, waterRemainingLitres, hoseLine } =
-      simulationController.store.getState();
+    const {
+      simulation,
+      sessionStatus,
+      waterRemainingLitres,
+      foamRemainingLitres,
+      suppressionAgent,
+      hoseLine,
+    } = simulationController.store.getState();
+    const suppressionRemaining =
+      suppressionAgent === SuppressionAgent.Water ? waterRemainingLitres : foamRemainingLitres;
     const target = input.targetCellId === null ? null : simulation.grid.cells[input.targetCellId];
     const isSpraying =
       input.activePointerId !== null &&
       target !== null &&
       target !== undefined &&
       simulationController.canSprayCell(target.id) &&
-      waterRemainingLitres > 0 &&
+      suppressionRemaining > 0 &&
       sessionStatus === SessionStatus.Active;
     const targetPosition = target
       ? new Vector3(...getCellWorldPosition(target.gridPos, grid.dimensions))
@@ -219,6 +228,12 @@ export function HoseEffects({
     }
     const hoseStream = streamRef.current;
     if (hoseStream) {
+      const streamMaterial = hoseStream.material as LineBasicMaterial;
+      streamMaterial.color.set(
+        suppressionAgent === SuppressionAgent.Water
+          ? visualStyle.hose.stream
+          : visualStyle.hud.success,
+      );
       hoseStream.visible = isSpraying;
       if (isSpraying && targetPosition) updateStreamArc(hoseStream, nozzle, targetPosition);
     }

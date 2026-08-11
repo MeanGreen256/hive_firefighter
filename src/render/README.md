@@ -19,6 +19,7 @@ they do not import a preferred palette directly.
 - Hydrant and connected supply-line visualization (#68)
 - Persistent civilian search marks and thermal signatures (#70)
 - Propane state and countdown visualization (#71)
+- Water/foam stream distinction and structural sag/collapse (#72, #73)
 
 ## Camera-facing contract
 
@@ -50,6 +51,11 @@ The secondary marker channel is semantic: clear has no marker, heating gets an
 upper band, burning a full frame, flashover an expanded frame, wetted a lower
 band, and burnt an inset frame. `cellVisuals.ts` owns the geometry mapping;
 colours and transition timing stay in the active style.
+
+Structural state reuses those instanced cell layers rather than adding one mesh
+per floor. Warning progress lowers and compresses the live cell transform;
+`Collapsed` flattens it into a blocked slab. The ink outline follows the same
+transform, so sag and drop read in both art styles.
 
 `ModelStage` is the shared base-slab renderer. The toy style supplies a thick
 sage slab, rounded pastel trees, and a one-frame contact-shadow bake that gives
