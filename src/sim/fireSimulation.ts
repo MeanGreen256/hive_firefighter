@@ -165,17 +165,34 @@ export interface Wind {
   strength: number;
 }
 
-/** JSON-safe state required to reproduce a fire exactly. */
+/** Live mutable state required to reproduce a fire exactly. */
 export interface FireSimulationState {
   grid: CellGrid;
   /** The frontier: active cells only. Neighbors are resolved from it during a tick. */
-  activeCellIds: string[];
+  activeCellIds: Set<string>;
   /** Ratio of cells that have not burned through, normalized to `[0, 1]`. */
   propertySaved: number;
   /** Unsigned seed used for deterministic per-edge turbulence. */
   seed: number;
   tick: number;
   wind?: Wind;
+}
+
+/** JSON-safe representation used whenever live simulation state crosses a persistence boundary. */
+export type SerializedFireSimulationState = Omit<FireSimulationState, 'activeCellIds'> & {
+  activeCellIds: string[];
+};
+
+export function serializeFireSimulationState(
+  state: FireSimulationState,
+): SerializedFireSimulationState {
+  return { ...state, activeCellIds: [...state.activeCellIds] };
+}
+
+export function deserializeFireSimulationState(
+  state: SerializedFireSimulationState,
+): FireSimulationState {
+  return { ...state, activeCellIds: new Set(state.activeCellIds) };
 }
 
 export interface FireSimulationOptions {
@@ -327,9 +344,11 @@ export function createFireSimulation(
 ): FireSimulationState {
   const state: FireSimulationState = {
     grid,
-    activeCellIds: Object.values(grid.cells)
-      .filter(isActive)
-      .map((cell) => cell.id),
+    activeCellIds: new Set(
+      Object.values(grid.cells)
+        .filter(isActive)
+        .map((cell) => cell.id),
+    ),
     propertySaved: calculatePropertySaved(grid),
     seed: normalizeSeed(options.seed ?? 0),
     tick: 0,
@@ -361,7 +380,7 @@ export function igniteCell(
 
   cell.heat = Math.max(cell.heat, material.ignitionPoint);
   cell.state = CellState.Burning;
-  if (!state.activeCellIds.includes(cellId)) state.activeCellIds.push(cellId);
+  state.activeCellIds.add(cellId);
   return true;
 }
 
@@ -390,7 +409,7 @@ export function forceIgniteCell(
   cell.wetness = 0;
   cell.heat = Math.max(cell.heat, material.ignitionPoint);
   cell.state = CellState.Burning;
-  if (!state.activeCellIds.includes(cellId)) state.activeCellIds.push(cellId);
+  state.activeCellIds.add(cellId);
   return true;
 }
 
@@ -404,7 +423,7 @@ export function extinguishCell(state: FireSimulationState, cellId: string): bool
   cell.heat = 0;
   cell.wetness = 0;
   cell.state = CellState.Clear;
-  state.activeCellIds = state.activeCellIds.filter((activeId) => activeId !== cellId);
+  state.activeCellIds.delete(cellId);
   return changed;
 }
 
@@ -588,7 +607,7 @@ export function stepFireSimulation(
     }
   }
 
-  const nextActiveIds: string[] = [];
+  const nextActiveIds = new Set<string>();
 
   for (const cellId of tickCellIds) {
     const cell = state.grid.cells[cellId];
@@ -649,7 +668,7 @@ export function stepFireSimulation(
         tick: state.tick + 1,
       });
     }
-    if (isActive(cell)) nextActiveIds.push(cell.id);
+    if (isActive(cell)) nextActiveIds.add(cell.id);
 
     if (debugCells) {
       const contributions = (contributionsByCellId?.get(cellId) ?? []).map((contribution) => ({

@@ -5,7 +5,9 @@ Game data as JSON. **Adding content should not require writing code.**
 ## What lives here
 
 - `materials.json` — the fire behaviour table (#5). The highest-leverage data in the game: add a row, and every prop made of that material gets new behaviour everywhere.
-- Later: building prefabs, district layouts, mission definitions.
+- `scenarios/*.json` — authored incidents: grid dimensions and materials,
+  ignition, wind, future entity placements, resources, and par time.
+- Later: building prefabs and district layouts.
 
 ## Rules
 
@@ -26,3 +28,23 @@ full unit and range reference per field. Summary:
 | `waterResponse` | multiplier on heat water removes; `1.0` baseline, `0` no effect, **negative amplifies instead of extinguishing** (e.g. `grease`) | `[-5, 5]`                                                                         |
 | `smokeTint`     | semantic smoke appearance token; resolved by the active style                                                                    | `neutral`, `pale`, `sooty`, or `toxic`                                            |
 | `smokeDensity`  | relative smoke opacity/density multiplier, `wood = 1.0` reference                                                                | `[0, 5]`                                                                          |
+
+## `scenarios/*.json`
+
+Every JSON file in this directory is discovered automatically by
+`src/sim/scenarios.ts`, validated with field-qualified errors, and offered in
+the development scenario picker. The filename is the stable scenario id.
+
+Each scenario declares:
+
+- a display `name`;
+- `building.dimensions` and `building.materials`, with one default material
+  plus optional per-cell `x,y,z` overrides;
+- one or more combustible `ignitionOrigins`, a deterministic `seed`, and
+  `wind`;
+- civilian, hazard, and hydrant placements for the M2 systems that consume
+  them;
+- `waterTankCapacityLitres` and `parTimeSeconds`.
+
+Appearance remains style data. Scenario content names a semantic material or
+hazard type and never specifies colours, meshes, or particles.

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { useStore } from 'zustand';
 import { CellState, type Cell } from '@sim/cellGrid';
 import type { FireCellTickDebug, FireSimulationTuning } from '@sim/fireSimulation';
+import { SCENARIOS } from '@sim/scenarios';
 import { SIMULATION_SPEEDS, simDebugController } from '../state/simDebugController';
 import simDebugOverlayCss from './SimDebugOverlay.css?inline';
 
@@ -282,6 +283,23 @@ function SimDebugPanel() {
             {SIMULATION_SPEEDS.map((speed) => (
               <option value={speed} key={speed}>
                 {speed}×
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
+      <section className="sim-debug-scenario">
+        <label>
+          SCENARIO
+          <select
+            aria-label="Scenario"
+            value={snapshot.scenarioId}
+            onChange={(event) => simDebugController.selectScenario(event.target.value)}
+          >
+            {SCENARIOS.map((scenario) => (
+              <option value={scenario.id} key={scenario.id}>
+                {scenario.name}
               </option>
             ))}
           </select>

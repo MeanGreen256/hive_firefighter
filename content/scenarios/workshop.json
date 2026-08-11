@@ -1,0 +1,28 @@
+{
+  "name": "Workshop shell",
+  "building": {
+    "dimensions": { "width": 5, "height": 4, "depth": 3 },
+    "materials": {
+      "default": "concrete",
+      "cells": {
+        "1,1,1": "wood",
+        "2,1,1": "wood",
+        "3,1,1": "grease",
+        "1,2,1": "fabric",
+        "2,2,1": "wood",
+        "3,2,1": "plastic"
+      }
+    }
+  },
+  "ignitionOrigins": [{ "x": 2, "y": 1, "z": 1 }],
+  "seed": 2402,
+  "wind": {
+    "direction": { "x": 1, "y": 0, "z": 0 },
+    "strength": 0.15
+  },
+  "civilians": [{ "id": "civilian-a", "position": { "x": 1, "y": 2, "z": 1 } }],
+  "hazards": [{ "id": "propane-a", "type": "propane", "position": { "x": 3, "y": 1, "z": 1 } }],
+  "waterTankCapacityLitres": 90,
+  "hydrants": [{ "id": "street-hydrant", "position": { "x": -1, "y": 0, "z": 1 } }],
+  "parTimeSeconds": 180
+}

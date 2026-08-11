@@ -9,6 +9,7 @@ import {
   type Cell,
   type CellGrid,
   type CellNeighbor,
+  type GridDimensions,
   type GridPosition,
 } from './cellGrid';
 
@@ -26,7 +27,7 @@ function neighborTo(cell: Cell, gridPos: GridPosition): CellNeighbor | undefined
 
 describe('createCellGrid', () => {
   it('constructs the 3 × 3 × 2 starter building with deterministic initial data', () => {
-    const grid = createCellGrid('fabric');
+    const grid = createCellGrid(undefined, 'fabric');
 
     expect(grid.dimensions).toEqual(STARTER_GRID_DIMENSIONS);
     expect(Object.keys(grid.cells)).toHaveLength(18);
@@ -39,6 +40,41 @@ describe('createCellGrid', () => {
       state: CellState.Clear,
       wetness: 0,
     });
+  });
+
+  it('builds arbitrary dimensions with materials resolved per cell', () => {
+    const dimensions: GridDimensions = { width: 5, height: 4, depth: 3 };
+    const grid = createCellGrid(dimensions, ({ x, y, z }) =>
+      x === 0 ||
+      x === dimensions.width - 1 ||
+      y === 0 ||
+      y === dimensions.height - 1 ||
+      z === 0 ||
+      z === dimensions.depth - 1
+        ? 'concrete'
+        : 'wood',
+    );
+
+    expect(grid.dimensions).toEqual(dimensions);
+    expect(Object.keys(grid.cells)).toHaveLength(60);
+    expect(cellAt(grid, { x: 0, y: 0, z: 0 })).toMatchObject({
+      material: 'concrete',
+      fuel: 0,
+    });
+    expect(cellAt(grid, { x: 2, y: 1, z: 1 })).toMatchObject({
+      material: 'wood',
+      fuel: 1,
+    });
+  });
+
+  it.each([
+    ['width', { width: 0, height: 1, depth: 1 }],
+    ['height', { width: 1, height: -1, depth: 1 }],
+    ['depth', { width: 1, height: 1, depth: 1.5 }],
+    ['width', { width: Number.NaN, height: 1, depth: 1 }],
+    ['height', { width: 1, height: Number.POSITIVE_INFINITY, depth: 1 }],
+  ] as const)('rejects an invalid %s dimension', (field, dimensions) => {
+    expect(() => createCellGrid(dimensions)).toThrow(`dimensions.${field}`);
   });
 
   it('resolves only face-sharing neighbors for a corner', () => {
@@ -91,7 +127,7 @@ describe('createCellGrid', () => {
   });
 
   it('round-trips through JSON with no data loss', () => {
-    const grid = createCellGrid('plastic');
+    const grid = createCellGrid(undefined, 'plastic');
     const restored: unknown = JSON.parse(JSON.stringify(grid));
 
     expect(restored).toEqual(grid);

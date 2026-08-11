@@ -18,7 +18,7 @@ import {
 } from './waterApplication';
 
 function isolateCell(material: 'wood' | 'plastic' | 'grease' = 'wood'): FireSimulationState {
-  const grid = createCellGrid(material);
+  const grid = createCellGrid(undefined, material);
   const cell = grid.cells['0,0,0'];
   if (!cell) throw new Error('Missing test cell');
 
@@ -67,7 +67,7 @@ describe('water application', () => {
   });
 
   it('conserves volume while spreading a small overspray to every neighbor', () => {
-    const state = createFireSimulation(createCellGrid('wood'));
+    const state = createFireSimulation(createCellGrid());
     const target = state.grid.cells['0,0,0']!;
 
     applyWater(state, target.id, 1, SuppressionAgent.Water);
@@ -117,7 +117,7 @@ describe('water application', () => {
   });
 
   it('damps incoming heat by saturation instead of only delaying it', () => {
-    const state = createFireSimulation(createCellGrid('wood'), { seed: 8 });
+    const state = createFireSimulation(createCellGrid(), { seed: 8 });
     const source = state.grid.cells['0,0,0']!;
     const target = state.grid.cells['1,0,0']!;
     igniteCell(state, source.id);
@@ -137,7 +137,7 @@ describe('water application', () => {
   });
 
   it('knocks fire down in a couple seconds and allows hot neighbors to re-ignite it', () => {
-    const state = createFireSimulation(createCellGrid('wood'), { seed: 8 });
+    const state = createFireSimulation(createCellGrid(), { seed: 8 });
     const source = state.grid.cells['0,0,0']!;
     const target = state.grid.cells['1,0,0']!;
     igniteCell(state, source.id);

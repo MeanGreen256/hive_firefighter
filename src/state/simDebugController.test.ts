@@ -212,4 +212,28 @@ describe('sim debug controller', () => {
     controller.resetWithNewSeed();
     expect(controller.store.getState().simulation.seed).not.toBe(15);
   });
+
+  it('switches to an authored scenario with its grid, seed, wind, and water capacity', () => {
+    const controller = createSimDebugController();
+
+    controller.selectScenario('workshop');
+
+    const selected = controller.store.getState();
+    expect(selected).toMatchObject({
+      scenarioId: 'workshop',
+      scenarioVersion: 1,
+      waterCapacityLitres: 90,
+      waterRemainingLitres: 90,
+    });
+    expect(selected.simulation).toMatchObject({
+      seed: 2402,
+      wind: { direction: { x: 1, y: 0, z: 0 }, strength: 0.15 },
+      grid: { dimensions: { width: 5, height: 4, depth: 3 } },
+    });
+    expect(selected.simulation.grid.cells['2,1,1']?.state).toBe(CellState.Burning);
+    expect(selected.simulation.grid.cells['0,0,0']).toMatchObject({
+      material: 'concrete',
+      fuel: 0,
+    });
+  });
 });

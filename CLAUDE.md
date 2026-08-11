@@ -58,19 +58,19 @@ Path aliases (`tsconfig.app.json`, mirrored in `vite.config.ts`): `@sim/*`, `@re
 
 ## Adding content
 
-Content is data validated at load time, not code. The live example is the material table:
+Content is data validated at load time, not code. The material table is the simplest example:
 
 1. Add or edit a row in `content/materials.json`.
 2. `src/sim/materials.ts` validates every row against the `Material` type on import and throws `MaterialValidationError` naming the offending row/field if it doesn't match — getting past the import is itself proof the data is valid.
 3. Field-level units and ranges are documented in that file's doc comments, summarized in a table in `content/README.md`.
 
-The same shape — JSON in `content/`, a loader/validator in `src/sim/` that derives or checks types against it, a units/ranges summary in `content/README.md` — is the pattern for whatever content types come after materials (building prefabs, district layouts, mission definitions).
+Authored incidents follow the same shape: `content/scenarios/*.json` is auto-discovered and validated by `src/sim/scenarios.ts`, then exposed to the development scenario picker. Use that pattern for future building prefabs and district layouts too.
 
 ## Naming
 
 - TypeScript modules: `camelCase.ts` (`materials.ts`). React components: `PascalCase.tsx` (`App.tsx`).
 - Tests live next to the code they test, not in a separate `__tests__` tree: `materials.ts` → `materials.test.ts`, same folder.
-- Content files: lowercase, matching what they contain (`materials.json`).
+- Content files: lowercase, matching what they contain (`materials.json`, `scenarios/workshop.json`).
 - ADRs: `docs/adr/NNN-short-slug.md`, sequential, never renumbered.
 
 ## Decision records
