@@ -2,7 +2,7 @@
 
 A browser-based 3D firefighting game. Isometric, stylized, built on a cell-based fire simulation where every burnable thing in the world runs the same system.
 
-> **Status:** pre-alpha. Working through [M1 — The Fire Toy](https://github.com/MeanGreen256/hive_firefighter/milestone/1).
+> **Status:** pre-alpha. M1 implementation is complete; the milestone is waiting on its hosted preview URL.
 
 ## The idea
 
@@ -32,10 +32,13 @@ Open them in a browser; they're self-contained pages.
 ## Decisions so far
 
 - **Isometric camera.** Chosen over third-person because it's the only view where the player actually _watches_ fire spread — in third-person the simulation is invisible unless you walk into it. Roughly half the art budget, too.
-- **Art direction: pending.** Toy diorama is the recommendation, cel-shaded ink the close second. Both get built behind a style switcher ([#18](https://github.com/MeanGreen256/hive_firefighter/issues/18)–[#20](https://github.com/MeanGreen256/hive_firefighter/issues/20)) so the call gets made from motion rather than stills.
+- **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md).
 - **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
 
 Decision records live in `docs/adr/`.
+
+The implementation evidence and remaining deployment gate for M1 are recorded
+in [`docs/m1-closeout.md`](docs/m1-closeout.md).
 
 ## Stack
 
@@ -57,4 +60,4 @@ npm run build   # production build
 
 ## Contributing
 
-Issues are labelled by `area:*`, `type:*`, and `size:*`. Start from the [M1 tracking issue](https://github.com/MeanGreen256/hive_firefighter/issues/22) — it carries the build order and flags two checkpoints worth pausing at.
+Issues are labelled by `area:*`, `type:*`, and `size:*`. The [M1 tracking issue](https://github.com/MeanGreen256/hive_firefighter/issues/22) records the completed build order and its final hosted-preview gate.
