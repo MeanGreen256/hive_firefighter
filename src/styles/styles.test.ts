@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { CellState } from '@sim/cellGrid';
 import { materials, SMOKE_TINTS, type MaterialId } from '@sim/materials';
 import { createStyleStore, styleIdFromSearch } from './styleStore';
 import { STYLES, STYLE_IDS } from './styles';
@@ -18,13 +19,15 @@ describe('runtime styles', () => {
       expect(style.hud.warning).toMatch(/^#/);
       expect(style.hud.success).toMatch(/^#/);
       expect(style.postProcessing.exposure).toBeGreaterThan(0);
+      expect(style.cellVisuals.byState[CellState.Clear].color).toMatch(/^#/);
+      expect(style.cellVisuals.transitionSeconds).toBeGreaterThan(0);
+      expect(style.stage.thickness).toBeGreaterThan(0);
+      expect(style.stage.contactShadow.color).toMatch(/^#/);
 
       for (const materialId of Object.keys(materials) as MaterialId[]) {
-        expect(style.createMaterial('cell', materialId)).toMatchObject({
-          color: style.palette.materials[materialId],
-          transparent: true,
-          depthWrite: false,
-        });
+        expect(style.createMaterial('cell', materialId).color).toBe(
+          style.palette.materials[materialId],
+        );
       }
     }
   });
@@ -44,7 +47,11 @@ describe('runtime styles', () => {
       celBands: 3,
       outline: { color: '#16120e', scale: 1.045 },
     });
-    expect(dioramaWall).toMatchObject({ shading: 'standard' });
+    expect(dioramaWall).toMatchObject({
+      shading: 'matte',
+      metalness: 0,
+      cornerRadius: 0.085,
+    });
     expect(dioramaWall.outline).toBeUndefined();
     expect(STYLES.ink.particles.smoke).toMatchObject({
       treatment: 'halftone',

@@ -4,6 +4,18 @@ Art direction as swappable data (#18).
 
 A `Style` supplies the palette tokens, material factory, particle appearance, HUD theme, and post-processing config. Switching one at runtime changes the entire look with the simulation still running.
 
+Cell state is also style data. Every `CellState` resolves to a colour plus a
+semantic edge marker, while the render layer owns interpolation. The four core
+burn steps are intentionally ordered by lightness and audited under protanopia
+and deuteranopia transforms in `colorVision.test.ts`; hue is never their only
+signal.
+
+The toy-diorama contract uses rounded matte geometry with diffuse-only Lambert
+materials, a cream/terracotta shell, a thick sage model slab, pastel tree props,
+rounded smoke, and a baked contact-shadow pass. Stage dimensions and colours
+remain style tokens so the ink treatment can use the same scene ownership
+without inheriting toy literals.
+
 The ink style is intentionally an opt-in cost: its material contract requests a
 three-band cel ramp and a scaled backface outline hull. That adds one instanced
 draw per visible shell layer, rather than a full-screen edge-detect target. Its

@@ -1,3 +1,4 @@
+import { CellState, type CellState as CellStateValue } from '@sim/cellGrid';
 import type { MaterialId, SmokeTint } from '@sim/materials';
 
 export const STYLE_IDS = ['diorama', 'ink'] as const;
@@ -10,12 +11,14 @@ export interface MaterialAppearance {
   readonly roughness: number;
   readonly metalness: number;
   readonly flatShading: boolean;
-  readonly shading: 'standard' | 'cel';
+  readonly shading: 'matte' | 'cel';
   readonly celBands?: 2 | 3;
   readonly outline?: OutlineAppearance;
   readonly transparent: boolean;
   readonly opacity: number;
   readonly depthWrite: boolean;
+  readonly cornerRadius: number;
+  readonly cornerSmoothness: number;
 }
 
 /** A scaled backface hull gives ink silhouettes without a full-screen pass. */
@@ -36,6 +39,38 @@ export interface StylePalette {
     readonly roof: string;
   };
   readonly materials: Readonly<Record<MaterialId, string>>;
+}
+
+export type CellMarkerTreatment =
+  'none' | 'upper-band' | 'frame' | 'oversize-frame' | 'lower-band' | 'inset-frame';
+
+/** Two-channel state treatment: lightness carries order; geometry carries identity. */
+export interface CellStateAppearance {
+  readonly color: string;
+  readonly markerColor: string;
+  readonly marker: CellMarkerTreatment;
+}
+
+export interface CellVisualAppearance {
+  readonly byState: Readonly<Record<CellStateValue, CellStateAppearance>>;
+  readonly transitionSeconds: number;
+  readonly markerOpacity: number;
+}
+
+export interface ModelStageAppearance {
+  readonly top: string;
+  readonly side: string;
+  readonly treeTrunk: string;
+  readonly treeFoliage: string;
+  readonly padding: number;
+  readonly thickness: number;
+  readonly cornerRadius: number;
+  readonly decorations: 'rounded-trees' | 'none';
+  readonly contactShadow: {
+    readonly color: string;
+    readonly opacity: number;
+    readonly blur: number;
+  };
 }
 
 export interface ParticleAppearance {
@@ -106,6 +141,8 @@ export interface Style {
   readonly label: string;
   readonly palette: StylePalette;
   readonly createMaterial: (surface: StyleSurface, materialId?: MaterialId) => MaterialAppearance;
+  readonly cellVisuals: CellVisualAppearance;
+  readonly stage: ModelStageAppearance;
   readonly particles: ParticleAppearance;
   readonly hose: HoseAppearance;
   readonly hud: HudTheme;
@@ -121,6 +158,10 @@ interface MaterialSettings {
   readonly celBands?: 2 | 3;
   readonly outline?: OutlineAppearance;
   readonly cellOpacity: number;
+  readonly cellTransparent: boolean;
+  readonly cellDepthWrite: boolean;
+  readonly cornerRadius: number;
+  readonly cornerSmoothness: number;
 }
 
 function createMaterialFactory(
@@ -140,9 +181,11 @@ function createMaterialFactory(
       roughness: isCell ? settings.cellRoughness : settings.structureRoughness,
       metalness: settings.metalness,
       flatShading: settings.flatShading,
-      transparent: isCell,
+      transparent: isCell ? settings.cellTransparent : false,
       opacity: isCell ? settings.cellOpacity : 1,
-      depthWrite: !isCell,
+      depthWrite: isCell ? settings.cellDepthWrite : true,
+      cornerRadius: settings.cornerRadius,
+      cornerSmoothness: settings.cornerSmoothness,
     };
 
     if (settings.shading === 'cel') {
@@ -210,9 +253,52 @@ const diorama: Style = {
     cellRoughness: 0.82,
     metalness: 0,
     flatShading: false,
-    shading: 'standard',
-    cellOpacity: 0.27,
+    shading: 'matte',
+    cellOpacity: 1,
+    cellTransparent: false,
+    cellDepthWrite: true,
+    cornerRadius: 0.085,
+    cornerSmoothness: 2,
   }),
+  cellVisuals: {
+    byState: {
+      [CellState.Clear]: { color: '#f3e7d2', markerColor: '#876f5d', marker: 'none' },
+      [CellState.Heating]: {
+        color: '#d8a15e',
+        markerColor: '#76523a',
+        marker: 'upper-band',
+      },
+      [CellState.Burning]: { color: '#ad452f', markerColor: '#fff0c2', marker: 'frame' },
+      [CellState.Flashover]: {
+        color: '#702622',
+        markerColor: '#ffe39a',
+        marker: 'oversize-frame',
+      },
+      [CellState.Wetted]: {
+        color: '#78aab4',
+        markerColor: '#e8f6ef',
+        marker: 'lower-band',
+      },
+      [CellState.Burnt]: {
+        color: '#2f3434',
+        markerColor: '#d9cdb8',
+        marker: 'inset-frame',
+      },
+    },
+    transitionSeconds: 0.42,
+    markerOpacity: 0.82,
+  },
+  stage: {
+    top: '#9dc48c',
+    side: '#6f9763',
+    treeTrunk: '#a8825e',
+    treeFoliage: '#78ad6b',
+    padding: 1.05,
+    thickness: 0.46,
+    cornerRadius: 0.14,
+    decorations: 'rounded-trees',
+    contactShadow: { color: '#5f5346', opacity: 0.34, blur: 2.8 },
+  },
   particles: {
     flame: { core: '#fff1a3', edge: '#ff6b2c', softness: 0.78 },
     smoke: {
@@ -263,7 +349,50 @@ const ink: Style = {
     celBands: 3,
     outline: { color: '#16120e', scale: 1.045 },
     cellOpacity: 0.42,
+    cellTransparent: true,
+    cellDepthWrite: false,
+    cornerRadius: 0.025,
+    cornerSmoothness: 1,
   }),
+  cellVisuals: {
+    byState: {
+      [CellState.Clear]: { color: '#eadfb6', markerColor: '#16120e', marker: 'none' },
+      [CellState.Heating]: {
+        color: '#c39a50',
+        markerColor: '#16120e',
+        marker: 'upper-band',
+      },
+      [CellState.Burning]: { color: '#8e492f', markerColor: '#fff2cb', marker: 'frame' },
+      [CellState.Flashover]: {
+        color: '#4d2724',
+        markerColor: '#fff36a',
+        marker: 'oversize-frame',
+      },
+      [CellState.Wetted]: {
+        color: '#477d87',
+        markerColor: '#fff2cb',
+        marker: 'lower-band',
+      },
+      [CellState.Burnt]: {
+        color: '#16120e',
+        markerColor: '#f0dfb6',
+        marker: 'inset-frame',
+      },
+    },
+    transitionSeconds: 0.24,
+    markerOpacity: 0.94,
+  },
+  stage: {
+    top: '#c8bda6',
+    side: '#615548',
+    treeTrunk: '#6b4d37',
+    treeFoliage: '#667d49',
+    padding: 0.82,
+    thickness: 0.18,
+    cornerRadius: 0.025,
+    decorations: 'none',
+    contactShadow: { color: '#16120e', opacity: 0.42, blur: 1.2 },
+  },
   particles: {
     flame: { core: '#fff36a', edge: '#e62f24', softness: 0.18 },
     smoke: {

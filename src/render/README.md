@@ -37,8 +37,21 @@ hides the two sides named by `cameraFacingWalls` and retains their opposites.
 
 Cell layers expose both `instanceId -> cellId` through `mesh.userData.cellIds`
 and `cellId -> { mesh, instanceIndex }` through `CutawayBuildingHandle`. Cell
-state rendering (#13) should update those instances rather than introducing one
-mesh per cell.
+state rendering (#13) keeps that invisible interaction layer stable, then draws
+one bounded instanced colour/marker layer per semantic state. Their instance
+transforms update directly on the render loop rather than introducing one mesh
+per cell or routing the 10 Hz simulation through React. Old-state instances
+shrink as new-state instances grow, so ignition and suppression do not pop.
+
+The secondary marker channel is semantic: clear has no marker, heating gets an
+upper band, burning a full frame, flashover an expanded frame, wetted a lower
+band, and burnt an inset frame. `cellVisuals.ts` owns the geometry mapping;
+colours and transition timing stay in the active style.
+
+`ModelStage` is the shared base-slab renderer. The toy style supplies a thick
+sage slab, rounded pastel trees, and a one-frame contact-shadow bake that gives
+the procedural pieces soft AO-like grounding without a continuous full-screen
+post-process.
 
 ## Budget
 
