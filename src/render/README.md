@@ -6,6 +6,10 @@ Three.js and React Three Fiber. Reads simulation state, draws it.
 
 No hardcoded colour literals. Every colour, material, and particle appearance comes from the active style (`@styles`). A hex code in this folder is a bug — it means one art direction has been baked in, and the switcher (#18) can no longer do its job.
 
+ESLint enforces this rule for string and template literals in `src/render/`.
+Components receive the active `Style` from the app and use its material factory;
+they do not import a preferred palette directly.
+
 ## What lives here
 
 - Isometric camera rig (#11)
