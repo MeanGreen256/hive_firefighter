@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { materials, type MaterialId } from '@sim/materials';
+import { materials, SMOKE_TINTS, type MaterialId } from '@sim/materials';
 import { createStyleStore, styleIdFromSearch } from './styleStore';
 import { STYLES, STYLE_IDS } from './styles';
 
@@ -9,6 +9,10 @@ describe('runtime styles', () => {
       const style = STYLES[styleId];
       expect(style.id).toBe(styleId);
       expect(style.particles.flame.core).toMatch(/^#/);
+      expect(Object.keys(style.particles.smoke.byTint).sort()).toEqual([...SMOKE_TINTS].sort());
+      for (const tint of SMOKE_TINTS) {
+        expect(style.particles.smoke.byTint[tint].color).toMatch(/^#/);
+      }
       expect(style.hud.accent).toMatch(/^#/);
       expect(style.postProcessing.exposure).toBeGreaterThan(0);
 
@@ -20,6 +24,12 @@ describe('runtime styles', () => {
         });
       }
     }
+  });
+
+  it('keeps sooty and toxic smoke visually distinct', () => {
+    expect(STYLES.diorama.particles.smoke.byTint.sooty).not.toEqual(
+      STYLES.diorama.particles.smoke.byTint.toxic,
+    );
   });
 
   it('resolves shareable style query parameters with a safe default', () => {
