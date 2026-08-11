@@ -10,9 +10,18 @@ export interface MaterialAppearance {
   readonly roughness: number;
   readonly metalness: number;
   readonly flatShading: boolean;
+  readonly shading: 'standard' | 'cel';
+  readonly celBands?: 2 | 3;
+  readonly outline?: OutlineAppearance;
   readonly transparent: boolean;
   readonly opacity: number;
   readonly depthWrite: boolean;
+}
+
+/** A scaled backface hull gives ink silhouettes without a full-screen pass. */
+export interface OutlineAppearance {
+  readonly color: string;
+  readonly scale: number;
 }
 
 export interface StylePalette {
@@ -39,7 +48,9 @@ export interface ParticleAppearance {
     readonly byTint: Readonly<Record<SmokeTint, SmokeAppearance>>;
     readonly opacity: number;
     readonly treatment: 'rounded' | 'halftone';
+    readonly halftone: HalftoneSmokeConfig | null;
   };
+  readonly heat: HeatAppearance;
 }
 
 /** Visual tokens for the player-operated hose and its immediate feedback. */
@@ -55,6 +66,21 @@ export interface HoseAppearance {
 /** The active style's visual treatment for one semantic smoke category. */
 export interface SmokeAppearance {
   readonly color: string;
+}
+
+/** Dot spacing and size are visual language, not simulation data. */
+export interface HalftoneSmokeConfig {
+  readonly dotSize: number;
+  readonly dotSpacing: number;
+}
+
+/** Heat is deliberately represented as comic-panel marks, never a screen warp. */
+export interface HeatAppearance {
+  readonly treatment: 'none' | 'drawn-lines';
+  readonly color: string;
+  readonly lineCount: number;
+  readonly lineLength: number;
+  readonly opacity: number;
 }
 
 export interface HudTheme {
@@ -88,6 +114,9 @@ interface MaterialSettings {
   readonly cellRoughness: number;
   readonly metalness: number;
   readonly flatShading: boolean;
+  readonly shading: MaterialAppearance['shading'];
+  readonly celBands?: 2 | 3;
+  readonly outline?: OutlineAppearance;
   readonly cellOpacity: number;
 }
 
@@ -103,7 +132,7 @@ function createMaterialFactory(
     const isCell = surface === 'cell';
     const color = isCell ? palette.materials[materialId as MaterialId] : palette.building[surface];
 
-    return {
+    const appearance = {
       color,
       roughness: isCell ? settings.cellRoughness : settings.structureRoughness,
       metalness: settings.metalness,
@@ -112,6 +141,20 @@ function createMaterialFactory(
       opacity: isCell ? settings.cellOpacity : 1,
       depthWrite: !isCell,
     };
+
+    if (settings.shading === 'cel') {
+      if (settings.celBands === undefined || settings.outline === undefined) {
+        throw new Error('Cel materials require a band count and outline treatment');
+      }
+      return {
+        ...appearance,
+        shading: settings.shading,
+        celBands: settings.celBands,
+        outline: settings.outline,
+      };
+    }
+
+    return { ...appearance, shading: settings.shading };
   };
 }
 
@@ -164,6 +207,7 @@ const diorama: Style = {
     cellRoughness: 0.82,
     metalness: 0,
     flatShading: false,
+    shading: 'standard',
     cellOpacity: 0.27,
   }),
   particles: {
@@ -177,7 +221,9 @@ const diorama: Style = {
       },
       opacity: 0.72,
       treatment: 'rounded',
+      halftone: null,
     },
+    heat: { treatment: 'none', color: '#d84d35', lineCount: 0, lineLength: 0, opacity: 0 },
   },
   hose: {
     nozzle: '#40505b',
@@ -207,6 +253,9 @@ const ink: Style = {
     cellRoughness: 1,
     metalness: 0,
     flatShading: true,
+    shading: 'cel',
+    celBands: 3,
+    outline: { color: '#16120e', scale: 1.045 },
     cellOpacity: 0.42,
   }),
   particles: {
@@ -220,6 +269,14 @@ const ink: Style = {
       },
       opacity: 0.9,
       treatment: 'halftone',
+      halftone: { dotSize: 6.5, dotSpacing: 0.24 },
+    },
+    heat: {
+      treatment: 'drawn-lines',
+      color: '#16120e',
+      lineCount: 5,
+      lineLength: 0.7,
+      opacity: 0.8,
     },
   },
   hose: {
