@@ -1,4 +1,4 @@
-import type { MaterialId } from '@sim/materials';
+import type { MaterialId, SmokeTint } from '@sim/materials';
 
 export const STYLE_IDS = ['diorama', 'ink'] as const;
 export type StyleId = (typeof STYLE_IDS)[number];
@@ -36,12 +36,15 @@ export interface ParticleAppearance {
     readonly softness: number;
   };
   readonly smoke: {
-    readonly light: string;
-    readonly medium: string;
-    readonly dark: string;
+    readonly byTint: Readonly<Record<SmokeTint, SmokeAppearance>>;
     readonly opacity: number;
     readonly treatment: 'rounded' | 'halftone';
   };
+}
+
+/** The active style's visual treatment for one semantic smoke category. */
+export interface SmokeAppearance {
+  readonly color: string;
 }
 
 export interface HudTheme {
@@ -155,9 +158,12 @@ const diorama: Style = {
   particles: {
     flame: { core: '#fff1a3', edge: '#ff6b2c', softness: 0.78 },
     smoke: {
-      light: '#eee6d3',
-      medium: '#a89f91',
-      dark: '#4a4845',
+      byTint: {
+        neutral: { color: '#a89f91' },
+        pale: { color: '#eee6d3' },
+        sooty: { color: '#4a4845' },
+        toxic: { color: '#59684c' },
+      },
       opacity: 0.72,
       treatment: 'rounded',
     },
@@ -187,9 +193,12 @@ const ink: Style = {
   particles: {
     flame: { core: '#fff36a', edge: '#e62f24', softness: 0.18 },
     smoke: {
-      light: '#f3e8c9',
-      medium: '#6d6861',
-      dark: '#1d2024',
+      byTint: {
+        neutral: { color: '#6d6861' },
+        pale: { color: '#f3e8c9' },
+        sooty: { color: '#1d2024' },
+        toxic: { color: '#455837' },
+      },
       opacity: 0.9,
       treatment: 'halftone',
     },
