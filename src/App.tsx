@@ -2,12 +2,12 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSPropertie
 import { Canvas } from '@react-three/fiber';
 import { useStore } from 'zustand';
 import { CutawayBuilding, type CutawayBuildingHandle } from '@render/CutawayBuilding';
+import { FireParticles } from '@render/FireParticles';
 import { HoseEffects } from '@render/HoseEffects';
 import { IsometricCameraRig } from '@render/IsometricCameraRig';
 import { getBuildingBounds } from '@render/buildingLayout';
 import { getCameraFacing, type CameraFacing } from '@render/isometricCamera';
 import { PerformanceSampler } from '@render/PerformanceSampler';
-import { StyleAtmospherics } from '@render/StyleAtmospherics';
 import { styleStore } from '@styles/styleStore';
 import { isStyleId, STYLES, STYLE_IDS, type Style } from '@styles/styles';
 import { PerfOverlay } from '@ui/PerfOverlay';
@@ -97,7 +97,7 @@ export default function App() {
             simulationController={simDebugController}
             building={buildingRef}
           />
-          <StyleAtmospherics visualStyle={visualStyle} />
+          <FireParticles grid={grid} visualStyle={visualStyle} />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
       </div>
