@@ -15,6 +15,7 @@ import {
 import type { CellGrid } from '@sim/cellGrid';
 import { CellState } from '@sim/cellGrid';
 import { STARTER_HOSE_TARGET_CELL_ID, type SimDebugController } from '../state/simDebugController';
+import { SessionStatus } from '../state/sessionStats';
 import type { HoseController } from '../state/hoseController';
 import type { Style } from '@styles/styles';
 import { CELL_HEIGHT, CELL_SIZE } from './buildingLayout';
@@ -172,9 +173,14 @@ export function HoseEffects({
 
   useFrame(() => {
     const { input } = controller.store.getState();
-    const { simulation } = simulationController.store.getState();
+    const { simulation, sessionStatus, waterRemainingLitres } =
+      simulationController.store.getState();
     const target = input.targetCellId === null ? null : simulation.grid.cells[input.targetCellId];
-    const isSpraying = input.activePointerId !== null && target !== null;
+    const isSpraying =
+      input.activePointerId !== null &&
+      target !== null &&
+      waterRemainingLitres > 0 &&
+      sessionStatus === SessionStatus.Active;
     const targetPosition = target
       ? new Vector3(...getCellWorldPosition(target.gridPos, grid.dimensions))
       : null;

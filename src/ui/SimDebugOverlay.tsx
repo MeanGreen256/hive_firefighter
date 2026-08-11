@@ -354,6 +354,10 @@ function SimDebugPanel() {
 
 export default function SimDebugOverlay() {
   const [visible, setVisible] = useState(false);
+  const scenarioVersion = useStore(
+    simDebugController.store,
+    (snapshot) => snapshot.scenarioVersion,
+  );
 
   useEffect(() => {
     simDebugController.start();
@@ -373,7 +377,11 @@ export default function SimDebugOverlay() {
   return (
     <>
       <style>{simDebugOverlayCss}</style>
-      {visible ? <SimDebugPanel /> : <div className="sim-debug-hint">F2 · SIM LAB</div>}
+      {visible ? (
+        <SimDebugPanel key={scenarioVersion} />
+      ) : (
+        <div className="sim-debug-hint">F2 · SIM LAB</div>
+      )}
     </>
   );
 }

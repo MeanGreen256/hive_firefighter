@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
+import { SessionStatus } from './sessionStats';
 import { createSimDebugController, STARTER_HOSE_TARGET_CELL_ID } from './simDebugController';
 
 describe('sim debug controller', () => {
@@ -140,12 +141,12 @@ describe('sim debug controller', () => {
     // goes net-negative on wetness the moment a developer speeds up testing.
     const real = createSimDebugController(15);
     real.setWaterApplication(STARTER_HOSE_TARGET_CELL_ID);
-    real.advance(1);
+    real.advance(0.1);
 
     const fast = createSimDebugController(15);
     fast.setWaterApplication(STARTER_HOSE_TARGET_CELL_ID);
     fast.setSpeed(8);
-    fast.advance(1);
+    fast.advance(0.1);
 
     const wetnessAtRealTime =
       real.store.getState().simulation.grid.cells[STARTER_HOSE_TARGET_CELL_ID]!.wetness;
@@ -153,5 +154,62 @@ describe('sim debug controller', () => {
       fast.store.getState().simulation.grid.cells[STARTER_HOSE_TARGET_CELL_ID]!.wetness;
 
     expect(wetnessAtEightTimesSpeed).toBeGreaterThan(wetnessAtRealTime);
+  });
+
+  it('drains a finite tank while spraying and blocks water at empty', () => {
+    const controller = createSimDebugController(15, { waterCapacityLitres: 0.15 });
+    controller.setWaterApplication('0,0,0');
+
+    controller.advance(0.2);
+    const empty = controller.store.getState();
+    expect(empty.waterRemainingLitres).toBe(0);
+    expect(empty.waterUsedLitres).toBeCloseTo(0.15);
+    const wetnessAtEmpty = empty.simulation.grid.cells['0,0,0']!.wetness;
+
+    controller.advance(0.5);
+    const afterBlockedSpray = controller.store.getState();
+    expect(afterBlockedSpray.waterUsedLitres).toBeCloseTo(0.15);
+    expect(afterBlockedSpray.simulation.grid.cells['0,0,0']!.wetness).toBeLessThan(wetnessAtEmpty);
+  });
+
+  it('ends a contained scenario with a grade and complete breakdown', () => {
+    const controller = createSimDebugController(15);
+
+    controller.sprayCell(STARTER_HOSE_TARGET_CELL_ID, 1);
+
+    const complete = controller.store.getState();
+    expect(complete.sessionStatus).toBe(SessionStatus.Contained);
+    expect(complete.paused).toBe(true);
+    expect(complete.debrief).toMatchObject({
+      outcome: SessionStatus.Contained,
+      propertySavedPercent: 100,
+      waterUsedLitres: 1,
+      grade: 'A',
+      scores: { property: 100, time: 100 },
+    });
+    expect(controller.advance(1)).toBe(0);
+  });
+
+  it('refills for development and restarts with either the same or a new seed', () => {
+    const controller = createSimDebugController(15, { waterCapacityLitres: 2 });
+    controller.sprayCell('0,0,0', 1);
+    expect(controller.store.getState().waterRemainingLitres).toBe(1);
+
+    controller.refillWater();
+    expect(controller.store.getState().waterRemainingLitres).toBe(2);
+    expect(controller.store.getState().waterUsedLitres).toBe(1);
+
+    controller.reset();
+    expect(controller.store.getState()).toMatchObject({
+      waterRemainingLitres: 2,
+      waterUsedLitres: 0,
+      elapsedScenarioSeconds: 0,
+      sessionStatus: SessionStatus.Active,
+      debrief: null,
+    });
+    expect(controller.store.getState().simulation.seed).toBe(15);
+
+    controller.resetWithNewSeed();
+    expect(controller.store.getState().simulation.seed).not.toBe(15);
   });
 });
