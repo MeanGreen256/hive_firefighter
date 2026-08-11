@@ -1,0 +1,230 @@
+.water-tank {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+  width: min(280px, calc(100vw - 40px));
+  padding: 12px 14px;
+  border: 1px solid var(--hud-border);
+  border-radius: 4px;
+  background: var(--hud-panel);
+  color: var(--hud-text);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  text-transform: uppercase;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 14%);
+}
+
+.water-tank header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.water-tank output {
+  color: var(--hud-water);
+  font-variant-numeric: tabular-nums;
+}
+
+.water-tank__track {
+  height: 12px;
+  margin-top: 9px;
+  overflow: hidden;
+  border: 1px solid var(--hud-border);
+  border-radius: 2px;
+  background: var(--hud-control);
+}
+
+.water-tank__track span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left;
+  background: var(--hud-water);
+  transition: transform 160ms linear;
+}
+
+.water-tank p,
+.water-tank small {
+  display: block;
+  margin: 7px 0 0;
+  color: var(--hud-muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.water-tank small {
+  opacity: 0.72;
+}
+
+.water-tank--low output,
+.water-tank--empty output,
+.water-tank--low p,
+.water-tank--empty p {
+  color: var(--hud-warning);
+}
+
+.water-tank--low .water-tank__track span,
+.water-tank--empty .water-tank__track span {
+  background: var(--hud-warning);
+}
+
+.debrief-panel::backdrop {
+  background: rgb(8 10 12 / 58%);
+  backdrop-filter: blur(8px);
+}
+
+.debrief-panel {
+  max-height: calc(100vh - 40px);
+  width: min(560px, 100%);
+  margin: auto;
+  padding: 22px;
+  overflow: auto;
+  border: 1px solid var(--hud-border);
+  border-radius: 6px;
+  background: var(--hud-panel);
+  color: var(--hud-text);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 35%);
+}
+
+.debrief-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--hud-border);
+}
+
+.debrief-panel header span,
+.debrief-breakdown h2 {
+  color: var(--hud-muted);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.debrief-panel h1 {
+  margin: 6px 0 0;
+  font-size: clamp(22px, 5vw, 34px);
+  line-height: 1;
+}
+
+.debrief-panel header strong {
+  color: var(--hud-success);
+  font-size: clamp(54px, 16vw, 86px);
+  line-height: 0.8;
+}
+
+.debrief-panel--warning header strong {
+  color: var(--hud-warning);
+}
+
+.debrief-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  margin: 18px 0;
+  background: var(--hud-border);
+  border: 1px solid var(--hud-border);
+}
+
+.debrief-summary div {
+  min-width: 0;
+  padding: 11px 10px;
+  background: var(--hud-control);
+}
+
+.debrief-summary dt {
+  min-height: 24px;
+  color: var(--hud-muted);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.debrief-summary dd {
+  margin: 5px 0 0;
+  color: var(--hud-text);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.debrief-breakdown {
+  padding: 14px;
+  border: 1px solid var(--hud-border);
+}
+
+.debrief-breakdown h2 {
+  margin: 0 0 10px;
+}
+
+.debrief-breakdown div,
+.debrief-breakdown p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 7px 0;
+  border-top: 1px solid var(--hud-border);
+  font-size: 11px;
+}
+
+.debrief-breakdown output {
+  color: var(--hud-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.debrief-breakdown p {
+  margin-top: 4px;
+  color: var(--hud-muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.debrief-panel footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.debrief-panel button {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--hud-border);
+  border-radius: 3px;
+  background: var(--hud-control);
+  color: var(--hud-text);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.debrief-panel button:hover,
+.debrief-panel button:focus-visible {
+  border-color: var(--hud-accent);
+  outline: none;
+}
+
+@media (max-width: 600px) {
+  .water-tank {
+    top: 10px;
+    right: 10px;
+    width: min(230px, calc(100vw - 20px));
+  }
+
+  .debrief-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .debrief-panel footer {
+    grid-template-columns: 1fr;
+  }
+}

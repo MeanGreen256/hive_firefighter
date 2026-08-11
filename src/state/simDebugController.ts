@@ -2,6 +2,7 @@ import { createStore, type StoreApi } from 'zustand/vanilla';
 import { CellState, createCellGrid } from '@sim/cellGrid';
 import {
   DEFAULT_FIRE_SIMULATION_TUNING,
+  FIRE_TICK_SECONDS,
   createFireSimulation,
   createFireSimulationTuning,
   createFixedTimestepRunner,
@@ -15,12 +16,21 @@ import {
   type FireTickDebug,
 } from '@sim/fireSimulation';
 import { applyWater, SuppressionAgent, type WaterApplicationResult } from '@sim/waterApplication';
+import {
+  createSessionDebrief,
+  getSessionStatus,
+  nextScenarioSeed,
+  SessionStatus,
+  type SessionDebrief,
+} from './sessionStats';
 import { reportSimTick } from '../perf/metrics';
 
 export const SIMULATION_SPEEDS = [0.25, 0.5, 1, 2, 4, 8] as const;
 /** The exposed starter cell shared by the scene, hose, and Sim Lab. */
 export const STARTER_HOSE_TARGET_CELL_ID = '2,2,1';
 export const HOSE_LITRES_PER_SECOND = 1;
+/** Ninety seconds of uninterrupted flow at the M1 hose rate. */
+export const WATER_TANK_CAPACITY_LITRES = HOSE_LITRES_PER_SECOND * 90;
 const MAX_WATER_APPLICATION_SECONDS = 0.1;
 
 export interface SimDebugSnapshot {
@@ -33,6 +43,12 @@ export interface SimDebugSnapshot {
   lastTickDebug: FireTickDebug | null;
   /** Changes only when reset replaces the grid, never at simulation cadence. */
   scenarioVersion: number;
+  waterCapacityLitres: number;
+  waterRemainingLitres: number;
+  waterUsedLitres: number;
+  elapsedScenarioSeconds: number;
+  sessionStatus: SessionStatus;
+  debrief: SessionDebrief | null;
 }
 
 export interface SimDebugController {
@@ -43,6 +59,8 @@ export interface SimDebugController {
   togglePaused(): void;
   stepOnce(): void;
   reset(seed?: number): void;
+  resetWithNewSeed(): void;
+  refillWater(): void;
   setSeed(seed: number): void;
   setSpeed(speed: number): void;
   setTuningValue(key: keyof FireSimulationTuning, value: number): void;
@@ -55,13 +73,24 @@ export interface SimDebugController {
   subscribeWaterApplications(listener: (result: WaterApplicationResult) => void): () => void;
 }
 
+export interface SimDebugControllerOptions {
+  readonly waterCapacityLitres?: number;
+}
+
 function createStarterScenario(seed: number, tuning: FireSimulationTuning): FireSimulationState {
   const state = createFireSimulation(createCellGrid('wood'), { seed });
   igniteCell(state, STARTER_HOSE_TARGET_CELL_ID, tuning);
   return state;
 }
 
-export function createSimDebugController(initialSeed = 2026): SimDebugController {
+export function createSimDebugController(
+  initialSeed = 2026,
+  options: SimDebugControllerOptions = {},
+): SimDebugController {
+  const waterCapacityLitres = options.waterCapacityLitres ?? WATER_TANK_CAPACITY_LITRES;
+  if (!Number.isFinite(waterCapacityLitres) || waterCapacityLitres <= 0) {
+    throw new Error('Water tank capacity must be finite and greater than zero');
+  }
   const initialTuning = createFireSimulationTuning(DEFAULT_FIRE_SIMULATION_TUNING);
   const runner = createFixedTimestepRunner(createStarterScenario(initialSeed, initialTuning), {
     tuning: initialTuning,
@@ -75,13 +104,63 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
     speed: 1,
     lastTickDebug: null,
     scenarioVersion: 0,
+    waterCapacityLitres,
+    waterRemainingLitres: waterCapacityLitres,
+    waterUsedLitres: 0,
+    elapsedScenarioSeconds: 0,
+    sessionStatus: SessionStatus.Active,
+    debrief: null,
   }));
 
   let animationFrameId: number | null = null;
   let previousFrameTime: number | null = null;
   let waterCellId: string | null = null;
+  let waterRemainingLitres = waterCapacityLitres;
+  let waterUsedLitres = 0;
+  let elapsedScenarioSeconds = 0;
+  let sessionStatus: SessionStatus = SessionStatus.Active;
+  let debrief: SessionDebrief | null = null;
   const eventListeners = new Set<(events: readonly FireSimulationEvent[]) => void>();
   const waterApplicationListeners = new Set<(result: WaterApplicationResult) => void>();
+
+  const sessionFields = () => ({
+    waterRemainingLitres,
+    waterUsedLitres,
+    elapsedScenarioSeconds,
+    sessionStatus,
+    debrief,
+  });
+
+  const finishSessionIfNeeded = (): void => {
+    if (sessionStatus !== SessionStatus.Active) return;
+    const nextStatus = getSessionStatus(runner.getState().grid);
+    if (nextStatus !== SessionStatus.Contained && nextStatus !== SessionStatus.Lost) return;
+
+    sessionStatus = nextStatus;
+    debrief = createSessionDebrief({
+      outcome: nextStatus,
+      propertySaved: runner.getState().propertySaved,
+      elapsedSeconds: elapsedScenarioSeconds,
+      waterUsedLitres,
+      waterCapacityLitres,
+    });
+  };
+
+  const applyAvailableWater = (
+    cellId: string,
+    requestedLitres: number,
+  ): { result: WaterApplicationResult; deliveredLitres: number } => {
+    if (!Number.isFinite(requestedLitres) || requestedLitres < 0) {
+      throw new Error(
+        `Water volume must be a finite non-negative number, got ${String(requestedLitres)}`,
+      );
+    }
+    const deliveredLitres = Math.min(requestedLitres, waterRemainingLitres);
+    const result = applyWater(runner.getState(), cellId, deliveredLitres, SuppressionAgent.Water);
+    waterRemainingLitres -= deliveredLitres;
+    waterUsedLitres += deliveredLitres;
+    return { result, deliveredLitres };
+  };
 
   const publishRunnerState = (): void => {
     const debugFrames = runner.drainDebugFrames();
@@ -90,15 +169,20 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
       simulation: runner.getState(),
       simulationRevision: snapshot.simulationRevision + 1,
       lastTickDebug: debugFrames.at(-1) ?? snapshot.lastTickDebug,
+      paused: sessionStatus === SessionStatus.Active ? snapshot.paused : true,
+      ...sessionFields(),
     }));
     if (events.length > 0) eventListeners.forEach((listener) => listener(events));
   };
 
   const runMeasured = (run: () => number): number => {
     const startedAt = performance.now();
+    const statusBeforeRun = sessionStatus;
     const ticks = run();
     if (ticks > 0) {
       reportSimTick((performance.now() - startedAt) / ticks);
+    }
+    if (ticks > 0 || statusBeforeRun !== sessionStatus) {
       publishRunnerState();
     }
     return ticks;
@@ -135,29 +219,32 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
         );
       }
       const snapshot = store.getState();
-      if (snapshot.paused) return 0;
+      if (snapshot.paused || sessionStatus !== SessionStatus.Active) return 0;
       return runMeasured(() => {
         let remainingSeconds = elapsedSeconds;
         let ticks = 0;
-        while (remainingSeconds > 0) {
+        while (remainingSeconds > 0 && sessionStatus === SessionStatus.Active) {
           const interval = Math.min(remainingSeconds, MAX_WATER_APPLICATION_SECONDS);
-          if (waterCellId !== null) {
+          const simulatedInterval = interval * snapshot.speed;
+          if (waterCellId !== null && waterRemainingLitres > 0) {
             // Litres must scale with speed, not just the tick count below: wetness
             // decays once per simulated tick regardless of wall-clock cadence, so
             // at a fixed real-time litre rate a higher speed simulates more decay
             // ticks per real second without delivering more water to offset them.
             // Unscaled, spraying at 8x nets ~0 wetness gain — the hose goes dead
             // exactly when a developer fast-forwards to test it.
-            const result = applyWater(
-              runner.getState(),
+            const { result, deliveredLitres } = applyAvailableWater(
               waterCellId,
-              interval * HOSE_LITRES_PER_SECOND * snapshot.speed,
-              SuppressionAgent.Water,
+              simulatedInterval * HOSE_LITRES_PER_SECOND,
             );
-            runner.setState(runner.getState());
-            waterApplicationListeners.forEach((listener) => listener(result));
+            if (deliveredLitres > 0) {
+              runner.setState(runner.getState());
+              waterApplicationListeners.forEach((listener) => listener(result));
+            }
           }
-          ticks += runner.advance(interval * snapshot.speed);
+          ticks += runner.advance(simulatedInterval);
+          elapsedScenarioSeconds += simulatedInterval;
+          finishSessionIfNeeded();
           remainingSeconds -= interval;
         }
         return ticks;
@@ -167,22 +254,38 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
       store.setState((snapshot) => ({ paused: !snapshot.paused }));
     },
     stepOnce: () => {
+      if (sessionStatus !== SessionStatus.Active) return;
       store.setState({ paused: true });
       runMeasured(() => {
         runner.step();
+        elapsedScenarioSeconds += FIRE_TICK_SECONDS;
+        finishSessionIfNeeded();
         return 1;
       });
     },
     reset: (seed = store.getState().simulation.seed) => {
       runner.reset(createStarterScenario(seed, runner.getTuning()));
       waterCellId = null;
+      waterRemainingLitres = waterCapacityLitres;
+      waterUsedLitres = 0;
+      elapsedScenarioSeconds = 0;
+      sessionStatus = SessionStatus.Active;
+      debrief = null;
       store.setState((snapshot) => ({
         simulation: runner.getState(),
         simulationRevision: snapshot.simulationRevision + 1,
         paused: false,
         lastTickDebug: null,
         scenarioVersion: snapshot.scenarioVersion + 1,
+        ...sessionFields(),
       }));
+    },
+    resetWithNewSeed: () => {
+      controller.reset(nextScenarioSeed(store.getState().simulation.seed));
+    },
+    refillWater: () => {
+      waterRemainingLitres = waterCapacityLitres;
+      store.setState(sessionFields());
     },
     setSeed: (seed) => {
       controller.reset(seed);
@@ -208,10 +311,13 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
         ? extinguishCell(state, cellId)
         : forceIgniteCell(state, cellId, runner.getTuning());
       if (changed) {
+        finishSessionIfNeeded();
         store.setState((snapshot) => ({
           simulation: state,
           simulationRevision: snapshot.simulationRevision + 1,
           lastTickDebug: null,
+          paused: sessionStatus === SessionStatus.Active ? snapshot.paused : true,
+          ...sessionFields(),
         }));
       }
       return changed;
@@ -224,13 +330,20 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
     },
     sprayCell: (cellId, litres = 1) => {
       const state = runner.getState();
-      const result = applyWater(state, cellId, litres, SuppressionAgent.Water);
+      if (sessionStatus !== SessionStatus.Active) return { contacts: [] };
+      const { result, deliveredLitres } = applyAvailableWater(cellId, litres);
+      if (deliveredLitres > 0) runner.setState(state);
+      finishSessionIfNeeded();
       store.setState((snapshot) => ({
         simulation: state,
         simulationRevision: snapshot.simulationRevision + 1,
         lastTickDebug: null,
+        paused: sessionStatus === SessionStatus.Active ? snapshot.paused : true,
+        ...sessionFields(),
       }));
-      waterApplicationListeners.forEach((listener) => listener(result));
+      if (deliveredLitres > 0) {
+        waterApplicationListeners.forEach((listener) => listener(result));
+      }
       return result;
     },
     copyTuningAsJson: () => serializeFireSimulationTuning(runner.getTuning()),

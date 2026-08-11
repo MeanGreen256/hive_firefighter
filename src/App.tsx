@@ -12,6 +12,9 @@ import { styleStore } from '@styles/styleStore';
 import { isStyleId, STYLES, STYLE_IDS, type Style } from '@styles/styles';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { AudioControls } from '@ui/AudioControls';
+import { DebriefPanel } from '@ui/DebriefPanel';
+import { WaterTankHud } from '@ui/WaterTankHud';
+import '@ui/SessionHud.css';
 import { createHoseController } from './state/hoseController';
 import { simDebugController } from './state/simDebugController';
 import { FireAudioBridge } from './audio/FireAudioBridge';
@@ -30,6 +33,9 @@ interface HudCssVariables extends CSSProperties {
   '--hud-muted': string;
   '--hud-accent': string;
   '--hud-control': string;
+  '--hud-water': string;
+  '--hud-warning': string;
+  '--hud-success': string;
 }
 
 function StyledScene({ visualStyle }: { visualStyle: Style }) {
@@ -85,6 +91,9 @@ export default function App() {
     '--hud-muted': visualStyle.hud.mutedText,
     '--hud-accent': visualStyle.hud.accent,
     '--hud-control': visualStyle.hud.control,
+    '--hud-water': visualStyle.hud.water,
+    '--hud-warning': visualStyle.hud.warning,
+    '--hud-success': visualStyle.hud.success,
   };
 
   useEffect(() => {
@@ -93,7 +102,7 @@ export default function App() {
   }, []);
 
   return (
-    <>
+    <div className="app-shell" style={hudCssVariables}>
       <div className="scene" style={sceneCssVariables}>
         <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]}>
           <IsometricCameraRig initialTarget={buildingBounds.center} onFacingChange={setFacing} />
@@ -117,7 +126,9 @@ export default function App() {
         </Canvas>
       </div>
 
-      <div className="placard" style={hudCssVariables}>
+      <WaterTankHud />
+
+      <div className="placard">
         hive firefighter
         <br />
         <b>M1 · cutaway</b> — {facing.quadrant}
@@ -155,6 +166,7 @@ export default function App() {
         </Suspense>
       ) : null}
       <FireAudioBridge />
-    </>
+      <DebriefPanel />
+    </div>
   );
 }

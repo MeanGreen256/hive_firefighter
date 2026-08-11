@@ -90,6 +90,9 @@ export interface HudTheme {
   readonly mutedText: string;
   readonly accent: string;
   readonly control: string;
+  readonly water: string;
+  readonly warning: string;
+  readonly success: string;
 }
 
 export interface PostProcessingConfig {
@@ -240,6 +243,9 @@ const diorama: Style = {
     mutedText: '#766358',
     accent: '#d84d35',
     control: '#fffaf0',
+    water: '#3f8cab',
+    warning: '#c64732',
+    success: '#52785a',
   },
   postProcessing: { exposure: 1.05, saturation: 0.92, vignette: 0.08 },
 };
@@ -294,6 +300,9 @@ const ink: Style = {
     mutedText: '#b9aa8b',
     accent: '#ff4937',
     control: '#292c32',
+    water: '#72d9f5',
+    warning: '#ff4937',
+    success: '#a8d96f',
   },
   postProcessing: { exposure: 0.96, saturation: 1.28, vignette: 0.22 },
 };
