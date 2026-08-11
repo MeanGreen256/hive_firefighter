@@ -44,6 +44,12 @@ runner receive the same events through `drainEvents()`. Rendering can map the
 concern entering the simulation. Structural collapse is deliberately deferred
 to M2 and can subscribe to this event later.
 
+Only a drain consumes runner output. `setState` replaces simulation state and
+nothing else — it preserves both the tick accumulator and any undrained events
+and debug frames — because it is the per-frame external-input path, and a host
+applying water every frame would otherwise stall the clock or lose burn-through
+events it never saw. `reset` is the one scenario boundary that discards both.
+
 `waterApplication.ts` exposes `applyWater(state, cellId, litres, agent)`. Plain
 water removes 120 abstract heat units per litre at a material response of `1`,
 with 20% of the delivered volume divided between face-adjacent cells as
