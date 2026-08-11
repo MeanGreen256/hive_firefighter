@@ -7,6 +7,8 @@ export const MAX_ACTIVE_PARTICLES = 1900;
 /** Reserved for short-lived water-contact puffs, even during a full-building fire. */
 export const MAX_STEAM_PARTICLES = 96;
 export const MAX_FIRE_PARTICLES = MAX_ACTIVE_PARTICLES - MAX_STEAM_PARTICLES;
+export const STEAM_PARTICLES_PER_CONTACT = 16;
+export const STEAM_LIFETIME_SECONDS = 1.15;
 
 export type ParticleKind = 'flame' | 'smoke' | 'column';
 
@@ -19,6 +21,13 @@ export interface PlannedParticle {
   readonly phase: number;
   readonly smokeTint?: SmokeTint;
 }
+
+export interface SteamParticle extends Omit<PlannedParticle, 'kind'> {
+  readonly kind: 'steam';
+  readonly expiresAt: number;
+}
+
+export type RenderParticle = PlannedParticle | SteamParticle;
 
 export interface ParticlePlan {
   readonly version: string;
@@ -53,6 +62,63 @@ function stableUnit(seed: string): number {
 
 function cellCenter(index: number, dimension: number): number {
   return (index - (dimension - 1) / 2) * CELL_SIZE;
+}
+
+/** Applies the active style's smoke opacity to smoke, column, and steam sprites. */
+export function resolveParticleOpacity(
+  particle: Pick<RenderParticle, 'kind' | 'opacity'>,
+  smokeOpacity: number,
+): number {
+  return particle.kind === 'flame'
+    ? particle.opacity
+    : particle.opacity * clamp(smokeOpacity, 0, 1);
+}
+
+/** Creates one deterministic steam burst using the caller's render-clock time. */
+export function createSteamPuff(
+  cellId: string,
+  grid: CellGrid,
+  nowSeconds: number,
+  ordinal: number,
+): SteamParticle[] {
+  const cell = grid.cells[cellId];
+  if (!cell) return [];
+  const centerX = cellCenter(cell.gridPos.x, grid.dimensions.width);
+  const centerZ = cellCenter(cell.gridPos.z, grid.dimensions.depth);
+  const cellTop = cell.gridPos.y * CELL_HEIGHT + CELL_HEIGHT;
+
+  return Array.from({ length: STEAM_PARTICLES_PER_CONTACT }, (_, index) => {
+    const phase = (((index * 17 + ordinal * 13) % 37) / 37) * 4;
+    const angle = phase * Math.PI * 2;
+    return {
+      id: `${cellId}:steam:${ordinal}:${index}`,
+      kind: 'steam',
+      position: [
+        centerX + Math.cos(angle) * 0.22,
+        cellTop + index * 0.045,
+        centerZ + Math.sin(angle) * 0.22,
+      ],
+      size: 0.45 + (index % 5) * 0.08,
+      opacity: 0.58 - (index % 4) * 0.05,
+      phase,
+      smokeTint: 'pale',
+      expiresAt: nowSeconds + STEAM_LIFETIME_SECONDS,
+    };
+  });
+}
+
+/** Expires old puffs and appends new ones without crossing the steam reserve. */
+export function updateSteamParticles(
+  current: readonly SteamParticle[],
+  pending: readonly SteamParticle[],
+  nowSeconds: number,
+  cap = MAX_STEAM_PARTICLES,
+): SteamParticle[] {
+  const safeCap = Math.max(0, Math.floor(cap));
+  if (safeCap === 0) return [];
+  return [...current.filter((particle) => particle.expiresAt > nowSeconds), ...pending].slice(
+    -safeCap,
+  );
 }
 
 /**

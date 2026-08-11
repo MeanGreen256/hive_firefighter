@@ -5,9 +5,13 @@ import {
   MAX_ACTIVE_PARTICLES,
   MAX_FIRE_PARTICLES,
   MAX_STEAM_PARTICLES,
+  STEAM_LIFETIME_SECONDS,
   allocateParticleBudget,
   createParticlePlan,
+  createSteamPuff,
   getFireIntensity,
+  resolveParticleOpacity,
+  updateSteamParticles,
 } from './particlePlan';
 
 function igniteEveryCell(material: MaterialId = 'wood') {
@@ -86,5 +90,33 @@ describe('particle plan', () => {
       ['smoke', 2],
       ['column', 1],
     ]);
+  });
+
+  it('uses one render-clock origin for steam creation and expiry', () => {
+    const grid = createCellGrid('wood');
+    const createdAt = 42;
+    const puff = createSteamPuff('0,0,0', grid, createdAt, 0);
+
+    expect(puff).toHaveLength(16);
+    expect(
+      puff.every((particle) => particle.expiresAt === createdAt + STEAM_LIFETIME_SECONDS),
+    ).toBe(true);
+    expect(updateSteamParticles(puff, [], createdAt + STEAM_LIFETIME_SECONDS - 0.001)).toHaveLength(
+      puff.length,
+    );
+    expect(updateSteamParticles(puff, [], createdAt + STEAM_LIFETIME_SECONDS)).toHaveLength(0);
+  });
+
+  it('caps merged steam bursts and applies style opacity only to smoke-like particles', () => {
+    const grid = createCellGrid('wood');
+    const first = createSteamPuff('0,0,0', grid, 1, 0);
+    const second = createSteamPuff('0,0,0', grid, 1, 1);
+
+    expect(updateSteamParticles(first, second, 1, 20)).toHaveLength(20);
+    expect(updateSteamParticles(first, second, 1, 0)).toHaveLength(0);
+    expect(resolveParticleOpacity({ kind: 'smoke', opacity: 0.5 }, 0.72)).toBeCloseTo(0.36);
+    expect(resolveParticleOpacity({ kind: 'column', opacity: 0.5 }, 0.72)).toBeCloseTo(0.36);
+    expect(resolveParticleOpacity({ kind: 'steam', opacity: 0.5 }, 0.72)).toBeCloseTo(0.36);
+    expect(resolveParticleOpacity({ kind: 'flame', opacity: 0.5 }, 0.72)).toBe(0.5);
   });
 });

@@ -24,6 +24,8 @@ const MAX_WATER_APPLICATION_SECONDS = 0.1;
 
 export interface SimDebugSnapshot {
   simulation: FireSimulationState;
+  /** Monotonic signal for consumers of the simulation's mutable data graph. */
+  simulationRevision: number;
   tuning: FireSimulationTuning;
   paused: boolean;
   speed: number;
@@ -62,6 +64,7 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
   });
   const store = createStore<SimDebugSnapshot>(() => ({
     simulation: runner.getState(),
+    simulationRevision: 0,
     tuning: runner.getTuning(),
     paused: false,
     speed: 1,
@@ -75,10 +78,11 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
 
   const publishRunnerState = (): void => {
     const debugFrames = runner.drainDebugFrames();
-    store.setState({
+    store.setState((snapshot) => ({
       simulation: runner.getState(),
-      lastTickDebug: debugFrames.at(-1) ?? store.getState().lastTickDebug,
-    });
+      simulationRevision: snapshot.simulationRevision + 1,
+      lastTickDebug: debugFrames.at(-1) ?? snapshot.lastTickDebug,
+    }));
   };
 
   const runMeasured = (run: () => number): number => {
@@ -162,12 +166,13 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
     reset: (seed = store.getState().simulation.seed) => {
       runner.reset(createStarterScenario(seed, runner.getTuning()));
       waterCellId = null;
-      store.setState({
+      store.setState((snapshot) => ({
         simulation: runner.getState(),
+        simulationRevision: snapshot.simulationRevision + 1,
         paused: false,
         lastTickDebug: null,
-        scenarioVersion: store.getState().scenarioVersion + 1,
-      });
+        scenarioVersion: snapshot.scenarioVersion + 1,
+      }));
     },
     setSeed: (seed) => {
       controller.reset(seed);
@@ -192,7 +197,13 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
       const changed = isBurning
         ? extinguishCell(state, cellId)
         : forceIgniteCell(state, cellId, runner.getTuning());
-      if (changed) store.setState({ simulation: state, lastTickDebug: null });
+      if (changed) {
+        store.setState((snapshot) => ({
+          simulation: state,
+          simulationRevision: snapshot.simulationRevision + 1,
+          lastTickDebug: null,
+        }));
+      }
       return changed;
     },
     setWaterApplication: (cellId) => {

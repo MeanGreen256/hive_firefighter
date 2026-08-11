@@ -17,24 +17,17 @@ import { reportParticleCount } from '../perf/metrics';
 import {
   MAX_ACTIVE_PARTICLES,
   MAX_STEAM_PARTICLES,
+  createSteamPuff,
   createParticlePlan,
   particlePlanVersion,
-  type PlannedParticle,
+  resolveParticleOpacity,
+  updateSteamParticles,
+  type RenderParticle,
+  type SteamParticle,
 } from './particlePlan';
-import { CELL_HEIGHT, CELL_SIZE } from './buildingLayout';
 
 const ATLAS_FRAME_COUNT = 4;
 const ATLAS_FRAME_SIZE = 32;
-const STEAM_PARTICLES_PER_CONTACT = 16;
-const STEAM_LIFETIME_SECONDS = 1.15;
-
-type RenderParticle =
-  PlannedParticle | (Omit<PlannedParticle, 'kind'> & { readonly kind: 'steam' });
-
-type SteamParticle = Omit<PlannedParticle, 'kind'> & {
-  readonly kind: 'steam';
-  readonly expiresAt: number;
-};
 
 interface ParticleLayerProps {
   readonly particles: readonly RenderParticle[];
@@ -130,7 +123,7 @@ function createGeometry(particles: readonly RenderParticle[], style: Style): Buf
   particles.forEach((particle, index) => {
     positions.set(particle.position, index * 3);
     sizes[index] = particle.size;
-    opacities[index] = particle.opacity;
+    opacities[index] = resolveParticleOpacity(particle, style.particles.smoke.opacity);
     phases[index] = particle.phase;
     colorForParticle(particle, style).toArray(colors, index * 3);
   });
@@ -192,55 +185,30 @@ function isHot(state: CellState): boolean {
   return state === CellState.Burning || state === CellState.Flashover;
 }
 
-function createSteamPuff(
-  cellId: string,
-  grid: CellGrid,
-  now: number,
-  ordinal: number,
-): SteamParticle[] {
-  const cell = grid.cells[cellId];
-  if (!cell) return [];
-  const centerX = (cell.gridPos.x - (grid.dimensions.width - 1) / 2) * CELL_SIZE;
-  const centerZ = (cell.gridPos.z - (grid.dimensions.depth - 1) / 2) * CELL_SIZE;
-  const cellTop = cell.gridPos.y * CELL_HEIGHT + CELL_HEIGHT;
-
-  return Array.from({ length: STEAM_PARTICLES_PER_CONTACT }, (_, index) => {
-    const phase = (((index * 17 + ordinal * 13) % 37) / 37) * 4;
-    const angle = phase * Math.PI * 2;
-    return {
-      id: `${cellId}:steam:${ordinal}:${index}`,
-      kind: 'steam',
-      position: [
-        centerX + Math.cos(angle) * 0.22,
-        cellTop + index * 0.045,
-        centerZ + Math.sin(angle) * 0.22,
-      ],
-      size: 0.45 + (index % 5) * 0.08,
-      opacity: 0.58 - (index % 4) * 0.05,
-      phase,
-      smokeTint: 'pale',
-      expiresAt: now + STEAM_LIFETIME_SECONDS,
-    };
-  });
-}
-
 /**
  * Three GPU point-sprite clouds: camera-facing billboards that sample a shared
  * flipbook atlas. The CPU only rebuilds attributes after a sim input; animation
  * and billboard orientation stay on the GPU, avoiding per-ember meshes.
  */
-export function FireParticles({ grid, visualStyle }: { grid: CellGrid; visualStyle: Style }) {
-  const version = particlePlanVersion(grid);
+export function FireParticles({
+  grid,
+  simulationRevision,
+  visualStyle,
+}: {
+  grid: CellGrid;
+  simulationRevision: number;
+  visualStyle: Style;
+}) {
+  const version = `${simulationRevision}:${particlePlanVersion(grid)}`;
   const plan = useMemo(() => createParticlePlan(grid, undefined, version), [grid, version]);
   const snapshots = useRef(new Map<string, { state: CellState; heat: number }>());
-  const pendingSteam = useRef<SteamParticle[]>([]);
+  const pendingSteamContacts = useRef<{ readonly cellId: string; readonly ordinal: number }[]>([]);
   const steamOrdinal = useRef(0);
   const [steam, setSteam] = useState<readonly SteamParticle[]>([]);
 
   useEffect(() => {
-    const now = performance.now() / 1000;
     const nextSnapshots = new Map<string, { state: CellState; heat: number }>();
-    const newSteam: SteamParticle[] = [];
+    const newSteamContacts: { readonly cellId: string; readonly ordinal: number }[] = [];
 
     for (const cell of Object.values(grid.cells)) {
       const previous = snapshots.current.get(cell.id);
@@ -249,24 +217,27 @@ export function FireParticles({ grid, visualStyle }: { grid: CellGrid; visualSty
         isHot(previous.state) &&
         (cell.state === CellState.Wetted || cell.heat < previous.heat - 15);
       if (waterCooledHotCell) {
-        newSteam.push(...createSteamPuff(cell.id, grid, now, steamOrdinal.current));
+        newSteamContacts.push({ cellId: cell.id, ordinal: steamOrdinal.current });
         steamOrdinal.current += 1;
       }
       nextSnapshots.set(cell.id, { state: cell.state, heat: cell.heat });
     }
 
     snapshots.current = nextSnapshots;
-    if (newSteam.length > 0) {
-      pendingSteam.current = [...pendingSteam.current, ...newSteam].slice(-MAX_STEAM_PARTICLES);
+    if (newSteamContacts.length > 0) {
+      pendingSteamContacts.current = [...pendingSteamContacts.current, ...newSteamContacts].slice(
+        -MAX_STEAM_PARTICLES,
+      );
     }
   }, [grid, version]);
 
   useFrame((state) => {
     const now = state.clock.elapsedTime;
-    const pending = pendingSteam.current;
-    pendingSteam.current = [];
-    const active = steam.filter((particle) => particle.expiresAt > now);
-    const nextSteam = [...active, ...pending].slice(-MAX_STEAM_PARTICLES);
+    const pending = pendingSteamContacts.current.flatMap(({ cellId, ordinal }) =>
+      createSteamPuff(cellId, grid, now, ordinal),
+    );
+    pendingSteamContacts.current = [];
+    const nextSteam = updateSteamParticles(steam, pending, now);
     if (nextSteam.length !== steam.length || pending.length > 0) {
       setSteam(nextSteam);
     }

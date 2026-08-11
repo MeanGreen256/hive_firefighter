@@ -46,6 +46,19 @@ function StyledScene({ visualStyle }: { visualStyle: Style }) {
   );
 }
 
+/** Isolates mutable 10 Hz simulation updates from the App and Canvas shell. */
+function LiveFireParticles({ visualStyle }: { visualStyle: Style }) {
+  const simulationRevision = useStore(
+    simDebugController.store,
+    (snapshot) => snapshot.simulationRevision,
+  );
+  const grid = simDebugController.store.getState().simulation.grid;
+
+  return (
+    <FireParticles grid={grid} simulationRevision={simulationRevision} visualStyle={visualStyle} />
+  );
+}
+
 export default function App() {
   const scenarioVersion = useStore(
     simDebugController.store,
@@ -97,7 +110,7 @@ export default function App() {
             simulationController={simDebugController}
             building={buildingRef}
           />
-          <FireParticles grid={grid} visualStyle={visualStyle} />
+          <LiveFireParticles visualStyle={visualStyle} />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
       </div>
