@@ -43,7 +43,8 @@ Each scenario declares:
 - one or more combustible `ignitionOrigins`, a deterministic `seed`, and
   `wind`;
 - civilian, hazard, and hydrant placements for M2 systems. Hydrants feed the
-  live hose supply and civilians seed the exposure/evacuation simulation;
+  live hose supply, civilians seed exposure and search state, and propane
+  placements seed heat-responsive, coolable countdown hazards;
 - `waterTankCapacityLitres` and `parTimeSeconds`.
 
 Appearance remains style data. Scenario content names a semantic material or

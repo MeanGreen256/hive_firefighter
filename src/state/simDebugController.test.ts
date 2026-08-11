@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
 import { CivilianState } from '@sim/civilians';
+import { IncidentEventType, PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { SessionStatus } from './sessionStats';
 import { createSimDebugController, STARTER_HOSE_TARGET_CELL_ID } from './simDebugController';
 
@@ -239,10 +240,15 @@ describe('sim debug controller', () => {
     expect(selected.civilians.civilians['civilian-a']).toMatchObject({
       position: { x: 1, y: 2, z: 1 },
       state: CivilianState.Conscious,
+      located: false,
     });
     expect(selected.hoseLine.hydrants).toEqual([
       { id: 'street-hydrant', position: { x: -1, y: 0, z: 1 } },
     ]);
+    expect(selected.hazards.hazards['propane-a']).toMatchObject({
+      position: { x: 3, y: 1, z: 1 },
+      state: PropaneHazardState.Stable,
+    });
   });
 
   it('refills from a connected hydrant and blocks targets beyond the tether', () => {
@@ -332,5 +338,64 @@ describe('sim debug controller', () => {
       state: CivilianState.Rescued,
       carried: false,
     });
+  });
+
+  it('requires thermal search for a civilian hidden in a smoke-blocked cell', () => {
+    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
+    const state = controller.store.getState();
+    const occupied = state.simulation.grid.cells['1,2,1']!;
+    occupied.state = CellState.Burning;
+    occupied.heat = 450;
+
+    expect(controller.scanNearestCivilian()).toBeNull();
+    controller.toggleThermalView();
+    expect(controller.scanNearestCivilian()).toBe('civilian-a');
+    controller.toggleThermalView();
+
+    expect(controller.store.getState()).toMatchObject({ thermalView: false });
+    expect(controller.store.getState().civilians.civilians['civilian-a']?.located).toBe(true);
+    expect(controller.getCivilianSearchCue()).toBeNull();
+  });
+
+  it('cools a propane countdown through normal hose delivery and publishes its reset event', () => {
+    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
+    const hazard = controller.store.getState().hazards.hazards['propane-a']!;
+    controller.store.getState().simulation.grid.cells['3,1,1']!.heat = 600;
+    hazard.state = PropaneHazardState.Countdown;
+    hazard.heat = PROPANE_COUNTDOWN_HEAT + 20;
+    hazard.countdownRemainingSeconds = 2;
+    const events: string[] = [];
+    controller.subscribeEvents((batch) => events.push(...batch.map((event) => event.type)));
+
+    controller.sprayCell('3,1,1', 1);
+
+    expect(hazard).toMatchObject({
+      state: PropaneHazardState.Stable,
+      countdownRemainingSeconds: 8,
+    });
+    expect(events).toContain(IncidentEventType.PropaneCountdownReset);
+  });
+
+  it('publishes one propane failure event when an expired countdown blasts', () => {
+    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
+    const hazard = controller.store.getState().hazards.hazards['propane-a']!;
+    controller.store.getState().simulation.grid.cells['3,1,1']!.heat = 600;
+    hazard.state = PropaneHazardState.Countdown;
+    hazard.heat = PROPANE_COUNTDOWN_HEAT;
+    hazard.countdownRemainingSeconds = 0.1;
+    const failures: string[] = [];
+    controller.subscribeEvents((events) => {
+      failures.push(
+        ...events
+          .filter((event) => event.type === IncidentEventType.PropaneFailed)
+          .map((event) => event.hazardId),
+      );
+    });
+
+    controller.advance(0.1);
+    controller.advance(0.5);
+
+    expect(failures).toEqual(['propane-a']);
+    expect(hazard.state).toBe(PropaneHazardState.Failed);
   });
 });

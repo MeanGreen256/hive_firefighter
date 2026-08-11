@@ -18,6 +18,7 @@ export interface Civilian {
   exposure: number;
   evacuationProgressSeconds: number;
   carried: boolean;
+  located: boolean;
 }
 
 export interface CivilianSimulationState {
@@ -71,6 +72,7 @@ export function createCivilianSimulation(
       exposure: 0,
       evacuationProgressSeconds: 0,
       carried: false,
+      located: false,
     };
   }
   return { civilians, carriedCivilianId: null, carrierPosition: null };

@@ -17,6 +17,8 @@ they do not import a preferred palette directly.
 - Cell state visuals (#13)
 - Flame, smoke, and the smoke column (#14)
 - Hydrant and connected supply-line visualization (#68)
+- Persistent civilian search marks and thermal signatures (#70)
+- Propane state and countdown visualization (#71)
 
 ## Camera-facing contract
 
@@ -53,6 +55,13 @@ colours and transition timing stay in the active style.
 sage slab, rounded pastel trees, and a one-frame contact-shadow bake that gives
 the procedural pieces soft AO-like grounding without a continuous full-screen
 post-process.
+
+`IncidentEntities` draws intentionally lightweight semantic markers for
+civilians and propane hazards. Unlocated civilians are absent from normal view,
+appear as warm signatures in thermal mode, and remain marked after discovery.
+Propane markers reflect stable, warning, and failed states. All marker colours
+come from the active style; later art passes can replace geometry without
+changing the simulation contract.
 
 ## Budget
 
