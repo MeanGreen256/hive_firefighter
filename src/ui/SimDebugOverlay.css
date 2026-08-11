@@ -88,6 +88,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.sim-debug-spray {
+  width: calc(100% - 24px);
+  margin: 0 12px 9px;
+  color: var(--ember);
+}
+
 .sim-debug-transport {
   display: grid;
   grid-template-columns: repeat(3, auto) 1fr;

@@ -309,6 +309,16 @@ function SimDebugPanel() {
         </button>
       </section>
 
+      <button
+        className="sim-debug-spray"
+        type="button"
+        disabled={!inspectedCellId}
+        onClick={() => {
+          if (inspectedCellId) simDebugController.sprayCell(inspectedCellId);
+        }}
+      >
+        SPRAY SELECTED · 1 L
+      </button>
       <p className="sim-debug-instruction">CLICK CELL · TOGGLE FORCE IGNITE / EXTINGUISH</p>
       <CellLayers onInspect={setInspectedCellId} />
       <CellReadout cell={inspectedCell} debug={inspectedDebug} />

@@ -10,10 +10,11 @@ import {
   igniteCell,
   serializeFireSimulationTuning,
   type FireSimulationState,
+  type FireSimulationEvent,
   type FireSimulationTuning,
   type FireTickDebug,
 } from '@sim/fireSimulation';
-import { SuppressionAgent, applyWater } from '@sim/waterApplication';
+import { applyWater, SuppressionAgent, type WaterApplicationResult } from '@sim/waterApplication';
 import { reportSimTick } from '../perf/metrics';
 
 export const SIMULATION_SPEEDS = [0.25, 0.5, 1, 2, 4, 8] as const;
@@ -47,7 +48,11 @@ export interface SimDebugController {
   setTuningValue(key: keyof FireSimulationTuning, value: number): void;
   toggleCell(cellId: string): boolean;
   setWaterApplication(cellId: string | null): void;
+  sprayCell(cellId: string, litres?: number): WaterApplicationResult;
   copyTuningAsJson(): string;
+  /** Subscribe to runner events without giving UI or effects direct runner ownership. */
+  subscribeEvents(listener: (events: readonly FireSimulationEvent[]) => void): () => void;
+  subscribeWaterApplications(listener: (result: WaterApplicationResult) => void): () => void;
 }
 
 function createStarterScenario(seed: number, tuning: FireSimulationTuning): FireSimulationState {
@@ -75,14 +80,18 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
   let animationFrameId: number | null = null;
   let previousFrameTime: number | null = null;
   let waterCellId: string | null = null;
+  const eventListeners = new Set<(events: readonly FireSimulationEvent[]) => void>();
+  const waterApplicationListeners = new Set<(result: WaterApplicationResult) => void>();
 
   const publishRunnerState = (): void => {
     const debugFrames = runner.drainDebugFrames();
+    const events = runner.drainEvents();
     store.setState((snapshot) => ({
       simulation: runner.getState(),
       simulationRevision: snapshot.simulationRevision + 1,
       lastTickDebug: debugFrames.at(-1) ?? snapshot.lastTickDebug,
     }));
+    if (events.length > 0) eventListeners.forEach((listener) => listener(events));
   };
 
   const runMeasured = (run: () => number): number => {
@@ -139,13 +148,14 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
             // ticks per real second without delivering more water to offset them.
             // Unscaled, spraying at 8x nets ~0 wetness gain — the hose goes dead
             // exactly when a developer fast-forwards to test it.
-            applyWater(
+            const result = applyWater(
               runner.getState(),
               waterCellId,
               interval * HOSE_LITRES_PER_SECOND * snapshot.speed,
               SuppressionAgent.Water,
             );
             runner.setState(runner.getState());
+            waterApplicationListeners.forEach((listener) => listener(result));
           }
           ticks += runner.advance(interval * snapshot.speed);
           remainingSeconds -= interval;
@@ -212,7 +222,26 @@ export function createSimDebugController(initialSeed = 2026): SimDebugController
       }
       waterCellId = cellId;
     },
+    sprayCell: (cellId, litres = 1) => {
+      const state = runner.getState();
+      const result = applyWater(state, cellId, litres, SuppressionAgent.Water);
+      store.setState((snapshot) => ({
+        simulation: state,
+        simulationRevision: snapshot.simulationRevision + 1,
+        lastTickDebug: null,
+      }));
+      waterApplicationListeners.forEach((listener) => listener(result));
+      return result;
+    },
     copyTuningAsJson: () => serializeFireSimulationTuning(runner.getTuning()),
+    subscribeEvents: (listener) => {
+      eventListeners.add(listener);
+      return () => eventListeners.delete(listener);
+    },
+    subscribeWaterApplications: (listener) => {
+      waterApplicationListeners.add(listener);
+      return () => waterApplicationListeners.delete(listener);
+    },
   };
 
   return controller;
