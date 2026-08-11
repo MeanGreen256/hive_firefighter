@@ -1,4 +1,4 @@
-import type { MaterialId } from './materials';
+import { materials, type MaterialId } from './materials';
 
 /** The cell states the fire simulation can persist and exchange with consumers. */
 export const CellState = Object.freeze({
@@ -125,14 +125,31 @@ function resolveNeighbors(gridPos: GridPosition, dimensions: GridDimensions): Ce
   return neighbors;
 }
 
+function validateDimensions(dimensions: GridDimensions): void {
+  for (const field of ['width', 'height', 'depth'] as const) {
+    const value = dimensions[field];
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new RangeError(
+        `Grid dimensions.${field} must be a positive integer, got ${String(value)}`,
+      );
+    }
+  }
+}
+
+export type MaterialAt = MaterialId | ((position: GridPosition) => MaterialId);
+
 /**
- * Builds the 3 × 3 × 2 M1 building using one starting material.
+ * Builds a cell grid using either one material or a position-based material resolver.
  *
  * The returned value contains only plain objects, arrays, strings, and
  * numbers, so `JSON.parse(JSON.stringify(grid))` restores the same data.
  */
-export function createCellGrid(material: MaterialId = 'wood'): CellGrid {
-  const dimensions: GridDimensions = { ...STARTER_GRID_DIMENSIONS };
+export function createCellGrid(
+  requestedDimensions: Readonly<GridDimensions> = STARTER_GRID_DIMENSIONS,
+  materialAt: MaterialAt = 'wood',
+): CellGrid {
+  validateDimensions(requestedDimensions);
+  const dimensions: GridDimensions = { ...requestedDimensions };
   const cells: Record<string, Cell> = {};
 
   for (let y = 0; y < dimensions.height; y += 1) {
@@ -140,12 +157,19 @@ export function createCellGrid(material: MaterialId = 'wood'): CellGrid {
       for (let x = 0; x < dimensions.width; x += 1) {
         const gridPos: GridPosition = { x, y, z };
         const id = cellIdAt(gridPos);
+        const material = typeof materialAt === 'function' ? materialAt(gridPos) : materialAt;
+        const materialDefinition = materials[material];
+        if (!Object.hasOwn(materials, material) || !materialDefinition) {
+          throw new Error(
+            `Material resolver returned unknown material "${String(material)}" at ${id}`,
+          );
+        }
 
         cells[id] = {
           id,
           gridPos,
           material,
-          fuel: 1,
+          fuel: materialDefinition.ignitionPoint === null ? 0 : 1,
           heat: 0,
           state: CellState.Clear,
           wetness: 0,

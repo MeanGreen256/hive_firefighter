@@ -11,7 +11,7 @@ export type SuppressionAgent = (typeof SuppressionAgent)[keyof typeof Suppressio
 /** State surface water application needs; FireSimulationState satisfies it structurally. */
 export interface WaterApplicationState {
   grid: CellGrid;
-  activeCellIds: string[];
+  activeCellIds: Set<string>;
 }
 
 /** One affected cell, captured at the application boundary for host effects such as audio or VFX. */
@@ -46,7 +46,7 @@ export const EXTINGUISH_HEAT_MULTIPLIER = 0.75;
 const WETNESS_EPSILON = 1e-9;
 
 function addToActiveFrontier(state: WaterApplicationState, cellId: string): void {
-  if (!state.activeCellIds.includes(cellId)) state.activeCellIds.push(cellId);
+  state.activeCellIds.add(cellId);
 }
 
 function isBurning(cell: Cell): boolean {

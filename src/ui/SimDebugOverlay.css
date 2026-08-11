@@ -125,6 +125,24 @@
   letter-spacing: 0.08em;
 }
 
+.sim-debug-scenario {
+  padding: 0 12px 8px;
+}
+
+.sim-debug-scenario label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 7px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.sim-debug-scenario select {
+  width: 100%;
+  padding: 0 6px;
+}
+
 .sim-debug-seed input {
   width: 100%;
   padding: 0 8px;

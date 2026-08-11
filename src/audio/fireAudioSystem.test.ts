@@ -53,7 +53,7 @@ describe('fire audio autoplay guard', () => {
       contextCreations += 1;
       throw new Error('test context should not be created yet');
     });
-    const state = createFireSimulation(createCellGrid('wood'));
+    const state = createFireSimulation(createCellGrid());
 
     audio.syncFire(state);
     audio.handleSimulationEvents([]);
@@ -80,7 +80,7 @@ describe('fire audio autoplay guard', () => {
 
   it('caches a pre-enable fire mix and applies it when the explicit gate succeeds', async () => {
     const targetGains: number[] = [];
-    const state = createFireSimulation(createCellGrid('wood'));
+    const state = createFireSimulation(createCellGrid());
     igniteCell(state, '0,0,0');
     igniteCell(state, '1,0,0');
     igniteCell(state, '0,0,1');

@@ -15,7 +15,7 @@ import {
 
 describe('fire audio mix', () => {
   it('grows the layered crackle and low roar as more cells burn', () => {
-    const state = createFireSimulation(createCellGrid('wood'));
+    const state = createFireSimulation(createCellGrid());
     igniteCell(state, '0,0,0');
     const smallFire = getFireAudioMix(calculateFireIntensity(state));
 
@@ -29,7 +29,7 @@ describe('fire audio mix', () => {
   });
 
   it('uses a silent mix for no active flame and advances the high crackle layer later', () => {
-    const state = createFireSimulation(createCellGrid('wood'));
+    const state = createFireSimulation(createCellGrid());
     expect(calculateFireIntensity(state)).toBe(0);
     expect(getFireAudioMix(0).roarGain).toBe(0);
     expect(getFireAudioMix(0).crackleGains[0]).toBe(0);
@@ -81,7 +81,7 @@ describe('fire audio mix', () => {
   });
 
   it('does not score non-burning cells as fire intensity', () => {
-    const state = createFireSimulation(createCellGrid('wood'));
+    const state = createFireSimulation(createCellGrid());
     const cell = state.grid.cells['0,0,0']!;
     cell.state = CellState.Wetted;
     cell.heat = 900;

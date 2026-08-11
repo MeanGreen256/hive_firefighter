@@ -20,6 +20,7 @@ import { getCameraFacing, type CameraFacing } from '@render/isometricCamera';
 import { PerformanceSampler } from '@render/PerformanceSampler';
 import { styleStore } from '@styles/styleStore';
 import { isStyleId, STYLES, STYLE_IDS, type Style } from '@styles/styles';
+import { getScenario } from '@sim/scenarios';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { AudioControls } from '@ui/AudioControls';
 import { DebriefPanel } from '@ui/DebriefPanel';
@@ -84,6 +85,8 @@ export default function App() {
     simDebugController.store,
     (snapshot) => snapshot.scenarioVersion,
   );
+  const scenarioId = useStore(simDebugController.store, (snapshot) => snapshot.scenarioId);
+  const scenario = getScenario(scenarioId);
   const grid = simDebugController.store.getState().simulation.grid;
   const hoseController = useMemo(() => createHoseController(simDebugController), []);
   const buildingRef = useRef<CutawayBuildingHandle>(null);
@@ -118,7 +121,11 @@ export default function App() {
     <div className="app-shell" style={hudCssVariables}>
       <div className="scene" style={sceneCssVariables}>
         <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]}>
-          <IsometricCameraRig initialTarget={buildingBounds.center} onFacingChange={setFacing} />
+          <IsometricCameraRig
+            key={scenarioVersion}
+            initialTarget={buildingBounds.center}
+            onFacingChange={setFacing}
+          />
           <StyledScene visualStyle={visualStyle} />
           <ModelStage bounds={buildingBounds} visualStyle={visualStyle} />
           <CutawayBuilding
@@ -146,7 +153,7 @@ export default function App() {
       <div className="placard">
         hive firefighter
         <br />
-        <b>M1 · cutaway</b> — {facing.quadrant}
+        <b>M2 · {scenario.name}</b> — {facing.quadrant}
         <br />
         {grid.dimensions.width} × {grid.dimensions.height} × {grid.dimensions.depth} cells
         <br />

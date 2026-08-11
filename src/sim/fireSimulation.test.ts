@@ -8,21 +8,39 @@ import {
   createFireSimulation,
   createFireSimulationTuning,
   createFixedTimestepRunner,
+  deserializeFireSimulationState,
   extinguishCell,
   forceIgniteCell,
   igniteCell,
   serializeFireSimulationTuning,
+  serializeFireSimulationState,
   stepFireSimulation,
 } from './fireSimulation';
 import { SuppressionAgent, applyWater } from './waterApplication';
 
-function copyState<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+function copyState(value: ReturnType<typeof createFireSimulation>) {
+  const serialized = serializeFireSimulationState(value);
+  return deserializeFireSimulationState(
+    JSON.parse(JSON.stringify(serialized)) as typeof serialized,
+  );
 }
 
 describe('fire propagation', () => {
+  it('serializes the runtime active-cell set as a JSON-safe array and restores it', () => {
+    const state = createFireSimulation(createCellGrid(), { seed: 7 });
+    igniteCell(state, '0,0,0');
+
+    const serialized = serializeFireSimulationState(state);
+    const json = JSON.parse(JSON.stringify(serialized)) as typeof serialized;
+    const restored = deserializeFireSimulationState(json);
+
+    expect(serialized.activeCellIds).toEqual(['0,0,0']);
+    expect(restored.activeCellIds).toEqual(new Set(['0,0,0']));
+    expect(restored.grid).toEqual(state.grid);
+  });
+
   it('burns a fully fueled isolated wood cell out in the expected window', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const isolated = grid.cells['0,0,0'];
     if (!isolated) throw new Error('Missing test cell');
     isolated.neighbors = [];
@@ -56,17 +74,17 @@ describe('fire propagation', () => {
   });
 
   it('burns an unattended building to completion and reports no property saved', () => {
-    const state = createFireSimulation(createCellGrid('wood'), { seed: 2026 });
+    const state = createFireSimulation(createCellGrid(), { seed: 2026 });
     igniteCell(state, '0,0,0');
     const burnedThroughCellIds = new Set<string>();
 
-    while (state.activeCellIds.length > 0 && state.tick < 5_000) {
+    while (state.activeCellIds.size > 0 && state.tick < 5_000) {
       for (const event of stepFireSimulation(state).events) {
         burnedThroughCellIds.add(event.cellId);
       }
     }
 
-    expect(state.activeCellIds).toEqual([]);
+    expect(state.activeCellIds).toEqual(new Set());
     expect(burnedThroughCellIds.size).toBe(18);
     expect(Object.values(state.grid.cells).every((cell) => cell.state === CellState.Burnt)).toBe(
       true,
@@ -76,13 +94,13 @@ describe('fire propagation', () => {
   });
 
   it('reports high property saved when the first fire is extinguished early', () => {
-    const state = createFireSimulation(createCellGrid('wood'), { seed: 2026 });
+    const state = createFireSimulation(createCellGrid(), { seed: 2026 });
     igniteCell(state, '0,0,0');
     applyWater(state, '0,0,0', 2, SuppressionAgent.Water);
 
-    while (state.activeCellIds.length > 0 && state.tick < 1_000) stepFireSimulation(state);
+    while (state.activeCellIds.size > 0 && state.tick < 1_000) stepFireSimulation(state);
 
-    expect(state.activeCellIds).toEqual([]);
+    expect(state.activeCellIds).toEqual(new Set());
     expect(Object.values(state.grid.cells).some((cell) => cell.state === CellState.Burnt)).toBe(
       false,
     );
@@ -90,7 +108,7 @@ describe('fire propagation', () => {
   });
 
   it('never ignites concrete regardless of neighboring heat', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const source = grid.cells['0,0,0'];
     const concrete = grid.cells['1,0,0'];
     if (!source || !concrete) throw new Error('Missing test cells');
@@ -102,11 +120,12 @@ describe('fire propagation', () => {
 
     expect(concrete.heat).toBeGreaterThan(0);
     expect(concrete.state).toBe(CellState.Heating);
+    // This fixture changes the material after grid construction, so its original fuel remains.
     expect(concrete.fuel).toBe(1);
   });
 
   it('spreads from one corner through the starter building in 60–120 seconds', () => {
-    const state = createFireSimulation(createCellGrid('wood'), { seed: 2026 });
+    const state = createFireSimulation(createCellGrid(), { seed: 2026 });
     igniteCell(state, '0,0,0');
     const cellsThatIgnited = new Set(['0,0,0']);
 
@@ -130,7 +149,7 @@ describe('fire propagation', () => {
   });
 
   it('is deterministic for the same seed and diverges for a different seed', () => {
-    const initial = createFireSimulation(createCellGrid('wood'), { seed: 44 });
+    const initial = createFireSimulation(createCellGrid(), { seed: 44 });
     igniteCell(initial, '0,0,0');
     const sameSeed = copyState(initial);
     const differentSeed = copyState(initial);
@@ -147,8 +166,8 @@ describe('fire propagation', () => {
   });
 
   it('uses the upward and wind multipliers when accumulating neighbor heat', () => {
-    const still = createFireSimulation(createCellGrid('wood'), { seed: 3 });
-    const windy = createFireSimulation(createCellGrid('wood'), {
+    const still = createFireSimulation(createCellGrid(), { seed: 3 });
+    const windy = createFireSimulation(createCellGrid(), {
       seed: 3,
       wind: { direction: { x: 1, y: 0, z: 0 }, strength: 0.5 },
     });
@@ -167,14 +186,14 @@ describe('fire propagation', () => {
   });
 
   it('ticks only the active frontier and its adjacent cells', () => {
-    const state = createFireSimulation(createCellGrid('wood'));
+    const state = createFireSimulation(createCellGrid());
     igniteCell(state, '0,0,0');
 
     expect(stepFireSimulation(state).processedCellCount).toBe(4);
   });
 
   it('captures the heat delta and its source only when debug data is requested', () => {
-    const plain = createFireSimulation(createCellGrid('wood'), { seed: 6 });
+    const plain = createFireSimulation(createCellGrid(), { seed: 6 });
     const instrumented = copyState(plain);
     igniteCell(plain, '0,0,0');
     igniteCell(instrumented, '0,0,0');
@@ -197,7 +216,7 @@ describe('fire propagation', () => {
   });
 
   it('reports burn-through heat clearing separately from cooling', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const cell = grid.cells['0,0,0']!;
     cell.neighbors = [];
     cell.state = CellState.Burning;
@@ -215,7 +234,7 @@ describe('fire propagation', () => {
   });
 
   it('reports the recovery-threshold snap separately from calculated cooling', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const cell = grid.cells['0,0,0']!;
     cell.neighbors = [];
     cell.state = CellState.Heating;
@@ -232,7 +251,7 @@ describe('fire propagation', () => {
   });
 
   it('applies validated live tuning without changing the committed defaults', () => {
-    const defaultState = createFireSimulation(createCellGrid('wood'), { seed: 17 });
+    const defaultState = createFireSimulation(createCellGrid(), { seed: 17 });
     const noSpreadState = copyState(defaultState);
     igniteCell(defaultState, '0,0,0');
     igniteCell(noSpreadState, '0,0,0');
@@ -251,11 +270,11 @@ describe('fire propagation', () => {
   });
 
   it('supports deterministic force-ignite and force-extinguish debug inputs', () => {
-    const state = createFireSimulation(createCellGrid('wood'));
+    const state = createFireSimulation(createCellGrid());
     const cell = state.grid.cells['0,0,0']!;
     cell.state = CellState.Wetted;
     cell.wetness = 1;
-    state.activeCellIds = [cell.id];
+    state.activeCellIds = new Set([cell.id]);
 
     expect(forceIgniteCell(state, cell.id)).toBe(true);
     expect(cell).toMatchObject({ state: CellState.Burning, wetness: 0, heat: 300 });
@@ -266,8 +285,8 @@ describe('fire propagation', () => {
   });
 
   it('uses live burnout tuning for regular and forced ignition', () => {
-    const regularState = createFireSimulation(createCellGrid('wood'));
-    const forcedState = createFireSimulation(createCellGrid('wood'));
+    const regularState = createFireSimulation(createCellGrid());
+    const forcedState = createFireSimulation(createCellGrid());
     const tuning = createFireSimulationTuning({ burnoutFuelThreshold: 0.1 });
     regularState.grid.cells['0,0,0']!.fuel = 0.05;
     forcedState.grid.cells['0,0,0']!.fuel = 0.05;
@@ -279,7 +298,7 @@ describe('fire propagation', () => {
   });
 
   it('advances at 10 Hz independently of elapsed-time chunking', () => {
-    const initial = createFireSimulation(createCellGrid('wood'), { seed: 81 });
+    const initial = createFireSimulation(createCellGrid(), { seed: 81 });
     igniteCell(initial, '0,0,0');
     const chunked = createFixedTimestepRunner(copyState(initial));
     const single = createFixedTimestepRunner(copyState(initial));
@@ -293,9 +312,7 @@ describe('fire propagation', () => {
   });
 
   it('preserves accumulated tick time when external inputs replace state', () => {
-    const runner = createFixedTimestepRunner(
-      createFireSimulation(createCellGrid('wood'), { seed: 82 }),
-    );
+    const runner = createFixedTimestepRunner(createFireSimulation(createCellGrid(), { seed: 82 }));
 
     for (let frame = 0; frame < 600; frame += 1) {
       runner.advance(1 / 60);
@@ -306,19 +323,17 @@ describe('fire propagation', () => {
   });
 
   it('starts a reset scenario with an empty tick accumulator', () => {
-    const runner = createFixedTimestepRunner(
-      createFireSimulation(createCellGrid('wood'), { seed: 83 }),
-    );
+    const runner = createFixedTimestepRunner(createFireSimulation(createCellGrid(), { seed: 83 }));
     runner.advance(FIRE_TICK_SECONDS * 0.9);
 
-    runner.reset(createFireSimulation(createCellGrid('wood'), { seed: 84 }));
+    runner.reset(createFireSimulation(createCellGrid(), { seed: 84 }));
 
     expect(runner.advance(FIRE_TICK_SECONDS * 0.2)).toBe(0);
     expect(runner.getState().tick).toBe(0);
   });
 
   it('lets a fixed runner step once and replace tuning while collecting debug frames', () => {
-    const state = createFireSimulation(createCellGrid('wood'), { seed: 28 });
+    const state = createFireSimulation(createCellGrid(), { seed: 28 });
     igniteCell(state, '0,0,0');
     const runner = createFixedTimestepRunner(state, { captureDebug: true });
     const tuning = createFireSimulationTuning({ neighborHeatShare: 0 });
@@ -332,7 +347,7 @@ describe('fire propagation', () => {
   });
 
   it('preserves queued runner output across external state replacement', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const cell = grid.cells['0,0,0']!;
     cell.neighbors = [];
     cell.state = CellState.Burning;
@@ -360,7 +375,7 @@ describe('fire propagation', () => {
   });
 
   it('discards output from the previous scenario on reset', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const cell = grid.cells['0,0,0']!;
     cell.neighbors = [];
     cell.state = CellState.Burning;
@@ -373,7 +388,7 @@ describe('fire propagation', () => {
     });
     runner.step();
 
-    runner.reset(createFireSimulation(createCellGrid('wood'), { seed: 6 }));
+    runner.reset(createFireSimulation(createCellGrid(), { seed: 6 }));
 
     expect(runner.drainEvents()).toEqual([]);
     expect(runner.drainDebugFrames()).toEqual([]);
@@ -385,7 +400,7 @@ describe('fire propagation', () => {
     // ignition. Non-combustible cells get their own, much faster recovery
     // path once nothing is feeding them heat — see the "returns a
     // non-combustible to Clear within 60s" test below for that one.
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const cell = grid.cells['0,0,0']!;
     cell.neighbors = [];
     const isolatedGrid: CellGrid = {
@@ -416,7 +431,7 @@ describe('fire propagation', () => {
   });
 
   it('lets a non-combustible cool back to Clear and leave the frontier once its neighbor burns out', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const source = grid.cells['0,0,0']!;
     const concrete = grid.cells['1,0,0']!;
     concrete.material = 'concrete';
@@ -453,7 +468,7 @@ describe('fire propagation', () => {
     // below). Regression: before splitting non-combustible dissipation out
     // with its own floor, this cell was still Heating a full 1348s (22.5
     // min) after the fire beside it burned out.
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const source = grid.cells['0,0,0']!;
     const concrete = grid.cells['1,0,0']!;
     concrete.material = 'concrete';
@@ -495,7 +510,7 @@ describe('fire propagation', () => {
   });
 
   it('returns a water-defended combustible to Clear within 60s of the last fire going out', () => {
-    const state = createFireSimulation(createCellGrid('wood'), { seed: 11 });
+    const state = createFireSimulation(createCellGrid(), { seed: 11 });
     const source = state.grid.cells['0,0,0']!;
     const defended = state.grid.cells['1,0,0']!;
     igniteCell(state, source.id);
@@ -544,7 +559,7 @@ describe('fire propagation', () => {
   });
 
   it('demotes Flashover back to Burning once it cools below the flashover threshold', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const cell = grid.cells['0,0,0']!;
     cell.neighbors = [];
     const isolatedGrid: CellGrid = {
@@ -561,7 +576,7 @@ describe('fire propagation', () => {
     cell.heat = 400;
 
     const state = createFireSimulation(isolatedGrid, { seed: 5 });
-    state.activeCellIds = [cell.id];
+    state.activeCellIds = new Set([cell.id]);
     expect(cell.heat).toBeLessThan(300 * FLASHOVER_HEAT_MULTIPLIER);
 
     stepFireSimulation(state);
@@ -570,7 +585,7 @@ describe('fire propagation', () => {
   });
 
   it('keeps an all-active 18-cell tick below the 3 ms budget', () => {
-    const state = createFireSimulation(createCellGrid('wood'), { seed: 99 });
+    const state = createFireSimulation(createCellGrid(), { seed: 99 });
     for (const cell of Object.values(state.grid.cells)) igniteCell(state, cell.id);
 
     const iterations = 1_000;

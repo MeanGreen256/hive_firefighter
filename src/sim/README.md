@@ -14,6 +14,7 @@ Pure data in, pure data out. That's what keeps the sim unit-testable, determinis
 - Propagation tick — heat, fuel, spread (#7)
 - Water application and the wetted state (#8)
 - Burn-through and char (#9)
+- Scenario loading, validation, and grid construction (#67)
 
 ## Timing
 
@@ -21,9 +22,11 @@ The sim runs on a fixed 10 Hz timestep, driven outside React. It is never steppe
 
 `fireSimulation.ts` exposes both the single-tick `stepFireSimulation` operation
 and a plain `createFixedTimestepRunner` accumulator for a host game loop. The
-state is JSON-safe and contains its seed, tick number, optional wind, active
-frontier, and live `propertySaved` ratio, so a burn can be saved or reproduced
-without renderer state.
+live state contains its seed, tick number, optional wind, active frontier, and
+live `propertySaved` ratio. The frontier is a `Set` for constant-time membership;
+`serializeFireSimulationState` converts it to a JSON-safe array, and
+`deserializeFireSimulationState` restores the runtime form so a burn can be
+saved or reproduced without renderer state.
 
 Ticks mutate that state in place and visit only active cells plus their direct
 neighbors. External simulation inputs such as ignition — and water application

@@ -15,7 +15,7 @@ import {
 } from './particlePlan';
 
 function igniteEveryCell(material: MaterialId = 'wood') {
-  const grid = createCellGrid(material);
+  const grid = createCellGrid(undefined, material);
   for (const cell of Object.values(grid.cells)) {
     cell.state = CellState.Flashover;
     cell.heat = (materials[cell.material]?.ignitionPoint ?? 0) * 2;
@@ -25,7 +25,7 @@ function igniteEveryCell(material: MaterialId = 'wood') {
 
 describe('particle plan', () => {
   it('scales flames with Burning and Flashover intensity', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const cell = grid.cells['0,0,0']!;
     cell.state = CellState.Burning;
     cell.heat = 300;
@@ -37,7 +37,7 @@ describe('particle plan', () => {
   });
 
   it('preserves material smoke semantics and density in the emission plan', () => {
-    const grid = createCellGrid('plastic');
+    const grid = createCellGrid(undefined, 'plastic');
     const cell = grid.cells['0,0,0']!;
     cell.state = CellState.Burning;
     cell.heat = materials.plastic!.ignitionPoint!;
@@ -93,7 +93,7 @@ describe('particle plan', () => {
   });
 
   it('uses one render-clock origin for steam creation and expiry', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const createdAt = 42;
     const puff = createSteamPuff('0,0,0', grid, createdAt, 0);
 
@@ -108,7 +108,7 @@ describe('particle plan', () => {
   });
 
   it('caps merged steam bursts and applies style opacity only to smoke-like particles', () => {
-    const grid = createCellGrid('wood');
+    const grid = createCellGrid();
     const first = createSteamPuff('0,0,0', grid, 1, 0);
     const second = createSteamPuff('0,0,0', grid, 1, 1);
 

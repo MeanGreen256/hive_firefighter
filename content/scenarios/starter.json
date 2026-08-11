@@ -1,0 +1,21 @@
+{
+  "name": "Starter cutaway",
+  "building": {
+    "dimensions": { "width": 3, "height": 3, "depth": 2 },
+    "materials": {
+      "default": "wood",
+      "cells": {}
+    }
+  },
+  "ignitionOrigins": [{ "x": 2, "y": 2, "z": 1 }],
+  "seed": 2026,
+  "wind": {
+    "direction": { "x": 0, "y": 0, "z": 0 },
+    "strength": 0
+  },
+  "civilians": [],
+  "hazards": [],
+  "waterTankCapacityLitres": 90,
+  "hydrants": [{ "id": "street-hydrant", "position": { "x": -1, "y": 0, "z": 1 } }],
+  "parTimeSeconds": 120
+}

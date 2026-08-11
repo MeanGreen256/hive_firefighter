@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { CellState, createCellGrid } from '@sim/cellGrid';
+import { CellState } from '@sim/cellGrid';
 import {
   DEFAULT_FIRE_SIMULATION_TUNING,
   FIRE_TICK_SECONDS,
@@ -17,6 +17,12 @@ import {
 } from '@sim/fireSimulation';
 import { applyWater, SuppressionAgent, type WaterApplicationResult } from '@sim/waterApplication';
 import {
+  DEFAULT_SCENARIO_ID,
+  createScenarioGrid,
+  getScenario,
+  type ScenarioDefinition,
+} from '@sim/scenarios';
+import {
   createSessionDebrief,
   getSessionStatus,
   nextScenarioSeed,
@@ -29,12 +35,11 @@ export const SIMULATION_SPEEDS = [0.25, 0.5, 1, 2, 4, 8] as const;
 /** The exposed starter cell shared by the scene, hose, and Sim Lab. */
 export const STARTER_HOSE_TARGET_CELL_ID = '2,2,1';
 export const HOSE_LITRES_PER_SECOND = 1;
-/** Ninety seconds of uninterrupted flow at the M1 hose rate. */
-export const WATER_TANK_CAPACITY_LITRES = HOSE_LITRES_PER_SECOND * 90;
 const MAX_WATER_APPLICATION_SECONDS = 0.1;
 
 export interface SimDebugSnapshot {
   simulation: FireSimulationState;
+  scenarioId: string;
   /** Monotonic signal for consumers of the simulation's mutable data graph. */
   simulationRevision: number;
   tuning: FireSimulationTuning;
@@ -62,6 +67,7 @@ export interface SimDebugController {
   resetWithNewSeed(): void;
   refillWater(): void;
   setSeed(seed: number): void;
+  selectScenario(scenarioId: string): void;
   setSpeed(speed: number): void;
   setTuningValue(key: keyof FireSimulationTuning, value: number): void;
   toggleCell(cellId: string): boolean;
@@ -75,29 +81,42 @@ export interface SimDebugController {
 
 export interface SimDebugControllerOptions {
   readonly waterCapacityLitres?: number;
+  readonly scenarioId?: string;
 }
 
-function createStarterScenario(seed: number, tuning: FireSimulationTuning): FireSimulationState {
-  const state = createFireSimulation(createCellGrid('wood'), { seed });
-  igniteCell(state, STARTER_HOSE_TARGET_CELL_ID, tuning);
+function createScenarioState(
+  scenario: ScenarioDefinition,
+  seed: number,
+  tuning: FireSimulationTuning,
+): FireSimulationState {
+  const state = createFireSimulation(createScenarioGrid(scenario), { seed, wind: scenario.wind });
+  for (const origin of scenario.ignitionOrigins) {
+    igniteCell(state, `${origin.x},${origin.y},${origin.z}`, tuning);
+  }
   return state;
 }
 
 export function createSimDebugController(
-  initialSeed = 2026,
+  initialSeed?: number,
   options: SimDebugControllerOptions = {},
 ): SimDebugController {
-  const waterCapacityLitres = options.waterCapacityLitres ?? WATER_TANK_CAPACITY_LITRES;
+  let scenario = getScenario(options.scenarioId ?? DEFAULT_SCENARIO_ID);
+  const waterCapacityOverride = options.waterCapacityLitres;
+  let waterCapacityLitres = waterCapacityOverride ?? scenario.waterTankCapacityLitres;
   if (!Number.isFinite(waterCapacityLitres) || waterCapacityLitres <= 0) {
     throw new Error('Water tank capacity must be finite and greater than zero');
   }
   const initialTuning = createFireSimulationTuning(DEFAULT_FIRE_SIMULATION_TUNING);
-  const runner = createFixedTimestepRunner(createStarterScenario(initialSeed, initialTuning), {
-    tuning: initialTuning,
-    captureDebug: true,
-  });
+  const runner = createFixedTimestepRunner(
+    createScenarioState(scenario, initialSeed ?? scenario.seed, initialTuning),
+    {
+      tuning: initialTuning,
+      captureDebug: true,
+    },
+  );
   const store = createStore<SimDebugSnapshot>(() => ({
     simulation: runner.getState(),
+    scenarioId: scenario.id,
     simulationRevision: 0,
     tuning: runner.getTuning(),
     paused: false,
@@ -264,7 +283,7 @@ export function createSimDebugController(
       });
     },
     reset: (seed = store.getState().simulation.seed) => {
-      runner.reset(createStarterScenario(seed, runner.getTuning()));
+      runner.reset(createScenarioState(scenario, seed, runner.getTuning()));
       waterCellId = null;
       waterRemainingLitres = waterCapacityLitres;
       waterUsedLitres = 0;
@@ -289,6 +308,27 @@ export function createSimDebugController(
     },
     setSeed: (seed) => {
       controller.reset(seed);
+    },
+    selectScenario: (scenarioId) => {
+      scenario = getScenario(scenarioId);
+      waterCapacityLitres = waterCapacityOverride ?? scenario.waterTankCapacityLitres;
+      runner.reset(createScenarioState(scenario, scenario.seed, runner.getTuning()));
+      waterCellId = null;
+      waterRemainingLitres = waterCapacityLitres;
+      waterUsedLitres = 0;
+      elapsedScenarioSeconds = 0;
+      sessionStatus = SessionStatus.Active;
+      debrief = null;
+      store.setState((snapshot) => ({
+        simulation: runner.getState(),
+        scenarioId: scenario.id,
+        simulationRevision: snapshot.simulationRevision + 1,
+        paused: false,
+        lastTickDebug: null,
+        scenarioVersion: snapshot.scenarioVersion + 1,
+        waterCapacityLitres,
+        ...sessionFields(),
+      }));
     },
     setSpeed: (speed) => {
       if (!Number.isFinite(speed) || speed < 0.25 || speed > 8) {
