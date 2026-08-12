@@ -1,7 +1,7 @@
 import { CellState, cellIdAt, type Cell, type CellGrid } from './cellGrid';
 import { CivilianState, type Civilian, type CivilianSimulationState } from './civilians';
 import { materials } from './materials';
-import type { HosePoint } from './hoseLine';
+import type { IncidentPoint } from './incidentPosition';
 
 export const SMOKE_VISIBILITY_THRESHOLD = 0.65;
 export const CIVILIAN_CUE_MAX_DISTANCE = 8;
@@ -10,7 +10,7 @@ function clamp(value: number, minimum = 0, maximum = 1): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-export function gridDistance(left: HosePoint, right: HosePoint): number {
+export function gridDistance(left: IncidentPoint, right: IncidentPoint): number {
   return Math.hypot(left.x - right.x, left.y - right.y, left.z - right.z);
 }
 
@@ -73,7 +73,7 @@ export interface CivilianSearchCue {
 
 export function getCivilianSearchCue(
   state: CivilianSimulationState,
-  origin: HosePoint,
+  origin: IncidentPoint,
   maxDistance = CIVILIAN_CUE_MAX_DISTANCE,
 ): CivilianSearchCue | null {
   const candidates = Object.values(state.civilians)
@@ -102,7 +102,7 @@ export function getCivilianSearchCue(
 export function scanNearestCivilian(
   state: CivilianSimulationState,
   grid: CellGrid,
-  origin: HosePoint,
+  origin: IncidentPoint,
   thermalView: boolean,
 ): Civilian | null {
   const nearest = Object.values(state.civilians)

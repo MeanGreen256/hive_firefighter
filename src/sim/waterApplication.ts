@@ -78,8 +78,7 @@ function applyVolumeToCell(
   const heatRemoved = litres * heatRemovalPerLitre * response;
   cell.heat = Math.max(0, cell.heat - heatRemoved);
 
-  // Zero/negative responses do not create protective wetness. In particular,
-  // water on grease adds heat instead of quietly granting re-ignition immunity.
+  // Zero/negative compatibility responses do not create protective wetness.
   if (response <= 0) {
     return {
       cellId: cell.id,

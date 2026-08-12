@@ -72,10 +72,7 @@ export function DebriefPanel() {
         </div>
         <div>
           <dt>Suppression used</dt>
-          <dd>
-            {debrief.waterUsedLitres.toFixed(1)} L water · {debrief.foamUsedLitres.toFixed(1)} L
-            foam
-          </dd>
+          <dd>{debrief.waterUsedLitres.toFixed(1)} L water sprayed</dd>
         </div>
       </dl>
 

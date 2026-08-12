@@ -40,7 +40,7 @@
     "burnRate": 0.08,
     "spreadFactor": 1.1,
     "heatOutput": 70,
-    "suppressionResponse": { "water": -1.5, "foam": 1.8 },
+    "suppressionResponse": { "water": 0.75, "foam": 1.8 },
     "smokeTint": "sooty",
     "smokeDensity": 1.3
   }

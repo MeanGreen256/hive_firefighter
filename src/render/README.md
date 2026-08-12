@@ -12,12 +12,13 @@ they do not import a preferred palette directly.
 
 ## M3 direction versus current code
 
-The isometric rig, cutaway building, interior markers, tether-limit feedback, and
-water/foam distinction below describe the M2 renderer. M3 replaces them with a
-chase camera for the truck, an over-the-shoulder camera for one firefighter,
-eye-level exterior fire, and a simple unlimited-water hose. Players never enter
-buildings. Keep old components only while they help migration or comparison; do
-not adapt them into permanent target-game architecture. See
+The isometric rig, cutaway building, and interior markers below describe the M2
+renderer. Tether feedback, supply-line rendering, and water/foam distinctions
+have been removed. M3 replaces the remaining legacy surfaces with a chase camera
+for the truck, an over-the-shoulder camera for one firefighter, eye-level
+exterior fire, and a simple unlimited-water hose. Players never enter buildings.
+Keep old components only while they help migration or comparison; do not adapt
+them into permanent target-game architecture. See
 `docs/game-direction.md` and ADR-005.
 
 ## Follow-camera contract
@@ -59,10 +60,9 @@ do not infer gameplay collision by raycasting rendered meshes.
 - Cutaway building geometry generated from cell data (#12)
 - Cell state visuals (#13)
 - Flame, smoke, and the smoke column (#14)
-- Hydrant, connected supply-line, and near-limit tether visualization (#68, #76)
 - Persistent civilian search marks and thermal signatures (#70)
 - Propane state and countdown visualization (#71)
-- Water/foam stream distinction and structural sag/collapse telegraphs (#72, #73, #76)
+- Unlimited-water stream and structural sag/collapse telegraphs (#72, #73, #76)
 - Shape-first incident marker language and colour-vision audit (#76)
 
 ## Camera-facing contract
@@ -121,9 +121,10 @@ an outline with at least 3:1 contrast in normal, protanopia, and deuteranopia
 simulation. The palettes stay muted so fire remains the scene's saturated focal
 point.
 
-`HoseEffects` straightens and recolours the connected line from 80% of authored
-reach onward, then adds two moving rings at the nozzle. The geometric tension
-cue survives either art palette and does not depend on red/green perception.
+`HoseEffects` renders one water stream from the character-anchored nozzle to the
+assisted exterior target. It has no tank, agent, hookup, or hose-length branch.
+Hydrants may appear elsewhere as street dressing but are not rendered as an
+interactive supply system.
 
 ## Budget
 

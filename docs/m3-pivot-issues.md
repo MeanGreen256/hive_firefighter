@@ -416,6 +416,10 @@ Remove or deprecate the old fields deliberately; do not leave active gameplay
 branches that a later agent could accidentally reconnect to the HUD. Existing
 scenario files may need a compatibility migration while M2 remains bootable.
 
+Migration contract: remove the active state and APIs rather than merely hiding
+their UI. The loader may accept legacy capacity fields temporarily, but ignores
+them; hydrants are optional data-only props.
+
 Depends on #94.
 
 ---

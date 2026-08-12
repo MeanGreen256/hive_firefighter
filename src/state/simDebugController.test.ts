@@ -3,7 +3,6 @@ import { CellState } from '@sim/cellGrid';
 import { CivilianState } from '@sim/civilians';
 import { IncidentEventType, PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { StructuralEventType } from '@sim/structuralCollapse';
-import { SuppressionAgent } from '@sim/waterApplication';
 import { SessionStatus } from './sessionStats';
 import type { StorageLike } from './personalBests';
 import { createSimDebugController, STARTER_HOSE_TARGET_CELL_ID } from './simDebugController';
@@ -168,20 +167,14 @@ describe('sim debug controller', () => {
     expect(wetnessAtEightTimesSpeed).toBeGreaterThan(wetnessAtRealTime);
   });
 
-  it('drains a finite tank while spraying and blocks water at empty', () => {
-    const controller = createSimDebugController(15, { waterCapacityLitres: 0.15 });
+  it('keeps spraying water continuously without a tank or refill gate', () => {
+    const controller = createSimDebugController(15);
     controller.setWaterApplication('0,0,0');
 
-    controller.advance(0.2);
-    const empty = controller.store.getState();
-    expect(empty.waterRemainingLitres).toBe(0);
-    expect(empty.waterUsedLitres).toBeCloseTo(0.15);
-    const wetnessAtEmpty = empty.simulation.grid.cells['0,0,0']!.wetness;
+    controller.advance(20);
 
-    controller.advance(0.5);
-    const afterBlockedSpray = controller.store.getState();
-    expect(afterBlockedSpray.waterUsedLitres).toBeCloseTo(0.15);
-    expect(afterBlockedSpray.simulation.grid.cells['0,0,0']!.wetness).toBeLessThan(wetnessAtEmpty);
+    expect(controller.store.getState().waterUsedLitres).toBeGreaterThan(10);
+    expect(controller.store.getState().simulation.grid.cells['0,0,0']!.wetness).toBeGreaterThan(0);
   });
 
   it('ends a contained scenario with a grade and complete breakdown', () => {
@@ -202,18 +195,13 @@ describe('sim debug controller', () => {
     expect(controller.advance(1)).toBe(0);
   });
 
-  it('refills for development and restarts with either the same or a new seed', () => {
-    const controller = createSimDebugController(15, { waterCapacityLitres: 2 });
+  it('resets unlimited-water usage and restarts with either the same or a new seed', () => {
+    const controller = createSimDebugController(15);
     controller.sprayCell('0,0,0', 1);
-    expect(controller.store.getState().waterRemainingLitres).toBe(1);
-
-    controller.refillWater();
-    expect(controller.store.getState().waterRemainingLitres).toBe(2);
     expect(controller.store.getState().waterUsedLitres).toBe(1);
 
     controller.reset();
     expect(controller.store.getState()).toMatchObject({
-      waterRemainingLitres: 2,
       waterUsedLitres: 0,
       elapsedScenarioSeconds: 0,
       sessionStatus: SessionStatus.Active,
@@ -229,9 +217,7 @@ describe('sim debug controller', () => {
     const controller = createSimDebugController(2402, { scenarioId: 'workshop' });
     const initial = controller.store.getState();
     const initialCell = { ...initial.simulation.grid.cells['2,1,1'] };
-    controller.setSuppressionAgent(SuppressionAgent.Foam);
     controller.sprayCell('3,1,1', 2);
-    controller.connectHydrant();
     controller.toggleThermalView();
     initial.civilians.civilians['civilian-a']!.state = CivilianState.Lost;
     initial.hazards.hazards['propane-a']!.state = PropaneHazardState.Failed;
@@ -242,16 +228,11 @@ describe('sim debug controller', () => {
     const retried = controller.store.getState();
     expect(retried).toMatchObject({
       scenarioId: 'workshop',
-      waterRemainingLitres: 90,
       waterUsedLitres: 0,
-      foamRemainingLitres: 18,
-      foamUsedLitres: 0,
-      suppressionAgent: SuppressionAgent.Water,
       thermalView: false,
       elapsedScenarioSeconds: 0,
       sessionStatus: SessionStatus.Active,
       debrief: null,
-      hoseLine: { connectedHydrantId: null },
     });
     expect(retried.simulation.seed).toBe(2402);
     expect(retried.simulation.grid.cells['2,1,1']).toEqual(initialCell);
@@ -287,7 +268,7 @@ describe('sim debug controller', () => {
     });
   });
 
-  it('switches to an authored scenario with its grid, seed, wind, and water capacity', () => {
+  it('switches to an authored scenario with its grid, seed, wind, and entities', () => {
     const controller = createSimDebugController();
 
     controller.selectScenario('workshop');
@@ -296,10 +277,6 @@ describe('sim debug controller', () => {
     expect(selected).toMatchObject({
       scenarioId: 'workshop',
       scenarioVersion: 1,
-      waterCapacityLitres: 90,
-      waterRemainingLitres: 90,
-      foamCapacityLitres: 18,
-      foamRemainingLitres: 18,
     });
     expect(selected.simulation).toMatchObject({
       seed: 2402,
@@ -316,86 +293,18 @@ describe('sim debug controller', () => {
       state: CivilianState.Conscious,
       located: false,
     });
-    expect(selected.hoseLine.hydrants).toEqual([
-      { id: 'street-hydrant', position: { x: -1, y: 0, z: 1 } },
-    ]);
     expect(selected.hazards.hazards['propane-a']).toMatchObject({
       position: { x: 3, y: 1, z: 1 },
       state: PropaneHazardState.Stable,
     });
   });
 
-  it('refills from a connected hydrant and blocks targets beyond the tether', () => {
-    const controller = createSimDebugController(15, {
-      scenarioId: 'workshop',
-      waterCapacityLitres: 2,
-    });
-    controller.sprayCell('0,0,1', 1);
-    expect(controller.store.getState().waterRemainingLitres).toBe(1);
+  it('sprays a distant cell without hookup or tether state', () => {
+    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
+    const result = controller.sprayCell('4,3,0', 1);
 
-    expect(controller.connectHydrant()).toBe(true);
-    controller.advance(0.5);
-    expect(controller.store.getState()).toMatchObject({
-      waterRemainingLitres: 2,
-      hoseLine: { connectedHydrantId: 'street-hydrant' },
-    });
-
-    expect(controller.canSprayCell('4,3,0')).toBe(false);
-    const waterBeforeBlockedSpray = controller.store.getState().waterUsedLitres;
-    expect(controller.sprayCell('4,3,0', 1)).toEqual({ contacts: [] });
-    expect(controller.store.getState()).toMatchObject({
-      hoseReachBlocked: true,
-      waterUsedLitres: waterBeforeBlockedSpray,
-    });
-
-    controller.disconnectHydrant();
-    expect(controller.canSprayCell('4,3,0')).toBe(true);
-  });
-
-  it('keeps water finite while the trigger is held, even with a hydrant connected', () => {
-    // The refill rate is deliberately above the hose rate, so refilling during
-    // a spray would make water infinite the moment the line is connected and
-    // silently cancel the finite tank. Connecting must never remove the drain.
-    const controller = createSimDebugController(15, {
-      scenarioId: 'workshop',
-      waterCapacityLitres: 5,
-    });
-    controller.connectHydrant();
-    controller.setWaterApplication('0,0,1');
-
-    for (let i = 0; i < 100; i += 1) controller.advance(0.1);
-
-    const drained = controller.store.getState();
-    expect(drained.waterRemainingLitres).toBe(0);
-    expect(drained.waterUsedLitres).toBeCloseTo(5);
-    expect(drained.nozzleOpen).toBe(true);
-
-    // Shutting the nozzle is what buys the water back.
-    controller.setWaterApplication(null);
-    expect(controller.store.getState().nozzleOpen).toBe(false);
-    for (let i = 0; i < 10; i += 1) controller.advance(0.1);
-
-    expect(controller.store.getState().waterRemainingLitres).toBeCloseTo(3);
-  });
-
-  it('refills identically whether time passes through advance or stepOnce', () => {
-    const build = () => {
-      const controller = createSimDebugController(15, {
-        scenarioId: 'workshop',
-        waterCapacityLitres: 20,
-      });
-      controller.connectHydrant();
-      controller.sprayCell('0,0,1', 10);
-      return controller;
-    };
-    const stepped = build();
-    for (let i = 0; i < 10; i += 1) stepped.stepOnce();
-    const advanced = build();
-    for (let i = 0; i < 10; i += 1) advanced.advance(0.1);
-
-    expect(stepped.store.getState().waterRemainingLitres).toBeCloseTo(
-      advanced.store.getState().waterRemainingLitres,
-    );
+    expect(result.contacts.length).toBeGreaterThan(0);
+    expect(controller.store.getState().waterUsedLitres).toBe(1);
   });
 
   it('exposes renderer-independent carry actions for scenario civilians', () => {
@@ -473,46 +382,16 @@ describe('sim debug controller', () => {
     expect(hazard.state).toBe(PropaneHazardState.Failed);
   });
 
-  it('keeps foam finite and separate from hydrant-refilled water', () => {
-    const controller = createSimDebugController(15, {
-      scenarioId: 'workshop',
-      waterCapacityLitres: 2,
-      foamCapacityLitres: 2,
-    });
-    controller.setSuppressionAgent(SuppressionAgent.Foam);
-    controller.sprayCell('3,1,1', 1);
+  it('uses the one water action for grease suppression', () => {
+    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
+    const grease = controller.store.getState().simulation.grid.cells['3,1,1']!;
+    grease.state = CellState.Burning;
+    grease.heat = 300;
 
-    expect(controller.store.getState()).toMatchObject({
-      suppressionAgent: SuppressionAgent.Foam,
-      waterRemainingLitres: 2,
-      foamRemainingLitres: 1,
-      foamUsedLitres: 1,
-    });
+    controller.sprayCell(grease.id, 2);
 
-    controller.setWaterApplication('3,1,1');
-    expect(controller.refillFoam()).toBe(false);
-    controller.setWaterApplication(null);
-    expect(controller.refillFoam()).toBe(true);
-    expect(controller.store.getState().foamRemainingLitres).toBe(2);
-  });
-
-  it('routes the selected agent through grease suppression', () => {
-    const water = createSimDebugController(15, { scenarioId: 'workshop' });
-    const waterCell = water.store.getState().simulation.grid.cells['3,1,1']!;
-    waterCell.state = CellState.Burning;
-    waterCell.heat = 300;
-    water.sprayCell(waterCell.id, 2);
-
-    const foam = createSimDebugController(15, { scenarioId: 'workshop' });
-    const foamCell = foam.store.getState().simulation.grid.cells['3,1,1']!;
-    foamCell.state = CellState.Burning;
-    foamCell.heat = 300;
-    foam.setSuppressionAgent(SuppressionAgent.Foam);
-    foam.sprayCell(foamCell.id, 2);
-
-    expect(waterCell.heat).toBeGreaterThan(300);
-    expect(foamCell.heat).toBeLessThan(300);
-    expect(foamCell.state).toBe(CellState.Wetted);
+    expect(grease.heat).toBeLessThan(300);
+    expect(grease.state).toBe(CellState.Wetted);
   });
 
   it('publishes warning and collapse events through the incident event stream', () => {

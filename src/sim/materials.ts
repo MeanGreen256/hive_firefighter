@@ -98,9 +98,10 @@ export interface Material {
 
   /**
    * Per-agent heat-removal multipliers. `1.0` is baseline effectiveness,
-   * `0` has no effect, and a negative response adds heat. Water therefore
-   * amplifies grease while foam can smother it; foam is intentionally less
-   * effective than water on ordinary combustibles.
+   * `0` has no effect, and a negative response adds heat. M3 requires every
+   * authored combustible to have a positive water response because players
+   * have one unlimited-water action and cannot choose the wrong agent. Foam
+   * remains a lower-level compatibility response but has no player-facing mode.
    *
    * Every response range: -5 to 5 (soft sanity cap).
    */

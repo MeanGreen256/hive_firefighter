@@ -118,10 +118,6 @@ export interface IncidentMarkerAppearance {
     warning: string;
     dust: string;
   }>;
-  readonly hoseLine: Readonly<{
-    normal: string;
-    strained: string;
-  }>;
 }
 
 /** The active style's visual treatment for one semantic smoke category. */
@@ -366,7 +362,6 @@ const diorama: Style = {
     },
     hazard: { stable: '#435058', countdown: '#8f3027', failed: '#2f3434' },
     collapse: { warning: '#7a492c', dust: '#5f5346' },
-    hoseLine: { normal: '#334f5e', strained: '#8f3027' },
   },
   hud: {
     panel: '#f5eddd',
@@ -485,7 +480,6 @@ const ink: Style = {
     },
     hazard: { stable: '#c1cad0', countdown: '#ff9b7a', failed: '#aaa39a' },
     collapse: { warning: '#f0b76b', dust: '#c8bda6' },
-    hoseLine: { normal: '#b7ecff', strained: '#ff9b7a' },
   },
   hud: {
     panel: '#17191d',

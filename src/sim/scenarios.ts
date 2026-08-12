@@ -43,8 +43,6 @@ export interface ScenarioDefinition {
   wind: Wind;
   civilians: ScenarioCivilianPlacement[];
   hazards: ScenarioHazardPlacement[];
-  waterTankCapacityLitres: number;
-  foamTankCapacityLitres: number;
   hydrants: ScenarioHydrantPlacement[];
   parTimeSeconds: number;
 }
@@ -59,10 +57,14 @@ const ROOT_FIELDS = [
   'wind',
   'civilians',
   'hazards',
+  'parTimeSeconds',
+] as const;
+const OPTIONAL_ROOT_FIELDS = [
+  'hydrants',
+  // Accepted only so pre-M3 scenario files keep loading. These values are
+  // ignored and are not part of ScenarioDefinition or runtime gameplay.
   'waterTankCapacityLitres',
   'foamTankCapacityLitres',
-  'hydrants',
-  'parTimeSeconds',
 ] as const;
 
 export class ScenarioValidationError extends Error {
@@ -92,8 +94,10 @@ function checkFields(
   path: string,
   fields: readonly string[],
   problems: string[],
+  optionalFields: readonly string[] = [],
 ): void {
-  const unknown = Object.keys(object).filter((field) => !fields.includes(field));
+  const knownFields = [...fields, ...optionalFields];
+  const unknown = Object.keys(object).filter((field) => !knownFields.includes(field));
   if (unknown.length > 0) {
     problems.push(
       `${path} has unknown field(s) ${unknown.map((field) => JSON.stringify(field)).join(', ')}`,
@@ -226,7 +230,7 @@ export function validateScenarioDefinition(data: unknown, id: string): ScenarioD
   const problems: string[] = [];
   const root = readObject(data, id, problems);
   if (!root) throw new ScenarioValidationError(id, problems);
-  checkFields(root, id, ROOT_FIELDS, problems);
+  checkFields(root, id, ROOT_FIELDS, problems, OPTIONAL_ROOT_FIELDS);
 
   const buildingObject = readObject(root.building, `${id}.building`, problems) ?? {};
   checkFields(buildingObject, `${id}.building`, ['dimensions', 'materials'], problems);
@@ -312,7 +316,7 @@ export function validateScenarioDefinition(data: unknown, id: string): ScenarioD
     },
   );
   const hydrants = readPlacementArray(
-    root.hydrants,
+    root.hydrants ?? [],
     `${id}.hydrants`,
     problems,
     (object, path, placementProblems): ScenarioHydrantPlacement => {
@@ -328,6 +332,12 @@ export function validateScenarioDefinition(data: unknown, id: string): ScenarioD
   validateUniqueIds(hazards, `${id}.hazards`, problems);
   validateUniqueIds(hydrants, `${id}.hydrants`, problems);
 
+  for (const legacyField of ['waterTankCapacityLitres', 'foamTankCapacityLitres'] as const) {
+    if (root[legacyField] !== undefined) {
+      readPositiveNumber(root[legacyField], `${id}.${legacyField}`, problems);
+    }
+  }
+
   const definition: ScenarioDefinition = {
     id,
     name: readString(root.name, `${id}.name`, problems),
@@ -340,16 +350,6 @@ export function validateScenarioDefinition(data: unknown, id: string): ScenarioD
     wind,
     civilians,
     hazards,
-    waterTankCapacityLitres: readPositiveNumber(
-      root.waterTankCapacityLitres,
-      `${id}.waterTankCapacityLitres`,
-      problems,
-    ),
-    foamTankCapacityLitres: readPositiveNumber(
-      root.foamTankCapacityLitres,
-      `${id}.foamTankCapacityLitres`,
-      problems,
-    ),
     hydrants,
     parTimeSeconds: readPositiveNumber(root.parTimeSeconds, `${id}.parTimeSeconds`, problems),
   };

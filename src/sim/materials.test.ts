@@ -31,8 +31,11 @@ describe('materials (loaded from content/materials.json)', () => {
     expect(materials.concrete?.heatOutput).toBe(0);
   });
 
-  it('makes water amplify grease while foam smothers it', () => {
-    expect(materials.grease?.suppressionResponse.water).toBeLessThan(0);
+  it('makes every combustible suppressible with the one water action', () => {
+    for (const material of Object.values(materials)) {
+      if (material.ignitionPoint !== null)
+        expect(material.suppressionResponse.water).toBeGreaterThan(0);
+    }
     expect(materials.grease?.suppressionResponse.foam).toBeGreaterThan(0);
     expect(materials.wood?.suppressionResponse.foam).toBeLessThan(
       materials.wood?.suppressionResponse.water ?? 0,
@@ -119,7 +122,7 @@ describe('validateMaterialTable', () => {
     );
   });
 
-  it('accepts opposite water and foam responses for grease', () => {
+  it('accepts independent water and foam responses for grease', () => {
     const table = validateMaterialTable({
       grease: { ...validRow, suppressionResponse: { water: -1.5, foam: 1.8 } },
     });
