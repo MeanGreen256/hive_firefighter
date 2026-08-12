@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { CellState, createCellGrid } from './cellGrid';
-import { createCivilianSimulation } from './civilians';
 import { DEFAULT_FIRE_SIMULATION_TUNING, createFireSimulation } from './fireSimulation';
 import {
   IncidentEventType,
@@ -21,16 +20,8 @@ describe('propane hazards', () => {
     fire.grid.cells['1,0,1']!.heat = 500;
     fire.grid.cells['1,0,1']!.state = CellState.Burning;
     const hazards = createHazardSimulation(placement);
-    const civilians = createCivilianSimulation([]);
 
-    const events = advanceHazards(
-      hazards,
-      fire,
-      civilians,
-      player,
-      DEFAULT_FIRE_SIMULATION_TUNING,
-      1,
-    );
+    const events = advanceHazards(hazards, fire, player, DEFAULT_FIRE_SIMULATION_TUNING, 1);
     expect(events).toEqual([{ type: IncidentEventType.PropaneCountdownStarted, hazardId: 'tank' }]);
     expect(hazards.hazards.tank).toMatchObject({
       state: PropaneHazardState.Countdown,
@@ -54,14 +45,7 @@ describe('propane hazards', () => {
     tank.state = PropaneHazardState.Countdown;
     tank.countdownRemainingSeconds = 3;
 
-    const events = advanceHazards(
-      hazards,
-      fire,
-      createCivilianSimulation([]),
-      player,
-      DEFAULT_FIRE_SIMULATION_TUNING,
-      1,
-    );
+    const events = advanceHazards(hazards, fire, player, DEFAULT_FIRE_SIMULATION_TUNING, 1);
 
     expect(events).toEqual([{ type: IncidentEventType.PropaneCountdownReset, hazardId: 'tank' }]);
     expect(tank).toMatchObject({
@@ -71,7 +55,7 @@ describe('propane hazards', () => {
     expect(tank.heat).toBeLessThan(PROPANE_COUNTDOWN_HEAT);
   });
 
-  it('fails into a blast that destroys, ignites, loses civilians, and emits one event', () => {
+  it('fails into a blast that destroys cells, spreads fire, and emits one event', () => {
     const fire = createFireSimulation(createCellGrid({ width: 4, height: 1, depth: 3 }));
     fire.grid.cells['1,0,1']!.heat = 600;
     fire.grid.cells['1,0,1']!.state = CellState.Burning;
@@ -79,15 +63,10 @@ describe('propane hazards', () => {
     hazards.hazards.tank!.heat = PROPANE_COUNTDOWN_HEAT;
     hazards.hazards.tank!.state = PropaneHazardState.Countdown;
     hazards.hazards.tank!.countdownRemainingSeconds = 0.1;
-    const civilians = createCivilianSimulation([
-      { id: 'near', position: { x: 2, y: 0, z: 1 } },
-      { id: 'far', position: { x: 3, y: 0, z: 0 } },
-    ]);
 
     const events = advanceHazards(
       hazards,
       fire,
-      civilians,
       { x: 2, y: 0, z: 1 },
       DEFAULT_FIRE_SIMULATION_TUNING,
       0.1,
@@ -96,17 +75,12 @@ describe('propane hazards', () => {
 
     expect(failure).toMatchObject({
       hazardId: 'tank',
-      lostCivilianIds: ['near'],
       playerAffected: true,
     });
     expect(fire.grid.cells['1,0,1']?.state).toBe(CellState.Burnt);
     expect(fire.grid.cells['2,0,1']?.state).toBe(CellState.Burnt);
     expect(fire.grid.cells['2,0,0']?.state).toBe(CellState.Burning);
-    expect(civilians.civilians.near?.state).toBe('Lost');
-    expect(civilians.civilians.far?.state).toBe('Conscious');
 
-    expect(
-      advanceHazards(hazards, fire, civilians, player, DEFAULT_FIRE_SIMULATION_TUNING, 1),
-    ).toEqual([]);
+    expect(advanceHazards(hazards, fire, player, DEFAULT_FIRE_SIMULATION_TUNING, 1)).toEqual([]);
   });
 });

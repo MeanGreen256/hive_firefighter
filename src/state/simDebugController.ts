@@ -440,7 +440,6 @@ export function createSimDebugController(
           const hazardEvents = advanceHazards(
             hazards,
             runner.getState(),
-            civilians,
             hoseLine.nozzlePosition,
             runner.getTuning(),
             simulatedInterval,
@@ -485,7 +484,6 @@ export function createSimDebugController(
         const hazardEvents = advanceHazards(
           hazards,
           runner.getState(),
-          civilians,
           hoseLine.nozzlePosition,
           runner.getTuning(),
           FIRE_TICK_SECONDS,
