@@ -15,6 +15,7 @@ import {
   type CharacterMovementInput,
   type CharacterObstacle,
 } from './characterController';
+import { HOSE_NOZZLE_LOCAL_OFFSET } from './hoseTargeting';
 
 const MAX_FRAME_DELTA_SECONDS = 1 / 20;
 const CHARACTER_TURN_DAMPING = 14;
@@ -267,7 +268,7 @@ export function FirefighterController({
           <meshStandardMaterial color={visualStyle.hud.accent} roughness={0.72} />
         </mesh>
 
-        <group position={[0.38, 1.12, -0.72]}>
+        <group position={HOSE_NOZZLE_LOCAL_OFFSET}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow>
             <cylinderGeometry args={[0.07, 0.105, 0.52, 12]} />
             <meshStandardMaterial

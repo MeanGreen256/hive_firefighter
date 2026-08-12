@@ -11,6 +11,8 @@ import { useStore } from 'zustand';
 import { Vector3, type Group } from 'three';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
+import { AudioControls } from '@ui/AudioControls';
+import { AnchoredHoseEffects, type HoseBurnTarget } from './AnchoredHoseEffects';
 import { FirefighterController } from './FirefighterController';
 import { FollowCameraRig } from './FollowCameraRig';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
@@ -40,6 +42,15 @@ const PROTOTYPE_OBSTACLES: readonly CharacterObstacle[] = PROTOTYPE_BUILDINGS.ma
     maxZ: z + depth / 2,
   }),
 );
+/** One exterior flame point per prototype building — the #93 acceptance target. */
+const HOSE_BURN_TARGETS: readonly HoseBurnTarget[] = PROTOTYPE_BUILDINGS.map((building) => ({
+  id: building.id,
+  position: [
+    building.x,
+    building.y + building.height * 0.35,
+    building.z + building.depth / 2 + 0.05,
+  ],
+}));
 
 interface SceneCssVariables extends CSSProperties {
   '--scene-saturation': number;
@@ -174,6 +185,12 @@ function PrototypeWorld({
         initialPosition={FIREFIGHTER_START}
         movementBounds={FIREFIGHTER_MOVEMENT_BOUNDS}
       />
+      <AnchoredHoseEffects
+        characterRef={firefighterRef}
+        enabled={profile === 'shoulder'}
+        visualStyle={visualStyle}
+        targets={HOSE_BURN_TARGETS}
+      />
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[32, 32]} />
         <meshStandardMaterial color={visualStyle.stage.top} roughness={0.95} />
@@ -245,10 +262,17 @@ export default function FollowCameraPrototype() {
           : 'WASD / left stick moves · walk and run are automatic'}
         <br />
         Optional right-drag / right stick orbit · V switches subject
+        {profile === 'shoulder' ? (
+          <>
+            <br />
+            Point the character at the flame · hold space, left click, or a gamepad trigger to spray
+          </>
+        ) : null}
         <div className="audio-controls">
           <button type="button" onClick={switchSubject} aria-pressed={profile === 'shoulder'}>
             Switch to {profile === 'chase' ? 'firefighter' : 'truck'}
           </button>
+          <AudioControls />
         </div>
       </div>
     </div>
