@@ -1,15 +1,32 @@
 # M3 issues — Drive, Dismount, Douse
 
-Issue set for the pivot decided in [ADR-005](adr/005-third-person-apparatus-control.md)
-and [ADR-006](adr/006-arcade-tone-for-younger-players.md).
+Issue set for the pivot decided in [ADR-005](adr/005-third-person-apparatus-control.md),
+[ADR-006](adr/006-arcade-tone-for-younger-players.md), and
+[ADR-007](adr/007-ages-5-plus-control-floor.md), serving the product-direction
+contract in [`docs/game-direction.md`](game-direction.md).
 
-**Filed on GitHub as #86–#100, tracked by [#101](https://github.com/MeanGreen256/hive_firefighter/issues/101).**
+**Filed on GitHub as #86–#100 and #104–#108, tracked by [#101](https://github.com/MeanGreen256/hive_firefighter/issues/101).**
 
 **Milestone:**
 
 > **M3 — Drive, Dismount, Douse**
-> Can a child aged 5–7 follow the smoke, drive to one active quest, and put out
+> Can a five-year-old follow the smoke, drive to one active quest, and put out
 > visible exterior fire as a character?
+
+## What the game is
+
+**Drive around a colourful city → find the smoke → hop out → squirt the fire until
+it is out → earn stars → next quest.**
+
+Four constraints fix everything else, and they come from the ADRs rather than from
+this document:
+
+- **Fire burns things, never people.** There are no civilians and no rescue verb.
+  Buildings, trees, park features, and props burn. Property is the only stake.
+- **The player cannot be harmed.** No health, no damage. Fire is erased, not fought.
+- **Ages 5+.** Two-input completion, assisted aim, an automatic camera, and no
+  feature that depends on reading.
+- **Free roam is a pillar.** The city is worth driving around with nothing on fire.
 
 Crew command is not part of M3, M4, or M5. It is a distant stretch idea that may
 be reconsidered only after the single-firefighter game succeeds and a new design
@@ -17,60 +34,102 @@ decision explicitly brings it into scope.
 
 ## Build order
 
-Sequenced so that something is playable as early as possible. Issues 1–3 alone
-produce a character who can walk, drive, and be followed by a camera — which is
-the cheapest honest test of whether the pivot feels right before the rest is built.
+Sequenced by **risk**, not by dependency. Phase A is a go/no-go gate: it is the
+cheapest honest test of the riskiest assumption in the pivot — that squirting
+exterior fire as a character on foot is fun — and it is deliberately scheduled
+before the two large systems that cannot fail interestingly.
 
-| #    | Issue                                         | Area           | Size |
-| ---- | --------------------------------------------- | -------------- | ---- |
-| #86  | Follow camera rig                             | `area:render`  | L    |
-| #87  | Firefighter character controller              | `area:render`  | L    |
-| #88  | Drivable firetruck with arcade handling       | `area:render`  | L    |
-| #89  | Mount and dismount transition                 | `area:render`  | M    |
-| #90  | Street map and drivable district              | `area:content` | L    |
-| #91  | Building exteriors as burnable facades        | `area:sim`     | L    |
-| #92  | Smoke column beacon and waypoint arrow        | `area:ui`      | M    |
-| #93  | Character-anchored hose aiming                | `area:render`  | M    |
-| #94  | Simplify hose to one unlimited-water action  | `area:ui`      | M    |
-| #95  | Retire supply, refill, and tether gates       | `area:sim`     | M    |
-| #96  | Replace A–F grades with 1–3 stars             | `area:ui`      | M    |
-| #97  | Civilians without loss                        | `area:sim`     | M    |
-| #98  | Collapse becomes cosmetic                     | `area:sim`     | S    |
-| #99  | Soft fail and instant retry                   | `area:ui`      | S    |
-| #100 | Retire cutaway view and isometric rig         | `area:render`  | M    |
+### Phase A — Prove the verb (gate)
+
+Three issues, no truck, no city. Walk around the building that already exists and put
+out a fire on the outside of it. If this is not fun, nothing later saves it.
+
+| #    | Issue                                                    | Area          | Size |
+| ---- | -------------------------------------------------------- | ------------- | ---- |
+| #86  | Follow camera rig: automatic framing, chase and shoulder | `area:render` | L    |
+| #87  | Firefighter character controller                         | `area:render` | L    |
+| #93  | Character-anchored hose aiming                           | `area:render` | M    |
+
+### Phase B — The city
+
+| #    | Issue                                             | Area           | Size |
+| ---- | ------------------------------------------------- | -------------- | ---- |
+| #90  | Free-roam colourful city map                      | `area:content` | L    |
+| #91  | Burnable exteriors: facades, trees, and park props | `area:sim`     | L    |
+| #88  | Drivable firetruck with arcade handling           | `area:render`  | L    |
+| #89  | Mount and dismount transition                     | `area:render`  | M    |
+| #92  | Smoke column beacon and waypoint arrow            | `area:ui`      | M    |
+
+### Phase C — Simplify the hose
+
+| #    | Issue                                        | Area       | Size |
+| ---- | -------------------------------------------- | ---------- | ---- |
+| #94  | Simplify hose to one unlimited-water action  | `area:ui`  | M    |
+| #95  | Retire supply, refill, and tether gates      | `area:sim` | M    |
+
+### Phase D — Arcade tone rework
+
+| #    | Issue                                       | Area       | Size |
+| ---- | ------------------------------------------- | ---------- | ---- |
+| #104 | Decouple propane hazards from civilians     | `area:sim` | S    |
+| #97  | Remove civilians and rescue entirely        | `area:sim` | L    |
+| #96  | Rebuild scoring as 1–3 stars without lives  | `area:ui`  | M    |
+| #98  | Collapse becomes cosmetic                   | `area:sim` | S    |
+| #99  | Soft fail and instant retry                 | `area:ui`  | S    |
+
+### Phase E — The audience floor
+
+| #    | Issue                                            | Area      | Size |
+| ---- | ------------------------------------------------ | --------- | ---- |
+| #105 | Retire thermal, scan, and mode-switch instruments | `area:ui` | S    |
+| #106 | Ages 5+ control floor and gamepad parity         | `area:ui` | M    |
+| #107 | Wordless onboarding and guided first quest       | `area:ui` | M    |
+| #108 | Stakes tuning pass and playtest with children    | `area:ui` | M    |
+
+### Phase F — Cleanup
+
+| #    | Issue                                 | Area          | Size |
+| ---- | ------------------------------------- | ------------- | ---- |
+| #100 | Retire cutaway view and isometric rig | `area:render` | M    |
 
 ---
 
-## M3-1 — Follow camera rig
+## #86 — Follow camera rig: automatic framing, chase and shoulder
 
 Replace the locked isometric camera with a third-person follow camera. This is the
 gate on everything else in the milestone.
 
+Per [ADR-007](adr/007-ages-5-plus-control-floor.md) rule 2 the camera is **never a
+player responsibility**. Automatic framing is the requirement; manual orbit is the
+optional extra. An earlier revision of this issue had that backwards.
+
 ### Tasks
 
 - [ ] Perspective camera that follows a target transform with damped spring lag
+- [ ] **Auto-framing that keeps the active subject and the active fire both in shot**
 - [ ] Two tuning profiles: chase (driving, further back, wider FOV) and shoulder (on foot)
 - [ ] Smooth blend between profiles when the active subject changes
-- [ ] Mouse / right-stick orbit around the followed subject, with pitch clamps
+- [ ] Optional mouse / right-stick orbit with pitch clamps — never required
 - [ ] Collision so the camera does not pass through buildings or terrain
 
 ### Done when
 
-The camera follows a moving cube around a flat plane and never clips a wall, and
-switching profiles reads as one continuous move rather than a cut.
+The camera follows a moving cube around a flat plane and never clips a wall,
+switching profiles reads as one continuous move rather than a cut, and **a player who
+never touches the camera control can always see the fire**.
 
 ### Notes
 
 `src/render/IsometricCameraRig.tsx` is replaced, not adapted — an orthographic
 camera with stepped 90° rotation cannot follow a moving subject. Keep the file
-until M3-15 so the old view still boots while the new one is built.
+until #100 so the old view still boots while the new one is built.
 
 `src/render/isometricCamera.ts` holds pure helpers worth reading before rewriting;
 some clamping logic transfers.
 
 ---
 
-## M3-2 — Firefighter character controller
+## #87 — Firefighter character controller
 
 The player's body. Walk, run, and stand somewhere specific.
 
@@ -81,22 +140,28 @@ The player's body. Walk, run, and stand somewhere specific.
 - [ ] Ground collision against terrain and building footprints
 - [ ] Idle / walk / run animation states driven by velocity
 - [ ] Character carries a visible hose nozzle in the ready pose
+- [ ] Movement is forgiving: no fall damage, no stamina, no ledge that traps the player
 
 ### Done when
 
 A player can walk the firefighter around a building at a speed that feels good to
-hold for thirty seconds, and the character never clips into a wall.
+hold for thirty seconds, and the character never clips into a wall or gets stuck.
 
 ### Notes
 
 ADR-005 accepts the art-budget increase for an animation rig — that cost was
 listed as a benefit of isometric in ADR-001 and is now being spent deliberately.
 
-Depends on M3-1.
+Walking is justified by exploration and spectacle rather than tactical positioning:
+exterior fire does not chase the player and nothing can hurt them. Build it to feel
+good to move, not to solve a problem. Ladder climbing is the intended later source of
+positional depth — leave room for it, do not build it here.
+
+Depends on #86.
 
 ---
 
-## M3-3 — Drivable firetruck with arcade handling
+## #88 — Drivable firetruck with arcade handling
 
 Driving must be fun on its own, not a loading screen with a steering wheel.
 
@@ -119,11 +184,14 @@ Handling should be arcade, not simulation — no gearbox, no stalling, no damage
 model. Getting stuck on scenery is the single most likely fun-killer here; bias
 every collision decision toward "slide off it."
 
-Depends on M3-1.
+Driving is a pillar, not transit — see [`docs/game-direction.md`](game-direction.md).
+Never shorten or skip the drive to get the player to the fire faster.
+
+Depends on #86.
 
 ---
 
-## M3-4 — Mount and dismount transition
+## #89 — Mount and dismount transition
 
 The beat that connects driving to firefighting.
 
@@ -145,27 +213,34 @@ no input ambiguity at any point.
 This is the seam most likely to feel cheap. The transition is worth more polish
 than its size label suggests.
 
-Depends on M3-1, M3-2, M3-3.
+Depends on #86, #87, #88.
 
 ---
 
-## M3-5 — Street map and drivable district
+## #90 — Free-roam colourful city map
 
-A place, rather than one building on a plinth.
+A place worth driving around, rather than one building on a plinth.
+
+**Free roam is a pillar, not transit.** The city should be somewhere a child wants to
+drive around even with nothing on fire.
 
 ### Tasks
 
-- [ ] Drivable ground plane with roads, kerbs, and a few blocks of buildings
+- [ ] Drivable ground plane with roads, kerbs, and several blocks of buildings
 - [ ] District layout authored as data under `content/`, following the scenarios pattern
+- [ ] **Parks and green space as first-class areas** — trees, hedges, benches, play equipment
 - [ ] Multiple possible quest sites placed around the map at varying drive distances
 - [ ] Exactly one quest site active at a time
+- [ ] **Colourful, legible landmarks a child can navigate by without a minimap**
 - [ ] Street hydrants may appear as recognizable world props, with no required interaction
 - [ ] Props that read at eye level: trees, benches, parked cars, hedges
+- [ ] Things that are simply nice to look at and drive past
 
 ### Done when
 
-The map takes 30–60 seconds to cross, has at least three distinct incident sites,
-and reads as a small town rather than a test level.
+The map has at least three distinct quest sites, reads as a small colourful town
+rather than a test level, and **a child will drive around it for a minute with
+nothing active and not be bored**.
 
 ### Notes
 
@@ -178,22 +253,26 @@ building should still catch. That is free gameplay, not a bug.
 
 ---
 
-## M3-6 — Building exteriors as burnable facades
+## #91 — Burnable exteriors: facades, trees, and park props
 
-Fire moves to the outside of the building.
+Fire moves to the outside — and to more than buildings.
 
 ### Tasks
 
 - [ ] Extend the scenario schema to author fire on facades, roofs, awnings, and porches
+- [ ] **Trees and park features as burnable subjects in their own right**
 - [ ] Map exterior surfaces onto cells so the existing propagation tick drives them
 - [ ] Fire visibly climbs a facade and spreads along a roofline
+- [ ] Fire spreads tree to tree where they are close enough
 - [ ] Cell state visuals readable at eye level, not just from above
 - [ ] Two or three building archetypes: house, shopfront, barn
+- [ ] Authoring shape allows a new burnable subject to be added as data only
 
 ### Done when
 
-A fire started at a porch climbs to the roof on its own, and a player standing on
-the street can see every burning cell without moving.
+A fire started at a porch climbs to the roof on its own, a fire started in one tree
+reaches its neighbour, and a player standing on the street can see every burning cell
+without moving.
 
 ### Notes
 
@@ -204,9 +283,12 @@ M3; a facade-only representation is a later optimization.
 `src/sim/cellGrid.ts` and `src/sim/fireSimulation.ts` should need no changes.
 This is an authoring and rendering problem, not a simulation one.
 
+The burnable subject list is expected to grow. Author it so adding "car" or "market
+stall" later is a content change, not a code change.
+
 ---
 
-## M3-7 — Smoke column beacon and waypoint arrow
+## #92 — Smoke column beacon and waypoint arrow
 
 How the player finds the next fire.
 
@@ -230,11 +312,11 @@ The smoke column should do most of the work — the arrow is the backstop. Teach
 map-reading through a visible landmark is better than an arrow that does the
 thinking for the player.
 
-Depends on M3-5.
+Depends on #90.
 
 ---
 
-## M3-8 — Character-anchored hose aiming
+## #93 — Character-anchored hose aiming
 
 The payoff verb. This is the most important feel in M3.
 
@@ -243,14 +325,18 @@ The payoff verb. This is the most important feel in M3.
 - [ ] Nozzle origin follows the character's hands instead of a fixed world point
 - [ ] Aim reticle projected onto the targeted surface, clearly readable
 - [ ] Hold to spray, with a visible arcing stream that lands where the reticle is
-- [ ] Generous target assistance and spread so adjacent cells catch overspray
+- [ ] Aim assist: the stream snaps toward and sticks to nearby burning cells
+- [ ] Assist strength is a tunable scale, not a boolean — generous at the low end,
+      still expressive for a player who aims precisely
+- [ ] Forgiving spray width so adjacent cells catch overspray
 - [ ] Hit feedback: steam, hiss, the cell visibly darkening on contact
 - [ ] One water action only; no supply hookup or water/foam selection step
 
 ### Done when
 
-Aiming feels like you are pointing a hose, not moving a cursor — and knocking down
-a cell reads as something the player did.
+A five-year-old pointing roughly at a fire puts it out, an adult aiming precisely
+still feels their precision matters, and knocking down a cell reads as something the
+player did.
 
 ### Notes
 
@@ -262,11 +348,15 @@ becomes a function of character transform.
 `cellIdFromRaycastHits()` above it is already camera-agnostic and transfers as-is.
 `src/ui/hoseInput.ts` — the pointer-state reducer — also transfers unchanged.
 
-Depends on M3-2.
+Aim assist is the single hardest tuning problem in this milestone: too weak and the
+target audience cannot play, too strong and there is no skill left. It ships as a
+scale per [ADR-007](adr/007-ages-5-plus-control-floor.md) rule 3, and #108 tunes it.
+
+Depends on #87.
 
 ---
 
-## M3-9 — Simplify hose to one unlimited-water action
+## #94 — Simplify hose to one unlimited-water action
 
 Make the central verb usable immediately by a child aged 5–7.
 
@@ -290,11 +380,11 @@ M2's finite water, foam, supply connection, and tether-cost systems are migratio
 context, not mechanics to preserve. A hose line may remain visible because it
 supports the fantasy, but it must not create a reach puzzle or failure state.
 
-Depends on M3-8.
+Depends on #93.
 
 ---
 
-## M3-10 — Retire supply, refill, and tether gates
+## #95 — Retire supply, refill, and tether gates
 
 Remove the M2 resource-management controls that conflict with the target audience.
 
@@ -318,63 +408,122 @@ Remove or deprecate the old fields deliberately; do not leave active gameplay
 branches that a later agent could accidentally reconnect to the HUD. Existing
 scenario files may need a compatibility migration while M2 remains bootable.
 
-Depends on M3-9.
+Depends on #94.
 
 ---
 
-## M3-11 — Replace A–F grades with 1–3 stars
+## #104 — Decouple propane hazards from civilians
+
+Propane cylinders survive the pivot. Their coupling to civilians does not.
+
+A cylinder that heats up, shows a visible countdown, and calms down when sprayed is
+close to ideal content for this audience — one of the few sources of urgency that
+survives the no-harm rule, which makes it *more* valuable now, not less.
+
+### Tasks
+
+- [ ] Remove the `CivilianState` import from `src/sim/hazards.ts`
+- [ ] Remove `lostCivilianIds` from `PropaneFailedEvent` and from `applyBlast()`
+- [ ] Remove the `civilians` parameter from `applyBlast()` and `advanceHazards()`
+- [ ] Keep blast fire spread, cell destruction, and countdown behaviour unchanged
+- [ ] Make the countdown loudly legible: colour, pulse, and sound, no text
+- [ ] Update `src/sim/hazards.test.ts`
+
+### Done when
+
+A propane cylinder still heats, counts down, and blasts spectacularly; spraying it
+still calms it; and nothing in `hazards.ts` knows what a civilian is.
+
+### Notes
+
+`PROPANE_BLAST_RADIUS` keeps its meaning for fire and cell destruction — only the
+entity-harm branch at `src/sim/hazards.ts:111-124` goes.
+
+Land this before or alongside #97, which cannot complete while `hazards.ts` still
+imports `CivilianState`.
+
+---
+
+## #97 — Remove civilians and rescue entirely
+
+**This replaced "Civilians without loss," which was not viable.** `pickUpCivilian()`
+at `src/sim/civilians.ts:200` refuses any civilian whose state is not `Unconscious`,
+and conscious civilians already walk themselves out. Removing the terminal states —
+as the earlier plan proposed — makes the whole carry mechanic unreachable while
+leaving a rescue bonus worth `SCORE_WEIGHTS.lives = 50` with no rescue verb behind
+it. See [ADR-006](adr/006-arcade-tone-for-younger-players.md).
+
+Rescue is removed. The game is about putting out fires.
+
+### Tasks
+
+- [ ] Delete `src/sim/civilians.ts` and `src/sim/civilians.test.ts`
+- [ ] Delete `src/sim/search.ts` and `src/sim/search.test.ts` — search exists to find civilians
+- [ ] Remove `civilians` from the scenario schema in `src/sim/scenarios.ts` and its validators
+- [ ] Remove `civilians` entries from every file in `content/scenarios/`
+- [ ] Remove civilian markers from `src/render/incidentMarkers.ts` and `IncidentEntities.tsx`
+- [ ] Remove civilian readouts from `src/ui/IncidentHud.tsx` and `src/ui/DebriefPanel.tsx`
+- [ ] Remove civilian cues from `src/audio/fireAudioSystem.ts`
+- [ ] Remove civilian style tokens from `src/styles/styles.ts`
+- [ ] Remove civilian debug controls from `src/state/simDebugController.ts`
+- [ ] Update the affected `README.md` files
+
+### Done when
+
+`grep -ri civilian src content` returns nothing, and `npm run check`, `npm test`, and
+`npm run build` all pass.
+
+### Notes
+
+Size L because civilians reach into 34 files, not because it is difficult. Almost all
+of it is deletion.
+
+Two dependent issues close as superseded rather than migrating:
+[#69](https://github.com/MeanGreen256/hive_firefighter/issues/69) civilians and
+[#70](https://github.com/MeanGreen256/hive_firefighter/issues/70) search under smoke.
+
+Depends on #104.
+
+---
+
+## #96 — Rebuild scoring as 1–3 stars without lives
+
+Not an adjustment. `SCORE_WEIGHTS.lives = 50` is the largest single component and it
+is being deleted along with the verb behind it, so the model is rebuilt around what
+remains.
 
 ### Tasks
 
 - [ ] Replace `SessionGrade = 'A'|'B'|'C'|'D'|'F'` with a 1–3 star rating
 - [ ] Remove `gradeForScore()` percentage thresholds and the weighted A–F model
-- [ ] Remove `CIVILIAN_LOSS_SCORE_CAP` and `gradeCappedForCivilianLoss`
-- [ ] Completing an incident at all earns one star; there is no zero-star outcome
+- [ ] Remove `CIVILIAN_LOSS_SCORE_CAP`, `gradeCappedForCivilianLoss`, and the `lives` score
+- [ ] Re-weight the surviving components: property saved, time, hazards saved
+- [ ] Completing a quest at all earns one star; there is no zero-star outcome
 - [ ] Star reveal in the debrief is animated and celebratory, one star at a time
-- [ ] Migrate or reset personal bests stored under the old grade shape
+- [ ] Debrief is legible without reading — stars, icons, and a property-saved bar
+- [ ] Reset personal bests stored under the old grade shape
 
 ### Done when
 
-The debrief tells a child aged 5–7 how they did in under two seconds, and there is
-no outcome that reads as a failure.
+The debrief tells a five-year-old how they did in under two seconds without words,
+and there is no outcome that reads as a failure.
 
 ### Notes
 
 `src/state/sessionStats.ts` and its tests are rewritten, not adjusted. ADR-006 has
 the reasoning: an A–D scale is still a report card.
 
-`src/state/personalBests.ts` stores the old shape — decide migrate vs. reset there.
+The new weights are a guess until #108 tunes them. Do not over-invest in the first
+numbers.
+
+`src/state/personalBests.ts` stores the old shape — reset rather than migrate, since
+`lives` has no equivalent in the new model.
+
+Depends on #97.
 
 ---
 
-## M3-12 — Civilians without loss
-
-### Tasks
-
-- [ ] Remove `CivilianState.Lost` and `CivilianState.Unconscious`
-- [ ] Remove `loseCivilian()` and `CIVILIAN_LOST_EXPOSURE`
-- [ ] Re-frame `exposure` as a *worry* meter that feeds bonus points, never survival
-- [ ] A fully worried civilian self-evacuates, costing the rescue bonus only
-- [ ] Relocate civilians to windows, balconies, and the street — visible from outside
-- [ ] Update `content/scenarios/*.json` civilian entries to the new semantics
-
-### Done when
-
-No sequence of player mistakes can result in a civilian being harmed, and
-rescuing one still feels worth hurrying for.
-
-### Notes
-
-Per ADR-006 this is partly a *deletion* — removing terminal states removes
-branching from `src/sim/civilians.ts`.
-
-Interior search-under-smoke ([#70](https://github.com/MeanGreen256/hive_firefighter/issues/70))
-does not survive the exterior-only pivot and should be closed as superseded rather
-than migrated.
-
----
-
-## M3-13 — Collapse becomes cosmetic
+## #98 — Collapse becomes cosmetic
 
 ### Tasks
 
@@ -395,7 +544,7 @@ currently reaches into three other simulation systems purely to hurt things.
 
 ---
 
-## M3-14 — Soft fail and instant retry
+## #99 — Soft fail and instant retry
 
 ### Tasks
 
@@ -413,11 +562,127 @@ A player who does badly is invited to go again rather than told they lost.
 Same-seed retry already exists from [#75](https://github.com/MeanGreen256/hive_firefighter/issues/75)
 — this reuses that path and re-skins the outcome.
 
-Depends on M3-11.
+Depends on #96.
 
 ---
 
-## M3-15 — Retire cutaway view and isometric rig
+## #105 — Retire thermal, scan, and mode-switch instruments
+
+`1 water · 2 foam · T thermal · F scan` is four modal toggles, and
+[ADR-007](adr/007-ages-5-plus-control-floor.md) rule 4 removes modal state.
+
+Thermal and scan are instruments for seeing through smoke *inside* a building. They
+are already dead under exterior-only fire; this is where they actually get removed.
+#94 covers water and foam; this covers the rest.
+
+### Tasks
+
+- [ ] Remove the thermal view, its bindings, HUD, and style tokens
+- [ ] Remove the scan verb, its bindings, and HUD
+- [ ] Remove `src/sim/search.ts` and its test if not already removed with #97
+- [ ] Rewrite the controls placard in `src/App.tsx` — no number keys, no instrument letters
+- [ ] Confirm no remaining binding enters a mode the player must exit
+
+### Done when
+
+There is exactly one spray verb, no number keys are bound, and no control puts the
+game into a state the player has to leave.
+
+### Notes
+
+Thermal recovery as *feedback* (ADR-004) is unaffected — that is about how cooled
+cells read, not a player-toggled thermal camera.
+
+Foam is deferred rather than deleted as a concept: it may return later as an automatic
+effect on certain materials, never as a mode toggle.
+
+---
+
+## #106 — Ages 5+ control floor and gamepad parity
+
+Implements [ADR-007](adr/007-ages-5-plus-control-floor.md).
+
+### Tasks
+
+- [ ] Audit every binding against the two-input-completion rule; remove what fails
+- [ ] Gamepad support at parity with keyboard and mouse, via the browser Gamepad API
+- [ ] No binding requires timing, precision, chords, or double-taps
+- [ ] Every control is harmless — no input can make the run worse
+- [ ] Rewrite the controls placard as icons, roughly two lines
+- [ ] Add the control floor to `.github/PULL_REQUEST_TEMPLATE.md` as a checklist item
+
+### Done when
+
+The game is completable with move and spray alone, on a gamepad, by someone who
+cannot read.
+
+### Notes
+
+The PR-template item matters: "no reading" and "two inputs" are easy to state and easy
+to violate one label at a time, exactly like the existing "no colour literals in
+`src/render/`" rule.
+
+---
+
+## #107 — Wordless onboarding and guided first quest
+
+The milestone's success condition is a child who has never seen the game completing a
+quest. Nothing else in M3 teaches them how. For this audience the first ninety seconds
+are the entire product.
+
+### Tasks
+
+- [ ] First run drops the player in the truck with one obvious smoke column visible
+- [ ] Contextual prompts appear as animated icons at the moment they are needed
+- [ ] Prompts teach, in order: drive, stop near the fire, get out, hold to spray
+- [ ] Each prompt persists until the player does it; nothing times out or fails
+- [ ] No text is required to understand any prompt
+- [ ] Onboarding is skippable and never repeats once completed
+
+### Done when
+
+A five-year-old who has never seen the game completes their first quest with no adult
+narrating it.
+
+### Notes
+
+Build it late within the loop work, but do not let it slip out of M3 — without it the
+milestone's own acceptance criterion cannot be evaluated.
+
+---
+
+## #108 — Stakes tuning pass and playtest with children
+
+[ADR-006](adr/006-arcade-tone-for-younger-players.md) names this as the genuine design
+risk of the whole pivot: nothing can hurt the player, nobody can be lost, and water is
+unlimited — so tension has to come from property, the clock, and spectacle. The earlier
+plan acknowledged that risk and scheduled no work against it. This is that work.
+
+### Tasks
+
+- [ ] Tune fire spread rate so that dawdling visibly costs property
+- [ ] Tune the new star thresholds from #96 against real play
+- [ ] Tune the aim-assist scale from #93
+- [ ] Make spreading fire loud and visible — the player should feel it getting away
+- [ ] Confirm propane countdowns create urgency without frustration
+- [ ] **Playtest with children in the target age range**, not with adults imagining them
+- [ ] Record findings and file follow-ups rather than fixing everything here
+
+### Done when
+
+A player hurries because they want to save the building, not because anything punishes
+them — confirmed by watching a child play, not by assertion.
+
+### Notes
+
+If this concludes that the loop has no tension without harm, that is the most important
+finding of M3 and should become an ADR rather than a patch.
+
+Depends on Phase A through D.
+
+---
+
+## #100 — Retire cutaway view and isometric rig
 
 Cleanup, once the new loop is proven.
 
@@ -453,50 +718,76 @@ Depends on all of the above.
 
 > **M3 — Drive, Dismount, Douse (tracking)**
 >
-> Can a child aged 5–7 follow the smoke, drive to one active quest, and put out
+> Can a five-year-old follow the smoke, drive to one active quest, and put out
 > visible exterior fire as a character?
 >
 > M3 pivots the game per
-> [ADR-005](https://github.com/MeanGreen256/hive_firefighter/blob/main/docs/adr/005-third-person-apparatus-control.md)
+> [ADR-005](https://github.com/MeanGreen256/hive_firefighter/blob/main/docs/adr/005-third-person-apparatus-control.md),
+> [ADR-006](https://github.com/MeanGreen256/hive_firefighter/blob/main/docs/adr/006-arcade-tone-for-younger-players.md),
 > and
-> [ADR-006](https://github.com/MeanGreen256/hive_firefighter/blob/main/docs/adr/006-arcade-tone-for-younger-players.md):
-> a third-person
-> firefighter, a drivable truck, exterior-only fire, and arcade tone for ages 5–7.
+> [ADR-007](https://github.com/MeanGreen256/hive_firefighter/blob/main/docs/adr/007-ages-5-plus-control-floor.md),
+> serving the contract in
+> [`docs/game-direction.md`](https://github.com/MeanGreen256/hive_firefighter/blob/main/docs/game-direction.md).
 >
-> Exactly one quest is active at a time. The loop: **follow the smoke → drive to
-> the quest → park → hop out → point and hold the hose → put out the exterior fire
-> → earn stars → next quest.** Players never enter buildings.
+> The loop: **drive around a colourful city → find the smoke → hop out → squirt the
+> fire until it is out → earn stars → next quest.**
+>
+> Four constraints fix everything else:
+> - **Fire burns things, never people.** No civilians, no rescue verb.
+> - **The player cannot be harmed.** No health, no damage.
+> - **Ages 5+.** Two-input completion, assisted aim, automatic camera, no reading.
+> - **Free roam is a pillar.** The city is worth driving around with nothing on fire.
 >
 > Hose play uses one action and unlimited water. There is no manual hookup, tank
-> depletion, foam selection, reach cutoff, or required hydrant-refill loop. The
-> core cell-based propagation model remains intact, while supporting modules may
-> change for the new presentation and age-appropriate rules.
+> depletion, foam selection, reach cutoff, or required hydrant-refill loop. The core
+> cell-based propagation model remains intact, while supporting modules change for the
+> new presentation and age-appropriate rules.
 >
-> ### Build order
-> - [ ] M3-1 Follow camera rig
-> - [ ] M3-2 Firefighter character controller
-> - [ ] M3-3 Drivable firetruck with arcade handling
-> - [ ] M3-4 Mount and dismount transition
-> - [ ] M3-5 Street map and drivable district
-> - [ ] M3-6 Building exteriors as burnable facades
-> - [ ] M3-7 Smoke column beacon and waypoint arrow
-> - [ ] M3-8 Character-anchored hose aiming
-> - [ ] M3-9 Simplify hose to one unlimited-water action
-> - [ ] M3-10 Retire supply, refill, and tether gates
-> - [ ] M3-11 Replace A–F grades with 1–3 stars
-> - [ ] M3-12 Civilians without loss
-> - [ ] M3-13 Collapse becomes cosmetic
-> - [ ] M3-14 Soft fail and instant retry
-> - [ ] M3-15 Retire cutaway view and isometric rig
+> ### Phase A — Prove the verb (go/no-go gate)
+> - [ ] #86 Follow camera rig: automatic framing, chase and shoulder
+> - [ ] #87 Firefighter character controller
+> - [ ] #93 Character-anchored hose aiming
+>
+> **Stop here and play it.** Phase A is the cheapest honest test of the riskiest
+> assumption in the pivot — that squirting exterior fire on foot is fun. It is
+> deliberately scheduled ahead of the truck and the city, which are large and cannot
+> fail interestingly.
+>
+> ### Phase B — The city
+> - [ ] #90 Free-roam colourful city map
+> - [ ] #91 Burnable exteriors: facades, trees, and park props
+> - [ ] #88 Drivable firetruck with arcade handling
+> - [ ] #89 Mount and dismount transition
+> - [ ] #92 Smoke column beacon and waypoint arrow
+>
+> ### Phase C — Simplify the hose
+> - [ ] #94 Simplify hose to one unlimited-water action
+> - [ ] #95 Retire supply, refill, and tether gates
+>
+> ### Phase D — Arcade tone rework
+> - [ ] #104 Decouple propane hazards from civilians
+> - [ ] #97 Remove civilians and rescue entirely
+> - [ ] #96 Rebuild scoring as 1–3 stars without lives
+> - [ ] #98 Collapse becomes cosmetic
+> - [ ] #99 Soft fail and instant retry
+>
+> ### Phase E — The audience floor
+> - [ ] #105 Retire thermal, scan, and mode-switch instruments
+> - [ ] #106 Ages 5+ control floor and gamepad parity
+> - [ ] #107 Wordless onboarding and guided first quest
+> - [ ] #108 Stakes tuning pass and playtest with children
+>
+> ### Phase F — Cleanup
+> - [ ] #100 Retire cutaway view and isometric rig
 >
 > ### Done when
-> A child aged 5–7 who has never seen the game can follow the smoke to the single
-> active quest, drive there, dismount, put out every visible exterior flame, and
-> get stars — without needing to read — and wants to take the next quest.
+> A five-year-old who has never seen the game can follow the smoke to the single
+> active quest, drive there, dismount, put out every visible flame, and get stars —
+> without needing to read — and wants to take the next quest.
 >
 > ### Superseded by this milestone
-> - #70 Search under smoke — shipped in M2, but the mechanic is retired because
->   players never enter buildings in the target game.
+> - #69 Civilians — rescue is removed from the game entirely, not softened.
+> - #70 Search under smoke — an interior verb that does not survive exterior-only fire.
 >
 > Crew command and AI firefighters are distant stretch ideas outside the current
 > roadmap. They require a new explicit design decision before implementation.

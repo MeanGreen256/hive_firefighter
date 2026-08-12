@@ -9,6 +9,7 @@ One file per significant decision — the kind where a different answer would me
 | [003](003-cell-based-fire-simulation.md)           | Cell-based fire simulation as the core system | Accepted                   |
 | [004](004-thermal-recovery-as-gameplay-feedback.md) | Thermal recovery as gameplay feedback | Accepted                           |
 | [005](005-third-person-apparatus-control.md)       | Third-person firefighter and drivable apparatus | Accepted                 |
-| [006](006-arcade-tone-for-younger-players.md)      | Arcade tone and simple controls for ages 5–7 | Accepted                    |
+| [006](006-arcade-tone-for-younger-players.md)      | Arcade tone and simple controls for ages 5+ | Accepted                     |
+| [007](007-ages-5-plus-control-floor.md)            | Ages 5+ control and readability floor | Accepted                           |
 
 A settled question from the [decision issue form](../../.github/ISSUE_TEMPLATE/decision.yml) becomes an ADR here once it's answered. Number sequentially, never reuse or renumber; a reversal is a new ADR that supersedes the old one, not an edit to it.

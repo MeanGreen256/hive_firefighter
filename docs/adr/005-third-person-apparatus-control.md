@@ -21,12 +21,15 @@ is "hold click." The fantasy the project is selling is *being a firefighter*, an
 none of the fantasy's actual beats — the callout, the drive, the dismount, the
 walk up to a burning building with a hose in your hands — exist.
 
-The product direction is now explicitly children around ages 5–7 (see
+The product direction is now explicitly ages 5 and up, designed around five- to
+seven-year-olds (see
 [ADR-006](006-arcade-tone-for-younger-players.md)), and for that audience the
 drive-and-dismount fantasy *is* the game. A tactical overhead view of heat values
 is not.
 
-Critically, the new direction also constrains fire to **building exteriors only**.
+Critically, the new direction also constrains fire to **exteriors only** — building
+facades, roofs, awnings, and porches, plus the trees, park features, and street props
+around them.
 That single constraint dissolves ADR-001's objection rather than arguing with it:
 exterior fire is visible from outside, at distance, from any angle. It is exactly
 the case a following third-person camera handles well. ADR-001 also already
@@ -39,13 +42,17 @@ We will ship a **third-person follow camera** attached to two controllable subje
 and retire the locked isometric camera as the primary view.
 
 1. **The player controls a firefighter character.** Walk, run, and carry a hose.
-2. **The player drives a firetruck** to the one active quest incident on a
-   free-roam street map, dismounting on arrival.
+2. **The player drives a firetruck** to the one active quest incident on a free-roam
+   city map, dismounting on arrival. Free roam is a pillar, not transit: exploring a
+   colourful city is part of what the game is for, and the drive is content in its
+   own right.
 3. **The camera follows whichever subject is active** — a chase camera while
    driving, an over-the-shoulder camera on foot — with one transition between them.
-4. **Fire is authored on building exteriors.** Facades, roofs, awnings, porches,
-   and attached outdoor props. The player never enters a building; interior
-   volumetric fire is out of scope for this direction.
+4. **Fire is authored on exteriors.** Building facades, roofs, awnings, and porches,
+   plus trees, park features, and outdoor props. The player never enters a building;
+   interior volumetric fire is out of scope for this direction. The set of burnable
+   subjects is expected to grow, and adding one should be a content change rather
+   than a code change.
 5. **The hose is a simple point-and-hold tool.** On foot it is ready to use, water
    is unlimited, and spraying never depends on a manual hookup, tank level,
    hydrant refill, foam selection, or hose-length cutoff. A visible line back to
@@ -86,11 +93,22 @@ the simplified interaction rules.
   the building's **shell**. The grid still produces correct results but spends
   memory on interior cells nothing looks at. Accepted for now; a facade-only
   representation is a later optimization, not a blocker.
-- M2's interior and resource-management mechanics take the hit. Search-under-smoke
+- M2's interior and resource-management mechanics take the hit, and take it harder
+  than an earlier revision of this ADR claimed. Search-under-smoke
   ([#70](https://github.com/MeanGreen256/hive_firefighter/issues/70)) is inherently
   an interior verb and does not survive. Civilians
-  ([#69](https://github.com/MeanGreen256/hive_firefighter/issues/69)) survive by
-  relocating to windows, balconies, and the street.
+  ([#69](https://github.com/MeanGreen256/hive_firefighter/issues/69)) do not survive
+  either — that revision expected to relocate them to windows and balconies, but
+  [ADR-006](006-arcade-tone-for-younger-players.md) removes rescue from the game
+  entirely, so both are deleted rather than migrated.
+- **On-foot movement has no tactical depth yet, and that is accepted knowingly.**
+  Exterior fire does not chase the player, and with no damage
+  ([ADR-006](006-arcade-tone-for-younger-players.md)) there is nothing to retreat
+  from, so position rarely changes the outcome. Walking is justified instead by
+  exploration and spectacle — being a small figure in a big colourful city is the
+  appeal — with vertical verbs such as ladders as the intended source of positional
+  depth later. The risk is that on-foot firefighting stays shallow; the mitigation is
+  to test the on-foot verb before the surrounding systems are built, not after.
 - Finite water, foam selection, manual supply connection, tether limits, and
   hydrant refilling do not survive as required player mechanics. Hydrants and a
   visible hose line may remain as world dressing.
@@ -142,5 +160,8 @@ the simplified interaction rules.
   own note that a chase camera was evaluated for the drive-to-scene beat.
 - [ADR-006](006-arcade-tone-for-younger-players.md) — the audience decision this
   one serves.
+- [ADR-007](007-ages-5-plus-control-floor.md) — the control floor the camera and
+  aiming work in this ADR must clear.
+- [`docs/game-direction.md`](../game-direction.md) — the product-direction contract.
 - `docs/concept-art.html` — the original four-camera comparison, including the
   over-the-shoulder and chase-cam passes now being adopted.
