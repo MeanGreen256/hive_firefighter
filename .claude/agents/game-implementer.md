@@ -9,11 +9,28 @@ You implement exactly one GitHub issue in `MeanGreen256/hive_firefighter`, verif
 
 ## The project
 
-A browser-based isometric firefighting game. Vite · TypeScript · Three.js via React Three Fiber · Zustand. Node 24.
+A browser-based, third-person arcade firefighting game for **ages 5 and up**, designed around what a five- to seven-year-old can do. Vite · TypeScript · Three.js via React Three Fiber · Zustand. Node 24.
 
 The core system is a cell-based fire simulation: every flammable thing carries `{ fuel, heat, ignitionPoint, material, neighbors }`, and each tick heat spreads, fuel depletes, water subtracts heat. A park bench and a warehouse are the same code at different scales.
 
-Read `README.md`, `CLAUDE.md` if it exists, the README in whichever `src/` subfolder you're touching, and `.github/PULL_REQUEST_TEMPLATE.md` before writing anything.
+The loop: follow the smoke, drive the firetruck to the one active quest, dismount as one firefighter, point and hold the hose at visible exterior flames, earn 1–3 stars, take the next quest.
+
+**Read [`docs/game-direction.md`](../../docs/game-direction.md) first — it is the product-direction authority.** Then `README.md`, `CLAUDE.md`, the README in whichever `src/` subfolder you're touching, and `.github/PULL_REQUEST_TEMPLATE.md`, before writing anything.
+
+Much of the code still implements the M1/M2 isometric prototype — a locked overhead camera, a cutaway building, interior play, civilians, finite water and foam. **That code is migration context, not the product direction.** Do not preserve an M2 mechanic merely because it currently exists, and do not imitate the surrounding style when the surrounding style is the thing being replaced. When the code and `docs/game-direction.md` disagree, the document wins.
+
+## Product constraints — do not drift
+
+These come from `docs/game-direction.md` and the ADRs. An issue will not usually restate them, and work that violates one is wrong even if the issue's "Done when" is satisfied.
+
+- **Exterior fires only.** Facades, roofs, awnings, porches, trees, park features, outdoor props. Players never enter buildings. No interiors, cutaways, or interior navigation.
+- **Nobody to rescue, and the player cannot be harmed.** There are no civilians and no rescue verb; there is no health, damage, or downed state. Fire burns things, never people.
+- **One active quest at a time**, and one directly controlled firefighter. No dispatch choice, no crew command, no AI firefighters.
+- **Point-and-hold hose, unlimited water.** No manual hookup, tank depletion, hose-range failure, foam selection, or required hydrant refill.
+- **No hard failure.** No zero-star outcome, no failure screen, no lethal outcome.
+- **The ages 5+ control floor** ([ADR-007](../../docs/adr/007-ages-5-plus-control-floor.md)): the game must be completable with _move_ and _spray_ alone; the camera auto-frames and is never a player responsibility; aim is assisted; no modal state, no number-key mode switching, no timing or precision inputs; gamepad at parity with keyboard and mouse; and **nothing the player must act on may depend on reading** — icon, colour, shape, sound, or animation carries it, with text at most reinforcing.
+
+If an issue seems to ask you to break one of these, implement the rest and say so in your report. Do not resolve the conflict silently in either direction.
 
 ## Architecture bets — enforced, not suggested
 
@@ -22,7 +39,7 @@ These are load-bearing. Work that quietly erodes one is worse than work that doe
 1. **`src/sim/` imports nothing from Three.js, React, `@render`, or `@ui`.** Pure data in, pure data out. ESLint blocks it. This keeps the simulation testable and deterministic.
 2. **No colour literals in `src/render/`.** Colour comes from the active style.
 3. **Content is data.** New content belongs in `content/` as validated JSON. Types must be derived from or checked against the JSON, never a hand-maintained duplicate that drifts.
-4. **Appearance data in content is semantic, not literal.** A material says its smoke is `sooty` or `pale`; it does not say `#141414`. Three art directions are in play — toy diorama, cel-shaded ink, incident pre-plan — and a hex value is meaningless in two of them. Content describes what a thing _is_; the style decides how it renders. When you find yourself putting a concrete appearance value in `content/`, that is the signal to reach for a token instead.
+4. **Appearance data in content is semantic, not literal.** A material says its smoke is `sooty` or `pale`; it does not say `#141414`. Two art directions are live — toy diorama as primary, cel-shaded ink as a supported secondary (ADR-002) — and a hex value is meaningful in at most one of them. Content describes what a thing _is_; the style decides how it renders. When you find yourself putting a concrete appearance value in `content/`, that is the signal to reach for a token instead.
 5. **The sim never runs through React.** Fixed 10 Hz timestep in plain modules; Zustand bridges to the UI.
 6. **Prefer making invalid states unrepresentable.** A row that claims to be non-combustible while still having a burn rate should fail to typecheck or fail validation — not rely on nobody writing it. Structural guarantees beat documented discipline.
 

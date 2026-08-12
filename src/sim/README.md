@@ -14,7 +14,8 @@ This folder still documents the shipped M2 implementation. M3 keeps the core
 heat, spread, fuel, material, deterministic-tick, and water-application model,
 but changes supporting systems to match `docs/game-direction.md`: exterior-only
 quests, one active quest at a time, unlimited water, no foam selection or supply
-gates, safe civilians, and cosmetic collapse. Do not preserve an M2 mechanic
+gates, no civilians or rescue at all, and cosmetic collapse. Do not preserve an M2
+mechanic
 merely because it currently lives in `src/sim/`.
 
 ## What lives here
@@ -91,9 +92,11 @@ also means an always-on refill would make the tank infinite and cancel both the
 finite tank (#16) and the choice #68 exists to create. Breaking off is the cost;
 the reach limit is the second, independent cost.
 
-The following civilian, search, hazard, and collapse paragraphs also describe
-M2 behaviour. M3 removes terminal civilian harm, retires interior search, and
-makes collapse cosmetic.
+The following civilian, search, hazard, and collapse paragraphs describe M2
+behaviour that is being removed, not retuned. M3 **deletes** `civilians.ts` and
+`search.ts` entirely — there is no rescue verb in the target game (#97) — decouples
+hazards from civilians (#104), and makes collapse cosmetic (#98). Read them as a
+record of what is going away.
 
 `civilians.ts` owns plain civilian records and advances them on the same
 simulated clock as fire. Until smoke becomes its own volume, exposure derives

@@ -17,12 +17,14 @@ Every file is validated on load, with errors that name the offending row. TypeSc
 
 The target game authors multiple possible exterior quest locations in a district,
 but activates exactly one quest at a time. Each quest must place all fire on
-facades, roofs, awnings, porches, or outdoor props; no objective or combustible
-placement may require entering a building.
+facades, roofs, awnings, porches, trees, park features, or outdoor props; no objective
+or combustible placement may require entering a building. The burnable subject list is
+expected to grow, and adding one should be a content change rather than a code change.
 
 The existing M2 scenario fields for finite tanks, foam, hydrant supply, interior
-civilian search, and harmful hazards are legacy migration inputs. M3 content must
-not depend on them for completion. See `docs/game-direction.md`.
+civilian search, and harmful hazards are legacy migration inputs. M3 content must not
+depend on them for completion, and `civilians` entries are removed outright rather
+than retuned — the target game has nobody to rescue. See `docs/game-direction.md`.
 
 ## `materials.json`
 

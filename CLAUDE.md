@@ -4,8 +4,8 @@ Orientation for a fresh session working on `hive_firefighter`. This file states 
 
 ## The game, in one paragraph
 
-A browser-based, third-person arcade firefighting game for children around ages
-5–7. One quest incident is active at a time: follow the smoke, drive the
+A browser-based, third-person arcade firefighting game for ages 5 and up, designed
+around what a five- to seven-year-old can do. One quest incident is active at a time: follow the smoke, drive the
 firetruck to the location, dismount as one firefighter, point and hold the hose
 at visible exterior flames, earn 1–3 stars, and take the next quest. Players
 never enter buildings. Read `docs/game-direction.md` before planning gameplay,
@@ -22,8 +22,14 @@ controls, content, UI, or milestones; it is the product-direction authority.
 - Hose use is point-and-hold with one water action and unlimited water. Do not add
   manual hookup, tank depletion, hose-range failure, foam selection, or required
   hydrant refilling to the core game.
-- Design for ages 5–7: mechanics must work without required reading, precise aim,
-  resource arithmetic, lethal outcomes, or hard failure screens.
+- No civilians and no rescue verb; fire burns things, never people. The player cannot
+  be harmed — no health, no damage, no downed state.
+- Design for ages 5+: mechanics must work without required reading, precise aim,
+  resource arithmetic, lethal outcomes, or hard failure screens. The game must be
+  completable with _move_ and _spray_ alone, on a gamepad, by a non-reader — see
+  ADR-007 for the full control floor.
+- Free roam is a pillar, not transit. The city is worth driving around with nothing
+  on fire; never shorten or skip the drive to reach the fire faster.
 - The cell-based propagation model remains the technical core. Supporting code,
   including code under `src/sim/`, may change for exterior authoring and the new
   age-appropriate rules.
