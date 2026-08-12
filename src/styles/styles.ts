@@ -147,7 +147,6 @@ export interface HudTheme {
   readonly mutedText: string;
   readonly accent: string;
   readonly control: string;
-  readonly water: string;
   readonly warning: string;
   readonly success: string;
 }
@@ -370,7 +369,6 @@ const diorama: Style = {
     mutedText: '#766358',
     accent: '#d84d35',
     control: '#fffaf0',
-    water: '#3f8cab',
     warning: '#c64732',
     success: '#52785a',
   },
@@ -488,7 +486,6 @@ const ink: Style = {
     mutedText: '#b9aa8b',
     accent: '#ff4937',
     control: '#292c32',
-    water: '#72d9f5',
     warning: '#ff4937',
     success: '#a8d96f',
   },

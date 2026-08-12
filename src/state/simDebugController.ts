@@ -265,7 +265,11 @@ export function createSimDebugController(
       SuppressionAgent.Water,
     );
     notifyEvents(coolHazardsAtCell(hazards, cellId, requestedLitres));
-    waterUsedLitres += requestedLitres;
+    // Only count litres that actually landed somewhere (target or overspray
+    // neighbor). Spraying a Burnt/Collapsed cell with no combustible neighbor
+    // produces zero contacts and should not inflate the debrief's water-used
+    // telemetry with water that had no effect.
+    if (result.contacts.length > 0) waterUsedLitres += requestedLitres;
     return result;
   };
 

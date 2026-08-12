@@ -192,7 +192,7 @@ const FIELD_VALIDATORS: {
     }
     return undefined;
   },
-  suppressionResponse: (value) => {
+  suppressionResponse: (value, row) => {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       return `suppressionResponse must be an object with water and foam responses, got ${describe(value)}`;
     }
@@ -210,6 +210,12 @@ const FIELD_VALIDATORS: {
       ) {
         return `suppressionResponse.${agent} must be a finite number in [-${SUPPRESSION_RESPONSE_MAX}, ${SUPPRESSION_RESPONSE_MAX}], got ${describe(response)}`;
       }
+    }
+    // M3's sole gameplay verb is unlimited water: a combustible with a
+    // non-positive water response would be permanently un-extinguishable by
+    // the player, with nothing at import time to catch it.
+    if (row.ignitionPoint !== null && (responses.water as number) <= 0) {
+      return `suppressionResponse.water must be greater than 0 for combustible materials (ignitionPoint is not null), got ${describe(responses.water)}`;
     }
     return undefined;
   },

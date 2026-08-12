@@ -124,9 +124,36 @@ describe('validateMaterialTable', () => {
 
   it('accepts independent water and foam responses for grease', () => {
     const table = validateMaterialTable({
-      grease: { ...validRow, suppressionResponse: { water: -1.5, foam: 1.8 } },
+      grease: { ...validRow, suppressionResponse: { water: 0.75, foam: 1.8 } },
     });
-    expect(table.grease?.suppressionResponse).toEqual({ water: -1.5, foam: 1.8 });
+    expect(table.grease?.suppressionResponse).toEqual({ water: 0.75, foam: 1.8 });
+  });
+
+  it('rejects a non-positive water response for a combustible material', () => {
+    expect(() =>
+      validateMaterialTable({
+        grease: { ...validRow, suppressionResponse: { water: -1.5, foam: 1.8 } },
+      }),
+    ).toThrow(/suppressionResponse\.water must be greater than 0/);
+    expect(() =>
+      validateMaterialTable({
+        grease: { ...validRow, suppressionResponse: { water: 0, foam: 1.8 } },
+      }),
+    ).toThrow(/suppressionResponse\.water must be greater than 0/);
+  });
+
+  it('allows a non-positive water response for a non-combustible material', () => {
+    const table = validateMaterialTable({
+      concrete: {
+        ...validRow,
+        ignitionPoint: null,
+        burnRate: 0,
+        spreadFactor: 0,
+        heatOutput: 0,
+        suppressionResponse: { water: 0, foam: 0 },
+      },
+    });
+    expect(table.concrete?.suppressionResponse).toEqual({ water: 0, foam: 0 });
   });
 
   it('requires exactly one response for each supported agent', () => {

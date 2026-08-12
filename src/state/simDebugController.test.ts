@@ -177,6 +177,22 @@ describe('sim debug controller', () => {
     expect(controller.store.getState().simulation.grid.cells['0,0,0']!.wetness).toBeGreaterThan(0);
   });
 
+  it('does not count water sprayed at a burnt cell with no combustible neighbor', () => {
+    const controller = createSimDebugController(15);
+    const grid = controller.store.getState().simulation.grid;
+    const cell = grid.cells['0,0,0']!;
+    cell.state = CellState.Burnt;
+    for (const neighbor of cell.neighbors) {
+      const neighborCell = grid.cells[neighbor.cellId];
+      if (neighborCell) neighborCell.state = CellState.Burnt;
+    }
+
+    const result = controller.sprayCell('0,0,0', 5);
+
+    expect(result.contacts).toEqual([]);
+    expect(controller.store.getState().waterUsedLitres).toBe(0);
+  });
+
   it('ends a contained scenario with a grade and complete breakdown', () => {
     const controller = createSimDebugController(15);
 
