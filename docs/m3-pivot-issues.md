@@ -1,7 +1,9 @@
 # M3 draft issues — Drive, Dismount, Douse
 
-Draft issue set for the pivot decided in [ADR-005](adr/005-third-person-apparatus-control.md)
-and [ADR-006](adr/006-arcade-tone-for-younger-players.md). Not yet filed on GitHub.
+Issue set for the pivot decided in [ADR-005](adr/005-third-person-apparatus-control.md)
+and [ADR-006](adr/006-arcade-tone-for-younger-players.md).
+
+**Filed on GitHub as #86–#100, tracked by [#101](https://github.com/MeanGreen256/hive_firefighter/issues/101).**
 
 **Recommended milestone rename.** Milestone 3 is currently "Crew & Apparatus,"
 asking *"Is commanding a crew better than acting alone?"* The pivot replaces that
@@ -19,23 +21,23 @@ Sequenced so that something is playable as early as possible. Issues 1–3 alone
 produce a character who can walk, drive, and be followed by a camera — which is
 the cheapest honest test of whether the pivot feels right before the rest is built.
 
-| #    | Issue                                         | Area            | Size |
-| ---- | --------------------------------------------- | --------------- | ---- |
-| M3-1 | Follow camera rig                             | `area:render`   | L    |
-| M3-2 | Firefighter character controller              | `area:render`   | L    |
-| M3-3 | Drivable firetruck with arcade handling       | `area:render`   | L    |
-| M3-4 | Mount and dismount transition                 | `area:render`   | M    |
-| M3-5 | Street map and drivable district              | `area:content`  | L    |
-| M3-6 | Building exteriors as burnable facades        | `area:sim`      | L    |
-| M3-7 | Smoke column beacon and waypoint arrow        | `area:ui`       | M    |
-| M3-8 | Character-anchored hose aiming                | `area:render`   | M    |
-| M3-9 | Truck as water supply with parking and tether | `area:sim`      | M    |
-| M3-10| Hydrant refill by driving                     | `area:sim`      | S    |
-| M3-11| Replace A–F grades with 1–3 stars             | `area:ui`       | M    |
-| M3-12| Civilians without loss                        | `area:sim`      | M    |
-| M3-13| Collapse becomes cosmetic                     | `area:sim`      | S    |
-| M3-14| Soft fail and instant retry                   | `area:ui`       | S    |
-| M3-15| Retire cutaway view and isometric rig         | `area:render`   | M    |
+| #    | Issue                                         | Area           | Size |
+| ---- | --------------------------------------------- | -------------- | ---- |
+| #86  | Follow camera rig                             | `area:render`  | L    |
+| #87  | Firefighter character controller              | `area:render`  | L    |
+| #88  | Drivable firetruck with arcade handling       | `area:render`  | L    |
+| #89  | Mount and dismount transition                 | `area:render`  | M    |
+| #90  | Street map and drivable district              | `area:content` | L    |
+| #91  | Building exteriors as burnable facades        | `area:sim`     | L    |
+| #92  | Smoke column beacon and waypoint arrow        | `area:ui`      | M    |
+| #93  | Character-anchored hose aiming                | `area:render`  | M    |
+| #94  | Truck as water supply with parking and tether | `area:sim`     | M    |
+| #95  | Hydrant refill by driving                     | `area:sim`     | S    |
+| #96  | Replace A–F grades with 1–3 stars             | `area:ui`      | M    |
+| #97  | Civilians without loss                        | `area:sim`     | M    |
+| #98  | Collapse becomes cosmetic                     | `area:sim`     | S    |
+| #99  | Soft fail and instant retry                   | `area:ui`      | S    |
+| #100 | Retire cutaway view and isometric rig         | `area:render`  | M    |
 
 ---
 
