@@ -13,6 +13,17 @@ Game data as JSON. **Adding content should not require writing code.**
 
 Every file is validated on load, with errors that name the offending row. TypeScript types are derived from or checked against the JSON — never a hand-maintained duplicate that silently drifts.
 
+## M3 content direction
+
+The target game authors multiple possible exterior quest locations in a district,
+but activates exactly one quest at a time. Each quest must place all fire on
+facades, roofs, awnings, porches, or outdoor props; no objective or combustible
+placement may require entering a building.
+
+The existing M2 scenario fields for finite tanks, foam, hydrant supply, interior
+civilian search, and harmful hazards are legacy migration inputs. M3 content must
+not depend on them for completion. See `docs/game-direction.md`.
+
 ## `materials.json`
 
 Keyed by material id (`"wood"`, `"grease"`, ...). Loaded, typed, and
@@ -42,11 +53,11 @@ Each scenario declares:
   plus optional per-cell `x,y,z` overrides;
 - one or more combustible `ignitionOrigins`, a deterministic `seed`, and
   `wind`;
-- civilian, hazard, and hydrant placements for M2 systems. Hydrants feed the
-  live hose supply, civilians seed exposure and search state, and propane
-  placements seed heat-responsive, coolable countdown hazards;
-- finite `waterTankCapacityLitres`, `foamTankCapacityLitres`, and
-  `parTimeSeconds`.
+- legacy civilian, hazard, and hydrant placements for M2 systems. These describe
+  the current implementation, not the M3 completion rules;
+- legacy finite `waterTankCapacityLitres` and `foamTankCapacityLitres`, plus
+  `parTimeSeconds`. Tank capacities must be removed or made optional during M3
+  because normal hose use has unlimited water.
 
 Appearance remains style data. Scenario content names a semantic material or
 hazard type and never specifies colours, meshes, or particles.

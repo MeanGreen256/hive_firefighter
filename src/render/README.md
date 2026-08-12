@@ -10,6 +10,16 @@ ESLint enforces this rule for string and template literals in `src/render/`.
 Components receive the active `Style` from the app and use its material factory;
 they do not import a preferred palette directly.
 
+## M3 direction versus current code
+
+The isometric rig, cutaway building, interior markers, tether-limit feedback, and
+water/foam distinction below describe the M2 renderer. M3 replaces them with a
+chase camera for the truck, an over-the-shoulder camera for one firefighter,
+eye-level exterior fire, and a simple unlimited-water hose. Players never enter
+buildings. Keep old components only while they help migration or comparison; do
+not adapt them into permanent target-game architecture. See
+`docs/game-direction.md` and ADR-005.
+
 ## What lives here
 
 - Isometric camera rig (#11)

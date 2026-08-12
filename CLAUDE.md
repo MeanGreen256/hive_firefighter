@@ -4,7 +4,33 @@ Orientation for a fresh session working on `hive_firefighter`. This file states 
 
 ## The game, in one paragraph
 
-A browser-based isometric firefighting game. The core system is a cell-based fire simulation: every flammable thing carries `{ fuel, heat, ignitionPoint, material, neighbors }`, and each tick heat spreads, fuel depletes, water subtracts heat. A park bench and a warehouse are the same code at different scales. Read `README.md` for the roadmap and the decisions made so far; read `docs/adr/` for why.
+A browser-based, third-person arcade firefighting game for children around ages
+5–7. One quest incident is active at a time: follow the smoke, drive the
+firetruck to the location, dismount as one firefighter, point and hold the hose
+at visible exterior flames, earn 1–3 stars, and take the next quest. Players
+never enter buildings. Read `docs/game-direction.md` before planning gameplay,
+controls, content, UI, or milestones; it is the product-direction authority.
+
+## Product constraints — do not drift
+
+- One active quest incident at a time; no incident-selection or simultaneous-fire
+  strategy in the core loop.
+- Exterior fires only. Do not build interiors, interior navigation, cutaways, or
+  interior search for the target game.
+- One directly controlled firefighter. Crew command and AI firefighters are
+  distant stretch ideas outside M3–M5, not an implied next step.
+- Hose use is point-and-hold with one water action and unlimited water. Do not add
+  manual hookup, tank depletion, hose-range failure, foam selection, or required
+  hydrant refilling to the core game.
+- Design for ages 5–7: mechanics must work without required reading, precise aim,
+  resource arithmetic, lethal outcomes, or hard failure screens.
+- The cell-based propagation model remains the technical core. Supporting code,
+  including code under `src/sim/`, may change for exterior authoring and the new
+  age-appropriate rules.
+
+The current implementation still contains M1/M2 isometric and simulation-heavy
+systems. Their existence is migration context, not evidence that they remain in
+the product direction.
 
 ## Stack
 
@@ -27,17 +53,18 @@ attention.
 
 ## Folder layout
 
-| Path          | What                                                                     | Details in             |
-| ------------- | ------------------------------------------------------------------------ | ---------------------- |
-| `src/sim/`    | The fire simulation. Renderer-agnostic.                                  | `src/sim/README.md`    |
-| `src/perf/`   | Shared, renderer-agnostic performance metrics and budget evaluation.     | `src/perf/README.md`   |
-| `src/render/` | Three.js / R3F. Reads sim state, draws it.                               | `src/render/README.md` |
-| `src/state/`  | Vanilla Zustand bridges and non-React runtime controllers.               | `src/state/README.md`  |
-| `src/ui/`     | HUD, panels, input. Plain React/DOM.                                     | `src/ui/README.md`     |
-| `src/styles/` | Art direction as swappable data.                                         | `src/styles/README.md` |
-| `content/`    | Game data as validated JSON.                                             | `content/README.md`    |
-| `docs/adr/`   | Architecture decision records.                                           | `docs/adr/README.md`   |
-| `docs/*.html` | Concept art passes — self-contained, open in a browser, no build needed. | —                      |
+| Path                     | What                                                                     | Details in             |
+| ------------------------ | ------------------------------------------------------------------------ | ---------------------- |
+| `src/sim/`               | The fire simulation. Renderer-agnostic.                                  | `src/sim/README.md`    |
+| `src/perf/`              | Shared, renderer-agnostic performance metrics and budget evaluation.     | `src/perf/README.md`   |
+| `src/render/`            | Three.js / R3F. Reads sim state, draws it.                               | `src/render/README.md` |
+| `src/state/`             | Vanilla Zustand bridges and non-React runtime controllers.               | `src/state/README.md`  |
+| `src/ui/`                | HUD, panels, input. Plain React/DOM.                                     | `src/ui/README.md`     |
+| `src/styles/`            | Art direction as swappable data.                                         | `src/styles/README.md` |
+| `content/`               | Game data as validated JSON.                                             | `content/README.md`    |
+| `docs/adr/`              | Architecture decision records.                                           | `docs/adr/README.md`   |
+| `docs/game-direction.md` | Authoritative product direction and anti-drift constraints.              | —                      |
+| `docs/*.html`            | Concept art passes — self-contained, open in a browser, no build needed. | —                      |
 
 If you're not sure where a new file goes: sim logic that never touches Three.js/React goes in `src/sim/`; anything that draws goes in `src/render/`; anything that's DOM/React chrome around the canvas goes in `src/ui/`; a new palette/material-look/particle-appearance variant goes in `src/styles/`; new game data goes in `content/` as JSON, not as a constant in code.
 
@@ -79,7 +106,9 @@ Authored incidents follow the same shape: `content/scenarios/*.json` is auto-dis
 
 ## Working conventions
 
-- Issues are labelled `area:*`, `type:*`, `size:*`; start from the M1 tracking issue linked in `README.md`.
+- Issues are labelled `area:*`, `type:*`, `size:*`; start from the M3 tracking
+  issue linked in `README.md` and check every issue against
+  `docs/game-direction.md`.
 - Branch off `main`: `<type>/<issue-number>-<short-slug>`.
 - PRs target `main`, use `.github/PULL_REQUEST_TEMPLATE.md`, and reference `Closes #N`.
 - Commit messages: conventional-commit subject line, body explains _why_.
