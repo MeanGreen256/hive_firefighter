@@ -11,12 +11,35 @@ import { useStore } from 'zustand';
 import { Vector3, type Group } from 'three';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
+import { FirefighterController } from './FirefighterController';
 import { FollowCameraRig } from './FollowCameraRig';
+import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
 import type { FollowCameraProfileId } from './followCamera';
 
 const PROXY_MOVE_SPEED = 4.5;
 const PROXY_TURN_SPEED = 2.2;
 const PROTOTYPE_BOUNDS = 12;
+const TRUCK_START = [-4, 0, 1] as const;
+const FIREFIGHTER_START = [4, 0, -1] as const;
+const FIREFIGHTER_MOVEMENT_BOUNDS: CharacterMovementBounds = {
+  minX: -PROTOTYPE_BOUNDS,
+  maxX: PROTOTYPE_BOUNDS,
+  minZ: -PROTOTYPE_BOUNDS,
+  maxZ: PROTOTYPE_BOUNDS,
+};
+const PROTOTYPE_BUILDINGS = [
+  { id: 'center', x: 0, y: 1.5, z: 0, width: 3.5, height: 3, depth: 1.2, surface: 'wall' },
+  { id: 'west', x: -7, y: 1, z: -5, width: 4, height: 2, depth: 2, surface: 'roof' },
+  { id: 'east', x: 7, y: 1.25, z: 5, width: 3, height: 2.5, depth: 3, surface: 'floor' },
+] as const;
+const PROTOTYPE_OBSTACLES: readonly CharacterObstacle[] = PROTOTYPE_BUILDINGS.map(
+  ({ x, z, width, depth }) => ({
+    minX: x - width / 2,
+    maxX: x + width / 2,
+    minZ: z - depth / 2,
+    maxZ: z + depth / 2,
+  }),
+);
 
 interface SceneCssVariables extends CSSProperties {
   '--scene-saturation': number;
@@ -40,7 +63,7 @@ function TruckProxy({
   visualStyle: Style;
 }) {
   return (
-    <group ref={targetRef} position={[-4, 0, 1]} rotation={[0, -0.35, 0]}>
+    <group ref={targetRef} position={TRUCK_START} rotation={[0, -0.35, 0]}>
       <mesh position={[0, 0.65, 0]} castShadow>
         <boxGeometry args={[1.7, 1.05, 3.4]} />
         <meshStandardMaterial color={visualStyle.hud.warning} roughness={0.72} />
@@ -61,27 +84,6 @@ function TruckProxy({
   );
 }
 
-function FirefighterProxy({
-  targetRef,
-  visualStyle,
-}: {
-  targetRef: RefObject<Group | null>;
-  visualStyle: Style;
-}) {
-  return (
-    <group ref={targetRef} position={[4, 0, -1]} rotation={[0, 0.35, 0]}>
-      <mesh position={[0, 0.82, 0]} castShadow>
-        <capsuleGeometry args={[0.34, 0.95, 6, 12]} />
-        <meshStandardMaterial color={visualStyle.hud.water} roughness={0.78} />
-      </mesh>
-      <mesh position={[0, 1.65, 0]} castShadow>
-        <sphereGeometry args={[0.32, 16, 10]} />
-        <meshStandardMaterial color={visualStyle.hud.accent} roughness={0.78} />
-      </mesh>
-    </group>
-  );
-}
-
 function PrototypeWorld({
   visualStyle,
   profile,
@@ -97,6 +99,11 @@ function PrototypeWorld({
   const activeTarget = profile === 'chase' ? truckRef : firefighterRef;
 
   useEffect(() => {
+    if (profile !== 'chase') {
+      heldKeys.current.clear();
+      return;
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target;
       if (
@@ -123,7 +130,7 @@ function PrototypeWorld({
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', clearKeys);
     };
-  }, []);
+  }, [profile]);
 
   useFrame((_state, delta) => {
     const subject = activeTarget.current;
@@ -159,30 +166,39 @@ function PrototypeWorld({
       />
       <FollowCameraRig target={activeTarget} profile={profile} collisionRoot={collisionRoot} />
       <TruckProxy targetRef={truckRef} visualStyle={visualStyle} />
-      <FirefighterProxy targetRef={firefighterRef} visualStyle={visualStyle} />
+      <FirefighterController
+        targetRef={firefighterRef}
+        visualStyle={visualStyle}
+        enabled={profile === 'shoulder'}
+        obstacles={PROTOTYPE_OBSTACLES}
+        initialPosition={FIREFIGHTER_START}
+        movementBounds={FIREFIGHTER_MOVEMENT_BOUNDS}
+      />
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[32, 32]} />
         <meshStandardMaterial color={visualStyle.stage.top} roughness={0.95} />
       </mesh>
       <group ref={collisionRoot}>
-        <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
-          <boxGeometry args={[3.5, 3, 1.2]} />
-          <meshStandardMaterial color={visualStyle.palette.building.wall} roughness={0.9} />
-        </mesh>
-        <mesh position={[-7, 1, -5]} castShadow receiveShadow>
-          <boxGeometry args={[4, 2, 2]} />
-          <meshStandardMaterial color={visualStyle.palette.building.roof} roughness={0.9} />
-        </mesh>
-        <mesh position={[7, 1.25, 5]} castShadow receiveShadow>
-          <boxGeometry args={[3, 2.5, 3]} />
-          <meshStandardMaterial color={visualStyle.palette.building.floor} roughness={0.9} />
-        </mesh>
+        {PROTOTYPE_BUILDINGS.map((building) => (
+          <mesh
+            key={building.id}
+            position={[building.x, building.y, building.z]}
+            castShadow
+            receiveShadow
+          >
+            <boxGeometry args={[building.width, building.height, building.depth]} />
+            <meshStandardMaterial
+              color={visualStyle.palette.building[building.surface]}
+              roughness={0.9}
+            />
+          </mesh>
+        ))}
       </group>
     </>
   );
 }
 
-/** Development-only acceptance harness for issue #86. */
+/** Development-only acceptance harness for the M3 camera and character controller. */
 export default function FollowCameraPrototype() {
   const [profile, setProfile] = useState<FollowCameraProfileId>('chase');
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
@@ -220,13 +236,15 @@ export default function FollowCameraPrototype() {
         </Canvas>
       </div>
       <div className="placard" role="status" aria-live="polite">
-        M3 follow-camera prototype
+        M3 movement prototype
         <br />
         <b>{profile === 'chase' ? 'Truck · chase camera' : 'Firefighter · shoulder camera'}</b>
         <br />
-        WASD move and turn · right-drag orbit
+        {profile === 'chase'
+          ? 'WASD moves and turns the truck'
+          : 'WASD / left stick moves · walk and run are automatic'}
         <br />
-        Right stick orbits · V switches subject
+        Optional right-drag / right stick orbit · V switches subject
         <div className="audio-controls">
           <button type="button" onClick={switchSubject} aria-pressed={profile === 'shoulder'}>
             Switch to {profile === 'chase' ? 'firefighter' : 'truck'}
