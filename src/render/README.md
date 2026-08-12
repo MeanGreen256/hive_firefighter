@@ -20,6 +20,26 @@ buildings. Keep old components only while they help migration or comparison; do
 not adapt them into permanent target-game architecture. See
 `docs/game-direction.md` and ADR-005.
 
+## Follow-camera contract
+
+`FollowCameraRig` is the perspective-camera foundation for M3. It receives a
+ref to an externally controlled `Object3D`; it never owns character or vehicle
+movement. #87 and #88 should move their objects normally and pass the active ref
+with the `shoulder` or `chase` profile. Changing target and profile together
+blends position, orientation, distance, shoulder offset, pitch, and field of view
+without remounting the camera.
+
+Optional collision input is another object ref whose descendants are camera
+obstacles. The rig raycasts from its damped target pivot to the desired camera
+position and shortens the boom before the first hit. A ground-height callback
+keeps the camera above terrain; flat ground at `y = 0` is the default.
+
+In development, open `/?camera=follow` for the #86 acceptance harness. WASD moves
+and turns the active proxy, right-drag or the gamepad right stick orbits with
+pitch limits, and V or the button switches between the truck/chase and
+firefighter/shoulder targets. This harness is lazy-loaded only in development;
+the existing M2 scene remains the default until #87–#89 supply real subjects.
+
 ## What lives here
 
 - Isometric camera rig (#11)
