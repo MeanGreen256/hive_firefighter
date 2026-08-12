@@ -74,7 +74,6 @@ describe('fire audio mix', () => {
         position: { x: 1, y: 0, z: 1 },
         ignitedCellIds: [],
         destroyedCellIds: [],
-        lostCivilianIds: [],
         playerAffected: false,
       },
     ];
