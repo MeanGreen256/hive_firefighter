@@ -1,6 +1,5 @@
 import { CellState, cellIdAt, type CellGrid, type GridPosition } from './cellGrid';
 import { igniteCell, type FireSimulationState, type FireSimulationTuning } from './fireSimulation';
-import { CivilianState, type CivilianSimulationState } from './civilians';
 import { materials } from './materials';
 import type { ScenarioHazardPlacement } from './scenarios';
 import type { HosePoint } from './hoseLine';
@@ -52,7 +51,6 @@ export interface PropaneFailedEvent {
   readonly position: GridPosition;
   readonly ignitedCellIds: readonly string[];
   readonly destroyedCellIds: readonly string[];
-  readonly lostCivilianIds: readonly string[];
   readonly playerAffected: boolean;
 }
 
@@ -82,7 +80,6 @@ export function createHazardSimulation(
 function applyBlast(
   hazard: PropaneHazard,
   fire: FireSimulationState,
-  civilians: CivilianSimulationState,
   playerPosition: HosePoint,
   tuning: FireSimulationTuning,
 ): PropaneFailedEvent {
@@ -108,22 +105,6 @@ function applyBlast(
       ignitedCellIds.push(cell.id);
     }
   }
-  const lostCivilianIds: string[] = [];
-  for (const civilian of Object.values(civilians.civilians)) {
-    if (
-      civilian.state !== CivilianState.Rescued &&
-      civilian.state !== CivilianState.Lost &&
-      distance(hazard.position, civilian.position) <= PROPANE_BLAST_RADIUS
-    ) {
-      civilian.state = CivilianState.Lost;
-      civilian.carried = false;
-      lostCivilianIds.push(civilian.id);
-      if (civilians.carriedCivilianId === civilian.id) {
-        civilians.carriedCivilianId = null;
-        civilians.carrierPosition = null;
-      }
-    }
-  }
 
   return {
     type: IncidentEventType.PropaneFailed,
@@ -131,7 +112,6 @@ function applyBlast(
     position: { ...hazard.position },
     ignitedCellIds,
     destroyedCellIds,
-    lostCivilianIds,
     playerAffected: distance(hazard.position, playerPosition) <= PROPANE_BLAST_RADIUS,
   };
 }
@@ -139,7 +119,6 @@ function applyBlast(
 export function advanceHazards(
   state: HazardSimulationState,
   fire: FireSimulationState,
-  civilians: CivilianSimulationState,
   playerPosition: HosePoint,
   tuning: FireSimulationTuning,
   elapsedSeconds: number,
@@ -173,7 +152,7 @@ export function advanceHazards(
       );
       if (hazard.countdownRemainingSeconds === 0) {
         hazard.state = PropaneHazardState.Failed;
-        events.push(applyBlast(hazard, fire, civilians, playerPosition, tuning));
+        events.push(applyBlast(hazard, fire, playerPosition, tuning));
       }
     }
   }
