@@ -30,14 +30,7 @@ import {
   pickUpCivilian,
   type CivilianSimulationState,
 } from '@sim/civilians';
-import {
-  canHoseReach,
-  connectHoseLine,
-  createHoseLineState,
-  disconnectHoseLine,
-  refillFromHydrant,
-  type HoseLineState,
-} from '@sim/hoseLine';
+import { getIncidentNozzleGridPosition, type IncidentPoint } from '@sim/incidentPosition';
 import {
   advanceHazards,
   coolHazardsAtCell,
@@ -98,17 +91,7 @@ export interface SimDebugSnapshot {
   lastTickDebug: FireTickDebug | null;
   /** Changes only when reset replaces the grid, never at simulation cadence. */
   scenarioVersion: number;
-  waterCapacityLitres: number;
-  waterRemainingLitres: number;
   waterUsedLitres: number;
-  foamCapacityLitres: number;
-  foamRemainingLitres: number;
-  foamUsedLitres: number;
-  suppressionAgent: SuppressionAgent;
-  hoseLine: HoseLineState;
-  hoseReachBlocked: boolean;
-  /** True while the trigger is held. Hydrant refill is paused whenever it is. */
-  nozzleOpen: boolean;
   civilians: CivilianSimulationState;
   hazards: HazardSimulationState;
   structures: StructuralSimulationState;
@@ -127,12 +110,6 @@ export interface SimDebugController {
   stepOnce(): void;
   reset(seed?: number): void;
   resetWithNewSeed(): void;
-  refillWater(): void;
-  refillFoam(): boolean;
-  setSuppressionAgent(agent: SuppressionAgent): void;
-  connectHydrant(hydrantId?: string): boolean;
-  disconnectHydrant(): void;
-  canSprayCell(cellId: string): boolean;
   pickUpCivilian(civilianId: string, carrierPosition: GridPosition): boolean;
   moveCarriedCivilian(position: GridPosition): boolean;
   dropCarriedCivilian(): boolean;
@@ -155,8 +132,6 @@ export interface SimDebugController {
 }
 
 export interface SimDebugControllerOptions {
-  readonly waterCapacityLitres?: number;
-  readonly foamCapacityLitres?: number;
   readonly scenarioId?: string;
   readonly personalBestStorage?: StorageLike | null;
 }
@@ -178,23 +153,15 @@ export function createSimDebugController(
   options: SimDebugControllerOptions = {},
 ): SimDebugController {
   let scenario = getScenario(options.scenarioId ?? DEFAULT_SCENARIO_ID);
-  const waterCapacityOverride = options.waterCapacityLitres;
-  const foamCapacityOverride = options.foamCapacityLitres;
-  let waterCapacityLitres = waterCapacityOverride ?? scenario.waterTankCapacityLitres;
-  let foamCapacityLitres = foamCapacityOverride ?? scenario.foamTankCapacityLitres;
-  if (!Number.isFinite(waterCapacityLitres) || waterCapacityLitres <= 0) {
-    throw new Error('Water tank capacity must be finite and greater than zero');
-  }
-  if (!Number.isFinite(foamCapacityLitres) || foamCapacityLitres <= 0) {
-    throw new Error('Foam tank capacity must be finite and greater than zero');
-  }
   const initialTuning = createFireSimulationTuning(DEFAULT_FIRE_SIMULATION_TUNING);
   const initialState = createScenarioState(scenario, initialSeed ?? scenario.seed, initialTuning);
   const runner = createFixedTimestepRunner(initialState, {
     tuning: initialTuning,
     captureDebug: true,
   });
-  let hoseLine = createHoseLineState(scenario.hydrants, initialState.grid.dimensions);
+  let incidentNozzlePosition: IncidentPoint = getIncidentNozzleGridPosition(
+    initialState.grid.dimensions,
+  );
   let civilians = createCivilianSimulation(scenario.civilians);
   let hazards = createHazardSimulation(scenario.hazards);
   let structures = createStructuralSimulation();
@@ -213,16 +180,7 @@ export function createSimDebugController(
     speed: 1,
     lastTickDebug: null,
     scenarioVersion: 0,
-    waterCapacityLitres,
-    waterRemainingLitres: waterCapacityLitres,
     waterUsedLitres: 0,
-    foamCapacityLitres,
-    foamRemainingLitres: foamCapacityLitres,
-    foamUsedLitres: 0,
-    suppressionAgent: SuppressionAgent.Water,
-    hoseLine,
-    hoseReachBlocked: false,
-    nozzleOpen: false,
     civilians,
     hazards,
     structures,
@@ -235,12 +193,7 @@ export function createSimDebugController(
   let animationFrameId: number | null = null;
   let previousFrameTime: number | null = null;
   let waterCellId: string | null = null;
-  let waterRemainingLitres = waterCapacityLitres;
   let waterUsedLitres = 0;
-  let foamRemainingLitres = foamCapacityLitres;
-  let foamUsedLitres = 0;
-  let suppressionAgent: SuppressionAgent = SuppressionAgent.Water;
-  let hoseReachBlocked = false;
   let hostStateChanged = false;
   let elapsedScenarioSeconds = 0;
   let sessionStatus: SessionStatus = SessionStatus.Active;
@@ -249,15 +202,7 @@ export function createSimDebugController(
   const waterApplicationListeners = new Set<(result: WaterApplicationResult) => void>();
 
   const sessionFields = () => ({
-    waterRemainingLitres,
     waterUsedLitres,
-    foamCapacityLitres,
-    foamRemainingLitres,
-    foamUsedLitres,
-    suppressionAgent,
-    hoseLine,
-    hoseReachBlocked,
-    nozzleOpen: waterCellId !== null,
     civilians,
     hazards,
     structures,
@@ -285,7 +230,7 @@ export function createSimDebugController(
       elapsedSeconds: elapsedScenarioSeconds,
       parTimeSeconds: scenario.parTimeSeconds,
       waterUsedLitres,
-      foamUsedLitres,
+      foamUsedLitres: 0,
       civilianTotal: civilianList.length,
       civiliansRescued: civilianList.filter((civilian) => civilian.state === CivilianState.Rescued)
         .length,
@@ -303,54 +248,29 @@ export function createSimDebugController(
     };
   };
 
-  /**
-   * The supply line refills only while the nozzle is shut. A hydrant that
-   * topped the tank up mid-spray would make water infinite the moment it was
-   * connected — the refill rate exceeds the hose rate — which cancels the
-   * finite tank (#16) and removes the choice #68 exists to create. Breaking
-   * off to refill is the cost.
-   */
-  const refillWhileNozzleShut = (simulatedSeconds: number): void => {
-    if (waterCellId !== null) return;
-    const refill = refillFromHydrant(
-      hoseLine,
-      waterRemainingLitres,
-      waterCapacityLitres,
-      simulatedSeconds,
-    );
-    if (refill.deliveredLitres > 0) {
-      waterRemainingLitres = refill.waterRemainingLitres;
-      hostStateChanged = true;
-    }
-  };
-
   const notifyEvents = (events: readonly SimulationEvent[]): void => {
     if (events.length > 0) eventListeners.forEach((listener) => listener(events));
   };
 
-  const getSuppressionRemaining = (): number =>
-    suppressionAgent === SuppressionAgent.Water ? waterRemainingLitres : foamRemainingLitres;
-
-  const applyAvailableSuppression = (
-    cellId: string,
-    requestedLitres: number,
-  ): { result: WaterApplicationResult; deliveredLitres: number } => {
+  const applyUnlimitedWater = (cellId: string, requestedLitres: number): WaterApplicationResult => {
     if (!Number.isFinite(requestedLitres) || requestedLitres < 0) {
       throw new Error(
         `Suppression volume must be a finite non-negative number, got ${String(requestedLitres)}`,
       );
     }
-    const deliveredLitres = Math.min(requestedLitres, getSuppressionRemaining());
-    const result = applySuppression(runner.getState(), cellId, deliveredLitres, suppressionAgent);
-    if (suppressionAgent === SuppressionAgent.Water) {
-      notifyEvents(coolHazardsAtCell(hazards, cellId, deliveredLitres));
-      waterRemainingLitres -= deliveredLitres;
-      waterUsedLitres += deliveredLitres;
-    } else {
-      foamRemainingLitres -= deliveredLitres;
-      foamUsedLitres += deliveredLitres;
-    }
-    return { result, deliveredLitres };
+    const result = applySuppression(
+      runner.getState(),
+      cellId,
+      requestedLitres,
+      SuppressionAgent.Water,
+    );
+    notifyEvents(coolHazardsAtCell(hazards, cellId, requestedLitres));
+    // Only count litres that actually landed somewhere (target or overspray
+    // neighbor). Spraying a Burnt/Collapsed cell with no combustible neighbor
+    // produces zero contacts and should not inflate the debrief's water-used
+    // telemetry with water that had no effect.
+    if (result.contacts.length > 0) waterUsedLitres += requestedLitres;
+    return result;
   };
 
   const publishRunnerState = (): void => {
@@ -419,28 +339,23 @@ export function createSimDebugController(
         while (remainingSeconds > 0 && sessionStatus === SessionStatus.Active) {
           const interval = Math.min(remainingSeconds, MAX_WATER_APPLICATION_SECONDS);
           const simulatedInterval = interval * snapshot.speed;
-          refillWhileNozzleShut(simulatedInterval);
-          if (waterCellId !== null && getSuppressionRemaining() > 0) {
+          if (waterCellId !== null) {
             // Litres must scale with speed, not just the tick count below: wetness
             // decays once per simulated tick regardless of wall-clock cadence, so
             // at a fixed real-time litre rate a higher speed simulates more decay
             // ticks per real second without delivering more water to offset them.
             // Unscaled, spraying at 8x nets ~0 wetness gain — the hose goes dead
             // exactly when a developer fast-forwards to test it.
-            const { result, deliveredLitres } = applyAvailableSuppression(
-              waterCellId,
-              simulatedInterval * HOSE_LITRES_PER_SECOND,
-            );
-            if (deliveredLitres > 0) {
-              runner.setState(runner.getState());
-              waterApplicationListeners.forEach((listener) => listener(result));
-            }
+            const requestedLitres = simulatedInterval * HOSE_LITRES_PER_SECOND;
+            const result = applyUnlimitedWater(waterCellId, requestedLitres);
+            runner.setState(runner.getState());
+            waterApplicationListeners.forEach((listener) => listener(result));
           }
           ticks += runner.advance(simulatedInterval);
           const hazardEvents = advanceHazards(
             hazards,
             runner.getState(),
-            hoseLine.nozzlePosition,
+            incidentNozzlePosition,
             runner.getTuning(),
             simulatedInterval,
           );
@@ -454,7 +369,7 @@ export function createSimDebugController(
             runner.getState(),
             civilians,
             hazards,
-            hoseLine.nozzlePosition,
+            incidentNozzlePosition,
             simulatedInterval,
           );
           if (structuralEvents.length > 0) {
@@ -479,12 +394,11 @@ export function createSimDebugController(
       if (sessionStatus !== SessionStatus.Active) return;
       store.setState({ paused: true });
       runMeasured(() => {
-        refillWhileNozzleShut(FIRE_TICK_SECONDS);
         runner.step();
         const hazardEvents = advanceHazards(
           hazards,
           runner.getState(),
-          hoseLine.nozzlePosition,
+          incidentNozzlePosition,
           runner.getTuning(),
           FIRE_TICK_SECONDS,
         );
@@ -498,7 +412,7 @@ export function createSimDebugController(
           runner.getState(),
           civilians,
           hazards,
-          hoseLine.nozzlePosition,
+          incidentNozzlePosition,
           FIRE_TICK_SECONDS,
         );
         if (structuralEvents.length > 0) {
@@ -516,18 +430,13 @@ export function createSimDebugController(
     },
     reset: (seed = store.getState().simulation.seed) => {
       runner.reset(createScenarioState(scenario, seed, runner.getTuning()));
-      hoseLine = createHoseLineState(scenario.hydrants, runner.getState().grid.dimensions);
+      incidentNozzlePosition = getIncidentNozzleGridPosition(runner.getState().grid.dimensions);
       civilians = createCivilianSimulation(scenario.civilians);
       hazards = createHazardSimulation(scenario.hazards);
       structures = createStructuralSimulation();
       thermalView = false;
       waterCellId = null;
-      hoseReachBlocked = false;
-      waterRemainingLitres = waterCapacityLitres;
       waterUsedLitres = 0;
-      foamRemainingLitres = foamCapacityLitres;
-      foamUsedLitres = 0;
-      suppressionAgent = SuppressionAgent.Water;
       elapsedScenarioSeconds = 0;
       sessionStatus = SessionStatus.Active;
       debrief = null;
@@ -542,40 +451,6 @@ export function createSimDebugController(
     },
     resetWithNewSeed: () => {
       controller.reset(nextScenarioSeed(store.getState().simulation.seed));
-    },
-    refillWater: () => {
-      waterRemainingLitres = waterCapacityLitres;
-      store.setState(sessionFields());
-    },
-    refillFoam: () => {
-      if (waterCellId !== null) return false;
-      foamRemainingLitres = foamCapacityLitres;
-      store.setState(sessionFields());
-      return true;
-    },
-    setSuppressionAgent: (agent) => {
-      suppressionAgent = agent;
-      store.setState(sessionFields());
-    },
-    connectHydrant: (hydrantId = hoseLine.hydrants[0]?.id) => {
-      if (hydrantId === undefined) return false;
-      hoseLine = connectHoseLine(hoseLine, hydrantId);
-      if (waterCellId !== null && !controller.canSprayCell(waterCellId)) {
-        waterCellId = null;
-        hoseReachBlocked = true;
-      }
-      store.setState(sessionFields());
-      return true;
-    },
-    disconnectHydrant: () => {
-      hoseLine = disconnectHoseLine(hoseLine);
-      hoseReachBlocked = false;
-      store.setState(sessionFields());
-    },
-    canSprayCell: (cellId) => {
-      const cell = runner.getState().grid.cells[cellId];
-      if (!cell) throw new Error(`Cannot test hose reach for missing cell "${cellId}"`);
-      return cell.state !== CellState.Collapsed && canHoseReach(hoseLine, cell.gridPos);
     },
     pickUpCivilian: (civilianId, carrierPosition) => {
       const changed = pickUpCivilian(civilians, civilianId, carrierPosition);
@@ -614,33 +489,26 @@ export function createSimDebugController(
       const civilian = scanNearestSearchCivilian(
         civilians,
         runner.getState().grid,
-        hoseLine.nozzlePosition,
+        incidentNozzlePosition,
         thermalView,
       );
       if (civilian) publishRunnerState();
       return civilian?.id ?? null;
     },
-    getCivilianSearchCue: () => getCivilianSearchCue(civilians, hoseLine.nozzlePosition),
+    getCivilianSearchCue: () => getCivilianSearchCue(civilians, incidentNozzlePosition),
     setSeed: (seed) => {
       controller.reset(seed);
     },
     selectScenario: (scenarioId) => {
       scenario = getScenario(scenarioId);
-      waterCapacityLitres = waterCapacityOverride ?? scenario.waterTankCapacityLitres;
-      foamCapacityLitres = foamCapacityOverride ?? scenario.foamTankCapacityLitres;
       runner.reset(createScenarioState(scenario, scenario.seed, runner.getTuning()));
-      hoseLine = createHoseLineState(scenario.hydrants, runner.getState().grid.dimensions);
+      incidentNozzlePosition = getIncidentNozzleGridPosition(runner.getState().grid.dimensions);
       civilians = createCivilianSimulation(scenario.civilians);
       hazards = createHazardSimulation(scenario.hazards);
       structures = createStructuralSimulation();
       thermalView = false;
       waterCellId = null;
-      hoseReachBlocked = false;
-      waterRemainingLitres = waterCapacityLitres;
       waterUsedLitres = 0;
-      foamRemainingLitres = foamCapacityLitres;
-      foamUsedLitres = 0;
-      suppressionAgent = SuppressionAgent.Water;
       elapsedScenarioSeconds = 0;
       sessionStatus = SessionStatus.Active;
       debrief = null;
@@ -651,7 +519,6 @@ export function createSimDebugController(
         paused: false,
         lastTickDebug: null,
         scenarioVersion: snapshot.scenarioVersion + 1,
-        waterCapacityLitres,
         ...sessionFields(),
       }));
     },
@@ -691,28 +558,13 @@ export function createSimDebugController(
       if (cellId !== null && !runner.getState().grid.cells[cellId]) {
         throw new Error(`Cannot apply water to missing cell "${cellId}"`);
       }
-      const canReach = cellId === null || controller.canSprayCell(cellId);
-      const wasFlowing = waterCellId !== null;
-      waterCellId = canReach ? cellId : null;
-      const blocked = cellId !== null && !canReach;
-      // Opening or shutting the nozzle also starts or stops hydrant refill, so
-      // the HUD has to hear about it, not just about reach failures.
-      if (blocked !== hoseReachBlocked || wasFlowing !== (waterCellId !== null)) {
-        hoseReachBlocked = blocked;
-        store.setState(sessionFields());
-      }
+      waterCellId = cellId;
     },
     sprayCell: (cellId, litres = 1) => {
       const state = runner.getState();
       if (sessionStatus !== SessionStatus.Active) return { contacts: [] };
-      if (!controller.canSprayCell(cellId)) {
-        hoseReachBlocked = true;
-        store.setState(sessionFields());
-        return { contacts: [] };
-      }
-      hoseReachBlocked = false;
-      const { result, deliveredLitres } = applyAvailableSuppression(cellId, litres);
-      if (deliveredLitres > 0) runner.setState(state);
+      const result = applyUnlimitedWater(cellId, litres);
+      if (litres > 0) runner.setState(state);
       finishSessionIfNeeded();
       store.setState((snapshot) => ({
         simulation: state,
@@ -721,7 +573,7 @@ export function createSimDebugController(
         paused: sessionStatus === SessionStatus.Active ? snapshot.paused : true,
         ...sessionFields(),
       }));
-      if (deliveredLitres > 0) {
+      if (litres > 0) {
         waterApplicationListeners.forEach((listener) => listener(result));
       }
       return result;

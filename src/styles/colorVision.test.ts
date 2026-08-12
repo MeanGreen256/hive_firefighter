@@ -42,7 +42,6 @@ describe('cell-state colour accessibility', () => {
         ...Object.values(markers.civilian),
         ...Object.values(markers.hazard),
         ...Object.values(markers.collapse),
-        ...Object.values(markers.hoseLine),
       ];
       for (const mode of [undefined, ...COLOR_VISION_MODES]) {
         for (const fill of fills) {

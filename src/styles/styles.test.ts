@@ -15,7 +15,6 @@ describe('runtime styles', () => {
         expect(style.particles.smoke.byTint[tint].color).toMatch(/^#/);
       }
       expect(style.hud.accent).toMatch(/^#/);
-      expect(style.hud.water).toMatch(/^#/);
       expect(style.hud.warning).toMatch(/^#/);
       expect(style.hud.success).toMatch(/^#/);
       expect(style.postProcessing.exposure).toBeGreaterThan(0);

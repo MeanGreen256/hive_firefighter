@@ -2,7 +2,7 @@ import { CellState, cellIdAt, type Cell, type GridPosition } from './cellGrid';
 import type { FireSimulationState } from './fireSimulation';
 import { CivilianState, type CivilianSimulationState } from './civilians';
 import type { HazardSimulationState } from './hazards';
-import type { HosePoint } from './hoseLine';
+import type { IncidentPoint } from './incidentPosition';
 
 export const COLLAPSE_WARNING_SECONDS = 3;
 export const COLLAPSE_WARNING_FUEL_THRESHOLD = 0.25;
@@ -57,7 +57,7 @@ function isWarningSupport(cell: Cell): boolean {
   );
 }
 
-function sameCell(left: HosePoint, right: GridPosition): boolean {
+function sameCell(left: IncidentPoint, right: GridPosition): boolean {
   return (
     Math.abs(left.x - right.x) <= 0.5 &&
     Math.abs(left.y - right.y) <= 0.5 &&
@@ -70,7 +70,7 @@ function collapseCell(
   fire: FireSimulationState,
   civilians: CivilianSimulationState,
   hazards: HazardSimulationState,
-  playerPosition: HosePoint,
+  playerPosition: IncidentPoint,
   cell: Cell,
   supportCellId: string,
 ): CellCollapsedEvent {
@@ -125,7 +125,7 @@ export function advanceStructuralCollapse(
   fire: FireSimulationState,
   civilians: CivilianSimulationState,
   hazards: HazardSimulationState,
-  playerPosition: HosePoint,
+  playerPosition: IncidentPoint,
   elapsedSeconds: number,
 ): StructuralSimulationEvent[] {
   if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) {

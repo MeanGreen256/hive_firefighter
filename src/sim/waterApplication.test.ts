@@ -84,7 +84,7 @@ describe('water application', () => {
     expect(state.grid.cells['2,2,1']?.wetness).toBe(0);
   });
 
-  it('makes plain water amplify grease without granting protective wetness', () => {
+  it('lets the one water action extinguish grease without agent selection', () => {
     const state = isolateCell('grease');
     const grease = state.grid.cells['0,0,0']!;
     igniteCell(state, grease.id);
@@ -92,9 +92,9 @@ describe('water application', () => {
 
     applyWater(state, grease.id, 1, SuppressionAgent.Water);
 
-    expect(grease.heat).toBe(heatBeforeWater + WATER_HEAT_REMOVAL_PER_LITRE * 1.5);
-    expect(grease.wetness).toBe(0);
-    expect(grease.state).toBe(CellState.Burning);
+    expect(grease.heat).toBe(heatBeforeWater - WATER_HEAT_REMOVAL_PER_LITRE * 0.75);
+    expect(grease.wetness).toBeGreaterThan(0);
+    expect(grease.state).toBe(CellState.Wetted);
   });
 
   it('lets foam smother grease while cooling ordinary fuel less effectively than water', () => {

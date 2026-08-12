@@ -25,7 +25,6 @@ merely because it currently lives in `src/sim/`.
 - Water application and the wetted state (#8)
 - Burn-through and char (#9)
 - Scenario loading, validation, and grid construction (#67)
-- Hydrant connection, refill, and hose reach constraints (#68)
 - Civilian exposure, evacuation, carrying, rescue, and loss (#69)
 - Smoke-obscured civilian search and thermal discovery (#70)
 - Propane heating, cooling, countdown, and blast effects (#71)
@@ -72,25 +71,19 @@ applying water every frame would otherwise stall the clock or lose burn-through
 events it never saw. `reset` is the one scenario boundary that discards both.
 
 `waterApplication.ts` exposes `applySuppression(state, cellId, litres, agent)`
-and retains `applyWater` as a compatibility name. Water removes 120 abstract
-heat units per litre at response `1`; foam removes 90 but carries its own
-material response, making it weaker on ordinary fuel and effective on grease.
-Twenty percent of either delivery becomes face-adjacent overspray. Positive
-responses add normalized coating/wetness, while negative responses add heat
-and grant no protection. Saturation decays by `0.1` per second.
+and retains `applyWater` as a compatibility name. The active controller always
+uses water, which removes 120 abstract heat units per litre at response `1`.
+Every authored combustible has a positive water response, so the child-facing
+action cannot be the wrong choice. Twenty percent of delivery becomes
+face-adjacent overspray. Positive responses add normalized wetness, which decays
+by `0.1` per second. The lower-level foam parameter remains only as migration
+compatibility until the old M2 simulation surface is removed.
 
-The following describes legacy M2 behaviour scheduled for retirement in M3.
-`hoseLine.ts` owns the renderer-independent supply rule. An unattached onboard
-tank can target any cell; connecting an authored hydrant refills at 3 L/s and
-constrains the route from hydrant through nozzle to target to eight grid units.
-The controller applies that reach check before any water mutation, while the
-renderer only visualizes the resulting hydrant and line state.
-
-Refill runs **only while the nozzle is shut**. The refill rate deliberately
-exceeds the 1 L/s hose rate so a break in the fight buys back real water, which
-also means an always-on refill would make the tank infinite and cancel both the
-finite tank (#16) and the choice #68 exists to create. Breaking off is the cost;
-the reach limit is the second, independent cost.
+The M2 `hoseLine.ts` supply rule, finite tanks, agent selection, refill actions,
+and reach cutoff have been removed from the active runtime. Scenario loaders may
+accept old capacity values temporarily, but ignore them; hydrants are optional
+data-only props and never gate suppression. Do not reconnect these legacy inputs
+to controller state, rendering, or the HUD.
 
 The following civilian, search, hazard, and collapse paragraphs describe M2
 behaviour that is being removed, not retuned. M3 **deletes** `civilians.ts` and

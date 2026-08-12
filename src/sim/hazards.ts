@@ -2,7 +2,7 @@ import { CellState, cellIdAt, type CellGrid, type GridPosition } from './cellGri
 import { igniteCell, type FireSimulationState, type FireSimulationTuning } from './fireSimulation';
 import { materials } from './materials';
 import type { ScenarioHazardPlacement } from './scenarios';
-import type { HosePoint } from './hoseLine';
+import type { IncidentPoint } from './incidentPosition';
 
 export const PropaneHazardState = Object.freeze({
   Stable: 'stable',
@@ -56,7 +56,7 @@ export interface PropaneFailedEvent {
 
 export type IncidentSimulationEvent = PropaneCountdownEvent | PropaneFailedEvent;
 
-function distance(left: HosePoint, right: HosePoint): number {
+function distance(left: IncidentPoint, right: IncidentPoint): number {
   return Math.hypot(left.x - right.x, left.y - right.y, left.z - right.z);
 }
 
@@ -80,7 +80,7 @@ export function createHazardSimulation(
 function applyBlast(
   hazard: PropaneHazard,
   fire: FireSimulationState,
-  playerPosition: HosePoint,
+  playerPosition: IncidentPoint,
   tuning: FireSimulationTuning,
 ): PropaneFailedEvent {
   const ignitedCellIds: string[] = [];
@@ -119,7 +119,7 @@ function applyBlast(
 export function advanceHazards(
   state: HazardSimulationState,
   fire: FireSimulationState,
-  playerPosition: HosePoint,
+  playerPosition: IncidentPoint,
   tuning: FireSimulationTuning,
   elapsedSeconds: number,
 ): IncidentSimulationEvent[] {

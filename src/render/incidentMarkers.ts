@@ -1,8 +1,5 @@
 import { CivilianState, type Civilian } from '@sim/civilians';
-import { getHoseRouteLength, type HoseLineState, type HosePoint } from '@sim/hoseLine';
 import { PropaneHazardState, type PropaneHazardState as PropaneState } from '@sim/hazards';
-
-export const HOSE_STRAIN_START_RATIO = 0.8;
 
 export const CivilianMarkerKind = Object.freeze({
   Located: 'located',
@@ -58,23 +55,3 @@ export const HAZARD_MARKER_BADGES: Readonly<Record<PropaneState, HazardMarkerBad
     [PropaneHazardState.Countdown]: 'countdown-rings',
     [PropaneHazardState.Failed]: 'cross',
   });
-
-export interface HoseTension {
-  readonly ratio: number;
-  readonly strainProgress: number;
-  readonly blocked: boolean;
-}
-
-/** Return connected-line tension for the current aim, normalized at the authored limit. */
-export function getHoseTension(state: HoseLineState, target: HosePoint | null): HoseTension | null {
-  if (state.connectedHydrantId === null || target === null) return null;
-  const ratio = getHoseRouteLength(state, target) / state.maxLength;
-  return {
-    ratio,
-    strainProgress: Math.max(
-      0,
-      Math.min(1, (ratio - HOSE_STRAIN_START_RATIO) / (1 - HOSE_STRAIN_START_RATIO)),
-    ),
-    blocked: ratio > 1,
-  };
-}

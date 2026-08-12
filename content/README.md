@@ -6,7 +6,7 @@ Game data as JSON. **Adding content should not require writing code.**
 
 - `materials.json` — the fire behaviour table (#5). The highest-leverage data in the game: add a row, and every prop made of that material gets new behaviour everywhere.
 - `scenarios/*.json` — authored incidents: grid dimensions and materials,
-  ignition, wind, entity placements, resources, and par time.
+  ignition, wind, entity placements, optional street props, and par time.
 - Later: building prefabs and district layouts.
 
 ## Rules
@@ -21,10 +21,12 @@ facades, roofs, awnings, porches, trees, park features, or outdoor props; no obj
 or combustible placement may require entering a building. The burnable subject list is
 expected to grow, and adding one should be a content change rather than a code change.
 
-The existing M2 scenario fields for finite tanks, foam, hydrant supply, interior
-civilian search, and harmful hazards are legacy migration inputs. M3 content must not
-depend on them for completion, and `civilians` entries are removed outright rather
-than retuned — the target game has nobody to rescue. See `docs/game-direction.md`.
+Finite tank and foam capacities are no longer authored by current scenarios.
+The loader temporarily accepts and ignores those fields so older external files
+can migrate. Hydrants are optional, non-interactive street props. Interior
+civilian search and harmful hazards are remaining legacy inputs; `civilians`
+entries will be removed outright rather than retuned because the target game has
+nobody to rescue. See `docs/game-direction.md`.
 
 ## `materials.json`
 
@@ -32,15 +34,15 @@ Keyed by material id (`"wood"`, `"grease"`, ...). Loaded, typed, and
 validated by `src/sim/materials.ts` — see that file's doc comments for the
 full unit and range reference per field. Summary:
 
-| Field                 | Unit                                                                                                             | Range                                                                             |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `ignitionPoint`       | abstract heat unit (see `materials.ts`)                                                                          | `(0, 1000]`, or `null` for genuinely non-combustible (never ignites, at any heat) |
-| `burnRate`            | fraction of remaining fuel consumed per second                                                                   | `[0, 1]`; must be `0` when `ignitionPoint` is `null`                              |
-| `spreadFactor`        | multiplier on heat spread to neighbours, `wood = 1.0` reference                                                  | `[0, 5]`; must be `0` when `ignitionPoint` is `null`                              |
-| `heatOutput`          | abstract heat unit generated per second while burning                                                            | `[0, 1000]`; must be `0` when `ignitionPoint` is `null`                           |
-| `suppressionResponse` | exact `{ water, foam }` response map; `1.0` baseline, `0` no effect, negative amplifies instead of extinguishing | each response `[-5, 5]`                                                           |
-| `smokeTint`           | semantic smoke appearance token; resolved by the active style                                                    | `neutral`, `pale`, `sooty`, or `toxic`                                            |
-| `smokeDensity`        | relative smoke opacity/density multiplier, `wood = 1.0` reference                                                | `[0, 5]`                                                                          |
+| Field                 | Unit                                                                                                                                           | Range                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `ignitionPoint`       | abstract heat unit (see `materials.ts`)                                                                                                        | `(0, 1000]`, or `null` for genuinely non-combustible (never ignites, at any heat) |
+| `burnRate`            | fraction of remaining fuel consumed per second                                                                                                 | `[0, 1]`; must be `0` when `ignitionPoint` is `null`                              |
+| `spreadFactor`        | multiplier on heat spread to neighbours, `wood = 1.0` reference                                                                                | `[0, 5]`; must be `0` when `ignitionPoint` is `null`                              |
+| `heatOutput`          | abstract heat unit generated per second while burning                                                                                          | `[0, 1000]`; must be `0` when `ignitionPoint` is `null`                           |
+| `suppressionResponse` | exact `{ water, foam }` response map retained for migration; active play uses water, and every combustible must have a positive water response | each response `[-5, 5]`                                                           |
+| `smokeTint`           | semantic smoke appearance token; resolved by the active style                                                                                  | `neutral`, `pale`, `sooty`, or `toxic`                                            |
+| `smokeDensity`        | relative smoke opacity/density multiplier, `wood = 1.0` reference                                                                              | `[0, 5]`                                                                          |
 
 ## `scenarios/*.json`
 
@@ -55,11 +57,12 @@ Each scenario declares:
   plus optional per-cell `x,y,z` overrides;
 - one or more combustible `ignitionOrigins`, a deterministic `seed`, and
   `wind`;
-- legacy civilian, hazard, and hydrant placements for M2 systems. These describe
-  the current implementation, not the M3 completion rules;
-- legacy finite `waterTankCapacityLitres` and `foamTankCapacityLitres`, plus
-  `parTimeSeconds`. Tank capacities must be removed or made optional during M3
-  because normal hose use has unlimited water.
+- legacy civilian and hazard placements for M2 systems, plus optional `hydrants`
+  as non-interactive street props. These describe the current implementation,
+  not the M3 completion rules;
+- `parTimeSeconds`. Legacy `waterTankCapacityLitres` and
+  `foamTankCapacityLitres` values are accepted but ignored; new scenarios omit
+  them because normal hose use has unlimited water.
 
 Appearance remains style data. Scenario content names a semantic material or
 hazard type and never specifies colours, meshes, or particles.

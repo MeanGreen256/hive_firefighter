@@ -22,9 +22,6 @@ function validScenarioData(): Record<string, unknown> {
     wind: { direction: { x: 0, y: 0, z: 0 }, strength: 0 },
     civilians: [],
     hazards: [],
-    waterTankCapacityLitres: 90,
-    foamTankCapacityLitres: 12,
-    hydrants: [{ id: 'hydrant', position: { x: -1, y: 0, z: 0 } }],
     parTimeSeconds: 120,
   };
 }
@@ -35,8 +32,6 @@ describe('scenario content', () => {
     expect(getScenario('starter')).toMatchObject({
       name: 'Starter cutaway',
       seed: 2026,
-      waterTankCapacityLitres: 90,
-      foamTankCapacityLitres: 12,
     });
   });
 
@@ -52,6 +47,20 @@ describe('scenario content', () => {
       ['first', 'Test room'],
       ['second', 'Second room'],
     ]);
+  });
+
+  it('accepts optional hydrant props and ignores legacy tank compatibility fields', () => {
+    const legacy = {
+      ...validScenarioData(),
+      waterTankCapacityLitres: 90,
+      foamTankCapacityLitres: 12,
+      hydrants: [{ id: 'hydrant', position: { x: -1, y: 0, z: 0 } }],
+    };
+
+    expect(validateScenarioDefinition(legacy, 'legacy')).toMatchObject({
+      hydrants: [{ id: 'hydrant', position: { x: -1, y: 0, z: 0 } }],
+    });
+    expect(validateScenarioDefinition(validScenarioData(), 'minimal').hydrants).toEqual([]);
   });
 
   it('reports offending nested fields and rejects non-combustible ignition origins', () => {

@@ -118,10 +118,6 @@ export interface IncidentMarkerAppearance {
     warning: string;
     dust: string;
   }>;
-  readonly hoseLine: Readonly<{
-    normal: string;
-    strained: string;
-  }>;
 }
 
 /** The active style's visual treatment for one semantic smoke category. */
@@ -151,7 +147,6 @@ export interface HudTheme {
   readonly mutedText: string;
   readonly accent: string;
   readonly control: string;
-  readonly water: string;
   readonly warning: string;
   readonly success: string;
 }
@@ -366,7 +361,6 @@ const diorama: Style = {
     },
     hazard: { stable: '#435058', countdown: '#8f3027', failed: '#2f3434' },
     collapse: { warning: '#7a492c', dust: '#5f5346' },
-    hoseLine: { normal: '#334f5e', strained: '#8f3027' },
   },
   hud: {
     panel: '#f5eddd',
@@ -375,7 +369,6 @@ const diorama: Style = {
     mutedText: '#766358',
     accent: '#d84d35',
     control: '#fffaf0',
-    water: '#3f8cab',
     warning: '#c64732',
     success: '#52785a',
   },
@@ -485,7 +478,6 @@ const ink: Style = {
     },
     hazard: { stable: '#c1cad0', countdown: '#ff9b7a', failed: '#aaa39a' },
     collapse: { warning: '#f0b76b', dust: '#c8bda6' },
-    hoseLine: { normal: '#b7ecff', strained: '#ff9b7a' },
   },
   hud: {
     panel: '#17191d',
@@ -494,7 +486,6 @@ const ink: Style = {
     mutedText: '#b9aa8b',
     accent: '#ff4937',
     control: '#292c32',
-    water: '#72d9f5',
     warning: '#ff4937',
     success: '#a8d96f',
   },

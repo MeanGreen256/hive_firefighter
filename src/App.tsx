@@ -25,7 +25,6 @@ import { getScenario } from '@sim/scenarios';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { AudioControls } from '@ui/AudioControls';
 import { DebriefPanel } from '@ui/DebriefPanel';
-import { WaterTankHud } from '@ui/WaterTankHud';
 import { IncidentHud } from '@ui/IncidentHud';
 import '@ui/SessionHud.css';
 import { createHoseController } from './state/hoseController';
@@ -51,7 +50,6 @@ interface HudCssVariables extends CSSProperties {
   '--hud-muted': string;
   '--hud-accent': string;
   '--hud-control': string;
-  '--hud-water': string;
   '--hud-warning': string;
   '--hud-success': string;
 }
@@ -116,7 +114,6 @@ function LegacyApp() {
     '--hud-muted': visualStyle.hud.mutedText,
     '--hud-accent': visualStyle.hud.accent,
     '--hud-control': visualStyle.hud.control,
-    '--hud-water': visualStyle.hud.water,
     '--hud-warning': visualStyle.hud.warning,
     '--hud-success': visualStyle.hud.success,
   };
@@ -159,7 +156,6 @@ function LegacyApp() {
         </Canvas>
       </div>
 
-      <WaterTankHud />
       <IncidentHud />
 
       <div className="placard">
@@ -169,7 +165,7 @@ function LegacyApp() {
         <br />
         {grid.dimensions.width} × {grid.dimensions.height} × {grid.dimensions.depth} cells
         <br />
-        Hold click to spray · 1 water · 2 foam · T thermal · F scan
+        Hold click to spray unlimited water · T thermal · F scan
         <br />Q / E rotate · wheel zoom · WASD / middle-drag pan
         <label className="style-switcher">
           <span>Visual style</span>

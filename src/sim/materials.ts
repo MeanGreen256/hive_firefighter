@@ -98,9 +98,10 @@ export interface Material {
 
   /**
    * Per-agent heat-removal multipliers. `1.0` is baseline effectiveness,
-   * `0` has no effect, and a negative response adds heat. Water therefore
-   * amplifies grease while foam can smother it; foam is intentionally less
-   * effective than water on ordinary combustibles.
+   * `0` has no effect, and a negative response adds heat. M3 requires every
+   * authored combustible to have a positive water response because players
+   * have one unlimited-water action and cannot choose the wrong agent. Foam
+   * remains a lower-level compatibility response but has no player-facing mode.
    *
    * Every response range: -5 to 5 (soft sanity cap).
    */
@@ -191,7 +192,7 @@ const FIELD_VALIDATORS: {
     }
     return undefined;
   },
-  suppressionResponse: (value) => {
+  suppressionResponse: (value, row) => {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       return `suppressionResponse must be an object with water and foam responses, got ${describe(value)}`;
     }
@@ -209,6 +210,12 @@ const FIELD_VALIDATORS: {
       ) {
         return `suppressionResponse.${agent} must be a finite number in [-${SUPPRESSION_RESPONSE_MAX}, ${SUPPRESSION_RESPONSE_MAX}], got ${describe(response)}`;
       }
+    }
+    // M3's sole gameplay verb is unlimited water: a combustible with a
+    // non-positive water response would be permanently un-extinguishable by
+    // the player, with nothing at import time to catch it.
+    if (row.ignitionPoint !== null && (responses.water as number) <= 0) {
+      return `suppressionResponse.water must be greater than 0 for combustible materials (ignitionPoint is not null), got ${describe(responses.water)}`;
     }
     return undefined;
   },

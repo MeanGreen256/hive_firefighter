@@ -8,19 +8,18 @@ The target UI is for ages 5 and up, designed around five- to seven-year-olds, an
 must work without required reading. It points
 to exactly one active quest, provides one point-and-hold water action, and awards
 1–3 stars with positive feedback. Tank bars, foam selection, manual hookup,
-tether warnings, hydrant refill, interior thermal search, civilian readouts, harmful
-outcomes, and A–F grading below are legacy M2 controls scheduled for removal. There
-are no civilians in the target game, so their HUD and debrief surfaces go with them.
+tether warnings, and hydrant refill have been removed. Interior thermal search,
+civilian readouts, harmful outcomes, and A–F grading below are remaining legacy
+M2 controls scheduled for removal. There are no civilians in the target game,
+so their HUD and debrief surfaces go with them.
 See `docs/game-direction.md`, ADR-006, and ADR-007 for the control floor.
 
 ## What lives here
 
 - Hose targeting and input handling (#15)
-- Water tank bar (#16)
 - Debrief and grading panel (#17)
 - Thermal search controls and discovery status (#70)
 - Propane warning and countdown status (#71)
-- Water/foam selection, separate tanks, and apparatus refill (#72)
 - Structural warning status (#73)
 - M2 outcome grading and the scenario/retry/personal-best loop (#74–#75)
 - Sim debug overlay (#10) — press F2 in development for cell inspection,
@@ -35,11 +34,10 @@ The debug overlay subscribes to the vanilla controller in `src/state/`; the
 controller owns the fixed-timestep runner. React only starts/stops the external
 animation clock and renders snapshots—it never performs a simulation tick.
 
-The tank and debrief use semantic HUD tokens from the active style. The tank
-HUD shows both resources and the active agent. `1` selects water, `2` selects
-foam, and `H` connects or disconnects the water supply. Hydrants never refill
-foam; its apparatus refill requires the nozzle to be shut. In development, `R`
-still refills water immediately as a testing affordance.
+Normal play has no resource meter, suppression mode, hookup prompt, or refill
+control. Holding the hose input always sprays water. The controller retains
+water-use telemetry for later child-friendly results, but that value never gates
+the action.
 
 `IncidentHud` exposes the search and hazard loop without simulating either.
 `T` toggles thermal view and `F` scans the nearest eligible civilian from the
