@@ -1,6 +1,6 @@
 # hive_firefighter
 
-A browser-based third-person firefighting game for children around ages 5–7,
+A browser-based third-person firefighting game for ages 5 and up,
 built on a cell-based fire simulation where every burnable thing in the world
 runs the same system.
 
@@ -15,9 +15,11 @@ fuel depletes, and water subtracts heat. A park bench and a five-storey warehous
 are the same code at different scales — which means every new prop is
 automatically a fire mechanic.
 
-The player follows smoke to one active quest, drives a firetruck to the location,
-parks, hops out, and directly controls a firefighter. Fires appear only on
-building exteriors and outdoor props; the player never enters a building. Hose
+The player follows smoke to one active quest, drives a firetruck across a colourful
+free-roam city, parks, hops out, and directly controls a firefighter. Fires appear only
+on exteriors — facades, roofs, porches, trees, park features, outdoor props — and the
+player never enters a building. There is nobody to rescue and nothing can hurt the
+player. Hose
 play is intentionally simple: point and hold to spray unlimited water, put out
 the visible flames, earn 1–3 stars, and take the next quest.
 
@@ -26,13 +28,13 @@ The authoritative product constraints live in
 
 ## Roadmap
 
-|        | Milestone                                                                              | The question it answers                                               |
-| ------ | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| **M1** | [The Fire Toy](https://github.com/MeanGreen256/hive_firefighter/milestone/1)           | Is this fun standing still?                                           |
-| **M2** | [One Incident](https://github.com/MeanGreen256/hive_firefighter/milestone/2)           | Does scoring it make it a game?                                       |
-| **M3** | [Drive, Dismount, Douse](https://github.com/MeanGreen256/hive_firefighter/milestone/3) | Is driving to a fire and fighting it as a character fun for ages 5–7? |
-| **M4** | [The Loop](https://github.com/MeanGreen256/hive_firefighter/milestone/4)               | Do people come back for a second shift?                               |
-| **M5** | [Content Scale](https://github.com/MeanGreen256/hive_firefighter/milestone/5)          | Can we ship a district without writing code?                          |
+|        | Milestone                                                                              | The question it answers                                                  |
+| ------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **M1** | [The Fire Toy](https://github.com/MeanGreen256/hive_firefighter/milestone/1)           | Is this fun standing still?                                              |
+| **M2** | [One Incident](https://github.com/MeanGreen256/hive_firefighter/milestone/2)           | Does scoring it make it a game?                                          |
+| **M3** | [Drive, Dismount, Douse](https://github.com/MeanGreen256/hive_firefighter/milestone/3) | Is putting out fires as a firefighter in a city fun for a five-year-old? |
+| **M4** | [The Loop](https://github.com/MeanGreen256/hive_firefighter/milestone/4)               | Do people come back for a second shift?                                  |
+| **M5** | [Content Scale](https://github.com/MeanGreen256/hive_firefighter/milestone/5)          | Can we ship a district without writing code?                             |
 
 ## Concept work
 
@@ -51,9 +53,12 @@ Open them in a browser; they're self-contained pages.
 - **Third-person firefighter and drivable firetruck.** Chase camera while driving,
   over-the-shoulder on foot, with exterior-only fires. See
   [ADR-005](docs/adr/005-third-person-apparatus-control.md).
-- **Arcade tone for ages 5–7.** One active quest, simple point-and-hold hose play,
-  positive feedback, 1–3 stars, and no harmful outcomes. See
+- **Arcade tone for ages 5+.** One active quest, simple point-and-hold hose play,
+  positive feedback, 1–3 stars, no civilians or rescue, and no harmful outcomes. See
   [ADR-006](docs/adr/006-arcade-tone-for-younger-players.md).
+- **An ages 5+ control floor.** Two-input completion, automatic camera, assisted aim,
+  no modal state, gamepad parity, and nothing that depends on reading. See
+  [ADR-007](docs/adr/007-ages-5-plus-control-floor.md).
 - **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md).
 - **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
 

@@ -20,6 +20,19 @@ Closes #
 - [ ] New content is data in `content/`, not constants in code
 - [ ] The issue's "Done when" condition is actually met
 
+### Ages 5+ floor
+
+Mark n/a where a line genuinely doesn't apply. See
+[`docs/game-direction.md`](../docs/game-direction.md) and
+[ADR-007](../docs/adr/007-ages-5-plus-control-floor.md).
+
+- [ ] Nothing the player must act on requires reading — icon, colour, shape, sound, or animation carries it
+- [ ] No new input that needs timing, precision, a chord, or a mode the player must exit
+- [ ] Still completable with _move_ and _spray_ alone; any new control is optional assistance
+- [ ] Works on a gamepad as well as keyboard and mouse
+- [ ] Nothing added can harm the player, harm a person, or produce a failure state
+- [ ] Matches `docs/game-direction.md` — no interiors, no rescue, no finite water, one active quest
+
 ## Screenshots
 
 <!-- Before / after for anything visual. Include both art styles if the change touches rendering. -->
