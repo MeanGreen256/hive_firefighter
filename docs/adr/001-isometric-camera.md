@@ -1,6 +1,6 @@
 # ADR-001: Isometric camera
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-005](005-third-person-apparatus-control.md)
 **Date:** 2026-08-09
 
 ## Context
