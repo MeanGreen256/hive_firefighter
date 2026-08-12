@@ -2,6 +2,15 @@
 
 HUD, panels, and player input. Plain React and DOM — not drawn inside the canvas.
 
+## M3 direction versus current code
+
+The target UI is for ages 5–7 and must work without required reading. It points
+to exactly one active quest, provides one point-and-hold water action, and awards
+1–3 stars with positive feedback. Tank bars, foam selection, manual hookup,
+tether warnings, hydrant refill, interior thermal search, harmful outcomes, and
+A–F grading below are legacy M2 controls scheduled for removal. See
+`docs/game-direction.md` and ADR-006.
+
 ## What lives here
 
 - Hose targeting and input handling (#15)

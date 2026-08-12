@@ -1,19 +1,19 @@
-# M3 draft issues — Drive, Dismount, Douse
+# M3 issues — Drive, Dismount, Douse
 
 Issue set for the pivot decided in [ADR-005](adr/005-third-person-apparatus-control.md)
 and [ADR-006](adr/006-arcade-tone-for-younger-players.md).
 
 **Filed on GitHub as #86–#100, tracked by [#101](https://github.com/MeanGreen256/hive_firefighter/issues/101).**
 
-**Recommended milestone rename.** Milestone 3 is currently "Crew & Apparatus,"
-asking *"Is commanding a crew better than acting alone?"* The pivot replaces that
-question rather than answering it. Proposed replacement:
+**Milestone:**
 
 > **M3 — Drive, Dismount, Douse**
-> Is driving to a fire and fighting it as a character better than being a floating cursor?
+> Can a child aged 5–7 follow the smoke, drive to one active quest, and put out
+> visible exterior fire as a character?
 
-Crew command is not deleted, it is deferred — it becomes a candidate for M4 once
-the single-firefighter loop is proven fun.
+Crew command is not part of M3, M4, or M5. It is a distant stretch idea that may
+be reconsidered only after the single-firefighter game succeeds and a new design
+decision explicitly brings it into scope.
 
 ## Build order
 
@@ -31,8 +31,8 @@ the cheapest honest test of whether the pivot feels right before the rest is bui
 | #91  | Building exteriors as burnable facades        | `area:sim`     | L    |
 | #92  | Smoke column beacon and waypoint arrow        | `area:ui`      | M    |
 | #93  | Character-anchored hose aiming                | `area:render`  | M    |
-| #94  | Truck as water supply with parking and tether | `area:sim`     | M    |
-| #95  | Hydrant refill by driving                     | `area:sim`     | S    |
+| #94  | Simplify hose to one unlimited-water action  | `area:ui`      | M    |
+| #95  | Retire supply, refill, and tether gates       | `area:sim`     | M    |
 | #96  | Replace A–F grades with 1–3 stars             | `area:ui`      | M    |
 | #97  | Civilians without loss                        | `area:sim`     | M    |
 | #98  | Collapse becomes cosmetic                     | `area:sim`     | S    |
@@ -106,11 +106,11 @@ Driving must be fun on its own, not a loading screen with a steering wheel.
 - [ ] Forgiving collision — bump buildings and props without getting stuck or flipping
 - [ ] Speed-reactive chase camera (pulls back slightly with speed)
 - [ ] Siren and lights toggle, on by default while driving
-- [ ] Truck is visibly the same object the player later parks and draws water from
+- [ ] Truck remains visibly present after the player parks and dismounts
 
 ### Done when
 
-A young player can drive from one end of the map to the other without getting
+A child aged 5–7 can drive from one end of the map to the other without getting
 stuck on geometry, and wants to do it again.
 
 ### Notes
@@ -157,8 +157,9 @@ A place, rather than one building on a plinth.
 
 - [ ] Drivable ground plane with roads, kerbs, and a few blocks of buildings
 - [ ] District layout authored as data under `content/`, following the scenarios pattern
-- [ ] Multiple incident sites placed around the map at varying drive distances
-- [ ] Street hydrants placed as world objects, not scenario abstractions
+- [ ] Multiple possible quest sites placed around the map at varying drive distances
+- [ ] Exactly one quest site active at a time
+- [ ] Street hydrants may appear as recognizable world props, with no required interaction
 - [ ] Props that read at eye level: trees, benches, parked cars, hedges
 
 ### Done when
@@ -212,15 +213,16 @@ How the player finds the next fire.
 ### Tasks
 
 - [ ] Tall stylized smoke column visible across the whole map, scaled to fire size
-- [ ] On-screen directional arrow pointing to the nearest active incident
-- [ ] Distance readout in a form a young player can parse
+- [ ] On-screen directional arrow pointing to the single active quest
+- [ ] Distance communicated visually without requiring the player to read a number
 - [ ] Arrow fades out once the player is on scene
 - [ ] Optional: a chirp or radio sting when a new incident starts
+- [ ] Completing the quest clears it before the next quest becomes active
 
 ### Done when
 
-A player dropped anywhere on the map can find a fire within ten seconds without
-being told where to look.
+A child aged 5–7 dropped anywhere on the map can find the one active fire within
+ten seconds without being told where to look or asked to choose between incidents.
 
 ### Notes
 
@@ -241,8 +243,9 @@ The payoff verb. This is the most important feel in M3.
 - [ ] Nozzle origin follows the character's hands instead of a fixed world point
 - [ ] Aim reticle projected onto the targeted surface, clearly readable
 - [ ] Hold to spray, with a visible arcing stream that lands where the reticle is
-- [ ] Slight spread so adjacent cells catch overspray
+- [ ] Generous target assistance and spread so adjacent cells catch overspray
 - [ ] Hit feedback: steam, hiss, the cell visibly darkening on contact
+- [ ] One water action only; no supply hookup or water/foam selection step
 
 ### Done when
 
@@ -263,57 +266,59 @@ Depends on M3-2.
 
 ---
 
-## M3-9 — Truck as water supply with parking and tether
+## M3-9 — Simplify hose to one unlimited-water action
 
-Makes parking a decision instead of a formality.
+Make the central verb usable immediately by a child aged 5–7.
 
 ### Tasks
 
-- [ ] Truck carries the water tank; the HUD bar reads from it
-- [ ] Hose tether from truck to character with a maximum reach
-- [ ] Clear visual feedback as the player approaches the tether limit
-- [ ] Spray cuts off gracefully — never a hard stop with no explanation — beyond reach
-- [ ] Visible hose line drawn from truck to nozzle
+- [ ] Hose is ready as soon as the player is on foot
+- [ ] One input sprays water; there is no water/foam mode selection
+- [ ] Water is unlimited and spraying never stops because of a tank level
+- [ ] No manual hookup prompt or interaction is required
+- [ ] No hose-length cutoff prevents the player from reaching exterior fire
+- [ ] A visible hose line back toward the truck is optional presentation only
 
 ### Done when
 
-Parking badly is recoverable but obviously costly, and the player learns to park
-close without being told to.
+A first-time player can dismount, point, and spray continuously without reading a
+supply meter, choosing an agent, connecting equipment, or running dry.
 
 ### Notes
 
-The hose-line tether from [#68](https://github.com/MeanGreen256/hive_firefighter/issues/68)
-transfers almost directly — `src/sim/hoseLine.ts` already models an anchored tether
-with a reach cost. The anchor moves from a fixed hydrant to the parked truck's
-transform.
+M2's finite water, foam, supply connection, and tether-cost systems are migration
+context, not mechanics to preserve. A hose line may remain visible because it
+supports the fantasy, but it must not create a reach puzzle or failure state.
 
-Depends on M3-3, M3-8.
+Depends on M3-8.
 
 ---
 
-## M3-10 — Hydrant refill by driving
+## M3-10 — Retire supply, refill, and tether gates
 
-Closes the water loop.
+Remove the M2 resource-management controls that conflict with the target audience.
 
 ### Tasks
 
-- [ ] Driving the truck near a street hydrant refills its tank
-- [ ] Refill is visibly progressive, not instant
-- [ ] Hydrants are marked clearly enough to spot while driving
-- [ ] HUD warns as the tank runs low, with enough lead time to act
+- [ ] Remove finite water and foam as requirements for completing a quest
+- [ ] Remove manual connect/disconnect controls and prompts
+- [ ] Remove hose-reach cost and spray cutoff behaviour
+- [ ] Remove tank-low and refill-required HUD states from normal play
+- [ ] Keep hydrants only as optional, non-interactive street props
+- [ ] Update scenario validation so tank, foam, and hydrant values are not required
 
 ### Done when
 
-Running dry mid-incident is an inconvenience with an obvious fix, not a run-ender.
+No sequence of normal hose use can make the player run dry, choose the wrong
+extinguishing agent, or become unable to reach the visible exterior fire.
 
 ### Notes
 
-Hydrants already exist in the scenario schema (`content/scenarios/starter.json`)
-as positioned objects. This promotes them from abstraction to world geometry.
+Remove or deprecate the old fields deliberately; do not leave active gameplay
+branches that a later agent could accidentally reconnect to the HUD. Existing
+scenario files may need a compatibility migration while M2 remains bootable.
 
-Per ADR-006, running dry must never be a fail state.
-
-Depends on M3-3, M3-9.
+Depends on M3-9.
 
 ---
 
@@ -330,7 +335,7 @@ Depends on M3-3, M3-9.
 
 ### Done when
 
-The debrief tells a seven-year-old how they did in under two seconds, and there is
+The debrief tells a child aged 5–7 how they did in under two seconds, and there is
 no outcome that reads as a failure.
 
 ### Notes
@@ -422,18 +427,20 @@ Cleanup, once the new loop is proven.
 - [ ] Delete `src/render/IsometricCameraRig.tsx` and `isometricCamera.ts`
 - [ ] Remove cutaway-specific facing/quadrant logic and its HUD readout
 - [ ] Update `src/render/README.md` and root `README.md` to describe the new view
-- [ ] Confirm no `src/sim/` change was required by any of the above
+- [ ] Confirm camera and cutaway deletion did not require changes to the core
+      propagation tick
 
 ### Done when
 
-The old view is gone, `npm run check` and `npm test` pass, and the diff touches
-zero files in `src/sim/`.
+The old view is gone, `npm run check` and `npm test` pass, and heat spread, fuel,
+materials, deterministic ticking, and water application still behave correctly.
 
 ### Notes
 
-The last task is the real acceptance criterion for the whole milestone. If the
-pivot required simulation changes, the renderer-agnostic boundary from ADR-003
-was not as clean as claimed — that is worth knowing.
+M3 intentionally changes supporting simulation modules for civilians, collapse,
+scenario authoring, and removal of finite supply. The architectural boundary is
+proven if the core propagation model needs no camera or character knowledge, not
+if every file under `src/sim/` remains byte-for-byte unchanged.
 
 Do this last. Keeping the old view bootable during M3 makes regressions easy to
 compare against.
@@ -446,18 +453,24 @@ Depends on all of the above.
 
 > **M3 — Drive, Dismount, Douse (tracking)**
 >
-> Does driving to a fire and fighting it as a character beat being a floating cursor?
+> Can a child aged 5–7 follow the smoke, drive to one active quest, and put out
+> visible exterior fire as a character?
 >
-> M3 pivots the game per [ADR-005](docs/adr/005-third-person-apparatus-control.md)
-> and [ADR-006](docs/adr/006-arcade-tone-for-younger-players.md): a third-person
-> firefighter, a drivable truck, exterior-only fire, and arcade tone for a younger
-> audience.
+> M3 pivots the game per
+> [ADR-005](https://github.com/MeanGreen256/hive_firefighter/blob/main/docs/adr/005-third-person-apparatus-control.md)
+> and
+> [ADR-006](https://github.com/MeanGreen256/hive_firefighter/blob/main/docs/adr/006-arcade-tone-for-younger-players.md):
+> a third-person
+> firefighter, a drivable truck, exterior-only fire, and arcade tone for ages 5–7.
 >
-> The loop: **drive to the smoke → park close → hop out → aim the hose → knock it
-> down → earn stars → next call.**
+> Exactly one quest is active at a time. The loop: **follow the smoke → drive to
+> the quest → park → hop out → point and hold the hose → put out the exterior fire
+> → earn stars → next quest.** Players never enter buildings.
 >
-> The fire simulation in `src/sim/` is unchanged by this milestone. If that turns
-> out to be false, that is the most important thing M3 discovers.
+> Hose play uses one action and unlimited water. There is no manual hookup, tank
+> depletion, foam selection, reach cutoff, or required hydrant-refill loop. The
+> core cell-based propagation model remains intact, while supporting modules may
+> change for the new presentation and age-appropriate rules.
 >
 > ### Build order
 > - [ ] M3-1 Follow camera rig
@@ -468,8 +481,8 @@ Depends on all of the above.
 > - [ ] M3-6 Building exteriors as burnable facades
 > - [ ] M3-7 Smoke column beacon and waypoint arrow
 > - [ ] M3-8 Character-anchored hose aiming
-> - [ ] M3-9 Truck as water supply with parking and tether
-> - [ ] M3-10 Hydrant refill by driving
+> - [ ] M3-9 Simplify hose to one unlimited-water action
+> - [ ] M3-10 Retire supply, refill, and tether gates
 > - [ ] M3-11 Replace A–F grades with 1–3 stars
 > - [ ] M3-12 Civilians without loss
 > - [ ] M3-13 Collapse becomes cosmetic
@@ -477,8 +490,13 @@ Depends on all of the above.
 > - [ ] M3-15 Retire cutaway view and isometric rig
 >
 > ### Done when
-> A player who has never seen the game can drive to a fire, put it out, and get
-> stars — and wants to take the next call.
+> A child aged 5–7 who has never seen the game can follow the smoke to the single
+> active quest, drive there, dismount, put out every visible exterior flame, and
+> get stars — without needing to read — and wants to take the next quest.
 >
 > ### Superseded by this milestone
-> - #70 Search under smoke — an interior verb that does not survive exterior-only fire.
+> - #70 Search under smoke — shipped in M2, but the mechanic is retired because
+>   players never enter buildings in the target game.
+>
+> Crew command and AI firefighters are distant stretch ideas outside the current
+> roadmap. They require a new explicit design decision before implementation.

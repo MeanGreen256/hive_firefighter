@@ -21,7 +21,7 @@ is "hold click." The fantasy the project is selling is *being a firefighter*, an
 none of the fantasy's actual beats — the callout, the drive, the dismount, the
 walk up to a burning building with a hose in your hands — exist.
 
-The product direction is now explicitly a younger audience (see
+The product direction is now explicitly children around ages 5–7 (see
 [ADR-006](006-arcade-tone-for-younger-players.md)), and for that audience the
 drive-and-dismount fantasy *is* the game. A tactical overhead view of heat values
 is not.
@@ -39,35 +39,41 @@ We will ship a **third-person follow camera** attached to two controllable subje
 and retire the locked isometric camera as the primary view.
 
 1. **The player controls a firefighter character.** Walk, run, and carry a hose.
-2. **The player drives a firetruck** between incidents on a free-roam street map,
-   dismounting on arrival.
+2. **The player drives a firetruck** to the one active quest incident on a
+   free-roam street map, dismounting on arrival.
 3. **The camera follows whichever subject is active** — a chase camera while
    driving, an over-the-shoulder camera on foot — with one transition between them.
 4. **Fire is authored on building exteriors.** Facades, roofs, awnings, porches,
-   attached props. Interior volumetric fire is out of scope for this direction.
-5. **The truck is the water supply.** It must be parked within hose reach of the
-   incident, its tank is the player's water, and it refills at street hydrants.
+   and attached outdoor props. The player never enters a building; interior
+   volumetric fire is out of scope for this direction.
+5. **The hose is a simple point-and-hold tool.** On foot it is ready to use, water
+   is unlimited, and spraying never depends on a manual hookup, tank level,
+   hydrant refill, foam selection, or hose-length cutoff. A visible line back to
+   the truck is optional presentation, not a gameplay constraint.
+6. **Only one quest incident is active at a time.** The smoke column and waypoint
+   identify that location. Quest means the active fire location, not a quiz.
 
-The cell simulation itself is unchanged. It is renderer-agnostic by construction
-(ADR-003, enforced by lint) and has no opinion about cameras.
+The deterministic cell-based propagation model is unchanged. It is
+renderer-agnostic by construction (ADR-003, enforced by lint) and has no opinion
+about cameras. Supporting modules may still change for exterior authoring and
+the simplified interaction rules.
 
 ## Consequences
 
 **What gets easier**
 
 - The core fantasy becomes playable rather than implied. Drive, arrive, dismount,
-  aim, extinguish is a loop a seven-year-old can narrate back after one attempt.
+  aim, extinguish is a loop a child aged 5–7 can narrate back after one attempt.
 - Aiming a hose gets the visceral quality ADR-001 listed as the explicit cost of
   its choice. That cost is now refunded.
 - The cutaway building can be **deleted**, not ported. It exists only to reveal
   interior fire. Exterior-only fire makes it dead weight, and subtraction is the
   cheapest kind of change.
-- Parking becomes a real decision with the truck as water supply, which gives the
-  driving segment skill expression instead of being a loading screen with a
-  steering wheel.
-- The hose-line tether built for [#68](https://github.com/MeanGreen256/hive_firefighter/issues/68)
-  transfers almost directly: the tether anchor moves from a fixed hydrant to the
-  parked truck.
+- The hose interaction becomes immediately legible: point, hold, see the water
+  land, and watch the fire react. Existing supply and foam controls can be removed
+  instead of taught to a five-year-old.
+- One active quest gives navigation a single readable answer. The smoke column
+  communicates the destination, with the waypoint as backup.
 
 **What gets harder**
 
@@ -80,19 +86,23 @@ The cell simulation itself is unchanged. It is renderer-agnostic by construction
   the building's **shell**. The grid still produces correct results but spends
   memory on interior cells nothing looks at. Accepted for now; a facade-only
   representation is a later optimization, not a blocker.
-- M2's interior mechanics take the hit. Search-under-smoke
+- M2's interior and resource-management mechanics take the hit. Search-under-smoke
   ([#70](https://github.com/MeanGreen256/hive_firefighter/issues/70)) is inherently
   an interior verb and does not survive. Civilians
   ([#69](https://github.com/MeanGreen256/hive_firefighter/issues/69)) survive by
   relocating to windows, balconies, and the street.
+- Finite water, foam selection, manual supply connection, tether limits, and
+  hydrant refilling do not survive as required player mechanics. Hydrants and a
+  visible hose line may remain as world dressing.
 - Art budget rises. ADR-001 counted "roughly half the art budget of third-person"
   as a benefit of isometric. That saving is now spent: a character needs an
   animation rig, and buildings need facades that read at eye level.
 
 **What is unaffected**
 
-- `src/sim/` in its entirety — fire propagation, materials, water application,
-  hazards, structural state. It never knew what a camera was.
+- The core heat, spread, fuel, material, and water-application model. The broader
+  `src/sim/` directory is not frozen; civilian, collapse, scenario, and supply
+  modules change elsewhere in M3.
 - `src/styles/` — the toy diorama direction from ADR-002 suits a younger audience
   better than it suited the tactical framing it was built for.
 - Determinism, the fixed 10 Hz tick, and the Zustand bridge (ADR-003).
@@ -113,7 +123,18 @@ The cell simulation itself is unchanged. It is renderer-agnostic by construction
   target age group than a visible character does.
 - **Keep interior fire and cutaway alongside exterior fire.** Rejected for M3. It
   reintroduces the exact visibility problem ADR-001 identified, and doubles the
-  authoring cost of every building. Revisit only if exterior-only proves thin.
+  authoring cost of every building. Players never enter buildings in the target
+  direction; revisiting that requires a new explicit decision.
+- **Finite truck water, hose tether, and hydrant refilling.** Rejected for the
+  core game. They make parking strategic, but they add setup, resource arithmetic,
+  and failure states before the target player can perform the central verb. Keep
+  the truck and hose visually connected without making that connection a gate.
+- **Multiple simultaneous incidents or a dispatch choice.** Rejected for the
+  core loop. One smoke column, one waypoint, and one quest give a 5–7-year-old a
+  clear destination. More complex dispatch is a future design question.
+- **Crew command.** Rejected from the current roadmap. Directly controlling one
+  firefighter is the product promise. Crew command may be reconsidered only as a
+  distant stretch feature after the single-firefighter game succeeds.
 
 ## Source material
 

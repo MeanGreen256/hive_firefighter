@@ -8,6 +8,15 @@ Nothing in here imports Three.js, React, or anything from `@render`/`@ui`. This 
 
 Pure data in, pure data out. That's what keeps the sim unit-testable, deterministic given a seed, and what makes the runtime style switcher (#18) cheap — swapping the whole look must not touch a line of simulation code.
 
+## M3 direction versus current code
+
+This folder still documents the shipped M2 implementation. M3 keeps the core
+heat, spread, fuel, material, deterministic-tick, and water-application model,
+but changes supporting systems to match `docs/game-direction.md`: exterior-only
+quests, one active quest at a time, unlimited water, no foam selection or supply
+gates, safe civilians, and cosmetic collapse. Do not preserve an M2 mechanic
+merely because it currently lives in `src/sim/`.
+
 ## What lives here
 
 - Cell data model and grid construction (#6)
@@ -69,6 +78,7 @@ Twenty percent of either delivery becomes face-adjacent overspray. Positive
 responses add normalized coating/wetness, while negative responses add heat
 and grant no protection. Saturation decays by `0.1` per second.
 
+The following describes legacy M2 behaviour scheduled for retirement in M3.
 `hoseLine.ts` owns the renderer-independent supply rule. An unattached onboard
 tank can target any cell; connecting an authored hydrant refills at 3 L/s and
 constrains the route from hydrant through nozzle to target to eight grid units.
@@ -80,6 +90,10 @@ exceeds the 1 L/s hose rate so a break in the fight buys back real water, which
 also means an always-on refill would make the tank infinite and cancel both the
 finite tank (#16) and the choice #68 exists to create. Breaking off is the cost;
 the reach limit is the second, independent cost.
+
+The following civilian, search, hazard, and collapse paragraphs also describe
+M2 behaviour. M3 removes terminal civilian harm, retires interior search, and
+makes collapse cosmetic.
 
 `civilians.ts` owns plain civilian records and advances them on the same
 simulated clock as fire. Until smoke becomes its own volume, exposure derives

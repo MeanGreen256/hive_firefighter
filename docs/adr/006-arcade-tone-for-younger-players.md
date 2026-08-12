@@ -5,10 +5,11 @@
 
 ## Context
 
-The game's target audience is now explicitly younger players. The systems shipped
-in M1 and M2 were designed without that constraint, and three of them encode a
-simulation-realism tone that is wrong for the audience — not stylistically wrong,
-but wrong in a way that produces real code changes:
+The game's target audience is now explicitly children around **ages 5–7**. The
+systems shipped in M1 and M2 were designed without that constraint, and several
+of them encode a simulation-realism tone or control burden that is wrong for the
+audience — not stylistically wrong, but wrong in a way that produces real code
+changes:
 
 - **Civilians can die.** `src/sim/civilians.ts` advances an `exposure` value
   through `Unconscious` to a terminal `Lost` state via `loseCivilian()`. A player
@@ -21,6 +22,9 @@ but wrong in a way that produces real code changes:
 - **Buildings collapse on people.** `src/sim/structuralCollapse.ts` passes
   `civilians`, `hazards`, and `playerPosition` into `collapseCell()` — collapse is
   a hazard that can catch and harm whoever is underneath it.
+- **The hose is a resource-management system.** Finite water and foam, manual
+  supply connection, tank bars, tether limits, and hydrant refilling ask the
+  player to manage abstractions before they can enjoy pointing the hose at fire.
 
 Realism was a defensible default when the audience was unstated. It is not
 defensible now. A firefighting game for kids that punishes slowness with a death
@@ -52,6 +56,12 @@ tone. Specifically:
 5. **Feedback skews positive and loud.** Hits, knockdowns, and rescues get
    immediate affirmative feedback. The HUD celebrates progress rather than
    reporting deficits.
+6. **Core play works without reading.** A smoke column and waypoint identify the
+   one active quest. Essential actions use icons, animation, sound, and world
+   feedback; text may reinforce them but never carries the objective alone.
+7. **The hose has one action.** Point and hold to spray unlimited water. There is
+   no required supply hookup, finite tank, foam selection, reach failure, or
+   hydrant-refill step in the core game.
 
 ## Consequences
 
@@ -62,6 +72,9 @@ tone. Specifically:
   branching from `civilians.ts`; decoupling collapse from entity damage removes
   `collapseCell()`'s dependency on `civilians`, `hazards`, and `playerPosition`
   entirely, which is a real reduction in coupling inside `src/sim/`.
+- The existing tank, foam, hookup, and tether-limit controls can be removed. The
+  visible truck and hose still sell the firefighter fantasy without creating a
+  setup puzzle.
 - Scenario authoring gets safer. With no lethal outcomes, a badly tuned scenario
   produces a boring incident instead of an upsetting one.
 
@@ -75,6 +88,8 @@ tone. Specifically:
   A–F model, the civilian-loss cap, and `gradeForScore()` all go.
 - Existing scenarios in `content/scenarios/` need their `civilians` and hazard
   entries revisited against the new semantics.
+- Scenarios must stop treating finite water, foam, and hydrant placement as
+  requirements for completion.
 - Personal bests stored under the old grade shape become invalid and need a
   migration or a reset.
 
@@ -103,6 +118,9 @@ tone. Specifically:
 - **Civilians as pure collectibles with no timer.** Rejected. Some time pressure is
   what makes rescuing feel like it mattered; a civilian who waits forever is set
   dressing.
+- **Keep resource management behind a child-friendly HUD.** Rejected. Better icons
+  do not remove the underlying attention and arithmetic burden. The primary hose
+  action should work immediately and continuously.
 
 ## Source material
 

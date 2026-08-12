@@ -1,37 +1,59 @@
 # hive_firefighter
 
-A browser-based 3D firefighting game. Isometric, stylized, built on a cell-based fire simulation where every burnable thing in the world runs the same system.
+A browser-based third-person firefighting game for children around ages 5–7,
+built on a cell-based fire simulation where every burnable thing in the world
+runs the same system.
 
-> **Status:** pre-alpha. M1 implementation is complete; the milestone is waiting on its hosted preview URL.
+> **Status:** pre-alpha. M1 and M2 proved the fire simulation and incident loop;
+> M3 pivots the game from an isometric prototype to the target third-person game.
 
 ## The idea
 
-Fire is the core system, not set dressing. Every flammable object carries `{ fuel, heat, ignitionPoint, material, neighbors }`, and each tick heat spreads, fuel depletes, and water subtracts heat. A park bench and a five-storey warehouse are the same code at different scales — which means every new prop is automatically a fire mechanic.
+Fire is the core system, not set dressing. Every flammable object carries
+`{ fuel, heat, ignitionPoint, material, neighbors }`, and each tick heat spreads,
+fuel depletes, and water subtracts heat. A park bench and a five-storey warehouse
+are the same code at different scales — which means every new prop is
+automatically a fire mechanic.
 
-Around that: an isometric camera you can rotate, a cutaway view so you watch fire move room to room, a finite water supply that turns spraying into deciding, and an A–F grade that makes you want another run.
+The player follows smoke to one active quest, drives a firetruck to the location,
+parks, hops out, and directly controls a firefighter. Fires appear only on
+building exteriors and outdoor props; the player never enters a building. Hose
+play is intentionally simple: point and hold to spray unlimited water, put out
+the visible flames, earn 1–3 stars, and take the next quest.
+
+The authoritative product constraints live in
+[`docs/game-direction.md`](docs/game-direction.md).
 
 ## Roadmap
 
-|        | Milestone                                                                        | The question it answers                        |
-| ------ | -------------------------------------------------------------------------------- | ---------------------------------------------- |
-| **M1** | [The Fire Toy](https://github.com/MeanGreen256/hive_firefighter/milestone/1)     | Is this fun standing still?                    |
-| **M2** | [One Incident](https://github.com/MeanGreen256/hive_firefighter/milestone/2)     | Does scoring it make it a game?                |
-| **M3** | [Crew & Apparatus](https://github.com/MeanGreen256/hive_firefighter/milestone/3) | Is commanding a crew better than acting alone? |
-| **M4** | [The Loop](https://github.com/MeanGreen256/hive_firefighter/milestone/4)         | Do people come back for a second shift?        |
-| **M5** | [Content Scale](https://github.com/MeanGreen256/hive_firefighter/milestone/5)    | Can we ship a district without writing code?   |
+|        | Milestone                                                                              | The question it answers                                               |
+| ------ | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **M1** | [The Fire Toy](https://github.com/MeanGreen256/hive_firefighter/milestone/1)           | Is this fun standing still?                                           |
+| **M2** | [One Incident](https://github.com/MeanGreen256/hive_firefighter/milestone/2)           | Does scoring it make it a game?                                       |
+| **M3** | [Drive, Dismount, Douse](https://github.com/MeanGreen256/hive_firefighter/milestone/3) | Is driving to a fire and fighting it as a character fun for ages 5–7? |
+| **M4** | [The Loop](https://github.com/MeanGreen256/hive_firefighter/milestone/4)               | Do people come back for a second shift?                               |
+| **M5** | [Content Scale](https://github.com/MeanGreen256/hive_firefighter/milestone/5)          | Can we ship a district without writing code?                          |
 
 ## Concept work
 
 Visual direction lives in [`docs/`](docs/) and is worth reading before proposing anything visual.
 
-- [`docs/concept-art.html`](docs/concept-art.html) — camera comparison: over-the-shoulder, isometric, chase, first-person. Plus art direction and menu screens.
+- [`docs/game-direction.md`](docs/game-direction.md) — authoritative audience,
+  gameplay loop, scope, and anti-drift constraints.
+- [`docs/concept-art.html`](docs/concept-art.html) — exploratory camera comparison;
+  the adopted direction uses chase and over-the-shoulder third-person views.
 - [`docs/style-directions.html`](docs/style-directions.html) — six isometric art treatments of the same scene, with competitive research and a scored recommendation.
 
 Open them in a browser; they're self-contained pages.
 
 ## Decisions so far
 
-- **Isometric camera.** Chosen over third-person because it's the only view where the player actually _watches_ fire spread — in third-person the simulation is invisible unless you walk into it. Roughly half the art budget, too.
+- **Third-person firefighter and drivable firetruck.** Chase camera while driving,
+  over-the-shoulder on foot, with exterior-only fires. See
+  [ADR-005](docs/adr/005-third-person-apparatus-control.md).
+- **Arcade tone for ages 5–7.** One active quest, simple point-and-hold hose play,
+  positive feedback, 1–3 stars, and no harmful outcomes. See
+  [ADR-006](docs/adr/006-arcade-tone-for-younger-players.md).
 - **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md).
 - **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
 
@@ -60,4 +82,10 @@ npm run build   # production build
 
 ## Contributing
 
-Issues are labelled by `area:*`, `type:*`, and `size:*`. The [M1 tracking issue](https://github.com/MeanGreen256/hive_firefighter/issues/22) records the completed build order and its final hosted-preview gate.
+Issues are labelled by `area:*`, `type:*`, and `size:*`. The
+[M3 tracking issue](https://github.com/MeanGreen256/hive_firefighter/issues/101)
+records the active pivot build order.
+
+Crew command and AI firefighters are distant stretch ideas, not M4 or M5 work.
+They must not enter the roadmap without a new explicit design decision after the
+single-firefighter loop has been validated.
