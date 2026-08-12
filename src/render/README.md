@@ -40,6 +40,19 @@ pitch limits, and V or the button switches between the truck/chase and
 firefighter/shoulder targets. This harness is lazy-loaded only in development;
 the existing M2 scene remains the default until #87–#89 supply real subjects.
 
+## Firefighter-controller contract
+
+`FirefighterController` owns the on-foot subject transform and passes that transform
+to `FollowCameraRig`. Movement is relative to the camera's horizontal facing, with
+WASD and the gamepad left stick feeding the same pure movement helpers. Input intensity
+selects idle, walk, or run; there is no sprint modifier or jump action.
+
+Collision consumes data-only XZ building footprints, expands them by the character
+radius, and sweeps the character against them with wall sliding. Terrain is supplied
+as a ground-height callback, so flat prototype ground can later be replaced without
+changing the controller. Keep building footprint data shared with visible geometry;
+do not infer gameplay collision by raycasting rendered meshes.
+
 ## What lives here
 
 - Isometric camera rig (#11)

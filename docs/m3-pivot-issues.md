@@ -136,11 +136,14 @@ The player's body. Walk, run, and stand somewhere specific.
 ### Tasks
 
 - [ ] Capsule character with WASD / left-stick movement relative to camera facing
-- [ ] Walk and run speeds, with acceleration rather than instant velocity
-- [ ] Ground collision against terrain and building footprints
+- [ ] Walk and run speeds, with acceleration rather than instant velocity; movement
+      intensity selects the gait, so there is no sprint button
+- [ ] Ground collision against terrain and building footprints, sliding along walls
+      instead of stopping or wedging at corners
 - [ ] Idle / walk / run animation states driven by velocity
 - [ ] Character carries a visible hose nozzle in the ready pose
 - [ ] Movement is forgiving: no fall damage, no stamina, no ledge that traps the player
+- [ ] No jump action; ladders remain a later explicit traversal verb
 
 ### Done when
 
@@ -156,6 +159,11 @@ Walking is justified by exploration and spectacle rather than tactical positioni
 exterior fire does not chase the player and nothing can hurt them. Build it to feel
 good to move, not to solve a problem. Ladder climbing is the intended later source of
 positional depth — leave room for it, do not build it here.
+
+Full keyboard input runs; a gently tilted left stick walks and a fully tilted stick
+runs. The camera supplies movement orientation automatically, so moving never requires
+the player to operate the camera at the same time. The controller owns its transform
+and exposes it to `FollowCameraRig`; the camera must not own movement.
 
 Depends on #86.
 
