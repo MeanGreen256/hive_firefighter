@@ -8,9 +8,10 @@ disagree, this document describes the game we are building.
 ## Audience and promise
 
 `hive_firefighter` is a browser-based, third-person arcade firefighting game for
-children around ages **5–7**. The promise is simple: **drive a firetruck to a
-quest location, hop out as a firefighter, point the hose at visible flames, and
-put the fire out.**
+**ages 5 and up**, designed around the abilities of a five- to seven-year-old. Older
+players are welcome and should find it charming; nothing may be added that a
+five-year-old cannot do. The promise is simple: **drive a firetruck around a colourful
+city, hop out as a firefighter, point the hose at visible flames, and put the fire out.**
 
 A child should understand the objective by looking at the world and should be
 able to complete an incident without reading instructions.
@@ -19,20 +20,37 @@ able to complete an incident without reading instructions.
 
 1. Exactly **one quest incident is active at a time**.
 2. A large smoke column and simple waypoint show where the quest is.
-3. The player drives the firetruck across a small free-roam map to the location.
+3. The player drives the firetruck across a free-roam city map to the location,
+   exploring as much or as little as they like on the way.
 4. The player parks, dismounts, and controls one firefighter in third person.
 5. The player points the hose at fire and holds one input to spray water.
-6. The exterior fire goes out, the player receives 1–3 stars and positive
-   feedback, and the next quest can begin.
+6. The fire goes out, the player receives 1–3 stars and positive feedback, and the
+   next quest can begin.
 
 "Quest location" means the location of the active fire incident. It does not
 mean a quiz or educational-question mechanic.
 
+## What the game is about
+
+**Putting out fires. Nothing else.** There is no one to save and no way to be hurt.
+The player is the person who shows up, makes the scary thing go away, and is
+cheered for it.
+
+Every design question resolves against that sentence. A feature that adds a second
+objective type, a threat to the player, or a person in peril is out of scope until a
+new ADR says otherwise.
+
 ## Non-negotiable constraints
 
-- **Exterior firefighting only.** Players never enter buildings. Fire may appear
-  on facades, roofs, awnings, porches, and outdoor props, where it is visible and
-  reachable from outside.
+- **Exterior firefighting only.** Players never enter buildings. Fire appears on
+  facades, roofs, awnings, porches, **trees, park features, and outdoor props** —
+  anywhere visible and reachable from outside. This list is expected to grow;
+  adding a new burnable subject should be a content change, not a code change.
+- **Nobody to rescue.** There are no civilians and no rescue verb. Fire burns
+  things, never people. Rescue is not softened or made survivable — it is absent.
+- **The player cannot be harmed.** No health, no damage, no downed state. The
+  firefighter can stand in fire. Fire is a thing you erase, not a thing that fights
+  back.
 - **One firefighter.** The player directly controls one character. Crew command,
   AI firefighters, and multi-unit tactics are not part of the current roadmap;
   they are distant stretch ideas that require a new explicit design decision.
@@ -41,8 +59,11 @@ mean a quiz or educational-question mechanic.
 - **Simple hose play.** On foot, the hose is ready to use. Aim and hold to spray.
   Water is unlimited for the core game. There is no manual hose hookup, finite
   tank, hose-reach cutoff, foam selection, or required hydrant-refill loop.
-- **No hard harm or failure.** Civilians do not die, collapse does not injure
-  anyone, and the game does not award zero stars or present a failure screen.
+- **Free roam is a pillar, not transit.** The city is somewhere a child wants to
+  drive around even with nothing on fire. Never shorten, gate, or skip the drive to
+  get the player to the fire faster.
+- **No hard harm or failure.** Collapse does not injure anyone, and the game does
+  not award zero stars or present a failure screen.
 - **Positive, readable feedback.** Use icons, animation, sound, shape, and clear
   world cues before text. Avoid making reading, precision aiming, or resource
   arithmetic necessary to finish a quest.
@@ -58,25 +79,40 @@ mean a quiz or educational-question mechanic.
   and celebratory progress.
 - Navigation: the smoke column should communicate the destination; a waypoint is
   a backup, not a reading-heavy objective panel.
+- City: colourful, legible, and worth looking at. Landmarks a child can navigate by,
+  parks and greenery, and things that are simply pleasant to drive past.
+
+## Why the player walks
+
+On-foot movement is not a tactical system. Exterior fire does not chase the player
+and nothing can hurt them, so where the firefighter stands rarely changes the
+outcome. Walking exists because being a small figure in a big colourful city is
+part of the appeal, and because vertical verbs — ladders first — are the intended
+way to give position real meaning later.
+
+Build the character to feel good to move, not to solve a problem. This is a known
+risk: if on-foot play stays shallow, ladders and similar verbs are where the depth
+has to come from.
 
 ## Scope boundaries
 
 The deterministic cell-based fire propagation model remains the technical core,
 but its presentation is changing from interior cutaway rooms to exterior
 surfaces. Code around the model may change to support exterior authoring, simple
-hose controls, stars, safe civilians, and cosmetic collapse. "Keep the fire sim"
+hose controls, stars, removing civilians, and cosmetic collapse. "Keep the fire sim"
 does not mean every file under `src/sim/` must remain untouched.
 
-Interior play, first-person play, lethal outcomes, tactical crew command,
-simulation-style apparatus operation, finite water, foam management, and
-multi-incident dispatch are outside the current direction.
+Interior play, first-person play, civilians and rescue, player damage, lethal
+outcomes, tactical crew command, simulation-style apparatus operation, finite water,
+foam management, and multi-incident dispatch are outside the current direction.
 
 ## Milestone acceptance
 
-M3 succeeds when a child aged 5–7 who has not seen the game can follow the smoke,
+M3 succeeds when a child aged five who has not seen the game can follow the smoke,
 drive to the single active quest, dismount, aim the hose, extinguish all visible
 exterior fire, receive stars, and want to take the next quest.
 
-The controlling decisions are [ADR-005](adr/005-third-person-apparatus-control.md)
-and [ADR-006](adr/006-arcade-tone-for-younger-players.md). The implementation plan
-is [M3 — Drive, Dismount, Douse](m3-pivot-issues.md).
+The controlling decisions are [ADR-005](adr/005-third-person-apparatus-control.md),
+[ADR-006](adr/006-arcade-tone-for-younger-players.md), and
+[ADR-007](adr/007-ages-5-plus-control-floor.md). The implementation plan is
+[M3 — Drive, Dismount, Douse](m3-pivot-issues.md).

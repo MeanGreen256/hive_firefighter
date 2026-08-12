@@ -1,11 +1,12 @@
-# ADR-006: Arcade tone for a younger audience
+# ADR-006: Arcade tone and simple controls for ages 5+
 
 **Status:** Accepted
 **Date:** 2026-08-11
 
 ## Context
 
-The game's target audience is now explicitly children around **ages 5–7**. The
+The game's target audience is now explicitly **ages 5 and up**, designed around the
+abilities of a five- to seven-year-old. The
 systems shipped in M1 and M2 were designed without that constraint, and several
 of them encode a simulation-realism tone or control burden that is wrong for the
 audience — not stylistically wrong, but wrong in a way that produces real code
@@ -19,6 +20,8 @@ changes:
   civilian is lost (`gradeCappedForCivilianLoss`). The debrief's job is currently
   to tell the player how badly they did on a scale borrowed from school report
   cards.
+- **Propane hazards kill.** `src/sim/hazards.ts` imports `CivilianState` purely so
+  a blast can set civilians to `Lost` within `PROPANE_BLAST_RADIUS`.
 - **Buildings collapse on people.** `src/sim/structuralCollapse.ts` passes
   `civilians`, `hazards`, and `playerPosition` into `collapseCell()` — collapse is
   a hazard that can catch and harm whoever is underneath it.
@@ -35,31 +38,57 @@ There is also a design argument independent of age. Arcade framing produces a
 tighter retry loop than simulation framing does. "Two stars — go again" is a
 better invitation than "D, one civilian lost."
 
+### Why rescue is removed rather than softened
+
+The first revision of this ADR kept civilians and made them un-killable: exposure
+would become a "worry" meter, and a worried civilian would self-evacuate at the cost
+of a bonus. Reading the code showed that this does not survive contact.
+
+`pickUpCivilian()` at `src/sim/civilians.ts:200` refuses any civilian whose state is
+not `Unconscious`. Conscious civilians already walk themselves out through the
+evacuation loop in `advanceCivilians()`. Delete the terminal states, as that revision
+proposed, and the entire carry mechanic — `pickUpCivilian`, `moveCivilianCarrier`,
+`dropCarriedCivilian`, `CARRY_MOVEMENT_MULTIPLIER` — becomes unreachable. What
+remains is a rescue *bonus* carrying `SCORE_WEIGHTS.lives = 50`, the largest single
+component of the score, attached to no rescue *verb* at all.
+
+Half-removing rescue leaves a scoring category the player cannot influence. Removing
+it outright is honest, and it sharpens what the game is about: putting out fires.
+
 ## Decision
 
 We will retune the game's feedback systems to **arcade** rather than **simulation**
 tone. Specifically:
 
-1. **No civilian ever dies.** The `Lost` and `Unconscious` states are removed.
-   Civilians wait to be helped, and the pressure is that a nervous civilian
-   eventually leaves on their own — costing the player the rescue bonus, not a
-   life. Exposure becomes a *worry* meter feeding score, never survival.
-2. **No failing grade.** The A–F scale is replaced with **1–3 stars**. There is no
+1. **There are no people in the game to save.** Civilians and the rescue verb are
+   removed entirely — not made survivable. `src/sim/civilians.ts`, `src/sim/search.ts`,
+   their tests, their scenario schema fields, and their HUD, marker, audio, and
+   debrief surfaces all go. The game is about putting out fires.
+2. **The player cannot be harmed.** There is no health, no damage, and no downed
+   state. The firefighter can stand in fire. Fire is a thing you erase, not a thing
+   that fights back.
+3. **Fire burns things, never people.** Building exteriors, trees, park features,
+   props, and whatever is added later. Property is the only stake.
+4. **Propane hazards survive, decoupled.** A cylinder that heats, shows a visible
+   countdown, and calms down when sprayed is excellent content for this audience.
+   `advanceHazards()` and `applyBlast()` keep their fire behaviour and lose every
+   reference to civilians. A blast spreads fire and looks spectacular; it hurts nobody.
+5. **No failing grade.** The A–F scale is replaced with **1–3 stars**. There is no
    zero-star outcome; completing the incident at all earns one star. Stars are
-   legible to a player who cannot yet parse a weighted percentage.
-3. **Collapse becomes cosmetic.** Burnt structure visibly slumps and scorches with
-   a toy-diorama "poof," but collapse no longer catches civilians, hazards, or the
-   player. It is a visual consequence, not a damage source.
-4. **Failure is soft.** Running long does not end the run badly — the building ends
+   legible to a player who cannot yet parse a weighted percentage — or read at all.
+6. **Collapse becomes cosmetic.** Burnt structure visibly slumps and scorches with
+   a toy-diorama "poof," but collapse no longer catches hazards or the player. It is
+   a visual consequence, not a damage source.
+7. **Failure is soft.** Running long does not end the run badly — the building ends
    up cartoon-scorched, the player still finishes, earns one star, and is offered
    an immediate retry. The game never says "you failed."
-5. **Feedback skews positive and loud.** Hits, knockdowns, and rescues get
+8. **Feedback skews positive and loud.** Hits, knockdowns, and hazard saves get
    immediate affirmative feedback. The HUD celebrates progress rather than
    reporting deficits.
-6. **Core play works without reading.** A smoke column and waypoint identify the
+9. **Core play works without reading.** A smoke column and waypoint identify the
    one active quest. Essential actions use icons, animation, sound, and world
    feedback; text may reinforce them but never carries the objective alone.
-7. **The hose has one action.** Point and hold to spray unlimited water. There is
+10. **The hose has one action.** Point and hold to spray unlimited water. There is
    no required supply hookup, finite tank, foam selection, reach failure, or
    hydrant-refill step in the core game.
 
@@ -68,43 +97,56 @@ tone. Specifically:
 **What gets easier**
 
 - The retry loop tightens. A one-star finish is an invitation; an F is an exit.
-- Several systems get *simpler*. Removing terminal civilian states deletes
-  branching from `civilians.ts`; decoupling collapse from entity damage removes
-  `collapseCell()`'s dependency on `civilians`, `hazards`, and `playerPosition`
-  entirely, which is a real reduction in coupling inside `src/sim/`.
+- A large amount of code is *deleted*, and deletion is the cheapest change there is.
+  `civilians.ts` (249 lines) and `search.ts` (118 lines) go entirely, with their
+  tests. `hazards.ts` loses its `CivilianState` import and `lostCivilianIds`.
+  `collapseCell()` loses its dependency on `civilians`, `hazards`, and
+  `playerPosition`. All of that is real coupling reduction inside `src/sim/`.
 - The existing tank, foam, hookup, and tether-limit controls can be removed. The
   visible truck and hose still sell the firefighter fantasy without creating a
   setup puzzle.
-- Scenario authoring gets safer. With no lethal outcomes, a badly tuned scenario
-  produces a boring incident instead of an upsetting one.
+- Scenario authoring gets safer and simpler. With no lethal outcomes and no people,
+  a badly tuned scenario produces a boring incident instead of an upsetting one.
+- The game becomes explainable in one sentence to a five-year-old: *drive to the
+  smoke and squirt it until it goes out.*
 
 **What gets harder**
 
-- Stakes must be re-established without harm. This is the genuine design risk of
-  this ADR: if nothing bad can happen, tension has to come from the score, the
-  clock, and the spectacle of fire growing. That is a tuning problem, and tuning
-  problems are the kind that only playtesting settles.
+- **Scoring is rebuilt, not adjusted.** `SCORE_WEIGHTS.lives = 50` is the largest
+  single component and it is being deleted along with the verb behind it. Property
+  saved, time, and hazards saved are what remain, and their weights are guesses until
+  they are tuned against real play.
+- **Stakes must be re-established without harm.** This is the genuine design risk of
+  this ADR. Nothing can hurt the player and nobody can be lost, so tension has to come
+  from watching fire spread to things the player wanted to save, from the clock, and
+  from spectacle. That is a tuning problem, and tuning problems are only settled by
+  playtesting — with actual children, scheduled as its own work item rather than left
+  as an assumption.
 - `sessionStats.ts` grading and its tests are rewritten, not adjusted. The weighted
   A–F model, the civilian-loss cap, and `gradeForScore()` all go.
-- Existing scenarios in `content/scenarios/` need their `civilians` and hazard
-  entries revisited against the new semantics.
+- Civilians reach into 34 files across `src/sim/`, `src/render/`, `src/ui/`,
+  `src/state/`, `src/audio/`, `src/styles/`, and `content/`. Removing them is large,
+  though almost all of it is deletion rather than rework.
 - Scenarios must stop treating finite water, foam, and hydrant placement as
-  requirements for completion.
-- Personal bests stored under the old grade shape become invalid and need a
-  migration or a reset.
+  requirements for completion, and lose their `civilians` entries entirely.
+- Personal bests stored under the old grade shape become invalid. Reset rather than
+  migrate — the `lives` component has no equivalent in the new model.
 
 **What is unaffected**
 
 - The fire simulation's physical behaviour. Heat, spread, fuel, and water are
   unchanged — fire is still allowed to be genuinely threatening to *property*.
-  Nothing here makes the fire less interesting; it makes the fire's consequences
-  land on buildings instead of people.
+  Nothing here makes the fire less interesting; it moves the fire's consequences off
+  people and onto things.
 - ADR-004's thermal recovery feedback, which is already positive-framing.
 - ADR-002's toy diorama art direction, which this decision fits better than the
   tactical framing it was originally paired with.
 
 ## Alternatives considered
 
+- **Keep civilians, make them un-killable.** Rejected — this was the first revision
+  of this ADR. It leaves a 50%-weighted score category with no verb behind it, as
+  traced in the context above. Softening rescue is strictly worse than removing it.
 - **Keep lethal outcomes, add a difficulty setting.** Rejected. It leaves the
   lethal path as the "real" game and the safe path as a concession, and it doubles
   the tuning surface for every scenario. The audience decision should be made once,
@@ -115,17 +157,26 @@ tone. Specifically:
 - **No scoring at all — pure sandbox.** Rejected. M2 already answered that scoring
   is what makes this a game rather than a toy; discarding it would undo that
   finding. Stars keep the reward loop while dropping the judgement.
-- **Civilians as pure collectibles with no timer.** Rejected. Some time pressure is
-  what makes rescuing feel like it mattered; a civilian who waits forever is set
-  dressing.
+- **Civilians as pure collectibles with no timer.** Rejected, and now moot. A
+  civilian who waits forever is set dressing, and set dressing that looks like a
+  person implies a rescue verb the game does not have.
+- **Remove hazards along with civilians.** Rejected. Once decoupled, a propane
+  cylinder is a visible countdown that rewards prioritising — one of the few sources
+  of urgency that survives the no-harm rule, which makes it more valuable now, not
+  less.
 - **Keep resource management behind a child-friendly HUD.** Rejected. Better icons
   do not remove the underlying attention and arithmetic burden. The primary hose
   action should work immediately and continuously.
 
 ## Source material
 
-- `src/sim/civilians.ts`, `src/state/sessionStats.ts`, `src/sim/structuralCollapse.ts`
-  — the three systems this decision rewrites.
+- `src/sim/civilians.ts`, `src/sim/search.ts`, `src/sim/hazards.ts`,
+  `src/state/sessionStats.ts`, `src/sim/structuralCollapse.ts` — the systems this
+  decision deletes or rewrites.
 - [ADR-005](005-third-person-apparatus-control.md) — the control pivot this tone
   decision accompanies.
+- [ADR-007](007-ages-5-plus-control-floor.md) — the control and readability floor
+  this audience decision implies.
 - [ADR-002](002-art-direction.md) — the toy diorama direction this reinforces.
+- [`docs/game-direction.md`](../game-direction.md) — the product-direction contract
+  these decisions serve.
