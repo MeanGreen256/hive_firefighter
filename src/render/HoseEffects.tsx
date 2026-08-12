@@ -13,23 +13,34 @@ import {
   type Group,
   type Mesh,
 } from 'three';
-import type { CellGrid } from '@sim/cellGrid';
+import type { CellGrid, GridDimensions } from '@sim/cellGrid';
 import { CellState } from '@sim/cellGrid';
 import { SuppressionAgent } from '@sim/waterApplication';
 import { STARTER_HOSE_TARGET_CELL_ID, type SimDebugController } from '../state/simDebugController';
 import { SessionStatus } from '../state/sessionStats';
 import type { HoseController } from '../state/hoseController';
 import type { Style } from '@styles/styles';
-import { CELL_HEIGHT, CELL_SIZE } from './buildingLayout';
+import { CELL_HEIGHT, CELL_SIZE, type Vector3Tuple } from './buildingLayout';
 import type { CutawayBuildingHandle } from './CutawayBuilding';
-import {
-  cellIdFromRaycastHits,
-  getCellWorldPosition,
-  getHoseNozzlePosition,
-} from './hoseTargeting';
+import { cellIdFromRaycastHits, getCellWorldPosition } from './hoseTargeting';
 import { getHoseTension } from './incidentMarkers';
 
 const STREAM_POINT_COUNT = 18;
+
+/**
+ * The M1/M2 mouse-driven scene has no character to anchor a hose to.
+ * `getHoseNozzlePosition` in `hoseTargeting.ts` is now character-transform-based
+ * for the M3 on-foot verb (#93), so this scene keeps its pre-M3 fixed corner
+ * placement verbatim, inlined here rather than routed through that function.
+ * This whole scene is migration-only and is retired with the cutaway rig (#100).
+ */
+function legacyNozzlePosition(dimensions: GridDimensions): Vector3Tuple {
+  return [
+    -(dimensions.width * CELL_SIZE) / 2 - CELL_SIZE * 0.75,
+    dimensions.height * CELL_HEIGHT * 0.52,
+    (dimensions.depth * CELL_SIZE) / 2 + CELL_SIZE * 0.75,
+  ];
+}
 const TARGET_SCALE = 1.06;
 
 interface HoseEffectsProps {
@@ -80,7 +91,7 @@ export function HoseEffects({
   const tensionMarkerRef = useRef<Group>(null);
   const hydrants = simulationController.store.getState().hoseLine.hydrants;
   const nozzle = useMemo(
-    () => new Vector3(...getHoseNozzlePosition(grid.dimensions)),
+    () => new Vector3(...legacyNozzlePosition(grid.dimensions)),
     [grid.dimensions],
   );
 
