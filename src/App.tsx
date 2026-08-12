@@ -33,6 +33,11 @@ import { simDebugController } from './state/simDebugController';
 import { FireAudioBridge } from './audio/FireAudioBridge';
 
 const SimDebugOverlay = import.meta.env.DEV ? lazy(() => import('@ui/SimDebugOverlay')) : null;
+const FollowCameraPrototype = import.meta.env.DEV
+  ? lazy(() => import('@render/FollowCameraPrototype'))
+  : null;
+const showFollowCameraPrototype =
+  import.meta.env.DEV && new URLSearchParams(window.location.search).get('camera') === 'follow';
 
 interface SceneCssVariables extends CSSProperties {
   '--scene-saturation': number;
@@ -82,7 +87,7 @@ function LiveFireParticles({ visualStyle }: { visualStyle: Style }) {
   );
 }
 
-export default function App() {
+function LegacyApp() {
   const scenarioVersion = useStore(
     simDebugController.store,
     (snapshot) => snapshot.scenarioVersion,
@@ -197,4 +202,16 @@ export default function App() {
       <DebriefPanel />
     </div>
   );
+}
+
+export default function App() {
+  if (showFollowCameraPrototype && FollowCameraPrototype) {
+    return (
+      <Suspense fallback={null}>
+        <FollowCameraPrototype />
+      </Suspense>
+    );
+  }
+
+  return <LegacyApp />;
 }
