@@ -7,7 +7,9 @@ Game data as JSON. **Adding content should not require writing code.**
 - `materials.json` — the fire behaviour table (#5). The highest-leverage data in the game: add a row, and every prop made of that material gets new behaviour everywhere.
 - `scenarios/*.json` — authored incidents: grid dimensions and materials,
   ignition, wind, entity placements, optional street props, and par time.
-- Later: building prefabs and district layouts.
+- `districts/*.json` — the free-roam city (#90): roads, blocks, parks, street
+  props, and the quest sites a quest can be staged at.
+- Later: building prefabs.
 
 ## Rules
 
@@ -66,3 +68,35 @@ Each scenario declares:
 
 Appearance remains style data. Scenario content names a semantic material or
 hazard type and never specifies colours, meshes, or particles.
+
+## `districts/*.json`
+
+The city the player free-roams. Every JSON file here is discovered
+automatically by `src/sim/districts.ts` and validated the same way scenarios
+are; the filename is the stable district id. Coordinates are metres in world
+space, `+x` east and `+z` south — not simulation cells.
+
+Each district declares:
+
+- a display `name`, playable `bounds`, and the `truckStart` pose;
+- `roads`, each an axis-aligned strip: the `axis` it runs along, its `offset` on
+  the other axis, the `from`/`to` span, and a `width`;
+- `buildings` as footprints with a `use` (`house`, `shop`, `civic`, `workshop`,
+  `tower`) and an optional `landmark` silhouette (`bell-tower`, `water-tower`,
+  `dome`, `big-sign`);
+- `parks` as green rectangles — first-class areas, not leftovers;
+- `props`, each a `type` from a fixed list (`tree`, `hedge`, `bench`,
+  `parked-car`, `hydrant`, `lamp-post`, `play-structure`) with a position and
+  optional `yawDegrees`. Footprint and whether it blocks movement come from the
+  type, not the file, so no authored prop can trap a player the renderer thinks
+  is walkable;
+- `questSites`, at least three, each anchored to a building or park.
+
+Validation enforces that the city stays drivable and the quests stay reachable,
+because free roam is a pillar and not transit: nothing may be authored on top of
+a road, the truck must start on one, and each quest site must be outdoors, near
+a road, and far enough from the others to read as its own destination. A failure
+names the offending index and says what is wrong with it.
+
+Appearance stays style data here too. A `shop` and a `play-structure` describe
+what a thing _is_; `src/styles/styles.ts` decides what it looks like.

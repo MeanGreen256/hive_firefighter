@@ -1,4 +1,5 @@
 import { CellState, type CellState as CellStateValue } from '@sim/cellGrid';
+import type { BuildingUse, DistrictPropType } from '@sim/districts';
 import type { MaterialId, SmokeTint } from '@sim/materials';
 
 export const STYLE_IDS = ['diorama', 'ink'] as const;
@@ -71,6 +72,36 @@ export interface ModelStageAppearance {
     readonly opacity: number;
     readonly blur: number;
   };
+}
+
+/**
+ * The free-roam city's palette (#90). District content names a building's *use*
+ * and a prop's *type*; the style decides what a shop or a play structure looks
+ * like, so one art direction can be swapped for another without editing content.
+ */
+export interface CityBuildingPaint {
+  readonly wall: string;
+  readonly roof: string;
+  readonly trim: string;
+}
+
+/** Two colours are enough for every street prop: its body and its detail. */
+export interface CityPropPaint {
+  readonly primary: string;
+  readonly secondary: string;
+}
+
+export interface CityAppearance {
+  readonly ground: string;
+  readonly road: string;
+  readonly laneMarking: string;
+  readonly kerb: string;
+  readonly pavement: string;
+  readonly parkGrass: string;
+  readonly landmarkAccent: string;
+  readonly questMarker: string;
+  readonly buildings: Readonly<Record<BuildingUse, CityBuildingPaint>>;
+  readonly props: Readonly<Record<DistrictPropType, CityPropPaint>>;
 }
 
 export interface ParticleAppearance {
@@ -164,6 +195,7 @@ export interface Style {
   readonly createMaterial: (surface: StyleSurface, materialId?: MaterialId) => MaterialAppearance;
   readonly cellVisuals: CellVisualAppearance;
   readonly stage: ModelStageAppearance;
+  readonly city: CityAppearance;
   readonly particles: ParticleAppearance;
   readonly hose: HoseAppearance;
   readonly incidentMarkers: IncidentMarkerAppearance;
@@ -326,6 +358,32 @@ const diorama: Style = {
     decorations: 'rounded-trees',
     contactShadow: { color: '#5f5346', opacity: 0.34, blur: 2.8 },
   },
+  city: {
+    ground: '#a7c98b',
+    road: '#93918b',
+    laneMarking: '#f6efdc',
+    kerb: '#d8cfbd',
+    pavement: '#e2d8c4',
+    parkGrass: '#8fc079',
+    landmarkAccent: '#f2a03d',
+    questMarker: '#f2c14e',
+    buildings: {
+      house: { wall: '#f4d8ad', roof: '#c96a4f', trim: '#fff6e6' },
+      shop: { wall: '#efb0a0', roof: '#57908c', trim: '#fff3dc' },
+      civic: { wall: '#ece3d1', roof: '#b0473d', trim: '#3f6f86' },
+      workshop: { wall: '#c9b79a', roof: '#7d6a55', trim: '#e7dcc6' },
+      tower: { wall: '#e5e9ec', roof: '#4d7ea8', trim: '#fff6e6' },
+    },
+    props: {
+      tree: { primary: '#78ad6b', secondary: '#a8825e' },
+      hedge: { primary: '#6f9d63', secondary: '#5b8452' },
+      bench: { primary: '#c99a63', secondary: '#7d6a55' },
+      'parked-car': { primary: '#e0705f', secondary: '#cfe3ec' },
+      hydrant: { primary: '#d1453a', secondary: '#fff6e6' },
+      'lamp-post': { primary: '#5d6b74', secondary: '#ffe9a8' },
+      'play-structure': { primary: '#f0a93f', secondary: '#5aa9c9' },
+    },
+  },
   particles: {
     flame: { core: '#fff1a3', edge: '#ff6b2c', softness: 0.78 },
     smoke: {
@@ -436,6 +494,32 @@ const ink: Style = {
     cornerRadius: 0.025,
     decorations: 'none',
     contactShadow: { color: '#16120e', opacity: 0.42, blur: 1.2 },
+  },
+  city: {
+    ground: '#cbbf86',
+    road: '#5b5b55',
+    laneMarking: '#f3e8c9',
+    kerb: '#9a917c',
+    pavement: '#ddd0a4',
+    parkGrass: '#8ea559',
+    landmarkAccent: '#e0912f',
+    questMarker: '#fff36a',
+    buildings: {
+      house: { wall: '#e0b856', roof: '#b7363d', trim: '#16120e' },
+      shop: { wall: '#d97b53', roof: '#315d5b', trim: '#16120e' },
+      civic: { wall: '#eadfb6', roof: '#8e2f36', trim: '#2d69a1' },
+      workshop: { wall: '#a98b57', roof: '#4a4030', trim: '#16120e' },
+      tower: { wall: '#dcd5be', roof: '#2d69a1', trim: '#16120e' },
+    },
+    props: {
+      tree: { primary: '#667d49', secondary: '#6b4d37' },
+      hedge: { primary: '#5c7040', secondary: '#455334' },
+      bench: { primary: '#b07a3c', secondary: '#4a3a2a' },
+      'parked-car': { primary: '#d04a62', secondary: '#c6e1e5' },
+      hydrant: { primary: '#c22f2a', secondary: '#f3e8c9' },
+      'lamp-post': { primary: '#2b2f34', secondary: '#ffd36b' },
+      'play-structure': { primary: '#e08a2c', secondary: '#2d8fa8' },
+    },
   },
   particles: {
     flame: { core: '#fff36a', edge: '#e62f24', softness: 0.18 },

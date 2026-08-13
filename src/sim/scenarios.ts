@@ -5,6 +5,18 @@ import {
   type GridDimensions,
   type GridPosition,
 } from './cellGrid';
+import {
+  ContentValidationError,
+  checkFields,
+  describe,
+  readFiniteNumber,
+  readInteger,
+  readObject,
+  readPlacementArray,
+  readPositiveNumber,
+  readString,
+  validateUniqueIds,
+} from './contentValidation';
 import { materials, type MaterialId } from './materials';
 import type { Wind } from './fireSimulation';
 
@@ -47,8 +59,6 @@ export interface ScenarioDefinition {
   parTimeSeconds: number;
 }
 
-type JsonObject = Record<string, unknown>;
-
 const ROOT_FIELDS = [
   'name',
   'building',
@@ -67,75 +77,11 @@ const OPTIONAL_ROOT_FIELDS = [
   'foamTankCapacityLitres',
 ] as const;
 
-export class ScenarioValidationError extends Error {
+export class ScenarioValidationError extends ContentValidationError {
   constructor(source: string, problems: string[]) {
-    super(`Invalid scenario ${source}:\n${problems.map((problem) => `  - ${problem}`).join('\n')}`);
+    super('scenario', source, problems);
     this.name = 'ScenarioValidationError';
   }
-}
-
-function describe(value: unknown): string {
-  if (typeof value === 'string') return JSON.stringify(value);
-  if (value === null) return 'null';
-  if (Array.isArray(value)) return 'an array';
-  return String(value);
-}
-
-function readObject(value: unknown, path: string, problems: string[]): JsonObject | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    problems.push(`${path} must be an object, got ${describe(value)}`);
-    return undefined;
-  }
-  return value as JsonObject;
-}
-
-function checkFields(
-  object: JsonObject,
-  path: string,
-  fields: readonly string[],
-  problems: string[],
-  optionalFields: readonly string[] = [],
-): void {
-  const knownFields = [...fields, ...optionalFields];
-  const unknown = Object.keys(object).filter((field) => !knownFields.includes(field));
-  if (unknown.length > 0) {
-    problems.push(
-      `${path} has unknown field(s) ${unknown.map((field) => JSON.stringify(field)).join(', ')}`,
-    );
-  }
-  for (const field of fields) {
-    if (!(field in object)) problems.push(`${path}.${field} is required`);
-  }
-}
-
-function readString(value: unknown, path: string, problems: string[]): string {
-  if (typeof value !== 'string' || value.trim() === '') {
-    problems.push(`${path} must be a non-empty string, got ${describe(value)}`);
-    return '';
-  }
-  return value;
-}
-
-function readFiniteNumber(value: unknown, path: string, problems: string[]): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    problems.push(`${path} must be a finite number, got ${describe(value)}`);
-    return 0;
-  }
-  return value;
-}
-
-function readPositiveNumber(value: unknown, path: string, problems: string[]): number {
-  const number = readFiniteNumber(value, path, problems);
-  if (number <= 0) problems.push(`${path} must be greater than zero, got ${String(number)}`);
-  return number;
-}
-
-function readInteger(value: unknown, path: string, problems: string[]): number {
-  if (typeof value !== 'number' || !Number.isInteger(value)) {
-    problems.push(`${path} must be an integer, got ${describe(value)}`);
-    return 0;
-  }
-  return value;
 }
 
 function readPosition(value: unknown, path: string, problems: string[]): GridPosition {
@@ -185,36 +131,6 @@ function isInside(position: GridPosition, dimensions: GridDimensions): boolean {
     position.z >= 0 &&
     position.z < dimensions.depth
   );
-}
-
-function readPlacementArray<T>(
-  value: unknown,
-  path: string,
-  problems: string[],
-  readPlacement: (object: JsonObject, itemPath: string, problems: string[]) => T,
-): T[] {
-  if (!Array.isArray(value)) {
-    problems.push(`${path} must be an array, got ${describe(value)}`);
-    return [];
-  }
-  return value.flatMap((item, index) => {
-    const itemPath = `${path}[${index}]`;
-    const object = readObject(item, itemPath, problems);
-    return object ? [readPlacement(object, itemPath, problems)] : [];
-  });
-}
-
-function validateUniqueIds(
-  placements: readonly { id: string }[],
-  path: string,
-  problems: string[],
-): void {
-  const ids = new Set<string>();
-  for (const placement of placements) {
-    if (ids.has(placement.id))
-      problems.push(`${path} contains duplicate id ${JSON.stringify(placement.id)}`);
-    ids.add(placement.id);
-  }
 }
 
 function scenarioMaterialAt(

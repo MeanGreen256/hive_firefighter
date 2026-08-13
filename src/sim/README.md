@@ -25,11 +25,29 @@ merely because it currently lives in `src/sim/`.
 - Water application and the wetted state (#8)
 - Burn-through and char (#9)
 - Scenario loading, validation, and grid construction (#67)
+- District loading, drivability validation, and quest-site rotation (#90)
 - Civilian exposure, evacuation, carrying, rescue, and loss (#69)
 - Smoke-obscured civilian search and thermal discovery (#70)
 - Propane heating, cooling, countdown, and blast effects (#71)
 - Foam suppression and per-agent material responses (#72)
 - Telegraphed structural warning and collapse propagation (#73)
+
+## Districts
+
+`districts.ts` loads the free-roam city from `content/districts/*.json` and is
+world data, not cell data: metres, footprints, and semantic tokens. It shares
+`contentValidation.ts` with the scenario loader, so both report problems the
+same way — collect everything, name the field path, throw once.
+
+Validation is about whether the city works, not only whether it parses. A
+building or prop authored on a road, a truck start off the tarmac, a quest site
+indoors, out of reach of a road, or crowding another one are all load-time
+errors. Prop footprints and solidity live in `PROP_FOOTPRINTS` rather than in
+content, so gameplay collision cannot drift from what the file says a bench is.
+
+Exactly one quest is ever active, so `getActiveQuestSite` returns a single site
+and `getNextQuestIndex` advances the rotation. There is deliberately no API that
+hands a caller every quest site as live objectives.
 
 ## Timing
 
