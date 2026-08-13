@@ -1,0 +1,22 @@
+{
+  "name": "Bakery awning",
+  "district": "harbour-hill",
+  "questSite": "bakery-awning",
+  "subjects": ["bakery", "main-tree-e1"],
+  "ignitions": [
+    {
+      "target": "bakery",
+      "burnable": "awning"
+    }
+  ],
+  "seed": 1901,
+  "wind": {
+    "direction": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+    },
+    "strength": 0.2
+  },
+  "parTimeSeconds": 90
+}

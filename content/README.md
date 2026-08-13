@@ -9,6 +9,10 @@ Game data as JSON. **Adding content should not require writing code.**
   ignition, wind, entity placements, optional street props, and par time.
 - `districts/*.json` — the free-roam city (#90): roads, blocks, parks, street
   props, and the quest sites a quest can be staged at.
+- `burnables.json` — what exterior fire is allowed to live on (#91), and the
+  shape of the shell it occupies.
+- `quests/*.json` — one authored incident per quest site: what may burn, and
+  where the fire starts.
 - Later: building prefabs.
 
 ## Rules
@@ -100,3 +104,44 @@ names the offending index and says what is wrong with it.
 
 Appearance stays style data here too. A `shop` and a `play-structure` describe
 what a thing _is_; `src/styles/styles.ts` decides what it looks like.
+
+## `burnables.json`
+
+What exterior fire is allowed to live on. Keyed by subject id (`"facade"`,
+`"awning"`, `"canopy"`, ...), loaded and validated by `src/sim/burnables.ts`.
+Each row has three parts:
+
+- `material` — a row in `materials.json`. It must be one that can actually
+  ignite; a burnable made of concrete is rejected at load.
+- `attachesTo` — the district `buildingUses` and `propTypes` that grow this
+  subject. This is where the building archetypes live: a `house` grows a
+  `porch`, a `shop` an `awning`, a `workshop` a `barn-door`. Masonry `tower`
+  buildings appear in no row, so they never burn.
+- `shell` — the space it occupies, in metres, as an `anchor` plus that anchor's
+  dimensions. `wrap` skins a facade, `roof-band` caps a roofline,
+  `front-attachment` projects from the street-facing face, `canopy` floats above
+  a prop, and `body` fills the prop's own footprint.
+
+**Adding a burnable subject is a content change**: one row naming an existing
+anchor. Adding a new anchor is a code change, because an anchor is geometry
+rather than data — `src/sim/exteriorShell.ts` owns those five shapes.
+
+## `quests/*.json`
+
+One authored incident per district quest site, discovered automatically and
+validated by `src/sim/quests.ts`. Exactly one quest may exist per quest site,
+which is how "one active quest at a time" is enforced in content rather than
+hoped for at runtime.
+
+A quest names:
+
+- the `district` and `questSite` it belongs to;
+- `subjects`: the district building and prop ids fire is allowed to live on.
+  Each one contributes every burnable its use or type grows;
+- `ignitions`: the one place the fire starts, as a subject plus a burnable id.
+  Both must be legal for that target — you cannot light a `canopy` on a bakery;
+- a deterministic `seed`, `wind`, and `parTimeSeconds`.
+
+Fire spreads between subjects only where their shells actually touch. Two trees
+three metres apart catch each other; two trees twelve metres apart do not. That
+is authored in the district's geometry, not tuned here.

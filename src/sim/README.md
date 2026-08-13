@@ -26,6 +26,7 @@ merely because it currently lives in `src/sim/`.
 - Burn-through and char (#9)
 - Scenario loading, validation, and grid construction (#67)
 - District loading, drivability validation, and quest-site rotation (#90)
+- Burnable subjects, exterior shells, and quest loading (#91)
 - Civilian exposure, evacuation, carrying, rescue, and loss (#69)
 - Smoke-obscured civilian search and thermal discovery (#70)
 - Propane heating, cooling, countdown, and blast effects (#71)
@@ -48,6 +49,34 @@ content, so gameplay collision cannot drift from what the file says a bench is.
 Exactly one quest is ever active, so `getActiveQuestSite` returns a single site
 and `getNextQuestIndex` advances the rotation. There is deliberately no API that
 hands a caller every quest site as live objectives.
+
+## Exterior fire
+
+Fire lives on the outside of things now (#91), and it does so without a line of
+new fire code. `burnables.ts` loads `content/burnables.json`: one row per
+burnable subject, saying what it is made of, which district buildings or props
+grow one, and the shape of the shell it occupies. `exteriorShell.ts` turns a
+quest's subjects into a single world-space `CellGrid` — one metre per cell —
+filling shell cells with the subject's material and everything else with a
+non-combustible one.
+
+That last part is the whole trick. A non-combustible cell absorbs heat and never
+passes it on, so open air between two subjects is a real firebreak, while cells
+that touch spread normally. Fire climbs a facade because facade cells are stacked
+and upward transfer is amplified, runs along a roofline because the roof band is
+continuous, and crosses to the next tree exactly when two canopies are close
+enough to share a cell face. `cellGrid.ts` and `fireSimulation.ts` are untouched.
+
+Everything burnable sits on the target's street-facing side, so a player standing
+at the truck can see every flame. ADR-005 accepts that interior cells exist and
+are never looked at; the largest authored quest is still under 8000 cells, and
+the tick only ever visits the active frontier.
+
+`quests.ts` is the authored layer on top: one quest per district quest site,
+naming the district features that may burn and the single place the fire starts.
+Adding a burning tree to a quest is one string; adding a new _kind_ of burnable
+is a row in `content/burnables.json`. Only a new shell _anchor_ — a new geometry
+for turning a feature into cells — is a code change.
 
 ## Timing
 

@@ -1,0 +1,22 @@
+{
+  "name": "Station cottage porch",
+  "district": "harbour-hill",
+  "questSite": "firehouse-yard",
+  "subjects": ["house-station-cottage", "firehouse"],
+  "ignitions": [
+    {
+      "target": "house-station-cottage",
+      "burnable": "porch"
+    }
+  ],
+  "seed": 1902,
+  "wind": {
+    "direction": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+    },
+    "strength": 0.15
+  },
+  "parTimeSeconds": 100
+}

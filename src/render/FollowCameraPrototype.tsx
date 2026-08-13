@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -19,11 +18,14 @@ import {
   getQuestSiteDistanceFromStart,
   type DistrictQuestSite,
 } from '@sim/districts';
+import { getQuestForSite } from '@sim/quests';
+import { questFireController } from '../state/questFireController';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import { AudioControls } from '@ui/AudioControls';
-import { AnchoredHoseEffects, type HoseBurnTarget } from './AnchoredHoseEffects';
+import { AnchoredHoseEffects } from './AnchoredHoseEffects';
 import { CityDistrict } from './CityDistrict';
+import { ExteriorFire } from './ExteriorFire';
 import { FirefighterController } from './FirefighterController';
 import { FollowCameraRig } from './FollowCameraRig';
 import { ArcadeTruck } from './ArcadeTruck';
@@ -33,12 +35,6 @@ import { getSafeDismountPose, isWithinBoardingRange, type PlayerMode } from './m
 
 const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
 const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
-const QUEST_FLAME_HEIGHT = 1.6;
-
-/** One quest is active, so exactly one place in the city can be sprayed. */
-function questBurnTargets(site: DistrictQuestSite): readonly HoseBurnTarget[] {
-  return [{ id: site.id, position: [site.x, QUEST_FLAME_HEIGHT, site.z] }];
-}
 
 /**
  * One sun lights the whole city, so its shadow frustum has to cover every
@@ -121,7 +117,6 @@ function PrototypeWorld({
   const boardingCheckElapsed = useRef(0);
   const profile = mode === 'driving' ? 'chase' : 'shoulder';
   const activeTarget = mode === 'driving' ? truckRef : firefighterRef;
-  const burnTargets = useMemo(() => questBurnTargets(activeQuestSite), [activeQuestSite]);
 
   useFrame((_state, delta) => {
     boardingCheckElapsed.current += delta;
@@ -178,7 +173,12 @@ function PrototypeWorld({
         presentationRef={hosePresentationRef}
         enabled={mode === 'on-foot'}
         visualStyle={visualStyle}
-        targets={burnTargets}
+        fire={questFireController}
+      />
+      <ExteriorFire
+        controller={questFireController}
+        questId={activeQuestSite.id}
+        visualStyle={visualStyle}
       />
       <group ref={collisionRoot}>
         <CityDistrict
@@ -207,6 +207,13 @@ export default function FollowCameraPrototype() {
   const takeNextQuest = useCallback(() => {
     setQuestIndex((current) => getNextQuestIndex(DISTRICT, current));
   }, []);
+  const fireSnapshot = useStore(questFireController.store);
+
+  useEffect(() => {
+    questFireController.setQuest(getQuestForSite(DISTRICT.id, activeQuestSite.id));
+    questFireController.start();
+    return () => questFireController.stop();
+  }, [activeQuestSite.id]);
 
   const transitionPlayer = useCallback(() => {
     const truck = truckRef.current;
@@ -296,6 +303,15 @@ export default function FollowCameraPrototype() {
         Quest {questIndex + 1} of {DISTRICT.questSites.length}: <b>{activeQuestSite.name}</b> —{' '}
         {questDistance.toFixed(0)}m away
         <br />
+        {fireSnapshot.extinguished ? (
+          <b>Fire out · {fireSnapshot.elapsedSeconds}s</b>
+        ) : (
+          <>
+            {fireSnapshot.burningCellCount} alight · {fireSnapshot.heatingCellCount} catching ·{' '}
+            {fireSnapshot.elapsedSeconds}s
+          </>
+        )}
+        <br />
         <b>{mode === 'driving' ? 'Truck · chase camera' : 'Firefighter · shoulder camera'}</b>
         <br />
         {mode === 'driving'
@@ -325,6 +341,9 @@ export default function FollowCameraPrototype() {
           </button>
           <button type="button" onClick={takeNextQuest}>
             Next quest
+          </button>
+          <button type="button" onClick={() => questFireController.restart()}>
+            Relight
           </button>
           <AudioControls />
         </div>

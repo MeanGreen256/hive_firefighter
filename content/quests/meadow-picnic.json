@@ -1,0 +1,22 @@
+{
+  "name": "Meadow Park picnic bench",
+  "district": "harbour-hill",
+  "questSite": "meadow-picnic",
+  "subjects": ["meadow-bench-1", "meadow-tree-5", "meadow-tree-4", "meadow-hedge-4"],
+  "ignitions": [
+    {
+      "target": "meadow-bench-1",
+      "burnable": "picnic-timber"
+    }
+  ],
+  "seed": 1904,
+  "wind": {
+    "direction": {
+      "x": -1,
+      "y": 1,
+      "z": 0
+    },
+    "strength": 0.3
+  },
+  "parTimeSeconds": 80
+}

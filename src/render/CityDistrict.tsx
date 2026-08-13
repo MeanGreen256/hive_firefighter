@@ -15,6 +15,7 @@ import {
   PARK_SURFACE_Y,
   PAVEMENT_HEIGHT,
   ROAD_SURFACE_Y,
+  type DistrictAttachmentPlacement,
   type DistrictBuildingPlacement,
   type DistrictLayout,
   type DistrictPropPlacement,
@@ -162,6 +163,43 @@ function PropLayer({
         </Instances>
       ))}
     </group>
+  );
+}
+
+/**
+ * Porches, awnings, and barn doors: the three building archetypes, drawn from
+ * the same boxes the fire shell fills with cells (#91). They stand whether or
+ * not anything is burning — a house has a porch on a quiet day too.
+ */
+function AttachmentLayer({
+  use,
+  placements,
+  visualStyle,
+}: {
+  readonly use: BuildingUse;
+  readonly placements: readonly DistrictAttachmentPlacement[];
+  readonly visualStyle: Style;
+}) {
+  if (placements.length === 0) return null;
+
+  return (
+    <Instances
+      name={`city-attachments-${use}`}
+      limit={placements.length}
+      range={placements.length}
+      castShadow
+      receiveShadow
+    >
+      <boxGeometry />
+      <meshLambertMaterial color={visualStyle.city.buildings[use].trim} />
+      {placements.map((attachment) => (
+        <Instance
+          key={attachment.id}
+          position={[...attachment.position]}
+          scale={[...attachment.size]}
+        />
+      ))}
+    </Instances>
   );
 }
 
@@ -319,6 +357,12 @@ export function CityDistrict({
     group.push(prop);
     propsByType.set(prop.type, group);
   }
+  const attachmentsByUse = new Map<BuildingUse, DistrictAttachmentPlacement[]>();
+  for (const attachment of layout.attachments) {
+    const group = attachmentsByUse.get(attachment.use) ?? [];
+    group.push(attachment);
+    attachmentsByUse.set(attachment.use, group);
+  }
 
   return (
     <group name="city-district">
@@ -363,6 +407,14 @@ export function CityDistrict({
           key={use}
           use={use}
           placements={buildingsByUse.get(use) ?? []}
+          visualStyle={visualStyle}
+        />
+      ))}
+      {BUILDING_USES.map((use) => (
+        <AttachmentLayer
+          key={use}
+          use={use}
+          placements={attachmentsByUse.get(use) ?? []}
           visualStyle={visualStyle}
         />
       ))}
