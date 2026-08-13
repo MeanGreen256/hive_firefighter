@@ -28,6 +28,8 @@ const MAX_ADVANCE_SECONDS = 0.25;
 
 export interface QuestFireSnapshot {
   readonly questId: string | null;
+  /** The district quest site this fire belongs to; what the beacon keys off. */
+  readonly questSiteId: string | null;
   readonly questName: string;
   /** Cells currently Burning or in Flashover — what the player still has to hit. */
   readonly burningCellCount: number;
@@ -59,6 +61,7 @@ export interface QuestFireController {
 
 const EMPTY_SNAPSHOT: QuestFireSnapshot = {
   questId: null,
+  questSiteId: null,
   questName: '',
   burningCellCount: 0,
   heatingCellCount: 0,
@@ -98,6 +101,7 @@ export function createQuestFireController(): QuestFireController {
     const previous = store.getState();
     const next: QuestFireSnapshot = {
       questId: fire.quest.id,
+      questSiteId: fire.quest.questSiteId,
       questName: fire.quest.name,
       burningCellCount: burning,
       heatingCellCount: heating,
@@ -107,6 +111,7 @@ export function createQuestFireController(): QuestFireController {
     };
     if (
       previous.questId === next.questId &&
+      previous.questSiteId === next.questSiteId &&
       previous.burningCellCount === next.burningCellCount &&
       previous.heatingCellCount === next.heatingCellCount &&
       previous.extinguished === next.extinguished &&

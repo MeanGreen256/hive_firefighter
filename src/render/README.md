@@ -84,6 +84,32 @@ costs one draw call per visible state however far it spreads. Burning and
 flashover cells are unshaded and stand slightly proud of the surface, so flame
 reads as the brightest thing in the scene from street level.
 
+## Finding the fire
+
+`questBeacon.ts` owns the two signals as pure functions, so "how tall is the
+column" and "how far away does the arrow fade" are testable numbers rather than
+frame-loop arithmetic. `SmokeBeacon` and `WaypointArrow` only draw what those
+functions return.
+
+The smoke column is the primary signal and is meant to do most of the work: a
+landmark tall enough to read from across the district, thickening with the
+number of burning cells, and tinted by whatever is actually alight (`@sim/fireSignal`
+resolves the semantic tint; the style resolves the colour). It is one instanced
+draw call — puffs shrink to nothing as they rise instead of fading, because
+per-instance transparency would cost a draw call each and a thinning plume reads
+the same.
+
+The arrow is the backstop for a player who has turned away from the column. It
+sits in the camera's view, rotates in screen space toward the incident, and
+carries distance as a beat rather than a number — slow across town, urgent round
+the corner — then fades out entirely once the player is on scene, so the last
+thing they are looking at is the fire and not the HUD.
+
+`getBeaconTarget` returns nothing unless the live fire's own quest site matches
+the site being drawn, and nothing at all once it is out. That is what makes
+"completing the quest clears it before the next becomes active" structural: no
+column can stand over a site whose fire is not the live one.
+
 `AnchoredHoseEffects` no longer owns any fire of its own. It asks the field
 which cells are alight, aims at those, and hands water back by cell id — so
 extinguishing is real `@sim/waterApplication` behaviour on the quest's shell

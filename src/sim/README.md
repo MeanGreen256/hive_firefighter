@@ -27,6 +27,7 @@ merely because it currently lives in `src/sim/`.
 - Scenario loading, validation, and grid construction (#67)
 - District loading, drivability validation, and quest-site rotation (#90)
 - Burnable subjects, exterior shells, and quest loading (#91)
+- Fire signal: how big a fire reads and what colour its smoke is (#92)
 - Civilian exposure, evacuation, carrying, rescue, and loss (#69)
 - Smoke-obscured civilian search and thermal discovery (#70)
 - Propane heating, cooling, countdown, and blast effects (#71)
@@ -71,6 +72,12 @@ Everything burnable sits on the target's street-facing side, so a player standin
 at the truck can see every flame. ADR-005 accepts that interior cells exist and
 are never looked at; the largest authored quest is still under 8000 cells, and
 the tick only ever visits the active frontier.
+
+`fireSignal.ts` reads a running fire the way a bystander does: how many cells
+are alight, how many are about to catch, and the semantic smoke tint of whatever
+is burning most. A hedgerow and a plastic bin should not send up the same plume,
+and deciding that is a reading of simulation state rather than a rendering
+choice — the renderer gets a token and the active style resolves the colour.
 
 `quests.ts` is the authored layer on top: one quest per district quest site,
 naming the district features that may burn and the single place the fire starts.

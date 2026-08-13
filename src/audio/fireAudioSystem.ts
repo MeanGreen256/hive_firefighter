@@ -145,7 +145,12 @@ export function createFireAudioSystem(
     applyMix();
   };
 
-  const playNoiseBurst = (frequency: number, duration: number, level: number): void => {
+  const playNoiseBurst = (
+    frequency: number,
+    duration: number,
+    level: number,
+    delaySeconds = 0,
+  ): void => {
     if (!context || !masterGain) return;
     const source = context.createBufferSource();
     source.buffer = createNoiseBuffer(context, duration, Math.floor(frequency * 17));
@@ -154,7 +159,7 @@ export function createFireAudioSystem(
     filter.frequency.value = frequency;
     filter.Q.value = 1.1;
     const gain = context.createGain();
-    const now = context.currentTime;
+    const now = context.currentTime + delaySeconds;
     gain.gain.setValueAtTime(level, now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
     source.connect(filter).connect(gain).connect(masterGain);
@@ -251,6 +256,15 @@ export function createFireAudioSystem(
     handleSimulationEvents: (events: readonly AudioSimulationEvent[]): void => {
       if (!context) return;
       for (const event of getFireAudioEvents(events)) playEvent(event);
+    },
+    /**
+     * Two rising chirps when a new incident comes in (#92) — the radio call
+     * that tells a non-reader something has changed and it is time to drive.
+     */
+    playIncidentChirp: (): void => {
+      if (!context) return;
+      playNoiseBurst(1450, 0.09, 0.26);
+      playNoiseBurst(2150, 0.11, 0.24, 0.13);
     },
   };
 }

@@ -26,12 +26,16 @@ import { AudioControls } from '@ui/AudioControls';
 import { AnchoredHoseEffects } from './AnchoredHoseEffects';
 import { CityDistrict } from './CityDistrict';
 import { ExteriorFire } from './ExteriorFire';
+import { SmokeBeacon } from './SmokeBeacon';
+import { WaypointArrow } from './WaypointArrow';
+import { getBeaconTarget } from './questBeacon';
 import { FirefighterController } from './FirefighterController';
 import { FollowCameraRig } from './FollowCameraRig';
 import { ArcadeTruck } from './ArcadeTruck';
 import { buildDistrictLayout } from './districtLayout';
 import { createHosePresentationState } from './hoseTargeting';
 import { getSafeDismountPose, isWithinBoardingRange, type PlayerMode } from './mountDismount';
+import type { BeaconPoint } from './questBeacon';
 
 const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
 const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
@@ -95,6 +99,7 @@ interface PrototypeWorldProps {
   readonly mode: PlayerMode;
   readonly sirenOn: boolean;
   readonly activeQuestSite: DistrictQuestSite;
+  readonly beaconTarget: BeaconPoint | null;
   readonly truckRef: RefObject<Group | null>;
   readonly firefighterRef: RefObject<Group | null>;
   readonly truckSpeedRatio: RefObject<number>;
@@ -106,6 +111,7 @@ function PrototypeWorld({
   mode,
   sirenOn,
   activeQuestSite,
+  beaconTarget,
   truckRef,
   firefighterRef,
   truckSpeedRatio,
@@ -180,6 +186,12 @@ function PrototypeWorld({
         questId={activeQuestSite.id}
         visualStyle={visualStyle}
       />
+      <SmokeBeacon
+        controller={questFireController}
+        target={beaconTarget}
+        visualStyle={visualStyle}
+      />
+      <WaypointArrow subjectRef={activeTarget} target={beaconTarget} visualStyle={visualStyle} />
       <group ref={collisionRoot}>
         <CityDistrict
           layout={DISTRICT_LAYOUT}
@@ -209,9 +221,12 @@ export default function FollowCameraPrototype() {
   }, []);
   const fireSnapshot = useStore(questFireController.store);
 
+  const beaconTarget = getBeaconTarget(activeQuestSite, fireSnapshot);
+
   useEffect(() => {
     questFireController.setQuest(getQuestForSite(DISTRICT.id, activeQuestSite.id));
     questFireController.start();
+    fireAudioSystem.playIncidentChirp();
     return () => questFireController.stop();
   }, [activeQuestSite.id]);
 
@@ -290,6 +305,7 @@ export default function FollowCameraPrototype() {
             mode={mode}
             sirenOn={sirenOn}
             activeQuestSite={activeQuestSite}
+            beaconTarget={beaconTarget}
             truckRef={truckRef}
             firefighterRef={firefighterRef}
             truckSpeedRatio={truckSpeedRatio}
