@@ -25,22 +25,23 @@ them into permanent target-game architecture. See
 
 `FollowCameraRig` is the perspective-camera foundation for M3. It receives a
 ref to an externally controlled `Object3D`; it never owns character or vehicle
-movement. #87 and #88 should move their objects normally and pass the active ref
-with the `shoulder` or `chase` profile. Changing target and profile together
+movement. The firefighter and truck controllers move their objects and pass the
+active ref with the `shoulder` or `chase` profile. Changing target and profile together
 blends position, orientation, distance, shoulder offset, pitch, and field of view
-without remounting the camera.
+without remounting the camera. Chase distance also reads the truck's normalized
+speed and pulls back modestly as it accelerates; shoulder distance ignores it.
 
 Optional collision input is another object ref whose descendants are camera
 obstacles. The rig raycasts from its damped target pivot to the desired camera
 position and shortens the boom before the first hit. A ground-height callback
 keeps the camera above terrain; flat ground at `y = 0` is the default.
 
-In development, open `/?camera=follow` for the M3 acceptance harness. While driving,
-right-drag or the gamepad right stick optionally orbits. On foot those inputs instead
-steer optional free aim, and the shoulder camera remains automatic. V or the button
-switches between truck/chase and firefighter/shoulder targets. This harness is
-lazy-loaded only in development; the existing M2 scene remains the default while the
-new loop is integrated.
+In development, open `/?camera=follow` for the M3 movement acceptance harness.
+WASD or the left stick drives the truck and moves the firefighter. While driving,
+right-drag or the right stick optionally orbits; on foot those inputs steer optional
+free aim and the shoulder camera remains automatic. `E` boards or dismounts near the
+cab, and `L` toggles siren and lights. This harness is lazy-loaded only in development;
+the existing M2 scene remains the default while M3 systems replace it.
 
 ## Firefighter-controller contract
 
@@ -59,6 +60,21 @@ Upper-body presentation consumes the hose's transient ref: carry animation has a
 readable arm swing, spraying blends into a braced pose, and arms/nozzle follow the
 same free-aim yaw and pitch as the stream. Keep these frame-loop values in refs rather
 than React state.
+
+## Truck and transition contract
+
+`truckController.ts` owns pure arcade handling. Forward and reverse have capped
+speeds, opposite pedal input brakes before changing direction, and steering is
+tighter at low speed. The truck uses a swept circular XZ footprint against the
+same data-only obstacles as the firefighter; collisions preserve tangential
+motion, so scenery slides the truck aside rather than flipping or trapping it.
+
+`ArcadeTruck` owns the persistent truck transform and routes keyboard/gamepad
+input only while the player mode is `driving`. `mountDismount.ts` owns boarding
+range and safe cab-side spawn selection. One player-mode value enables exactly
+one controller, changes the camera target/profile, and leaves the parked truck
+visible. Siren state defaults on and feeds both rotating lights and the shared
+audio system; browser audio still waits for the explicit sound-enable gesture.
 
 ## What lives here
 

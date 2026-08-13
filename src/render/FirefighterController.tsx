@@ -70,6 +70,7 @@ export interface FirefighterControllerProps {
   readonly hosePresentationRef: RefObject<HosePresentationState>;
   readonly visualStyle: Style;
   readonly enabled: boolean;
+  readonly visible?: boolean;
   readonly obstacles: readonly CharacterObstacle[];
   readonly initialPosition?: readonly [number, number, number];
   readonly movementBounds?: CharacterMovementBounds;
@@ -82,6 +83,7 @@ export function FirefighterController({
   hosePresentationRef,
   visualStyle,
   enabled,
+  visible = true,
   obstacles,
   initialPosition = [0, 0, 0],
   movementBounds,
@@ -278,7 +280,7 @@ export function FirefighterController({
   });
 
   return (
-    <group ref={targetRef} position={initialPosition}>
+    <group ref={targetRef} position={initialPosition} visible={visible}>
       <group ref={modelRoot}>
         <group ref={leftLeg} position={[-0.19, 0.72, 0]}>
           <mesh position={[0, -0.33, 0]} castShadow>

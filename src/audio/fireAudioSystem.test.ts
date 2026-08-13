@@ -32,6 +32,12 @@ function createRunningContextDouble(targetGains: number[]): AudioContext {
     start: () => undefined,
     stop: () => undefined,
   });
+  const createOscillator = () => ({
+    ...createNode(),
+    type: 'sine',
+    frequency: { value: 0 },
+    start: () => undefined,
+  });
 
   return {
     state: 'running',
@@ -41,6 +47,7 @@ function createRunningContextDouble(targetGains: number[]): AudioContext {
     createGain,
     createBiquadFilter: createFilter,
     createBufferSource: createSource,
+    createOscillator,
     createBuffer: (_channels: number, frames: number) => ({
       getChannelData: () => new Float32Array(frames),
     }),
@@ -66,9 +73,21 @@ describe('fire audio autoplay guard', () => {
     audio.handleWaterApplication({ contacts: [] });
     audio.setMuted(true);
     audio.setVolume(2);
+    audio.setSirenActive(true);
 
     expect(contextCreations).toBe(0);
     expect(audio.store.getState()).toMatchObject({ enabled: false, muted: true, volume: 1 });
+  });
+
+  it('caches the siren toggle until the explicit audio gate succeeds', async () => {
+    const targetGains: number[] = [];
+    const audio = createFireAudioSystem(() => createRunningContextDouble(targetGains));
+
+    audio.setSirenActive(true);
+    expect(targetGains).toEqual([]);
+
+    await expect(audio.enable()).resolves.toBe(true);
+    expect(targetGains).toContain(0.08);
   });
 
   it('only attempts to create audio when the explicit enable gate is called', async () => {

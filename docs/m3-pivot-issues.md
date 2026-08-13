@@ -208,6 +208,12 @@ every collision decision toward "slide off it."
 Driving is a pillar, not transit — see [`docs/game-direction.md`](game-direction.md).
 Never shorten or skip the drive to get the player to the fire faster.
 
+Implementation contract: use deterministic arcade kinematics and a swept XZ
+footprint, not a rigid-body vehicle simulation. Collision preserves tangential
+motion and cannot create rollover or damage states. The chase camera consumes a
+normalized speed value; it does not own vehicle movement. Siren state defaults
+on, while audible output remains behind the browser's explicit audio gate.
+
 Depends on #86.
 
 ---
@@ -233,6 +239,11 @@ no input ambiguity at any point.
 
 This is the seam most likely to feel cheap. The transition is worth more polish
 than its size label suggests.
+
+Implementation contract: one `driving | on-foot` value owns input routing,
+visibility, and the camera profile/target. Dismount tests multiple truck-local
+spawn points against authored obstacles and world bounds. Boarding is available
+only near the cab; switching mode never teleports or destroys the parked truck.
 
 Depends on #86, #87, #88.
 
