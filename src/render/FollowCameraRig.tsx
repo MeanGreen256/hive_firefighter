@@ -13,6 +13,7 @@ import {
   applyRadialDeadzone,
   clampFollowPitch,
   FOLLOW_CAMERA_PROFILES,
+  getSpeedReactiveFollowDistance,
   resolveCameraDistance,
   type FollowCameraProfile,
   type FollowCameraProfileId,
@@ -37,11 +38,16 @@ export interface FollowCameraTargetRef {
   readonly current: Object3D | null;
 }
 
+export interface FollowCameraSpeedRef {
+  readonly current: number;
+}
+
 export interface FollowCameraRigProps {
   readonly target: FollowCameraTargetRef;
   readonly profile: FollowCameraProfileId;
   readonly collisionRoot?: FollowCameraTargetRef;
   readonly getGroundHeight?: (x: number, z: number) => number;
+  readonly speedRatio?: FollowCameraSpeedRef;
 }
 
 interface MutableProfile {
@@ -110,6 +116,7 @@ export function FollowCameraRig({
   profile,
   collisionRoot,
   getGroundHeight = flatGroundHeight,
+  speedRatio,
 }: FollowCameraRigProps) {
   const cameraRef = useRef<ThreePerspectiveCamera>(null);
   const { gl } = useThree();
@@ -209,7 +216,7 @@ export function FollowCameraRig({
     const currentProfile = blendedProfile.current;
     currentProfile.distance = MathUtils.damp(
       currentProfile.distance,
-      requestedProfile.distance,
+      getSpeedReactiveFollowDistance(profile, speedRatio?.current ?? 0),
       PROFILE_DAMPING,
       delta,
     );

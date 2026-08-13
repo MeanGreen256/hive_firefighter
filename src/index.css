@@ -120,6 +120,11 @@ canvas {
   cursor: pointer;
 }
 
+.audio-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .audio-controls label {
   display: grid;
   grid-template-columns: auto 1fr;

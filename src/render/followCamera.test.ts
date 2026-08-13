@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   applyRadialDeadzone,
   calculateFollowCameraPose,
+  CHASE_CAMERA_SPEED_PULLBACK,
   clampFollowPitch,
   FOLLOW_CAMERA_PROFILES,
+  getSpeedReactiveFollowDistance,
   MAX_FOLLOW_PITCH_RADIANS,
   MIN_FOLLOW_PITCH_RADIANS,
   resolveCameraDistance,
@@ -52,6 +54,24 @@ describe('follow-camera profiles and pose', () => {
 
     expect(distance).toBeCloseTo(profile.distance);
     expect(pose.position.x).toBeGreaterThan(0);
+  });
+});
+
+describe('speed-reactive chase distance', () => {
+  it('pulls the chase camera back at speed and clamps the input', () => {
+    expect(getSpeedReactiveFollowDistance('chase', 0)).toBe(FOLLOW_CAMERA_PROFILES.chase.distance);
+    expect(getSpeedReactiveFollowDistance('chase', 0.5)).toBeCloseTo(
+      FOLLOW_CAMERA_PROFILES.chase.distance + CHASE_CAMERA_SPEED_PULLBACK * 0.5,
+    );
+    expect(getSpeedReactiveFollowDistance('chase', 99)).toBe(
+      FOLLOW_CAMERA_PROFILES.chase.distance + CHASE_CAMERA_SPEED_PULLBACK,
+    );
+  });
+
+  it('does not alter the firefighter shoulder distance', () => {
+    expect(getSpeedReactiveFollowDistance('shoulder', 1)).toBe(
+      FOLLOW_CAMERA_PROFILES.shoulder.distance,
+    );
   });
 });
 
