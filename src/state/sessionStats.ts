@@ -14,13 +14,10 @@ export type SessionGrade = 'A' | 'B' | 'C' | 'D' | 'F';
 export interface SessionScores {
   /** Remaining share of the initial combustible fuel mass. */
   readonly property: number;
-  /** Share of civilians rescued. */
-  readonly lives: number;
   /** Share of hazards that did not fail. */
   readonly hazards: number;
   /** Full credit at par, falling to zero at twice par. */
   readonly time: number;
-  /** Weighted score after any civilian-loss cap. */
   readonly overall: number;
 }
 
@@ -40,12 +37,6 @@ export interface SessionDebrief {
   readonly parTimeSeconds: number;
   readonly waterUsedLitres: number;
   readonly foamUsedLitres: number;
-  readonly civilians: {
-    readonly total: number;
-    readonly rescued: number;
-    readonly lost: number;
-    readonly unrescued: number;
-  };
   readonly hazards: {
     readonly total: number;
     readonly controlled: number;
@@ -53,13 +44,13 @@ export interface SessionDebrief {
   };
   readonly scores: SessionScores;
   readonly grade: SessionGrade;
-  readonly gradeCappedForCivilianLoss: boolean;
   readonly previousBest: SessionBest | null;
   readonly isNewPersonalBest: boolean;
 }
 
-const SCORE_WEIGHTS = Object.freeze({ lives: 50, property: 25, hazards: 15, time: 10 });
-const CIVILIAN_LOSS_SCORE_CAP = 69;
+// Property is what the game is now about: fire burns things, never people.
+// #96 replaces this weighted grade with 1-3 stars.
+const SCORE_WEIGHTS = Object.freeze({ property: 60, hazards: 25, time: 15 });
 
 function clampPercent(value: number): number {
   return Math.min(100, Math.max(0, value));
@@ -113,9 +104,6 @@ export function createSessionDebrief({
   parTimeSeconds,
   waterUsedLitres,
   foamUsedLitres,
-  civilianTotal,
-  civiliansRescued,
-  civiliansLost,
   hazardTotal,
   hazardsFailed,
 }: {
@@ -128,9 +116,6 @@ export function createSessionDebrief({
   readonly parTimeSeconds: number;
   readonly waterUsedLitres: number;
   readonly foamUsedLitres: number;
-  readonly civilianTotal: number;
-  readonly civiliansRescued: number;
-  readonly civiliansLost: number;
   readonly hazardTotal: number;
   readonly hazardsFailed: number;
 }): SessionDebrief {
@@ -153,38 +138,29 @@ export function createSessionDebrief({
   ) {
     throw new Error('Session debrief values must be finite and within their valid ranges');
   }
-  validateCount(civilianTotal, 'Civilian total');
-  validateCount(civiliansRescued, 'Civilians rescued');
-  validateCount(civiliansLost, 'Civilians lost');
   validateCount(hazardTotal, 'Hazard total');
   validateCount(hazardsFailed, 'Hazards failed');
-  if (civiliansRescued + civiliansLost > civilianTotal || hazardsFailed > hazardTotal) {
+  if (hazardsFailed > hazardTotal) {
     throw new Error('Session outcome counts cannot exceed their totals');
   }
 
   const property = roundScore(propertySaved * 100);
-  const lives = civilianTotal === 0 ? 0 : roundScore((civiliansRescued / civilianTotal) * 100);
   const hazards =
     hazardTotal === 0 ? 0 : roundScore(((hazardTotal - hazardsFailed) / hazardTotal) * 100);
   const time = roundScore(100 - ((elapsedSeconds - parTimeSeconds) / parTimeSeconds) * 100);
 
   const weightedComponents: Array<[number, number]> = [];
-  if (civilianTotal > 0) weightedComponents.push([lives, SCORE_WEIGHTS.lives]);
   if (initialPropertyFuelMass > 0) weightedComponents.push([property, SCORE_WEIGHTS.property]);
   if (hazardTotal > 0) weightedComponents.push([hazards, SCORE_WEIGHTS.hazards]);
   if (weightedComponents.length > 0) weightedComponents.push([time, SCORE_WEIGHTS.time]);
   const activeWeight = weightedComponents.reduce((total, [, weight]) => total + weight, 0);
-  const weightedOverall =
+  const overall =
     activeWeight === 0
       ? 0
       : roundScore(
           weightedComponents.reduce((total, [score, weight]) => total + score * weight, 0) /
             activeWeight,
         );
-  const gradeCappedForCivilianLoss = civiliansLost > 0 && weightedOverall > CIVILIAN_LOSS_SCORE_CAP;
-  const overall = gradeCappedForCivilianLoss
-    ? CIVILIAN_LOSS_SCORE_CAP
-    : Math.min(weightedOverall, civiliansLost > 0 ? CIVILIAN_LOSS_SCORE_CAP : 100);
 
   return {
     scenarioId,
@@ -196,20 +172,13 @@ export function createSessionDebrief({
     parTimeSeconds,
     waterUsedLitres,
     foamUsedLitres,
-    civilians: {
-      total: civilianTotal,
-      rescued: civiliansRescued,
-      lost: civiliansLost,
-      unrescued: civilianTotal - civiliansRescued - civiliansLost,
-    },
     hazards: {
       total: hazardTotal,
       controlled: hazardTotal - hazardsFailed,
       failed: hazardsFailed,
     },
-    scores: { property, lives, hazards, time, overall },
+    scores: { property, hazards, time, overall },
     grade: gradeForScore(overall),
-    gradeCappedForCivilianLoss,
     previousBest: null,
     isNewPersonalBest: false,
   };

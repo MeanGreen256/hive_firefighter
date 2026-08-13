@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
-import { CivilianState } from '@sim/civilians';
 import { IncidentEventType, PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { StructuralEventType } from '@sim/structuralCollapse';
 import { SessionStatus } from './sessionStats';
@@ -235,7 +234,6 @@ describe('sim debug controller', () => {
     const initialCell = { ...initial.simulation.grid.cells['2,1,1'] };
     controller.sprayCell('3,1,1', 2);
     controller.toggleThermalView();
-    initial.civilians.civilians['civilian-a']!.state = CivilianState.Lost;
     initial.hazards.hazards['propane-a']!.state = PropaneHazardState.Failed;
     controller.advance(1);
 
@@ -252,7 +250,6 @@ describe('sim debug controller', () => {
     });
     expect(retried.simulation.seed).toBe(2402);
     expect(retried.simulation.grid.cells['2,1,1']).toEqual(initialCell);
-    expect(retried.civilians.civilians['civilian-a']?.state).toBe(CivilianState.Conscious);
     expect(retried.hazards.hazards['propane-a']?.state).toBe(PropaneHazardState.Stable);
     expect(retried.structures.warnings).toEqual({});
   });
@@ -304,11 +301,6 @@ describe('sim debug controller', () => {
       material: 'concrete',
       fuel: 0,
     });
-    expect(selected.civilians.civilians['civilian-a']).toMatchObject({
-      position: { x: 1, y: 2, z: 1 },
-      state: CivilianState.Conscious,
-      located: false,
-    });
     expect(selected.hazards.hazards['propane-a']).toMatchObject({
       position: { x: 3, y: 1, z: 1 },
       state: PropaneHazardState.Stable,
@@ -321,39 +313,6 @@ describe('sim debug controller', () => {
 
     expect(result.contacts.length).toBeGreaterThan(0);
     expect(controller.store.getState().waterUsedLitres).toBe(1);
-  });
-
-  it('exposes renderer-independent carry actions for scenario civilians', () => {
-    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
-    const civilian = controller.store.getState().civilians.civilians['civilian-a']!;
-    civilian.state = CivilianState.Unconscious;
-
-    expect(controller.pickUpCivilian('civilian-a', { x: 1, y: 2, z: 1 })).toBe(true);
-    expect(controller.moveCarriedCivilian({ x: 1, y: 1, z: 1 })).toBe(true);
-    expect(controller.moveCarriedCivilian({ x: 1, y: 0, z: 1 })).toBe(true);
-    expect(controller.moveCarriedCivilian({ x: 0, y: 0, z: 1 })).toBe(true);
-    expect(controller.dropCarriedCivilian()).toBe(true);
-    expect(controller.store.getState().civilians.civilians['civilian-a']).toMatchObject({
-      state: CivilianState.Rescued,
-      carried: false,
-    });
-  });
-
-  it('requires thermal search for a civilian hidden in a smoke-blocked cell', () => {
-    const controller = createSimDebugController(15, { scenarioId: 'workshop' });
-    const state = controller.store.getState();
-    const occupied = state.simulation.grid.cells['1,2,1']!;
-    occupied.state = CellState.Burning;
-    occupied.heat = 450;
-
-    expect(controller.scanNearestCivilian()).toBeNull();
-    controller.toggleThermalView();
-    expect(controller.scanNearestCivilian()).toBe('civilian-a');
-    controller.toggleThermalView();
-
-    expect(controller.store.getState()).toMatchObject({ thermalView: false });
-    expect(controller.store.getState().civilians.civilians['civilian-a']?.located).toBe(true);
-    expect(controller.getCivilianSearchCue()).toBeNull();
   });
 
   it('cools a propane countdown through normal hose delivery and publishes its reset event', () => {

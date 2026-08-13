@@ -65,7 +65,7 @@ describe('fire audio autoplay guard', () => {
     const state = createFireSimulation(createCellGrid());
 
     audio.syncFire(state);
-    audio.syncIncident(null, createHazardSimulation([]), createStructuralSimulation());
+    audio.syncIncident(createHazardSimulation([]), createStructuralSimulation());
     audio.handleSimulationEvents([]);
     audio.handleSimulationEvents([
       { type: IncidentEventType.PropaneCountdownStarted, hazardId: 'tank' },

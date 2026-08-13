@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { CellState, createCellGrid } from './cellGrid';
-import { createCivilianSimulation } from './civilians';
 import { createFireSimulation } from './fireSimulation';
 import { createHazardSimulation } from './hazards';
 import {
@@ -23,7 +22,6 @@ describe('structural collapse', () => {
     const events = advanceStructuralCollapse(
       structures,
       fire,
-      createCivilianSimulation([]),
       createHazardSimulation([]),
       { x: -1, y: 0, z: 0 },
       0.1,
@@ -41,31 +39,20 @@ describe('structural collapse', () => {
     expect(fire.grid.cells['0,1,0']?.state).toBe(CellState.Clear);
   });
 
-  it('drops contents, blocks the cell, and propagates loss of support upward', () => {
+  it('drops hazards, blocks the cell, and propagates loss of support upward', () => {
     const fire = createFireSimulation(createCellGrid({ width: 1, height: 3, depth: 1 }));
     fire.grid.cells['0,0,0']!.state = CellState.Burnt;
     const structures = createStructuralSimulation();
-    const civilians = createCivilianSimulation([
-      { id: 'civilian', position: { x: 0, y: 1, z: 0 } },
-    ]);
     const hazards = createHazardSimulation([
       { id: 'tank', type: 'propane', position: { x: 0, y: 1, z: 0 } },
     ]);
 
-    const warning = advanceStructuralCollapse(
-      structures,
-      fire,
-      civilians,
-      hazards,
-      { x: 0, y: 1, z: 0 },
-      0.1,
-    );
+    const warning = advanceStructuralCollapse(structures, fire, hazards, { x: 0, y: 1, z: 0 }, 0.1);
     expect(warning.map((event) => event.type)).toEqual([StructuralEventType.CollapseWarning]);
 
     const collapse = advanceStructuralCollapse(
       structures,
       fire,
-      civilians,
       hazards,
       { x: 0, y: 1, z: 0 },
       COLLAPSE_WARNING_SECONDS,
@@ -74,7 +61,6 @@ describe('structural collapse', () => {
       expect.objectContaining({
         type: StructuralEventType.CellCollapsed,
         cellId: '0,1,0',
-        lostCivilianIds: ['civilian'],
         fallenHazardIds: ['tank'],
         playerAffected: true,
       }),
@@ -83,10 +69,6 @@ describe('structural collapse', () => {
         cellId: '0,2,0',
       }),
     ]);
-    expect(civilians.civilians.civilian).toMatchObject({
-      state: 'Lost',
-      position: { x: 0, y: 0, z: 0 },
-    });
     expect(hazards.hazards.tank?.position).toEqual({ x: 0, y: 0, z: 0 });
     expect(isCellBlocked(fire, { x: 0, y: 1, z: 0 })).toBe(true);
     expect(structures.warnings['0,2,0']?.remainingSeconds).toBe(COLLAPSE_WARNING_SECONDS);
@@ -94,7 +76,6 @@ describe('structural collapse', () => {
     advanceStructuralCollapse(
       structures,
       fire,
-      civilians,
       hazards,
       { x: -1, y: 0, z: 0 },
       COLLAPSE_WARNING_SECONDS,

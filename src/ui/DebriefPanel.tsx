@@ -52,12 +52,6 @@ export function DebriefPanel() {
           <dd>{debrief.propertySavedPercent}%</dd>
         </div>
         <div>
-          <dt>Civilians</dt>
-          <dd>
-            {debrief.civilians.rescued} saved · {debrief.civilians.lost} lost
-          </dd>
-        </div>
-        <div>
           <dt>Hazards</dt>
           <dd>
             {debrief.hazards.controlled} controlled · {debrief.hazards.failed} failed
@@ -79,26 +73,19 @@ export function DebriefPanel() {
       <section className="debrief-breakdown" aria-label="Grade breakdown">
         <h2>Why this grade</h2>
         <div>
-          <span>Lives · up to 50%</span>
-          <output>{debrief.civilians.total > 0 ? debrief.scores.lives : 'N/A'}</output>
-        </div>
-        <div>
-          <span>Property · up to 25%</span>
+          <span>Property · up to 60%</span>
           <output>{debrief.initialPropertyFuelMass > 0 ? debrief.scores.property : 'N/A'}</output>
         </div>
         <div>
-          <span>Hazards · up to 15%</span>
+          <span>Hazards · up to 25%</span>
           <output>{debrief.hazards.total > 0 ? debrief.scores.hazards : 'N/A'}</output>
         </div>
         <div>
-          <span>Time · 10%</span>
+          <span>Time · 15%</span>
           <output>{debrief.scores.time}</output>
         </div>
         <p>Weighted score · {debrief.scores.overall} / 100</p>
         <p>Weights normalize to the risks present in this scenario</p>
-        {debrief.gradeCappedForCivilianLoss ? (
-          <p role="status">Grade capped at D because a civilian was lost</p>
-        ) : null}
       </section>
 
       <section className="debrief-best" aria-label="Personal best">

@@ -29,10 +29,10 @@ expected to grow, and adding one should be a content change rather than a code c
 
 Finite tank and foam capacities are no longer authored by current scenarios.
 The loader temporarily accepts and ignores those fields so older external files
-can migrate. Hydrants are optional, non-interactive street props. Interior
-civilian search and harmful hazards are remaining legacy inputs; `civilians`
-entries will be removed outright rather than retuned because the target game has
-nobody to rescue. See `docs/game-direction.md`.
+can migrate. Hydrants are optional, non-interactive street props. Harmful hazards are a
+remaining legacy input. Scenarios no longer place people at an incident: #97
+removed that field outright rather than retuning it, because fire in this game
+burns things and never people. See `docs/game-direction.md`.
 
 ## `materials.json`
 
@@ -63,9 +63,9 @@ Each scenario declares:
   plus optional per-cell `x,y,z` overrides;
 - one or more combustible `ignitionOrigins`, a deterministic `seed`, and
   `wind`;
-- legacy civilian and hazard placements for M2 systems, plus optional `hydrants`
-  as non-interactive street props. These describe the current implementation,
-  not the M3 completion rules;
+- legacy hazard placements for M2 systems, plus optional `hydrants` as
+  non-interactive street props. These describe the current implementation, not
+  the M3 completion rules;
 - `parTimeSeconds`. Legacy `waterTankCapacityLitres` and
   `foamTankCapacityLitres` values are accepted but ignored; new scenarios omit
   them because normal hose use has unlimited water.

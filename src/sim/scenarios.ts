@@ -30,11 +30,6 @@ export interface ScenarioBuilding {
   materials: ScenarioMaterialMap;
 }
 
-export interface ScenarioCivilianPlacement {
-  id: string;
-  position: GridPosition;
-}
-
 export interface ScenarioHazardPlacement {
   id: string;
   type: 'propane';
@@ -53,7 +48,6 @@ export interface ScenarioDefinition {
   ignitionOrigins: GridPosition[];
   seed: number;
   wind: Wind;
-  civilians: ScenarioCivilianPlacement[];
   hazards: ScenarioHazardPlacement[];
   hydrants: ScenarioHydrantPlacement[];
   parTimeSeconds: number;
@@ -65,7 +59,6 @@ const ROOT_FIELDS = [
   'ignitionOrigins',
   'seed',
   'wind',
-  'civilians',
   'hazards',
   'parTimeSeconds',
 ] as const;
@@ -203,18 +196,6 @@ export function validateScenarioDefinition(data: unknown, id: string): ScenarioD
   };
   if (wind.strength < 0) problems.push(`${id}.wind.strength must be non-negative`);
 
-  const civilians = readPlacementArray(
-    root.civilians,
-    `${id}.civilians`,
-    problems,
-    (object, path, placementProblems): ScenarioCivilianPlacement => {
-      checkFields(object, path, ['id', 'position'], placementProblems);
-      return {
-        id: readString(object.id, `${path}.id`, placementProblems),
-        position: readPosition(object.position, `${path}.position`, placementProblems),
-      };
-    },
-  );
   const hazards = readPlacementArray(
     root.hazards,
     `${id}.hazards`,
@@ -244,7 +225,6 @@ export function validateScenarioDefinition(data: unknown, id: string): ScenarioD
     },
   );
 
-  validateUniqueIds(civilians, `${id}.civilians`, problems);
   validateUniqueIds(hazards, `${id}.hazards`, problems);
   validateUniqueIds(hydrants, `${id}.hydrants`, problems);
 
@@ -264,7 +244,6 @@ export function validateScenarioDefinition(data: unknown, id: string): ScenarioD
     ignitionOrigins,
     seed: readInteger(root.seed, `${id}.seed`, problems),
     wind,
-    civilians,
     hazards,
     hydrants,
     parTimeSeconds: readPositiveNumber(root.parTimeSeconds, `${id}.parTimeSeconds`, problems),
@@ -282,16 +261,11 @@ export function validateScenarioDefinition(data: unknown, id: string): ScenarioD
       );
     }
   }
-  for (const [path, placements] of [
-    ['civilians', civilians],
-    ['hazards', hazards],
-  ] as const) {
-    placements.forEach((placement, index) => {
-      if (!isInside(placement.position, dimensions)) {
-        problems.push(`${id}.${path}[${index}].position is outside the building dimensions`);
-      }
-    });
-  }
+  hazards.forEach((placement, index) => {
+    if (!isInside(placement.position, dimensions)) {
+      problems.push(`${id}.hazards[${index}].position is outside the building dimensions`);
+    }
+  });
 
   if (problems.length > 0) throw new ScenarioValidationError(id, problems);
   return definition;
