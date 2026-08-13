@@ -1,19 +1,18 @@
-import { useEffect, useMemo, useRef, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
   BufferAttribute,
   BufferGeometry,
   Line,
   LineBasicMaterial,
-  MathUtils,
   Vector3,
   type Group,
   type Mesh,
   type MeshBasicMaterial,
 } from 'three';
 import type { Style } from '@styles/styles';
-import { CellState, createCellGrid, type CellGrid } from '@sim/cellGrid';
-import { advanceCellWetness, applySuppression, SuppressionAgent } from '@sim/waterApplication';
+import type { ShellPoint } from '@sim/exteriorShell';
+import type { WaterApplicationResult } from '@sim/waterApplication';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
 import type { Vector3Tuple } from './buildingLayout';
 import { applyRadialDeadzone } from './followCamera';
@@ -29,11 +28,7 @@ import {
 
 /** Litres per second the character can hold-to-spray; water is unlimited (ADR-006). */
 const HOSE_LITRES_PER_SECOND = 3;
-/** Lets a playtester douse the same target repeatedly without resetting the harness. */
-const REIGNITE_DELAY_SECONDS = 2.5;
-const IGNITION_HEAT = 420;
 const STEAM_PULSE_SECONDS = 0.45;
-const SOLE_CELL_ID = '0,0,0';
 const STREAM_POINT_COUNT = 14;
 const RETICLE_LOCKED_SCALE = 0.34;
 const RETICLE_SEARCHING_SCALE = 0.14;
@@ -41,17 +36,15 @@ const MAX_FRAME_DELTA_SECONDS = 1 / 20;
 const POINTER_AIM_SENSITIVITY = 0.004;
 const GAMEPAD_AIM_SPEED_RADIANS_PER_SECOND = 2.4;
 
-export interface HoseBurnTarget {
-  readonly id: string;
-  /** World position of the exterior flame / contact point. */
-  readonly position: Vector3Tuple;
-}
-
-interface TargetState {
-  readonly grid: CellGrid;
-  readonly activeCellIds: Set<string>;
-  reigniteAt: number | null;
-  steamRemaining: number;
+/**
+ * The fire the hose is pointed at. `AnchoredHoseEffects` neither owns nor
+ * simulates it: it asks what is alight and hands water back by cell id, so the
+ * water that lands is real `@sim/waterApplication` behaviour on the quest's
+ * own shell (#91).
+ */
+export interface HoseFireField {
+  getBurningCells(): readonly { readonly cellId: string; readonly position: ShellPoint }[];
+  applyWater(cellId: string, litres: number): WaterApplicationResult | null;
 }
 
 function firstConnectedGamepad(): Gamepad | null {
@@ -88,44 +81,31 @@ function updateStreamArc(line: Line, start: Vector3, end: Vector3): void {
   positions.needsUpdate = true;
 }
 
-function createTargetState(): TargetState {
-  const grid = createCellGrid({ width: 1, height: 1, depth: 1 }, 'wood');
-  const cell = grid.cells[SOLE_CELL_ID];
-  if (cell) {
-    cell.state = CellState.Burning;
-    cell.heat = IGNITION_HEAT;
-  }
-  return { grid, activeCellIds: new Set<string>(), reigniteAt: null, steamRemaining: 0 };
-}
-
 export interface AnchoredHoseEffectsProps {
   readonly characterRef: RefObject<Group | null>;
   readonly presentationRef: RefObject<HosePresentationState>;
   readonly enabled: boolean;
   readonly visualStyle: Style;
-  readonly targets: readonly HoseBurnTarget[];
+  readonly fire: HoseFireField;
 }
 
 /**
  * The M3 payoff verb (#93): the nozzle follows the character's hands, the
  * reticle and stream use forgiving facing aim plus optional right-drag/right-stick
- * free aim, and assistance snaps and sticks to nearby burning targets. Each target
- * owns a real one-cell simulation grid so extinguishing it is genuine
- * `@sim/waterApplication` behaviour, not a scripted animation.
+ * free aim, and assistance snaps and sticks to nearby burning cells. Every
+ * candidate is a live cell of the active quest's exterior shell, so extinguishing
+ * one is genuine `@sim/waterApplication` behaviour, not a scripted animation.
  */
 export function AnchoredHoseEffects({
   characterRef,
   presentationRef,
   enabled,
   visualStyle,
-  targets,
+  fire,
 }: AnchoredHoseEffectsProps) {
   const { scene, gl } = useThree();
-  const targetStates = useMemo(() => {
-    const map = new Map<string, TargetState>();
-    for (const target of targets) map.set(target.id, createTargetState());
-    return map;
-  }, [targets]);
+  const steamRemaining = useRef(0);
+  const steamRef = useRef<Mesh>(null);
 
   const spaceHeld = useRef(false);
   const mouseHeld = useRef(false);
@@ -141,9 +121,6 @@ export function AnchoredHoseEffects({
   const streamRef = useRef<Line | null>(null);
   const reticleRef = useRef<Group>(null);
   const reticleLockRef = useRef<Mesh>(null);
-  const flameRefs = useRef(new Map<string, Mesh>());
-  const wetRefs = useRef(new Map<string, Mesh>());
-  const steamRefs = useRef(new Map<string, Mesh>());
   const nozzleWorld = useRef(new Vector3());
   const aimWorld = useRef(new Vector3());
 
@@ -281,7 +258,7 @@ export function AnchoredHoseEffects({
     };
   }, [enabled, gl, presentationRef]);
 
-  useFrame(({ camera, clock }, rawDelta) => {
+  useFrame(({ camera }, rawDelta) => {
     const character = characterRef.current;
     const stream = streamRef.current;
     const reticle = reticleRef.current;
@@ -335,13 +312,10 @@ export function AnchoredHoseEffects({
     const nozzlePosition = getHoseNozzlePosition(pose);
     const aimDirection = getHoseFreeAimDirection(character.rotation.y, freeAimStep.state);
 
-    const candidates: HoseAimCandidate[] = [];
-    for (const target of targets) {
-      const cell = targetStates.get(target.id)?.grid.cells[SOLE_CELL_ID];
-      if (cell && (cell.state === CellState.Burning || cell.state === CellState.Flashover)) {
-        candidates.push({ id: target.id, position: target.position });
-      }
-    }
+    const candidates: HoseAimCandidate[] = fire.getBurningCells().map((cell) => ({
+      id: cell.cellId,
+      position: [cell.position.x, cell.position.y, cell.position.z] as Vector3Tuple,
+    }));
 
     const resolution = resolveHoseAimTarget(
       nozzlePosition,
@@ -367,66 +341,25 @@ export function AnchoredHoseEffects({
     character.userData.aimPitchRadians = freeAimStep.state.pitchRadians;
 
     if (spraying && resolution.targetId !== null) {
-      const targetState = targetStates.get(resolution.targetId);
-      const cell = targetState?.grid.cells[SOLE_CELL_ID];
-      if (targetState && cell) {
-        const result = applySuppression(
-          { grid: targetState.grid, activeCellIds: targetState.activeCellIds },
-          SOLE_CELL_ID,
-          HOSE_LITRES_PER_SECOND * delta,
-          SuppressionAgent.Water,
+      const result = fire.applyWater(resolution.targetId, HOSE_LITRES_PER_SECOND * delta);
+      if (result && result.contacts.length > 0) {
+        fireAudioSystem.handleWaterApplication(result);
+        const scalded = result.contacts.some((contact) =>
+          isHotWaterContact({ heat: contact.heatBefore }),
         );
-        if (result.contacts.length > 0) {
-          fireAudioSystem.handleWaterApplication(result);
-          const scalded = result.contacts.some((contact) =>
-            isHotWaterContact({ heat: contact.heatBefore }),
-          );
-          if (scalded) targetState.steamRemaining = STEAM_PULSE_SECONDS;
-        }
-        if (cell.state === CellState.Wetted) {
-          targetState.reigniteAt = clock.elapsedTime + REIGNITE_DELAY_SECONDS;
-        }
+        if (scalded) steamRemaining.current = STEAM_PULSE_SECONDS;
       }
     }
 
-    for (const target of targets) {
-      const targetState = targetStates.get(target.id);
-      const cell = targetState?.grid.cells[SOLE_CELL_ID];
-      if (!targetState || !cell) continue;
-
-      advanceCellWetness(cell, delta);
-      if (targetState.steamRemaining > 0) {
-        targetState.steamRemaining = Math.max(0, targetState.steamRemaining - delta);
-      }
-      if (
-        targetState.reigniteAt !== null &&
-        clock.elapsedTime >= targetState.reigniteAt &&
-        cell.state === CellState.Clear
-      ) {
-        cell.state = CellState.Burning;
-        cell.heat = IGNITION_HEAT;
-        cell.wetness = 0;
-        targetState.reigniteAt = null;
-      }
-
-      const flame = flameRefs.current.get(target.id);
-      if (flame) {
-        flame.visible = cell.state === CellState.Burning || cell.state === CellState.Flashover;
-      }
-      const wet = wetRefs.current.get(target.id);
-      if (wet) {
-        wet.visible = cell.wetness > 0;
-        const material = wet.material as MeshBasicMaterial;
-        material.opacity = MathUtils.clamp(cell.wetness * 0.75, 0.12, 0.75);
-      }
-      const steam = steamRefs.current.get(target.id);
-      if (steam) {
-        const pulseRatio = targetState.steamRemaining / STEAM_PULSE_SECONDS;
-        steam.visible = targetState.steamRemaining > 0;
-        steam.scale.setScalar(0.55 + (1 - pulseRatio) * 0.85);
-        const material = steam.material as MeshBasicMaterial;
-        material.opacity = 0.7 * pulseRatio;
-      }
+    steamRemaining.current = Math.max(0, steamRemaining.current - delta);
+    const steam = steamRef.current;
+    if (steam) {
+      const pulseRatio = steamRemaining.current / STEAM_PULSE_SECONDS;
+      steam.visible = steamRemaining.current > 0;
+      steam.position.set(...resolution.aimPoint);
+      steam.scale.setScalar(0.6 + (1 - pulseRatio) * 1.1);
+      const material = steam.material as MeshBasicMaterial;
+      material.opacity = 0.7 * pulseRatio;
     }
 
     if (stream) {
@@ -470,51 +403,15 @@ export function AnchoredHoseEffects({
           />
         </mesh>
       </group>
-      {targets.map((target) => (
-        <group key={target.id} position={target.position}>
-          <mesh
-            ref={(mesh) => {
-              if (mesh) flameRefs.current.set(target.id, mesh);
-              else flameRefs.current.delete(target.id);
-            }}
-            visible={false}
-          >
-            <coneGeometry args={[0.22, 0.6, 8]} />
-            <meshBasicMaterial color={visualStyle.hose.flame} toneMapped={false} />
-          </mesh>
-          <mesh
-            ref={(mesh) => {
-              if (mesh) wetRefs.current.set(target.id, mesh);
-              else wetRefs.current.delete(target.id);
-            }}
-            visible={false}
-            scale={0.72}
-          >
-            <boxGeometry args={[0.9, 0.9, 0.9]} />
-            <meshBasicMaterial
-              color={visualStyle.hose.wetCell}
-              transparent
-              opacity={0}
-              depthWrite={false}
-            />
-          </mesh>
-          <mesh
-            ref={(mesh) => {
-              if (mesh) steamRefs.current.set(target.id, mesh);
-              else steamRefs.current.delete(target.id);
-            }}
-            visible={false}
-          >
-            <sphereGeometry args={[0.4, 10, 8]} />
-            <meshBasicMaterial
-              color={visualStyle.hose.steam}
-              transparent
-              opacity={0}
-              depthWrite={false}
-            />
-          </mesh>
-        </group>
-      ))}
+      <mesh ref={steamRef} visible={false}>
+        <sphereGeometry args={[0.5, 10, 8]} />
+        <meshBasicMaterial
+          color={visualStyle.hose.steam}
+          transparent
+          opacity={0}
+          depthWrite={false}
+        />
+      </mesh>
     </group>
   );
 }

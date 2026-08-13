@@ -15,11 +15,13 @@ import {
   getParkRect,
   getPropRect,
   getRoadRect,
+  type BuildingUse,
   type DistrictDefinition,
   type DistrictProp,
   type DistrictRect,
   type DistrictRoad,
 } from '@sim/districts';
+import { getBuildingAttachments } from '@sim/exteriorShell';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
 import type { Vector3Tuple } from './buildingLayout';
 
@@ -55,6 +57,21 @@ export interface DistrictBuildingPlacement {
   readonly height: number;
 }
 
+/**
+ * A porch, awning, or barn door on a building's street face. The archetype an
+ * authored `use` gets is decided by `content/burnables.json`, and the box is
+ * the same one the fire shell fills with cells — so what the player sprays is
+ * exactly what they can see.
+ */
+export interface DistrictAttachmentPlacement {
+  readonly id: string;
+  readonly buildingId: string;
+  readonly use: BuildingUse;
+  readonly burnableId: string;
+  readonly position: Vector3Tuple;
+  readonly size: Vector3Tuple;
+}
+
 export interface DistrictPropPlacement {
   readonly id: string;
   readonly type: DistrictProp['type'];
@@ -73,6 +90,7 @@ export interface DistrictLayout {
   readonly kerbs: readonly DistrictSurfaceRect[];
   readonly parkSurfaces: readonly DistrictSurfaceRect[];
   readonly buildings: readonly DistrictBuildingPlacement[];
+  readonly attachments: readonly DistrictAttachmentPlacement[];
   readonly props: readonly DistrictPropPlacement[];
   readonly truckStart: { readonly position: Vector3Tuple; readonly yaw: number };
 }
@@ -228,6 +246,20 @@ export function buildDistrictLayout(district: DistrictDefinition): DistrictLayou
       depth: building.depth,
       height: building.height,
     })),
+    attachments: district.buildings.flatMap((building) =>
+      getBuildingAttachments(district, building).map(({ burnableId, box }) => ({
+        id: `${building.id}:${burnableId}`,
+        buildingId: building.id,
+        use: building.use,
+        burnableId,
+        position: [
+          (box.minX + box.maxX) / 2,
+          (box.minY + box.maxY) / 2,
+          (box.minZ + box.maxZ) / 2,
+        ] as Vector3Tuple,
+        size: [box.maxX - box.minX, box.maxY - box.minY, box.maxZ - box.minZ] as Vector3Tuple,
+      })),
+    ),
     props: district.props.map((prop) => ({
       id: prop.id,
       type: prop.type,

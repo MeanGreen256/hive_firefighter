@@ -69,6 +69,26 @@ Exactly one quest site is marked, because exactly one quest is active. The
 smoke column and waypoint arrow that make it findable from across town arrive
 with #92.
 
+Porches, awnings, and barn doors are drawn from the same boxes the fire shell
+fills with cells (`getBuildingAttachments` in `@sim/exteriorShell`), so what the
+player sprays is exactly what they can see. Which archetype a building use gets
+is decided by `content/burnables.json`, not by this folder.
+
+## Exterior fire contract
+
+`ExteriorFire` draws the active quest's fire (#91) as one instanced layer per
+cell state, at the world positions `@sim/exteriorShell` gave those cells. It
+reads the live grid off `questFireController` every frame and writes instance
+matrices directly; the 10 Hz simulation never becomes React state, and a fire
+costs one draw call per visible state however far it spreads. Burning and
+flashover cells are unshaded and stand slightly proud of the surface, so flame
+reads as the brightest thing in the scene from street level.
+
+`AnchoredHoseEffects` no longer owns any fire of its own. It asks the field
+which cells are alight, aims at those, and hands water back by cell id — so
+extinguishing is real `@sim/waterApplication` behaviour on the quest's shell
+rather than a scripted one-cell placeholder.
+
 ## Firefighter-controller contract
 
 `FirefighterController` owns the on-foot subject transform and passes that transform

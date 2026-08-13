@@ -14,6 +14,19 @@ active exterior quest, safe outcomes, and 1–3 stars as specified in
 `docs/game-direction.md`. Keep the fixed-timestep and renderer/UI boundary while
 replacing the remaining obsolete incident rules.
 
+## Quest fire controller
+
+`questFireController.ts` is the M3 incident host (#91): one active quest, one
+exterior shell, one fixed-timestep runner, and one mutation boundary for water.
+It drives itself with `requestAnimationFrame` and is started and stopped from a
+`useEffect`, so the 10 Hz tick never becomes a React render — the store carries
+only the few numbers the HUD shows, and publishes only when one of them changes.
+
+A stall is capped rather than caught up on, so a backgrounded tab cannot come
+back to a city that burned down while nobody was watching. `applyWater` takes a
+cell id and returns the real `@sim/waterApplication` result, which is what lets
+the hose stay a renderer concern and the fire stay a simulation one.
+
 `simDebugController.ts` is development tooling for issue #10. It owns a fixed
 timestep runner and exposes transport/tuning actions without placing functions
 or browser APIs inside the JSON-safe simulation state.

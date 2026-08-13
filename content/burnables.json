@@ -1,0 +1,65 @@
+{
+  "facade": {
+    "material": "wood",
+    "attachesTo": { "buildingUses": ["house", "shop", "civic", "workshop"], "propTypes": [] },
+    "shell": { "anchor": "wrap", "thickness": 0.9, "heightFraction": 1 }
+  },
+  "roof": {
+    "material": "wood",
+    "attachesTo": { "buildingUses": ["house", "shop", "civic", "workshop"], "propTypes": [] },
+    "shell": { "anchor": "roof-band", "thickness": 1.1 }
+  },
+  "porch": {
+    "material": "wood",
+    "attachesTo": { "buildingUses": ["house"], "propTypes": [] },
+    "shell": {
+      "anchor": "front-attachment",
+      "widthFraction": 0.55,
+      "depth": 2.2,
+      "height": 2.6,
+      "baseHeight": 0
+    }
+  },
+  "awning": {
+    "material": "fabric",
+    "attachesTo": { "buildingUses": ["shop"], "propTypes": [] },
+    "shell": {
+      "anchor": "front-attachment",
+      "widthFraction": 0.8,
+      "depth": 1.6,
+      "height": 0.9,
+      "baseHeight": 2.4
+    }
+  },
+  "barn-door": {
+    "material": "wood",
+    "attachesTo": { "buildingUses": ["workshop"], "propTypes": [] },
+    "shell": {
+      "anchor": "front-attachment",
+      "widthFraction": 0.5,
+      "depth": 0.5,
+      "height": 3.4,
+      "baseHeight": 0
+    }
+  },
+  "trunk": {
+    "material": "wood",
+    "attachesTo": { "buildingUses": [], "propTypes": ["tree"] },
+    "shell": { "anchor": "body", "height": 1.8 }
+  },
+  "canopy": {
+    "material": "wood",
+    "attachesTo": { "buildingUses": [], "propTypes": ["tree"] },
+    "shell": { "anchor": "canopy", "width": 3, "height": 2.4, "depth": 3, "baseHeight": 1.4 }
+  },
+  "hedge-row": {
+    "material": "fabric",
+    "attachesTo": { "buildingUses": [], "propTypes": ["hedge"] },
+    "shell": { "anchor": "body", "height": 1 }
+  },
+  "picnic-timber": {
+    "material": "wood",
+    "attachesTo": { "buildingUses": [], "propTypes": ["bench"] },
+    "shell": { "anchor": "body", "height": 0.9 }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "Workshop barn door",
+  "district": "harbour-hill",
+  "questSite": "harbour-yard",
+  "subjects": ["workshop-harbour"],
+  "ignitions": [
+    {
+      "target": "workshop-harbour",
+      "burnable": "barn-door"
+    }
+  ],
+  "seed": 1903,
+  "wind": {
+    "direction": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+    },
+    "strength": 0.25
+  },
+  "parTimeSeconds": 110
+}
