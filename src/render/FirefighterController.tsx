@@ -15,7 +15,8 @@ import {
   type CharacterMovementInput,
   type CharacterObstacle,
 } from './characterController';
-import { HOSE_NOZZLE_LOCAL_OFFSET } from './hoseTargeting';
+import { getFirefighterUpperBodyPose } from './firefighterAnimation';
+import { HOSE_NOZZLE_LOCAL_OFFSET, type HosePresentationState } from './hoseTargeting';
 
 const MAX_FRAME_DELTA_SECONDS = 1 / 20;
 const CHARACTER_TURN_DAMPING = 14;
@@ -24,6 +25,7 @@ const RUN_CYCLE_RATE = 11;
 const WALK_SWING = 0.52;
 const RUN_SWING = 0.82;
 const READY_ARM_ANGLE = 1.08;
+const SPRAY_BLEND_DAMPING = 16;
 
 function flatGroundHeight(): number {
   return 0;
@@ -65,6 +67,7 @@ function chooseMovementInput(
 
 export interface FirefighterControllerProps {
   readonly targetRef: RefObject<Group | null>;
+  readonly hosePresentationRef: RefObject<HosePresentationState>;
   readonly visualStyle: Style;
   readonly enabled: boolean;
   readonly visible?: boolean;
@@ -77,6 +80,7 @@ export interface FirefighterControllerProps {
 /** One forgiving, camera-relative firefighter subject for the M3 on-foot loop. */
 export function FirefighterController({
   targetRef,
+  hosePresentationRef,
   visualStyle,
   enabled,
   visible = true,
@@ -94,8 +98,10 @@ export function FirefighterController({
   const rightLeg = useRef<Group>(null);
   const leftArm = useRef<Group>(null);
   const rightArm = useRef<Group>(null);
+  const nozzle = useRef<Group>(null);
   const animationPhase = useRef(0);
   const animationState = useRef<CharacterAnimationState>('idle');
+  const sprayBlend = useRef(0);
 
   useEffect(() => {
     const activeKeys = heldKeys.current;
@@ -132,7 +138,16 @@ export function FirefighterController({
     const rightLegPivot = rightLeg.current;
     const leftArmPivot = leftArm.current;
     const rightArmPivot = rightArm.current;
-    if (!subject || !model || !leftLegPivot || !rightLegPivot || !leftArmPivot || !rightArmPivot) {
+    const nozzlePivot = nozzle.current;
+    if (
+      !subject ||
+      !model ||
+      !leftLegPivot ||
+      !rightLegPivot ||
+      !leftArmPivot ||
+      !rightArmPivot ||
+      !nozzlePivot
+    ) {
       return;
     }
 
@@ -188,6 +203,20 @@ export function FirefighterController({
 
     const animationBlend = 1 - Math.exp(-12 * delta);
     const desiredSwing = moving ? Math.sin(animationPhase.current) * swingAmount : 0;
+    const hosePresentation = hosePresentationRef.current;
+    sprayBlend.current = MathUtils.damp(
+      sprayBlend.current,
+      enabled && hosePresentation.spraying ? 1 : 0,
+      SPRAY_BLEND_DAMPING,
+      delta,
+    );
+    const upperBodyPose = getFirefighterUpperBodyPose({
+      animationState: nextAnimationState,
+      gaitSwingRadians: desiredSwing,
+      sprayBlend: sprayBlend.current,
+      aimYawOffsetRadians: hosePresentation.aimYawOffsetRadians,
+      aimPitchRadians: hosePresentation.aimPitchRadians,
+    });
     leftLegPivot.rotation.x = MathUtils.lerp(leftLegPivot.rotation.x, desiredSwing, animationBlend);
     rightLegPivot.rotation.x = MathUtils.lerp(
       rightLegPivot.rotation.x,
@@ -196,17 +225,56 @@ export function FirefighterController({
     );
     leftArmPivot.rotation.x = MathUtils.lerp(
       leftArmPivot.rotation.x,
-      READY_ARM_ANGLE - desiredSwing * 0.1,
+      upperBodyPose.leftArm.x,
+      animationBlend,
+    );
+    leftArmPivot.rotation.y = MathUtils.lerp(
+      leftArmPivot.rotation.y,
+      upperBodyPose.leftArm.y,
+      animationBlend,
+    );
+    leftArmPivot.rotation.z = MathUtils.lerp(
+      leftArmPivot.rotation.z,
+      upperBodyPose.leftArm.z,
       animationBlend,
     );
     rightArmPivot.rotation.x = MathUtils.lerp(
       rightArmPivot.rotation.x,
-      READY_ARM_ANGLE + desiredSwing * 0.1,
+      upperBodyPose.rightArm.x,
+      animationBlend,
+    );
+    rightArmPivot.rotation.y = MathUtils.lerp(
+      rightArmPivot.rotation.y,
+      upperBodyPose.rightArm.y,
+      animationBlend,
+    );
+    rightArmPivot.rotation.z = MathUtils.lerp(
+      rightArmPivot.rotation.z,
+      upperBodyPose.rightArm.z,
+      animationBlend,
+    );
+    nozzlePivot.rotation.x = MathUtils.lerp(
+      nozzlePivot.rotation.x,
+      upperBodyPose.nozzlePitchRadians,
+      animationBlend,
+    );
+    nozzlePivot.rotation.y = MathUtils.lerp(
+      nozzlePivot.rotation.y,
+      upperBodyPose.nozzleYawRadians,
+      animationBlend,
+    );
+    model.rotation.x = MathUtils.lerp(
+      model.rotation.x,
+      upperBodyPose.torsoLeanRadians,
       animationBlend,
     );
     model.position.y = MathUtils.lerp(
       model.position.y,
-      moving ? Math.abs(Math.sin(animationPhase.current * 2)) * (running ? 0.08 : 0.045) : 0,
+      moving
+        ? Math.abs(Math.sin(animationPhase.current * 2)) *
+            (running ? 0.08 : 0.045) *
+            (1 - sprayBlend.current * 0.55)
+        : 0,
       animationBlend,
     );
   });
@@ -270,7 +338,7 @@ export function FirefighterController({
           <meshStandardMaterial color={visualStyle.hud.accent} roughness={0.72} />
         </mesh>
 
-        <group position={HOSE_NOZZLE_LOCAL_OFFSET}>
+        <group ref={nozzle} position={HOSE_NOZZLE_LOCAL_OFFSET}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow>
             <cylinderGeometry args={[0.07, 0.105, 0.52, 12]} />
             <meshStandardMaterial

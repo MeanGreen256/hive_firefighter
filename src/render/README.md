@@ -37,11 +37,11 @@ position and shortens the boom before the first hit. A ground-height callback
 keeps the camera above terrain; flat ground at `y = 0` is the default.
 
 In development, open `/?camera=follow` for the M3 movement acceptance harness.
-WASD or the left stick drives the truck and moves the firefighter, right-drag or
-the gamepad right stick orbits with pitch limits, `E` boards or dismounts near
-the cab, and `L` toggles siren and lights. This harness is lazy-loaded only in
-development; the existing M2 scene remains the default while M3 systems replace
-it.
+WASD or the left stick drives the truck and moves the firefighter. While driving,
+right-drag or the right stick optionally orbits; on foot those inputs steer optional
+free aim and the shoulder camera remains automatic. `E` boards or dismounts near the
+cab, and `L` toggles siren and lights. This harness is lazy-loaded only in development;
+the existing M2 scene remains the default while M3 systems replace it.
 
 ## Firefighter-controller contract
 
@@ -55,6 +55,11 @@ radius, and sweeps the character against them with wall sliding. Terrain is supp
 as a ground-height callback, so flat prototype ground can later be replaced without
 changing the controller. Keep building footprint data shared with visible geometry;
 do not infer gameplay collision by raycasting rendered meshes.
+
+Upper-body presentation consumes the hose's transient ref: carry animation has a
+readable arm swing, spraying blends into a braced pose, and arms/nozzle follow the
+same free-aim yaw and pitch as the stream. Keep these frame-loop values in refs rather
+than React state.
 
 ## Truck and transition contract
 
@@ -142,6 +147,11 @@ point.
 assisted exterior target. It has no tank, agent, hookup, or hose-length branch.
 Hydrants may appear elsewhere as street dressing but are not rendered as an
 interactive supply system.
+
+On foot, right-drag and right stick are optional free aim, not camera orbit. Relative
+aim clamps before turning the body, recentres on release/idle, and linearly reduces
+but never removes target assistance. Move plus spray remains sufficient to complete
+every fire per ADR-007.
 
 ## Budget
 

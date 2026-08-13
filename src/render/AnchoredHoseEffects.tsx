@@ -16,13 +16,15 @@ import { CellState, createCellGrid, type CellGrid } from '@sim/cellGrid';
 import { advanceCellWetness, applySuppression, SuppressionAgent } from '@sim/waterApplication';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
 import type { Vector3Tuple } from './buildingLayout';
+import { applyRadialDeadzone } from './followCamera';
+import { getHoseFreeAimDirection, stepHoseFreeAim } from './hoseFreeAim';
 import {
-  getHoseAimDirection,
   getHoseNozzlePosition,
   isHotWaterContact,
   resolveHoseAimTarget,
   type CharacterHosePose,
   type HoseAimCandidate,
+  type HosePresentationState,
 } from './hoseTargeting';
 
 /** Litres per second the character can hold-to-spray; water is unlimited (ADR-006). */
@@ -36,6 +38,8 @@ const STREAM_POINT_COUNT = 14;
 const RETICLE_LOCKED_SCALE = 0.34;
 const RETICLE_SEARCHING_SCALE = 0.14;
 const MAX_FRAME_DELTA_SECONDS = 1 / 20;
+const POINTER_AIM_SENSITIVITY = 0.004;
+const GAMEPAD_AIM_SPEED_RADIANS_PER_SECOND = 2.4;
 
 export interface HoseBurnTarget {
   readonly id: string;
@@ -96,6 +100,7 @@ function createTargetState(): TargetState {
 
 export interface AnchoredHoseEffectsProps {
   readonly characterRef: RefObject<Group | null>;
+  readonly presentationRef: RefObject<HosePresentationState>;
   readonly enabled: boolean;
   readonly visualStyle: Style;
   readonly targets: readonly HoseBurnTarget[];
@@ -103,13 +108,14 @@ export interface AnchoredHoseEffectsProps {
 
 /**
  * The M3 payoff verb (#93): the nozzle follows the character's hands, the
- * reticle and stream aim from the character's facing rather than a mouse
- * cursor, and aim assist snaps and sticks to nearby burning targets. Each
- * target owns a real one-cell simulation grid so extinguishing it is genuine
+ * reticle and stream use forgiving facing aim plus optional right-drag/right-stick
+ * free aim, and assistance snaps and sticks to nearby burning targets. Each target
+ * owns a real one-cell simulation grid so extinguishing it is genuine
  * `@sim/waterApplication` behaviour, not a scripted animation.
  */
 export function AnchoredHoseEffects({
   characterRef,
+  presentationRef,
   enabled,
   visualStyle,
   targets,
@@ -123,9 +129,18 @@ export function AnchoredHoseEffects({
 
   const spaceHeld = useRef(false);
   const mouseHeld = useRef(false);
+  const pointerAim = useRef({
+    pointerId: null as number | null,
+    x: 0,
+    y: 0,
+    deltaX: 0,
+    deltaY: 0,
+  });
+  const freeAim = useRef({ yawOffsetRadians: 0, pitchRadians: 0 });
   const previousTargetId = useRef<string | null>(null);
   const streamRef = useRef<Line | null>(null);
-  const reticleRef = useRef<Mesh>(null);
+  const reticleRef = useRef<Group>(null);
+  const reticleLockRef = useRef<Mesh>(null);
   const flameRefs = useRef(new Map<string, Mesh>());
   const wetRefs = useRef(new Map<string, Mesh>());
   const steamRefs = useRef(new Map<string, Mesh>());
@@ -160,6 +175,15 @@ export function AnchoredHoseEffects({
     if (!enabled) {
       spaceHeld.current = false;
       mouseHeld.current = false;
+      pointerAim.current.pointerId = null;
+      freeAim.current = { yawOffsetRadians: 0, pitchRadians: 0 };
+      Object.assign(presentationRef.current, {
+        spraying: false,
+        freeAimActive: false,
+        targetCaptured: false,
+        aimYawOffsetRadians: 0,
+        aimPitchRadians: 0,
+      });
       return;
     }
 
@@ -173,37 +197,91 @@ export function AnchoredHoseEffects({
       if (event.key === ' ') spaceHeld.current = false;
     };
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.button !== 0) return;
-      mouseHeld.current = true;
+      if (event.button === 0) mouseHeld.current = true;
+      if (event.button === 2) {
+        event.preventDefault();
+        pointerAim.current.pointerId = event.pointerId;
+        pointerAim.current.x = event.clientX;
+        pointerAim.current.y = event.clientY;
+        pointerAim.current.deltaX = 0;
+        pointerAim.current.deltaY = 0;
+      }
+      if (event.button !== 0 && event.button !== 2) return;
       canvas.setPointerCapture(event.pointerId);
     };
+    const handlePointerMove = (event: PointerEvent) => {
+      const aim = pointerAim.current;
+      if (aim.pointerId !== event.pointerId) return;
+      mouseHeld.current = (event.buttons & 1) !== 0;
+      if ((event.buttons & 2) === 0) {
+        aim.pointerId = null;
+        aim.deltaX = 0;
+        aim.deltaY = 0;
+        return;
+      }
+      event.preventDefault();
+      aim.deltaX += event.clientX - aim.x;
+      aim.deltaY += event.clientY - aim.y;
+      aim.x = event.clientX;
+      aim.y = event.clientY;
+    };
     const releasePointer = (event: PointerEvent) => {
-      mouseHeld.current = false;
+      if (event.button === 0 || event.type === 'pointercancel') mouseHeld.current = false;
+      if (pointerAim.current.pointerId === event.pointerId) {
+        pointerAim.current.pointerId = null;
+        pointerAim.current.deltaX = 0;
+        pointerAim.current.deltaY = 0;
+      }
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     };
     const clearHeld = () => {
       spaceHeld.current = false;
       mouseHeld.current = false;
+      pointerAim.current.pointerId = null;
+      pointerAim.current.deltaX = 0;
+      pointerAim.current.deltaY = 0;
+    };
+    const preventContextMenu = (event: MouseEvent) => event.preventDefault();
+    const handleMouseDown = (event: MouseEvent) => {
+      if (event.button === 0 && event.target instanceof Node && canvas.contains(event.target)) {
+        mouseHeld.current = true;
+      }
+    };
+    const handleMouseUp = (event: MouseEvent) => {
+      if (event.button === 0) mouseHeld.current = false;
+      if (event.button === 2) {
+        pointerAim.current.pointerId = null;
+        pointerAim.current.deltaX = 0;
+        pointerAim.current.deltaY = 0;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointermove', handlePointerMove);
     canvas.addEventListener('pointerup', releasePointer);
     canvas.addEventListener('pointercancel', releasePointer);
+    canvas.addEventListener('contextmenu', preventContextMenu);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('blur', clearHeld);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       canvas.removeEventListener('pointerdown', handlePointerDown);
+      canvas.removeEventListener('pointermove', handlePointerMove);
       canvas.removeEventListener('pointerup', releasePointer);
       canvas.removeEventListener('pointercancel', releasePointer);
+      canvas.removeEventListener('contextmenu', preventContextMenu);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('blur', clearHeld);
       clearHeld();
     };
-  }, [enabled, gl]);
+  }, [enabled, gl, presentationRef]);
 
-  useFrame(({ clock }, rawDelta) => {
+  useFrame(({ camera, clock }, rawDelta) => {
     const character = characterRef.current;
     const stream = streamRef.current;
     const reticle = reticleRef.current;
@@ -212,16 +290,50 @@ export function AnchoredHoseEffects({
       if (stream) stream.visible = false;
       if (reticle) reticle.visible = false;
       previousTargetId.current = null;
+      Object.assign(presentationRef.current, {
+        spraying: false,
+        freeAimActive: false,
+        targetCaptured: false,
+        aimYawOffsetRadians: 0,
+        aimPitchRadians: 0,
+      });
       return;
     }
 
     const delta = Math.min(rawDelta, MAX_FRAME_DELTA_SECONDS);
+    const aimPointer = pointerAim.current;
+    const gamepad = firstConnectedGamepad();
+    const [gamepadHorizontal, gamepadVertical] = gamepad
+      ? applyRadialDeadzone(gamepad.axes[2] ?? 0, gamepad.axes[3] ?? 0)
+      : [0, 0];
+    const gamepadIntensity = Math.min(1, Math.hypot(gamepadHorizontal, gamepadVertical));
+    const pointerActive = aimPointer.pointerId !== null;
+    const freeAimStep = stepHoseFreeAim(
+      freeAim.current,
+      pointerActive
+        ? {
+            yawDeltaRadians: -aimPointer.deltaX * POINTER_AIM_SENSITIVITY,
+            pitchDeltaRadians: -aimPointer.deltaY * POINTER_AIM_SENSITIVITY,
+            intensity: 1,
+          }
+        : {
+            yawDeltaRadians: -gamepadHorizontal * GAMEPAD_AIM_SPEED_RADIANS_PER_SECOND * delta,
+            pitchDeltaRadians: -gamepadVertical * GAMEPAD_AIM_SPEED_RADIANS_PER_SECOND * delta,
+            intensity: gamepadIntensity,
+          },
+      delta,
+    );
+    aimPointer.deltaX = 0;
+    aimPointer.deltaY = 0;
+    freeAim.current = freeAimStep.state;
+    character.rotation.y += freeAimStep.bodyYawDeltaRadians;
+
     const pose: CharacterHosePose = {
       position: [character.position.x, character.position.y, character.position.z],
       forwardYawRadians: character.rotation.y,
     };
     const nozzlePosition = getHoseNozzlePosition(pose);
-    const aimDirection = getHoseAimDirection(pose);
+    const aimDirection = getHoseFreeAimDirection(character.rotation.y, freeAimStep.state);
 
     const candidates: HoseAimCandidate[] = [];
     for (const target of targets) {
@@ -236,11 +348,23 @@ export function AnchoredHoseEffects({
       aimDirection,
       candidates,
       previousTargetId.current,
+      freeAimStep.assistStrength,
     );
     previousTargetId.current = resolution.targetId;
 
-    const spraying =
-      isSprayButtonHeld(spaceHeld.current, mouseHeld.current) && resolution.targetId !== null;
+    const spraying = isSprayButtonHeld(spaceHeld.current, mouseHeld.current);
+    Object.assign(presentationRef.current, {
+      spraying,
+      freeAimActive: freeAimStep.active,
+      targetCaptured: resolution.targetId !== null,
+      aimYawOffsetRadians: freeAimStep.state.yawOffsetRadians,
+      aimPitchRadians: freeAimStep.state.pitchRadians,
+    });
+    character.userData.spraying = spraying;
+    character.userData.freeAimActive = freeAimStep.active;
+    character.userData.targetCaptured = resolution.targetId !== null;
+    character.userData.aimYawOffsetRadians = freeAimStep.state.yawOffsetRadians;
+    character.userData.aimPitchRadians = freeAimStep.state.pitchRadians;
 
     if (spraying && resolution.targetId !== null) {
       const targetState = targetStates.get(resolution.targetId);
@@ -317,22 +441,35 @@ export function AnchoredHoseEffects({
     if (reticle) {
       reticle.visible = true;
       reticle.position.set(...resolution.aimPoint);
+      reticle.quaternion.copy(camera.quaternion);
       const locked = resolution.targetId !== null;
       reticle.scale.setScalar(locked ? RETICLE_LOCKED_SCALE : RETICLE_SEARCHING_SCALE);
+      if (reticleLockRef.current) reticleLockRef.current.visible = locked;
     }
   });
 
   return (
     <group name="anchored-hose-effects">
-      <mesh ref={reticleRef} visible={false}>
-        <ringGeometry args={[0.55, 1, 20]} />
-        <meshBasicMaterial
-          color={visualStyle.hose.target}
-          transparent
-          opacity={0.85}
-          depthTest={false}
-        />
-      </mesh>
+      <group ref={reticleRef} visible={false}>
+        <mesh>
+          <ringGeometry args={[0.55, 1, 20]} />
+          <meshBasicMaterial
+            color={visualStyle.hose.target}
+            transparent
+            opacity={0.85}
+            depthTest={false}
+          />
+        </mesh>
+        <mesh ref={reticleLockRef} visible={false} position={[0, 0, 0.002]}>
+          <circleGeometry args={[0.3, 16]} />
+          <meshBasicMaterial
+            color={visualStyle.hose.target}
+            transparent
+            opacity={0.92}
+            depthTest={false}
+          />
+        </mesh>
+      </group>
       {targets.map((target) => (
         <group key={target.id} position={target.position}>
           <mesh

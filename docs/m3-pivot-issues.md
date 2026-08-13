@@ -5,7 +5,8 @@ Issue set for the pivot decided in [ADR-005](adr/005-third-person-apparatus-cont
 [ADR-007](adr/007-ages-5-plus-control-floor.md), serving the product-direction
 contract in [`docs/game-direction.md`](game-direction.md).
 
-**Filed on GitHub as #86–#100 and #104–#108, tracked by [#101](https://github.com/MeanGreen256/hive_firefighter/issues/101).**
+**Filed on GitHub as #86–#100, #104–#108, and playtest follow-ups #114–#115,
+tracked by [#101](https://github.com/MeanGreen256/hive_firefighter/issues/101).**
 
 **Milestone:**
 
@@ -49,6 +50,18 @@ out a fire on the outside of it. If this is not fun, nothing later saves it.
 | #86  | Follow camera rig: automatic framing, chase and shoulder | `area:render` | L    |
 | #87  | Firefighter character controller                         | `area:render` | L    |
 | #93  | Character-anchored hose aiming                           | `area:render` | M    |
+
+### Phase A.1 — Close the first playtest feedback
+
+The first pass proved assisted character-anchored spraying, then exposed two feel
+gaps that belong to the same gate. Close these before investing further in large
+city content: the player needs an optional expressive aim layer, and the character
+must visibly perform the central verb.
+
+| #    | Issue                                     | Area          | Size |
+| ---- | ----------------------------------------- | ------------- | ---- |
+| #114 | Free aim alongside aim assist             | `area:render` | M    |
+| #115 | Firefighter arm animation and spray pose  | `area:render` | M    |
 
 ### Phase B — The city
 
@@ -372,6 +385,60 @@ target audience cannot play, too strong and there is no skill left. It ships as 
 scale per [ADR-007](adr/007-ages-5-plus-control-floor.md) rule 3, and #108 tunes it.
 
 Depends on #87.
+
+---
+
+## #114 — Free aim alongside aim assist
+
+Optional expression above the age-five control floor. A player who only moves and
+sprays keeps the full assisted scheme from #93; a player who uses free aim can point
+away from character facing without entering a mode.
+
+### Input and camera contract
+
+- On foot, right-drag and the gamepad right stick own free aim. They do not also orbit
+  the camera.
+- The chase camera may keep optional orbit while driving. The shoulder camera remains
+  automatic and follows free aim only indirectly when the body turns at the yaw clamp.
+- Relative aim is clamped to 70 degrees of yaw and -30 to +45 degrees of pitch. Yaw
+  beyond the clamp turns the character so the pose and stream never disagree.
+- Releasing the pointer or returning the stick to its deadzone recentres aim to body
+  facing. There is no aim mode to exit.
+- Assist falls linearly from the default generous value to a smaller nonzero value as
+  free-aim input increases. Deliberate aim matters without removing the safety net.
+
+### Done when
+
+Ignoring free aim preserves move-and-spray completion, right-drag and right stick can
+reach a flame outside the default capture cone, the reticle distinguishes free
+direction from target capture, and no input controls both aim and camera in the same
+player mode.
+
+Depends on #93.
+
+---
+
+## #115 — Firefighter arm animation and spray pose
+
+The central verb needs a readable body performance in the toy-diorama register.
+
+### Presentation contract
+
+- Idle, walking, and running retain a chunky carry pose with enough arm swing to read
+  in motion.
+- Holding spray blends both arms into a braced pose, settles movement bob, and adds a
+  small torso lean. Starting and stopping use damping rather than animation pops.
+- Arms and the nozzle consume the same transient yaw/pitch state as the reticle and
+  stream, so free aim cannot point effects one way while the character points another.
+- Frame-rate aim and spray state stays in refs/user data; it does not route through
+  React state or trigger per-frame component renders.
+
+### Done when
+
+Walking, standing, and spraying read differently at a glance, transitions are smooth,
+and the visible arms/nozzle agree with both assisted and free aim.
+
+Depends on #114.
 
 ---
 

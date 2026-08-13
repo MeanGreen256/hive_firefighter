@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   cellIdFromRaycastHits,
+  createHosePresentationState,
   getCellWorldPosition,
   getHoseAimDirection,
   getHoseNozzlePosition,
@@ -15,6 +16,16 @@ import {
 } from './hoseTargeting';
 
 describe('hose targeting helpers', () => {
+  it('starts shared presentation state in the simple facing-based pose', () => {
+    expect(createHosePresentationState()).toEqual({
+      spraying: false,
+      freeAimActive: false,
+      targetCaptured: false,
+      aimYawOffsetRadians: 0,
+      aimPitchRadians: 0,
+    });
+  });
+
   it('uses the nearest instanced cell hit and rejects unrelated geometry', () => {
     expect(
       cellIdFromRaycastHits([

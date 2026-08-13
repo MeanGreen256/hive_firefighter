@@ -135,6 +135,25 @@ export interface HoseAimResolution {
   readonly aimPoint: Vector3Tuple;
 }
 
+/** Transient frame-loop state shared by hose effects and character presentation. */
+export interface HosePresentationState {
+  spraying: boolean;
+  freeAimActive: boolean;
+  targetCaptured: boolean;
+  aimYawOffsetRadians: number;
+  aimPitchRadians: number;
+}
+
+export function createHosePresentationState(): HosePresentationState {
+  return {
+    spraying: false,
+    freeAimActive: false,
+    targetCaptured: false,
+    aimYawOffsetRadians: 0,
+    aimPitchRadians: 0,
+  };
+}
+
 /**
  * Resolves what the hose is aimed at: the nearest burning candidate inside a
  * generous capture cone around the character's aim direction, snapping and

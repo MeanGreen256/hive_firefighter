@@ -18,6 +18,7 @@ import { FirefighterController } from './FirefighterController';
 import { FollowCameraRig } from './FollowCameraRig';
 import { ArcadeTruck } from './ArcadeTruck';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
+import { createHosePresentationState } from './hoseTargeting';
 import { getSafeDismountPose, isWithinBoardingRange, type PlayerMode } from './mountDismount';
 
 const PROTOTYPE_BOUNDS = 12;
@@ -85,6 +86,7 @@ function PrototypeWorld({
   onBoardingRangeChange,
 }: PrototypeWorldProps) {
   const collisionRoot = useRef<Group>(null);
+  const hosePresentationRef = useRef(createHosePresentationState());
   const lastCanBoard = useRef(false);
   const boardingCheckElapsed = useRef(0);
   const profile = mode === 'driving' ? 'chase' : 'shoulder';
@@ -121,6 +123,7 @@ function PrototypeWorld({
         target={activeTarget}
         profile={profile}
         collisionRoot={collisionRoot}
+        orbitEnabled={mode === 'driving'}
         speedRatio={truckSpeedRatio}
       />
       <ArcadeTruck
@@ -136,6 +139,7 @@ function PrototypeWorld({
       />
       <FirefighterController
         targetRef={firefighterRef}
+        hosePresentationRef={hosePresentationRef}
         visualStyle={visualStyle}
         enabled={mode === 'on-foot'}
         visible={mode === 'on-foot'}
@@ -145,6 +149,7 @@ function PrototypeWorld({
       />
       <AnchoredHoseEffects
         characterRef={firefighterRef}
+        presentationRef={hosePresentationRef}
         enabled={mode === 'on-foot'}
         visualStyle={visualStyle}
         targets={HOSE_BURN_TARGETS}
@@ -270,7 +275,16 @@ export default function FollowCameraPrototype() {
         {mode === 'driving'
           ? 'WASD / left stick drives · brake before reverse'
           : 'WASD / left stick moves · point and hold to spray'}
-        <br />E boards or dismounts near the cab · L toggles siren + lights
+        <br />
+        {mode === 'driving'
+          ? 'Right-drag / right stick orbits · E dismounts · L toggles siren + lights'
+          : 'Right-drag / right stick aims · release to recentre · E boards near the cab'}
+        {mode === 'on-foot' ? (
+          <>
+            <br />
+            Move and spray still completes every fire · free aim is optional
+          </>
+        ) : null}
         <div className="audio-controls">
           <button
             type="button"

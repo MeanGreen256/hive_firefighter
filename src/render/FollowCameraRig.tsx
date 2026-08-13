@@ -47,6 +47,8 @@ export interface FollowCameraRigProps {
   readonly profile: FollowCameraProfileId;
   readonly collisionRoot?: FollowCameraTargetRef;
   readonly getGroundHeight?: (x: number, z: number) => number;
+  /** Optional manual orbit; disabled on foot when those inputs own free aim. */
+  readonly orbitEnabled?: boolean;
   readonly speedRatio?: FollowCameraSpeedRef;
 }
 
@@ -116,6 +118,7 @@ export function FollowCameraRig({
   profile,
   collisionRoot,
   getGroundHeight = flatGroundHeight,
+  orbitEnabled = true,
   speedRatio,
 }: FollowCameraRigProps) {
   const cameraRef = useRef<ThreePerspectiveCamera>(null);
@@ -145,6 +148,13 @@ export function FollowCameraRig({
   }, [getGroundHeight]);
 
   useEffect(() => {
+    if (!orbitEnabled) {
+      pointerDrag.current = null;
+      desiredYawOffset.current = 0;
+      desiredPitchOffset.current = 0;
+      return;
+    }
+
     const canvas = gl.domElement;
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -191,14 +201,14 @@ export function FollowCameraRig({
       canvas.removeEventListener('pointercancel', endPointerDrag);
       canvas.removeEventListener('contextmenu', preventContextMenu);
     };
-  }, [gl, profile]);
+  }, [gl, orbitEnabled, profile]);
 
   useFrame((_state, delta) => {
     const camera = cameraRef.current;
     const followedObject = target.current;
     if (!camera || !followedObject) return;
 
-    const gamepad = firstConnectedGamepad();
+    const gamepad = orbitEnabled ? firstConnectedGamepad() : null;
     if (gamepad) {
       const [horizontal, vertical] = applyRadialDeadzone(
         gamepad.axes[2] ?? 0,
