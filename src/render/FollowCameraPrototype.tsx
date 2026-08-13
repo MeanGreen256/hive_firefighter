@@ -17,6 +17,7 @@ import { FirefighterController } from './FirefighterController';
 import { FollowCameraRig } from './FollowCameraRig';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
 import type { FollowCameraProfileId } from './followCamera';
+import { createHosePresentationState } from './hoseTargeting';
 
 const PROXY_MOVE_SPEED = 4.5;
 const PROXY_TURN_SPEED = 2.2;
@@ -104,6 +105,7 @@ function PrototypeWorld({
 }) {
   const truckRef = useRef<Group>(null);
   const firefighterRef = useRef<Group>(null);
+  const hosePresentationRef = useRef(createHosePresentationState());
   const collisionRoot = useRef<Group>(null);
   const heldKeys = useRef(new Set<string>());
   const forward = useRef(new Vector3());
@@ -175,10 +177,16 @@ function PrototypeWorld({
         color={visualStyle.palette.scene.sunlight}
         castShadow
       />
-      <FollowCameraRig target={activeTarget} profile={profile} collisionRoot={collisionRoot} />
+      <FollowCameraRig
+        target={activeTarget}
+        profile={profile}
+        collisionRoot={collisionRoot}
+        orbitEnabled={profile === 'chase'}
+      />
       <TruckProxy targetRef={truckRef} visualStyle={visualStyle} />
       <FirefighterController
         targetRef={firefighterRef}
+        hosePresentationRef={hosePresentationRef}
         visualStyle={visualStyle}
         enabled={profile === 'shoulder'}
         obstacles={PROTOTYPE_OBSTACLES}
@@ -187,6 +195,7 @@ function PrototypeWorld({
       />
       <AnchoredHoseEffects
         characterRef={firefighterRef}
+        presentationRef={hosePresentationRef}
         enabled={profile === 'shoulder'}
         visualStyle={visualStyle}
         targets={HOSE_BURN_TARGETS}
@@ -261,11 +270,13 @@ export default function FollowCameraPrototype() {
           ? 'WASD moves and turns the truck'
           : 'WASD / left stick moves · walk and run are automatic'}
         <br />
-        Optional right-drag / right stick orbit · V switches subject
+        {profile === 'chase'
+          ? 'Optional right-drag / right stick orbit · V switches subject'
+          : 'Right-drag / right stick aims · release to recentre · V switches subject'}
         {profile === 'shoulder' ? (
           <>
             <br />
-            Point the character at the flame · hold space, left click, or a gamepad trigger to spray
+            Move and spray still completes every fire · free aim is optional
           </>
         ) : null}
         <div className="audio-controls">
