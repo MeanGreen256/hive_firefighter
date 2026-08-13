@@ -40,8 +40,34 @@ In development, open `/?camera=follow` for the M3 movement acceptance harness.
 WASD or the left stick drives the truck and moves the firefighter. While driving,
 right-drag or the right stick optionally orbits; on foot those inputs steer optional
 free aim and the shoulder camera remains automatic. `E` boards or dismounts near the
-cab, and `L` toggles siren and lights. This harness is lazy-loaded only in development;
-the existing M2 scene remains the default while M3 systems replace it.
+cab, `L` toggles siren and lights, and `N` takes the next quest. This harness is
+lazy-loaded only in development; the existing M2 scene remains the default while M3
+systems replace it.
+
+## City district contract
+
+`districtLayout.ts` converts one authored district (`content/districts/*.json`,
+loaded by `@sim/districts`) into pure render and collision data. `CityDistrict`
+draws that data and nothing else — it never reads content directly and holds no
+positions of its own.
+
+The truck and the firefighter take their obstacles and movement bounds from the
+same layout the geometry is built from, so a block can never be somewhere the
+renderer and the controllers disagree about. Only buildings and props the data
+marks solid become obstacles; benches, hedges, hydrants, and lamp posts are
+scenery a five-year-old can walk straight through rather than get stuck on.
+
+Roads render as flat slabs with kerbs, pavement, and dashed lane markings, each
+split around crossing roads by `subtractSpans` so junctions stay open. Every
+repeated element — road slabs, kerbs, buildings of one use, each part of each
+prop type — is one instanced layer, so a city of forty-odd props stays inside
+the draw-call budget. The single sun's shadow frustum is widened to the district
+bounds; the five-unit default only shadows one junction, and widening it needs
+an explicit projection rebuild.
+
+Exactly one quest site is marked, because exactly one quest is active. The
+smoke column and waypoint arrow that make it findable from across town arrive
+with #92.
 
 ## Firefighter-controller contract
 

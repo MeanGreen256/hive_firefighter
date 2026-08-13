@@ -1,0 +1,242 @@
+/**
+ * Turns an authored district (`content/districts/*.json`) into pure render and
+ * collision data: flat rectangles for the streets, footprints for everything
+ * solid, and one transform per prop.
+ *
+ * Nothing here knows what the city looks like — sizes and positions only. The
+ * active style paints it, and `src/sim/districts.ts` owns the world data. Keep
+ * gameplay collision reading the same footprints the geometry is built from, so
+ * a building can never be somewhere the truck disagrees with.
+ */
+
+import {
+  PROP_FOOTPRINTS,
+  getBuildingRect,
+  getParkRect,
+  getPropRect,
+  getRoadRect,
+  type DistrictDefinition,
+  type DistrictProp,
+  type DistrictRect,
+  type DistrictRoad,
+} from '@sim/districts';
+import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
+import type { Vector3Tuple } from './buildingLayout';
+
+/** Walkable kerbside slab, wide enough to hold street trees and benches. */
+export const PAVEMENT_WIDTH = 2.2;
+export const PAVEMENT_HEIGHT = 0.06;
+export const KERB_WIDTH = 0.3;
+export const KERB_HEIGHT = 0.1;
+export const ROAD_SURFACE_Y = 0.01;
+export const LANE_MARKING_Y = 0.02;
+export const LANE_MARKING_WIDTH = 0.3;
+export const LANE_DASH_LENGTH = 3;
+export const LANE_DASH_GAP = 3.5;
+export const PARK_SURFACE_Y = 0.015;
+/** Ground extends past the playable bounds so the world has no visible edge. */
+export const GROUND_MARGIN = 40;
+
+export interface DistrictSurfaceRect {
+  readonly id: string;
+  readonly centerX: number;
+  readonly centerZ: number;
+  readonly width: number;
+  readonly depth: number;
+}
+
+export interface DistrictBuildingPlacement {
+  readonly id: string;
+  readonly use: DistrictDefinition['buildings'][number]['use'];
+  readonly landmark: DistrictDefinition['buildings'][number]['landmark'];
+  readonly position: Vector3Tuple;
+  readonly width: number;
+  readonly depth: number;
+  readonly height: number;
+}
+
+export interface DistrictPropPlacement {
+  readonly id: string;
+  readonly type: DistrictProp['type'];
+  readonly position: Vector3Tuple;
+  readonly yaw: number;
+}
+
+export interface DistrictLayout {
+  readonly movementBounds: CharacterMovementBounds;
+  readonly obstacles: readonly CharacterObstacle[];
+  readonly groundWidth: number;
+  readonly groundDepth: number;
+  readonly roadSurfaces: readonly DistrictSurfaceRect[];
+  readonly laneMarkings: readonly DistrictSurfaceRect[];
+  readonly pavements: readonly DistrictSurfaceRect[];
+  readonly kerbs: readonly DistrictSurfaceRect[];
+  readonly parkSurfaces: readonly DistrictSurfaceRect[];
+  readonly buildings: readonly DistrictBuildingPlacement[];
+  readonly props: readonly DistrictPropPlacement[];
+  readonly truckStart: { readonly position: Vector3Tuple; readonly yaw: number };
+}
+
+interface Span {
+  readonly from: number;
+  readonly to: number;
+}
+
+/** Removes the crossing roads from one kerbside run so junctions stay open. */
+export function subtractSpans(span: Span, gaps: readonly Span[]): Span[] {
+  const ordered = [...gaps]
+    .map((gap) => ({ from: Math.min(gap.from, gap.to), to: Math.max(gap.from, gap.to) }))
+    .filter((gap) => gap.to > span.from && gap.from < span.to)
+    .sort((left, right) => left.from - right.from);
+
+  const segments: Span[] = [];
+  let cursor = span.from;
+  for (const gap of ordered) {
+    if (gap.from > cursor) segments.push({ from: cursor, to: gap.from });
+    cursor = Math.max(cursor, gap.to);
+  }
+  if (cursor < span.to) segments.push({ from: cursor, to: span.to });
+  return segments;
+}
+
+function alongAxisRect(
+  road: DistrictRoad,
+  span: Span,
+  offset: number,
+  thickness: number,
+): { centerX: number; centerZ: number; width: number; depth: number } {
+  const center = (span.from + span.to) / 2;
+  const length = span.to - span.from;
+  return road.axis === 'x'
+    ? { centerX: center, centerZ: offset, width: length, depth: thickness }
+    : { centerX: offset, centerZ: center, width: thickness, depth: length };
+}
+
+function crossingGaps(road: DistrictRoad, roads: readonly DistrictRoad[], margin: number): Span[] {
+  return roads
+    .filter((other) => other.id !== road.id && other.axis !== road.axis)
+    .map((other) => ({
+      from: other.offset - other.width / 2 - margin,
+      to: other.offset + other.width / 2 + margin,
+    }));
+}
+
+function buildKerbside(
+  road: DistrictRoad,
+  roads: readonly DistrictRoad[],
+): { pavements: DistrictSurfaceRect[]; kerbs: DistrictSurfaceRect[] } {
+  const span = { from: road.from, to: road.to };
+  const pavementGaps = crossingGaps(road, roads, PAVEMENT_WIDTH);
+  const kerbGaps = crossingGaps(road, roads, 0);
+  const pavements: DistrictSurfaceRect[] = [];
+  const kerbs: DistrictSurfaceRect[] = [];
+
+  for (const side of [-1, 1] as const) {
+    const roadEdge = road.offset + side * (road.width / 2);
+    const pavementOffset = roadEdge + side * (PAVEMENT_WIDTH / 2);
+    const kerbOffset = roadEdge + side * (KERB_WIDTH / 2);
+    const sideName = side < 0 ? 'low' : 'high';
+
+    for (const [index, segment] of subtractSpans(span, pavementGaps).entries()) {
+      pavements.push({
+        id: `${road.id}:pavement:${sideName}:${String(index)}`,
+        ...alongAxisRect(road, segment, pavementOffset, PAVEMENT_WIDTH),
+      });
+    }
+    for (const [index, segment] of subtractSpans(span, kerbGaps).entries()) {
+      kerbs.push({
+        id: `${road.id}:kerb:${sideName}:${String(index)}`,
+        ...alongAxisRect(road, segment, kerbOffset, KERB_WIDTH),
+      });
+    }
+  }
+
+  return { pavements, kerbs };
+}
+
+function buildLaneMarkings(
+  road: DistrictRoad,
+  roads: readonly DistrictRoad[],
+): DistrictSurfaceRect[] {
+  const gaps = crossingGaps(road, roads, LANE_DASH_GAP / 2);
+  const stride = LANE_DASH_LENGTH + LANE_DASH_GAP;
+  const markings: DistrictSurfaceRect[] = [];
+
+  for (const segment of subtractSpans({ from: road.from, to: road.to }, gaps)) {
+    const dashCount = Math.floor((segment.to - segment.from + LANE_DASH_GAP) / stride);
+    for (let dash = 0; dash < dashCount; dash += 1) {
+      const from = segment.from + dash * stride;
+      markings.push({
+        id: `${road.id}:dash:${String(markings.length)}`,
+        ...alongAxisRect(
+          road,
+          { from, to: from + LANE_DASH_LENGTH },
+          road.offset,
+          LANE_MARKING_WIDTH,
+        ),
+      });
+    }
+  }
+
+  return markings;
+}
+
+function toSurface(id: string, rect: DistrictRect): DistrictSurfaceRect {
+  return {
+    id,
+    centerX: (rect.minX + rect.maxX) / 2,
+    centerZ: (rect.minZ + rect.maxZ) / 2,
+    width: rect.maxX - rect.minX,
+    depth: rect.maxZ - rect.minZ,
+  };
+}
+
+function toObstacle(rect: DistrictRect): CharacterObstacle {
+  return { minX: rect.minX, maxX: rect.maxX, minZ: rect.minZ, maxZ: rect.maxZ };
+}
+
+export function buildDistrictLayout(district: DistrictDefinition): DistrictLayout {
+  const roadSurfaces = district.roads.map((road) => toSurface(road.id, getRoadRect(road)));
+  const kerbside = district.roads.map((road) => buildKerbside(road, district.roads));
+
+  return {
+    movementBounds: {
+      minX: district.bounds.minX,
+      maxX: district.bounds.maxX,
+      minZ: district.bounds.minZ,
+      maxZ: district.bounds.maxZ,
+    },
+    obstacles: [
+      ...district.buildings.map((building) => toObstacle(getBuildingRect(building))),
+      ...district.props
+        .filter((prop) => PROP_FOOTPRINTS[prop.type].solid)
+        .map((prop) => toObstacle(getPropRect(prop))),
+    ],
+    groundWidth: district.bounds.maxX - district.bounds.minX + GROUND_MARGIN * 2,
+    groundDepth: district.bounds.maxZ - district.bounds.minZ + GROUND_MARGIN * 2,
+    roadSurfaces,
+    laneMarkings: district.roads.flatMap((road) => buildLaneMarkings(road, district.roads)),
+    pavements: kerbside.flatMap(({ pavements }) => pavements),
+    kerbs: kerbside.flatMap(({ kerbs }) => kerbs),
+    parkSurfaces: district.parks.map((park) => toSurface(park.id, getParkRect(park))),
+    buildings: district.buildings.map((building) => ({
+      id: building.id,
+      use: building.use,
+      landmark: building.landmark,
+      position: [building.x, building.height / 2, building.z] as Vector3Tuple,
+      width: building.width,
+      depth: building.depth,
+      height: building.height,
+    })),
+    props: district.props.map((prop) => ({
+      id: prop.id,
+      type: prop.type,
+      position: [prop.x, 0, prop.z] as Vector3Tuple,
+      yaw: (prop.yawDegrees * Math.PI) / 180,
+    })),
+    truckStart: {
+      position: [district.truckStart.x, 0, district.truckStart.z] as Vector3Tuple,
+      yaw: (district.truckStart.yawDegrees * Math.PI) / 180,
+    },
+  };
+}

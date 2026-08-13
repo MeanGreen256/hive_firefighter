@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -8,49 +9,76 @@ import {
 } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useStore } from 'zustand';
-import type { Group } from 'three';
+import type { DirectionalLight, Group } from 'three';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
+import {
+  DEFAULT_DISTRICT_ID,
+  getActiveQuestSite,
+  getDistrict,
+  getNextQuestIndex,
+  getQuestSiteDistanceFromStart,
+  type DistrictQuestSite,
+} from '@sim/districts';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import { AudioControls } from '@ui/AudioControls';
 import { AnchoredHoseEffects, type HoseBurnTarget } from './AnchoredHoseEffects';
+import { CityDistrict } from './CityDistrict';
 import { FirefighterController } from './FirefighterController';
 import { FollowCameraRig } from './FollowCameraRig';
 import { ArcadeTruck } from './ArcadeTruck';
-import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
+import { buildDistrictLayout } from './districtLayout';
 import { createHosePresentationState } from './hoseTargeting';
 import { getSafeDismountPose, isWithinBoardingRange, type PlayerMode } from './mountDismount';
 
-const PROTOTYPE_BOUNDS = 12;
-const TRUCK_START = [-4, 0, 1] as const;
-const TRUCK_START_YAW = -0.35;
-const MOVEMENT_BOUNDS: CharacterMovementBounds = {
-  minX: -PROTOTYPE_BOUNDS,
-  maxX: PROTOTYPE_BOUNDS,
-  minZ: -PROTOTYPE_BOUNDS,
-  maxZ: PROTOTYPE_BOUNDS,
-};
-const PROTOTYPE_BUILDINGS = [
-  { id: 'center', x: 0, y: 1.5, z: 0, width: 3.5, height: 3, depth: 1.2, surface: 'wall' },
-  { id: 'west', x: -7, y: 1, z: -5, width: 4, height: 2, depth: 2, surface: 'roof' },
-  { id: 'east', x: 7, y: 1.25, z: 5, width: 3, height: 2.5, depth: 3, surface: 'floor' },
-] as const;
-const PROTOTYPE_OBSTACLES: readonly CharacterObstacle[] = PROTOTYPE_BUILDINGS.map(
-  ({ x, z, width, depth }) => ({
-    minX: x - width / 2,
-    maxX: x + width / 2,
-    minZ: z - depth / 2,
-    maxZ: z + depth / 2,
-  }),
-);
-const HOSE_BURN_TARGETS: readonly HoseBurnTarget[] = PROTOTYPE_BUILDINGS.map((building) => ({
-  id: building.id,
-  position: [
-    building.x,
-    building.y + building.height * 0.35,
-    building.z + building.depth / 2 + 0.05,
-  ],
-}));
+const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
+const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
+const QUEST_FLAME_HEIGHT = 1.6;
+
+/** One quest is active, so exactly one place in the city can be sprayed. */
+function questBurnTargets(site: DistrictQuestSite): readonly HoseBurnTarget[] {
+  return [{ id: site.id, position: [site.x, QUEST_FLAME_HEIGHT, site.z] }];
+}
+
+/**
+ * One sun lights the whole city, so its shadow frustum has to cover every
+ * block — the five-unit default only shadows the middle of one junction.
+ * Widening it needs an explicit projection rebuild; three keeps using the old
+ * projection matrix otherwise, and nothing outside the default box casts.
+ */
+function CityShadowSun({ color }: { readonly color: string }) {
+  const sunRef = useRef<DirectionalLight>(null);
+
+  useEffect(() => {
+    const sun = sunRef.current;
+    if (!sun) return;
+    const extent =
+      Math.max(
+        DISTRICT.bounds.maxX - DISTRICT.bounds.minX,
+        DISTRICT.bounds.maxZ - DISTRICT.bounds.minZ,
+      ) / 2;
+    const shadowCamera = sun.shadow.camera;
+    shadowCamera.left = -extent;
+    shadowCamera.right = extent;
+    shadowCamera.top = extent;
+    shadowCamera.bottom = -extent;
+    shadowCamera.near = 1;
+    shadowCamera.far = 260;
+    shadowCamera.updateProjectionMatrix();
+  }, []);
+
+  return (
+    <directionalLight
+      ref={sunRef}
+      position={[60, 90, 45]}
+      intensity={2.2}
+      color={color}
+      castShadow
+      shadow-mapSize={[2048, 2048]}
+      shadow-bias={-0.0012}
+    />
+  );
+}
 
 interface SceneCssVariables extends CSSProperties {
   '--scene-saturation': number;
@@ -70,6 +98,7 @@ interface PrototypeWorldProps {
   readonly visualStyle: Style;
   readonly mode: PlayerMode;
   readonly sirenOn: boolean;
+  readonly activeQuestSite: DistrictQuestSite;
   readonly truckRef: RefObject<Group | null>;
   readonly firefighterRef: RefObject<Group | null>;
   readonly truckSpeedRatio: RefObject<number>;
@@ -80,6 +109,7 @@ function PrototypeWorld({
   visualStyle,
   mode,
   sirenOn,
+  activeQuestSite,
   truckRef,
   firefighterRef,
   truckSpeedRatio,
@@ -91,6 +121,7 @@ function PrototypeWorld({
   const boardingCheckElapsed = useRef(0);
   const profile = mode === 'driving' ? 'chase' : 'shoulder';
   const activeTarget = mode === 'driving' ? truckRef : firefighterRef;
+  const burnTargets = useMemo(() => questBurnTargets(activeQuestSite), [activeQuestSite]);
 
   useFrame((_state, delta) => {
     boardingCheckElapsed.current += delta;
@@ -112,13 +143,8 @@ function PrototypeWorld({
   return (
     <>
       <color attach="background" args={[visualStyle.palette.scene.background]} />
-      <ambientLight intensity={1.4} color={visualStyle.palette.scene.ambientLight} />
-      <directionalLight
-        position={[8, 12, 6]}
-        intensity={2.2}
-        color={visualStyle.palette.scene.sunlight}
-        castShadow
-      />
+      <ambientLight intensity={0.55} color={visualStyle.palette.scene.ambientLight} />
+      <CityShadowSun color={visualStyle.palette.scene.sunlight} />
       <FollowCameraRig
         target={activeTarget}
         profile={profile}
@@ -131,10 +157,10 @@ function PrototypeWorld({
         visualStyle={visualStyle}
         enabled={mode === 'driving'}
         sirenOn={sirenOn}
-        obstacles={PROTOTYPE_OBSTACLES}
-        movementBounds={MOVEMENT_BOUNDS}
-        initialPosition={TRUCK_START}
-        initialYaw={TRUCK_START_YAW}
+        obstacles={DISTRICT_LAYOUT.obstacles}
+        movementBounds={DISTRICT_LAYOUT.movementBounds}
+        initialPosition={DISTRICT_LAYOUT.truckStart.position}
+        initialYaw={DISTRICT_LAYOUT.truckStart.yaw}
         speedRatioRef={truckSpeedRatio}
       />
       <FirefighterController
@@ -143,36 +169,23 @@ function PrototypeWorld({
         visualStyle={visualStyle}
         enabled={mode === 'on-foot'}
         visible={mode === 'on-foot'}
-        obstacles={PROTOTYPE_OBSTACLES}
-        initialPosition={TRUCK_START}
-        movementBounds={MOVEMENT_BOUNDS}
+        obstacles={DISTRICT_LAYOUT.obstacles}
+        initialPosition={DISTRICT_LAYOUT.truckStart.position}
+        movementBounds={DISTRICT_LAYOUT.movementBounds}
       />
       <AnchoredHoseEffects
         characterRef={firefighterRef}
         presentationRef={hosePresentationRef}
         enabled={mode === 'on-foot'}
         visualStyle={visualStyle}
-        targets={HOSE_BURN_TARGETS}
+        targets={burnTargets}
       />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[32, 32]} />
-        <meshStandardMaterial color={visualStyle.stage.top} roughness={0.95} />
-      </mesh>
       <group ref={collisionRoot}>
-        {PROTOTYPE_BUILDINGS.map((building) => (
-          <mesh
-            key={building.id}
-            position={[building.x, building.y, building.z]}
-            castShadow
-            receiveShadow
-          >
-            <boxGeometry args={[building.width, building.height, building.depth]} />
-            <meshStandardMaterial
-              color={visualStyle.palette.building[building.surface]}
-              roughness={0.9}
-            />
-          </mesh>
-        ))}
+        <CityDistrict
+          layout={DISTRICT_LAYOUT}
+          visualStyle={visualStyle}
+          activeQuestSite={activeQuestSite}
+        />
       </group>
     </>
   );
@@ -183,11 +196,17 @@ export default function FollowCameraPrototype() {
   const [mode, setMode] = useState<PlayerMode>('driving');
   const [sirenOn, setSirenOn] = useState(true);
   const [canBoard, setCanBoard] = useState(false);
+  const [questIndex, setQuestIndex] = useState(0);
   const truckRef = useRef<Group>(null);
   const firefighterRef = useRef<Group>(null);
   const truckSpeedRatio = useRef(0);
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
   const visualStyle = STYLES[activeStyleId];
+  const activeQuestSite = getActiveQuestSite(DISTRICT, questIndex);
+  const questDistance = getQuestSiteDistanceFromStart(DISTRICT, activeQuestSite);
+  const takeNextQuest = useCallback(() => {
+    setQuestIndex((current) => getNextQuestIndex(DISTRICT, current));
+  }, []);
 
   const transitionPlayer = useCallback(() => {
     const truck = truckRef.current;
@@ -197,8 +216,8 @@ export default function FollowCameraPrototype() {
     if (mode === 'driving') {
       const pose = getSafeDismountPose(
         { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
-        PROTOTYPE_OBSTACLES,
-        MOVEMENT_BOUNDS,
+        DISTRICT_LAYOUT.obstacles,
+        DISTRICT_LAYOUT.movementBounds,
       );
       firefighter.position.set(pose.x, 0, pose.z);
       firefighter.rotation.y = pose.yaw;
@@ -230,11 +249,14 @@ export default function FollowCameraPrototype() {
       } else if (key === 'l') {
         event.preventDefault();
         toggleSiren();
+      } else if (key === 'n') {
+        event.preventDefault();
+        takeNextQuest();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canBoard, mode, toggleSiren, transitionPlayer]);
+  }, [canBoard, mode, takeNextQuest, toggleSiren, transitionPlayer]);
 
   const sceneCssVariables: SceneCssVariables = {
     '--scene-saturation': visualStyle.postProcessing.saturation,
@@ -260,6 +282,7 @@ export default function FollowCameraPrototype() {
             visualStyle={visualStyle}
             mode={mode}
             sirenOn={sirenOn}
+            activeQuestSite={activeQuestSite}
             truckRef={truckRef}
             firefighterRef={firefighterRef}
             truckSpeedRatio={truckSpeedRatio}
@@ -268,7 +291,10 @@ export default function FollowCameraPrototype() {
         </Canvas>
       </div>
       <div className="placard" role="status" aria-live="polite">
-        M3 drive + dismount prototype
+        M3 free-roam prototype · <b>{DISTRICT.name}</b>
+        <br />
+        Quest {questIndex + 1} of {DISTRICT.questSites.length}: <b>{activeQuestSite.name}</b> —{' '}
+        {questDistance.toFixed(0)}m away
         <br />
         <b>{mode === 'driving' ? 'Truck · chase camera' : 'Firefighter · shoulder camera'}</b>
         <br />
@@ -277,7 +303,7 @@ export default function FollowCameraPrototype() {
           : 'WASD / left stick moves · point and hold to spray'}
         <br />
         {mode === 'driving'
-          ? 'Right-drag / right stick orbits · E dismounts · L toggles siren + lights'
+          ? 'Right-drag / right stick orbits · E dismounts · L siren + lights · N next quest'
           : 'Right-drag / right stick aims · release to recentre · E boards near the cab'}
         {mode === 'on-foot' ? (
           <>
@@ -296,6 +322,9 @@ export default function FollowCameraPrototype() {
           </button>
           <button type="button" onClick={toggleSiren} aria-pressed={sirenOn}>
             Siren + lights {sirenOn ? 'on' : 'off'}
+          </button>
+          <button type="button" onClick={takeNextQuest}>
+            Next quest
           </button>
           <AudioControls />
         </div>
