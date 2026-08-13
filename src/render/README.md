@@ -66,8 +66,8 @@ bounds; the five-unit default only shadows one junction, and widening it needs
 an explicit projection rebuild.
 
 Exactly one quest site is marked, because exactly one quest is active. The
-smoke column and waypoint arrow that make it findable from across town arrive
-with #92.
+smoke column and waypoint arrow that make it findable from across town are
+described under "Finding the fire" below.
 
 Porches, awnings, and barn doors are drawn from the same boxes the fire shell
 fills with cells (`getBuildingAttachments` in `@sim/exteriorShell`), so what the
@@ -154,7 +154,6 @@ audio system; browser audio still waits for the explicit sound-enable gesture.
 - Cutaway building geometry generated from cell data (#12)
 - Cell state visuals (#13)
 - Flame, smoke, and the smoke column (#14)
-- Persistent civilian search marks and thermal signatures (#70)
 - Propane state and countdown visualization (#71)
 - Unlimited-water stream and structural sag/collapse telegraphs (#72, #73, #76)
 - Shape-first incident marker language and colour-vision audit (#76)
@@ -200,20 +199,16 @@ sage slab, rounded pastel trees, and a one-frame contact-shadow bake that gives
 the procedural pieces soft AO-like grounding without a continuous full-screen
 post-process.
 
-`IncidentEntities` draws the semantic incident marker language. Unlocated
-civilians are absent from normal view, appear as warm ringed signatures in
-thermal mode, and remain visible through the cutaway after discovery. Upright,
-prone, raised-in-a-diamond, ringed, and crossed silhouettes distinguish
-located, unconscious, carried, rescued, and lost states without relying on
-colour. Propane uses a capped cylinder, counter-rotating countdown rings, and a
-crossed failed state. Structural warnings combine the existing floor sag with a
-pulsing diamond and falling dust.
+`IncidentEntities` draws the semantic incident marker language. Propane uses a
+capped cylinder, counter-rotating countdown rings, and a crossed failed state.
+Structural warnings combine the existing floor sag with a pulsing diamond and
+falling dust. The people-marker vocabulary — pose, thermal ring, carry diamond,
+cross — went with #97; shape stays the primary state channel for what remains.
 
-Known semantic markers deliberately render over occluding structure; discovering
-a civilian remains the gate that creates its persistent marker. Every fill has
-an outline with at least 3:1 contrast in normal, protanopia, and deuteranopia
-simulation. The palettes stay muted so fire remains the scene's saturated focal
-point.
+Known semantic markers deliberately render over occluding structure. Every fill
+has an outline with at least 3:1 contrast in normal, protanopia, and
+deuteranopia simulation. The palettes stay muted so fire remains the scene's
+saturated focal point.
 
 `HoseEffects` renders one water stream from the character-anchored nozzle to the
 assisted exterior target. It has no tank, agent, hookup, or hose-length branch.

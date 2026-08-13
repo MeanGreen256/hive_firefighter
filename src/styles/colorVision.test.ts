@@ -38,11 +38,7 @@ describe('cell-state colour accessibility', () => {
   it('keeps incident marker fills legible against their outline in every vision mode', () => {
     for (const styleId of STYLE_IDS) {
       const markers = STYLES[styleId].incidentMarkers;
-      const fills = [
-        ...Object.values(markers.civilian),
-        ...Object.values(markers.hazard),
-        ...Object.values(markers.collapse),
-      ];
+      const fills = [...Object.values(markers.hazard), ...Object.values(markers.collapse)];
       for (const mode of [undefined, ...COLOR_VISION_MODES]) {
         for (const fill of fills) {
           expect(colorContrastRatio(fill, markers.outline, mode)).toBeGreaterThanOrEqual(3);

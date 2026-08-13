@@ -20,7 +20,6 @@ function validScenarioData(): Record<string, unknown> {
     ignitionOrigins: [{ x: 1, y: 0, z: 0 }],
     seed: 42,
     wind: { direction: { x: 0, y: 0, z: 0 }, strength: 0 },
-    civilians: [],
     hazards: [],
     parTimeSeconds: 120,
   };

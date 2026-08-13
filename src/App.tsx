@@ -165,7 +165,7 @@ function LegacyApp() {
         <br />
         {grid.dimensions.width} × {grid.dimensions.height} × {grid.dimensions.depth} cells
         <br />
-        Hold click to spray unlimited water · T thermal · F scan
+        Hold click to spray unlimited water · T thermal
         <br />Q / E rotate · wheel zoom · WASD / middle-drag pan
         <label className="style-switcher">
           <span>Visual style</span>

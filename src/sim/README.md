@@ -14,9 +14,8 @@ This folder still documents the shipped M2 implementation. M3 keeps the core
 heat, spread, fuel, material, deterministic-tick, and water-application model,
 but changes supporting systems to match `docs/game-direction.md`: exterior-only
 quests, one active quest at a time, unlimited water, no foam selection or supply
-gates, no civilians or rescue at all, and cosmetic collapse. Do not preserve an M2
-mechanic
-merely because it currently lives in `src/sim/`.
+gates, and cosmetic collapse. Do not preserve an M2 mechanic merely because it
+currently lives in `src/sim/`.
 
 ## What lives here
 
@@ -28,8 +27,6 @@ merely because it currently lives in `src/sim/`.
 - District loading, drivability validation, and quest-site rotation (#90)
 - Burnable subjects, exterior shells, and quest loading (#91)
 - Fire signal: how big a fire reads and what colour its smoke is (#92)
-- Civilian exposure, evacuation, carrying, rescue, and loss (#69)
-- Smoke-obscured civilian search and thermal discovery (#70)
 - Propane heating, cooling, countdown, and blast effects (#71)
 - Foam suppression and per-agent material responses (#72)
 - Telegraphed structural warning and collapse propagation (#73)
@@ -139,36 +136,23 @@ accept old capacity values temporarily, but ignore them; hydrants are optional
 data-only props and never gate suppression. Do not reconnect these legacy inputs
 to controller state, rendering, or the HUD.
 
-The following civilian, search, hazard, and collapse paragraphs describe M2
-behaviour that is being removed, not retuned. M3 **deletes** `civilians.ts` and
-`search.ts` entirely — there is no rescue verb in the target game (#97) — decouples
-hazards from civilians (#104), and makes collapse cosmetic (#98). Read them as a
-record of what is going away.
-
-`civilians.ts` owns plain civilian records and advances them on the same
-simulated clock as fire. Until smoke becomes its own volume, exposure derives
-from the occupied cell's heat and fire state. Conscious civilians descend and
-take a deterministic nearest route to a ground-floor perimeter exit;
-unconscious civilians stop, can be picked up, move with a `0.6` carry
-multiplier, and become rescued only when dropped at an exit. Rendering and
-grading consume these outcomes but do not define them.
-
-`search.ts` keeps discovery independent from presentation. A civilian starts
-unlocated, dense smoke derived from the occupied cell blocks a normal scan,
-and thermal mode permits the same explicit scan through smoke. Located status
-is permanent for the incident. The nearest conscious, unlocated civilian can
-also produce a distance-scaled search cue for the audio host.
+Fire burns things, never people. #97 deleted the two modules that modelled
+people at an incident, along with every marker, readout, audio cue, and score
+component that fed on them; search went with them because finding people was the
+only thing it ever did. Nothing the fire can hurt belongs in this folder — see
+ADR-006 and `docs/game-direction.md` before adding an entity to an incident. The
+hazard and collapse paragraphs below still describe M2 behaviour that is being
+made cosmetic (#98), not retuned.
 
 `hazards.ts` advances authored propane hazards on the fixed simulation clock.
 The occupied cell heats the tank; crossing the warning threshold begins a
 resettable countdown, while delivered water cools it. Expiry emits one incident
-event, ignites the blast radius, destroys nearby combustible cells, and marks
-affected civilians lost. Because player health is not modelled yet, the event
-records whether the current nozzle anchor was inside the blast radius.
+event, ignites the blast radius, and destroys nearby combustible cells. Because
+player health is not modelled yet, the event records whether the current nozzle anchor was inside the blast radius.
 
 `structuralCollapse.ts` treats the cell directly below as column support. A
 support burning below 25% fuel starts a warning; once support is gone, the
 three-second countdown advances before a permanent `Collapsed` state. Cells
 resolve bottom-up, so one drop can warn or drop the next floor. Collapse blocks
-the cell, moves contents down one level, loses civilians caught inside, and
-emits separate warning and impact events.
+the cell, moves hazards down one level, and emits separate warning and impact
+events.

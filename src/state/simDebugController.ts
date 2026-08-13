@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { CellState, type GridPosition } from '@sim/cellGrid';
+import { CellState } from '@sim/cellGrid';
 import {
   DEFAULT_FIRE_SIMULATION_TUNING,
   FIRE_TICK_SECONDS,
@@ -21,15 +21,6 @@ import {
   SuppressionAgent,
   type WaterApplicationResult,
 } from '@sim/waterApplication';
-import {
-  advanceCivilians,
-  CivilianState,
-  createCivilianSimulation,
-  dropCarriedCivilian,
-  moveCivilianCarrier,
-  pickUpCivilian,
-  type CivilianSimulationState,
-} from '@sim/civilians';
 import { getIncidentNozzleGridPosition, type IncidentPoint } from '@sim/incidentPosition';
 import {
   advanceHazards,
@@ -39,12 +30,6 @@ import {
   type HazardSimulationState,
   type IncidentSimulationEvent,
 } from '@sim/hazards';
-import {
-  getCivilianSearchCue,
-  locateCivilian as locateSearchCivilian,
-  scanNearestCivilian as scanNearestSearchCivilian,
-  type CivilianSearchCue,
-} from '@sim/search';
 import {
   advanceStructuralCollapse,
   createStructuralSimulation,
@@ -92,7 +77,6 @@ export interface SimDebugSnapshot {
   /** Changes only when reset replaces the grid, never at simulation cadence. */
   scenarioVersion: number;
   waterUsedLitres: number;
-  civilians: CivilianSimulationState;
   hazards: HazardSimulationState;
   structures: StructuralSimulationState;
   thermalView: boolean;
@@ -110,14 +94,8 @@ export interface SimDebugController {
   stepOnce(): void;
   reset(seed?: number): void;
   resetWithNewSeed(): void;
-  pickUpCivilian(civilianId: string, carrierPosition: GridPosition): boolean;
-  moveCarriedCivilian(position: GridPosition): boolean;
-  dropCarriedCivilian(): boolean;
   toggleThermalView(): void;
   setThermalView(active: boolean): void;
-  locateCivilian(civilianId: string): boolean;
-  scanNearestCivilian(): string | null;
-  getCivilianSearchCue(): CivilianSearchCue | null;
   setSeed(seed: number): void;
   selectScenario(scenarioId: string): void;
   setSpeed(speed: number): void;
@@ -162,7 +140,6 @@ export function createSimDebugController(
   let incidentNozzlePosition: IncidentPoint = getIncidentNozzleGridPosition(
     initialState.grid.dimensions,
   );
-  let civilians = createCivilianSimulation(scenario.civilians);
   let hazards = createHazardSimulation(scenario.hazards);
   let structures = createStructuralSimulation();
   let thermalView = false;
@@ -181,7 +158,6 @@ export function createSimDebugController(
     lastTickDebug: null,
     scenarioVersion: 0,
     waterUsedLitres: 0,
-    civilians,
     hazards,
     structures,
     thermalView,
@@ -203,7 +179,6 @@ export function createSimDebugController(
 
   const sessionFields = () => ({
     waterUsedLitres,
-    civilians,
     hazards,
     structures,
     thermalView,
@@ -219,7 +194,6 @@ export function createSimDebugController(
 
     sessionStatus = nextStatus;
     const fire = runner.getState();
-    const civilianList = Object.values(civilians.civilians);
     const hazardList = Object.values(hazards.hazards);
     const baseDebrief = createSessionDebrief({
       scenarioId: scenario.id,
@@ -231,11 +205,6 @@ export function createSimDebugController(
       parTimeSeconds: scenario.parTimeSeconds,
       waterUsedLitres,
       foamUsedLitres: 0,
-      civilianTotal: civilianList.length,
-      civiliansRescued: civilianList.filter((civilian) => civilian.state === CivilianState.Rescued)
-        .length,
-      civiliansLost: civilianList.filter((civilian) => civilian.state === CivilianState.Lost)
-        .length,
       hazardTotal: hazardList.length,
       hazardsFailed: hazardList.filter((hazard) => hazard.state === PropaneHazardState.Failed)
         .length,
@@ -367,7 +336,6 @@ export function createSimDebugController(
           const structuralEvents = advanceStructuralCollapse(
             structures,
             runner.getState(),
-            civilians,
             hazards,
             incidentNozzlePosition,
             simulatedInterval,
@@ -376,9 +344,6 @@ export function createSimDebugController(
             hostStateChanged = true;
             runner.setState(runner.getState());
             notifyEvents(structuralEvents);
-          }
-          if (advanceCivilians(civilians, runner.getState().grid, simulatedInterval)) {
-            hostStateChanged = true;
           }
           elapsedScenarioSeconds += simulatedInterval;
           finishSessionIfNeeded();
@@ -410,7 +375,6 @@ export function createSimDebugController(
         const structuralEvents = advanceStructuralCollapse(
           structures,
           runner.getState(),
-          civilians,
           hazards,
           incidentNozzlePosition,
           FIRE_TICK_SECONDS,
@@ -420,9 +384,6 @@ export function createSimDebugController(
           runner.setState(runner.getState());
           notifyEvents(structuralEvents);
         }
-        if (advanceCivilians(civilians, runner.getState().grid, FIRE_TICK_SECONDS)) {
-          hostStateChanged = true;
-        }
         elapsedScenarioSeconds += FIRE_TICK_SECONDS;
         finishSessionIfNeeded();
         return 1;
@@ -431,7 +392,6 @@ export function createSimDebugController(
     reset: (seed = store.getState().simulation.seed) => {
       runner.reset(createScenarioState(scenario, seed, runner.getTuning()));
       incidentNozzlePosition = getIncidentNozzleGridPosition(runner.getState().grid.dimensions);
-      civilians = createCivilianSimulation(scenario.civilians);
       hazards = createHazardSimulation(scenario.hazards);
       structures = createStructuralSimulation();
       thermalView = false;
@@ -452,21 +412,6 @@ export function createSimDebugController(
     resetWithNewSeed: () => {
       controller.reset(nextScenarioSeed(store.getState().simulation.seed));
     },
-    pickUpCivilian: (civilianId, carrierPosition) => {
-      const changed = pickUpCivilian(civilians, civilianId, carrierPosition);
-      if (changed) publishRunnerState();
-      return changed;
-    },
-    moveCarriedCivilian: (position) => {
-      const changed = moveCivilianCarrier(civilians, runner.getState().grid, position);
-      if (changed) publishRunnerState();
-      return changed;
-    },
-    dropCarriedCivilian: () => {
-      const changed = dropCarriedCivilian(civilians, runner.getState().grid) !== null;
-      if (changed) publishRunnerState();
-      return changed;
-    },
     toggleThermalView: () => {
       thermalView = !thermalView;
       store.setState(sessionFields());
@@ -475,27 +420,6 @@ export function createSimDebugController(
       thermalView = active;
       store.setState(sessionFields());
     },
-    locateCivilian: (civilianId) => {
-      const changed = locateSearchCivilian(
-        civilians,
-        runner.getState().grid,
-        civilianId,
-        thermalView,
-      );
-      if (changed) publishRunnerState();
-      return changed;
-    },
-    scanNearestCivilian: () => {
-      const civilian = scanNearestSearchCivilian(
-        civilians,
-        runner.getState().grid,
-        incidentNozzlePosition,
-        thermalView,
-      );
-      if (civilian) publishRunnerState();
-      return civilian?.id ?? null;
-    },
-    getCivilianSearchCue: () => getCivilianSearchCue(civilians, incidentNozzlePosition),
     setSeed: (seed) => {
       controller.reset(seed);
     },
@@ -503,7 +427,6 @@ export function createSimDebugController(
       scenario = getScenario(scenarioId);
       runner.reset(createScenarioState(scenario, scenario.seed, runner.getTuning()));
       incidentNozzlePosition = getIncidentNozzleGridPosition(runner.getState().grid.dimensions);
-      civilians = createCivilianSimulation(scenario.civilians);
       hazards = createHazardSimulation(scenario.hazards);
       structures = createStructuralSimulation();
       thermalView = false;

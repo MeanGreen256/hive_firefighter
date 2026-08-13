@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useStore } from 'zustand';
-import { CivilianState } from '@sim/civilians';
 import { getMostUrgentHazard, PropaneHazardState } from '@sim/hazards';
 import { simDebugController } from '../state/simDebugController';
 
@@ -13,38 +12,23 @@ function isEditableTarget(target: EventTarget | null): boolean {
 
 export function IncidentHud() {
   const snapshot = useStore(simDebugController.store);
-  const [searchStatus, setSearchStatus] = useState('Scan ready');
-  const civilians = Object.values(snapshot.civilians.civilians);
   const hazards = Object.values(snapshot.hazards.hazards);
   const structuralWarnings = Object.values(snapshot.structures.warnings).sort(
     (left, right) =>
       left.remainingSeconds - right.remainingSeconds || left.cellId.localeCompare(right.cellId),
   );
-  const located = civilians.filter((civilian) => civilian.located).length;
-  const searchable = civilians.filter(
-    (civilian) =>
-      !civilian.located &&
-      civilian.state !== CivilianState.Rescued &&
-      civilian.state !== CivilianState.Lost,
-  ).length;
   const urgentHazard = getMostUrgentHazard(snapshot.hazards);
-
-  const scan = useCallback((): void => {
-    const civilianId = simDebugController.scanNearestCivilian();
-    setSearchStatus(civilianId ? `Located · ${civilianId}` : 'No visible signature');
-  }, []);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent): void => {
       if (event.repeat || isEditableTarget(event.target)) return;
       if (event.code === 'KeyT') simDebugController.toggleThermalView();
-      if (event.code === 'KeyF') scan();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [scan]);
+  }, []);
 
-  if (civilians.length === 0 && hazards.length === 0 && structuralWarnings.length === 0) {
+  if (hazards.length === 0 && structuralWarnings.length === 0) {
     return null;
   }
   const structuralWarning = structuralWarnings[0] ?? null;
@@ -58,25 +42,6 @@ export function IncidentHud() {
 
   return (
     <aside className={`incident-tools${snapshot.thermalView ? ' incident-tools--thermal' : ''}`}>
-      {civilians.length > 0 ? (
-        <section aria-label="Civilian search">
-          <header>
-            <span>Search</span>
-            <output>
-              {located} / {civilians.length} located
-            </output>
-          </header>
-          <p>{searchStatus}</p>
-          <div className="incident-tools__actions">
-            <button type="button" onClick={() => simDebugController.toggleThermalView()}>
-              Thermal {snapshot.thermalView ? 'on' : 'off'} · T
-            </button>
-            <button type="button" disabled={searchable === 0} onClick={scan}>
-              Scan · F
-            </button>
-          </div>
-        </section>
-      ) : null}
       {urgentHazard && hazardStatus ? (
         <section aria-label="Propane hazard">
           <header>

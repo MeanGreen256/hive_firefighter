@@ -10,7 +10,6 @@ import {
 import type { FireSimulationState } from '@sim/fireSimulation';
 import type { WaterApplicationResult } from '@sim/waterApplication';
 import { getMostUrgentHazard, PropaneHazardState, type HazardSimulationState } from '@sim/hazards';
-import type { CivilianSearchCue } from '@sim/search';
 import type { StructuralSimulationState } from '@sim/structuralCollapse';
 
 export interface FireAudioSnapshot {
@@ -74,7 +73,6 @@ export function createFireAudioSystem(
   let latestMix = getFireAudioMix(0);
   let sirenActive = false;
   let nextWaterHissTime = 0;
-  let nextCivilianCueTime = 0;
   let nextPropanePulseTime = 0;
   let nextCollapseCreakTime = 0;
 
@@ -227,17 +225,9 @@ export function createFireAudioSystem(
       latestMix = getFireAudioMix(calculateFireIntensity(state));
       applyMix();
     },
-    syncIncident: (
-      searchCue: CivilianSearchCue | null,
-      hazards: HazardSimulationState,
-      structures: StructuralSimulationState,
-    ): void => {
+    syncIncident: (hazards: HazardSimulationState, structures: StructuralSimulationState): void => {
       if (!context) return;
       const now = context.currentTime;
-      if (searchCue && now >= nextCivilianCueTime) {
-        playNoiseBurst(1450, 0.09, searchCue.level);
-        nextCivilianCueTime = now + searchCue.intervalSeconds;
-      }
       const urgent = getMostUrgentHazard(hazards);
       if (urgent?.state === PropaneHazardState.Countdown && now >= nextPropanePulseTime) {
         playNoiseBurst(760, 0.1, 0.28);

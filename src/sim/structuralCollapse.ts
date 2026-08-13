@@ -1,6 +1,5 @@
 import { CellState, cellIdAt, type Cell, type GridPosition } from './cellGrid';
 import type { FireSimulationState } from './fireSimulation';
-import { CivilianState, type CivilianSimulationState } from './civilians';
 import type { HazardSimulationState } from './hazards';
 import type { IncidentPoint } from './incidentPosition';
 
@@ -34,7 +33,6 @@ export interface CellCollapsedEvent {
   readonly cellId: string;
   readonly supportCellId: string;
   readonly destination: GridPosition;
-  readonly lostCivilianIds: readonly string[];
   readonly fallenHazardIds: readonly string[];
   readonly playerAffected: boolean;
 }
@@ -68,7 +66,6 @@ function sameCell(left: IncidentPoint, right: GridPosition): boolean {
 function collapseCell(
   state: StructuralSimulationState,
   fire: FireSimulationState,
-  civilians: CivilianSimulationState,
   hazards: HazardSimulationState,
   playerPosition: IncidentPoint,
   cell: Cell,
@@ -82,25 +79,6 @@ function collapseCell(
   delete state.warnings[cell.id];
 
   const destination = { ...cell.gridPos, y: Math.max(0, cell.gridPos.y - 1) };
-  const lostCivilianIds: string[] = [];
-  for (const civilian of Object.values(civilians.civilians)) {
-    if (
-      cellIdAt(civilian.position) !== cell.id ||
-      civilian.state === CivilianState.Rescued ||
-      civilian.state === CivilianState.Lost
-    ) {
-      continue;
-    }
-    civilian.position = { ...destination };
-    civilian.state = CivilianState.Lost;
-    civilian.carried = false;
-    lostCivilianIds.push(civilian.id);
-    if (civilians.carriedCivilianId === civilian.id) {
-      civilians.carriedCivilianId = null;
-      civilians.carrierPosition = null;
-    }
-  }
-
   const fallenHazardIds: string[] = [];
   for (const hazard of Object.values(hazards.hazards)) {
     if (cellIdAt(hazard.position) !== cell.id) continue;
@@ -113,7 +91,6 @@ function collapseCell(
     cellId: cell.id,
     supportCellId,
     destination,
-    lostCivilianIds,
     fallenHazardIds,
     playerAffected: sameCell(playerPosition, cell.gridPos),
   };
@@ -123,7 +100,6 @@ function collapseCell(
 export function advanceStructuralCollapse(
   state: StructuralSimulationState,
   fire: FireSimulationState,
-  civilians: CivilianSimulationState,
   hazards: HazardSimulationState,
   playerPosition: IncidentPoint,
   elapsedSeconds: number,
@@ -165,9 +141,7 @@ export function advanceStructuralCollapse(
       warning.remainingSeconds = Math.max(0, warning.remainingSeconds - elapsedSeconds);
     }
     if (isUnsupported(support) && warning.remainingSeconds === 0) {
-      events.push(
-        collapseCell(state, fire, civilians, hazards, playerPosition, cell, supportCellId),
-      );
+      events.push(collapseCell(state, fire, hazards, playerPosition, cell, supportCellId));
     }
   }
 

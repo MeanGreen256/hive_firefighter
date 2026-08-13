@@ -20,7 +20,6 @@
     "direction": { "x": 1, "y": 0, "z": 0 },
     "strength": 0.15
   },
-  "civilians": [{ "id": "civilian-a", "position": { "x": 1, "y": 2, "z": 1 } }],
   "hazards": [{ "id": "propane-a", "type": "propane", "position": { "x": 3, "y": 1, "z": 1 } }],
   "hydrants": [{ "id": "street-hydrant", "position": { "x": -1, "y": 0, "z": 1 } }],
   "parTimeSeconds": 180

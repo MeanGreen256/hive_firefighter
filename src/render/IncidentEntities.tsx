@@ -2,18 +2,12 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useStore } from 'zustand';
 import type { Group } from 'three';
-import type { Civilian } from '@sim/civilians';
 import { PROPANE_COUNTDOWN_SECONDS, PropaneHazardState, type PropaneHazard } from '@sim/hazards';
 import { COLLAPSE_WARNING_SECONDS, type StructuralWarning } from '@sim/structuralCollapse';
 import type { Style } from '@styles/styles';
 import { simDebugController } from '../state/simDebugController';
 import { CELL_HEIGHT, CELL_SIZE, type Vector3Tuple } from './buildingLayout';
 import { getCellWorldPosition } from './hoseTargeting';
-import {
-  CIVILIAN_MARKER_SIGNATURES,
-  CivilianMarkerKind,
-  getCivilianMarkerKind,
-} from './incidentMarkers';
 
 function MarkerCross({ color, outline }: { readonly color: string; readonly outline: string }) {
   return (
@@ -41,106 +35,6 @@ function MarkerCross({ color, outline }: { readonly color: string; readonly outl
           </mesh>
         </group>
       ))}
-    </group>
-  );
-}
-
-function CivilianMarker({
-  civilian,
-  kind,
-  position,
-  visualStyle,
-}: {
-  readonly civilian: Civilian;
-  readonly kind: CivilianMarkerKind;
-  readonly position: Vector3Tuple;
-  readonly visualStyle: Style;
-}) {
-  const signature = CIVILIAN_MARKER_SIGNATURES[kind];
-  const color = visualStyle.incidentMarkers.civilian[kind];
-  const outline = visualStyle.incidentMarkers.outline;
-  const throughSmoke = kind === CivilianMarkerKind.Thermal;
-  const prone = signature.pose === 'prone';
-  const raised = signature.pose === 'raised';
-  const bodyY = raised ? CELL_HEIGHT * 0.42 : prone ? CELL_HEIGHT * 0.08 : CELL_HEIGHT * 0.2;
-
-  return (
-    <group
-      name={`civilian-${civilian.id}-${kind}`}
-      position={[position[0], position[1] + bodyY, position[2]]}
-    >
-      <group rotation={[0, 0, prone ? Math.PI / 2 : 0]}>
-        <mesh castShadow={!throughSmoke}>
-          <capsuleGeometry args={[CELL_SIZE * 0.085, CELL_HEIGHT * 0.25, 4, 8]} />
-          <meshBasicMaterial
-            color={color}
-            depthTest={false}
-            depthWrite={false}
-            transparent
-            opacity={throughSmoke ? 0.84 : 0.96}
-            toneMapped={false}
-          />
-        </mesh>
-        <mesh position={[0, CELL_HEIGHT * 0.21, 0]}>
-          <sphereGeometry args={[CELL_SIZE * 0.105, 10, 8]} />
-          <meshBasicMaterial
-            color={color}
-            depthTest={false}
-            depthWrite={false}
-            transparent
-            opacity={throughSmoke ? 0.84 : 0.96}
-            toneMapped={false}
-          />
-        </mesh>
-        <mesh scale={1.08}>
-          <capsuleGeometry args={[CELL_SIZE * 0.085, CELL_HEIGHT * 0.25, 4, 8]} />
-          <meshBasicMaterial
-            color={outline}
-            depthTest={false}
-            depthWrite={false}
-            wireframe
-            transparent
-            opacity={0.88}
-            toneMapped={false}
-          />
-        </mesh>
-      </group>
-
-      {signature.badge === 'thermal-ring' ? (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[CELL_SIZE * 0.24, CELL_SIZE * 0.025, 4, 16]} />
-          <meshBasicMaterial
-            color={outline}
-            depthTest={false}
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </mesh>
-      ) : null}
-      {signature.badge === 'status-ring' ? (
-        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, -CELL_HEIGHT * 0.19, 0]}>
-          <torusGeometry args={[CELL_SIZE * 0.22, CELL_SIZE * 0.035, 4, 8]} />
-          <meshBasicMaterial
-            color={color}
-            depthTest={false}
-            depthWrite={false}
-            toneMapped={false}
-          />
-        </mesh>
-      ) : null}
-      {signature.badge === 'carry-diamond' ? (
-        <mesh rotation={[0, 0, Math.PI / 4]}>
-          <octahedronGeometry args={[CELL_SIZE * 0.3, 0]} />
-          <meshBasicMaterial
-            color={outline}
-            depthTest={false}
-            depthWrite={false}
-            wireframe
-            toneMapped={false}
-          />
-        </mesh>
-      ) : null}
-      {signature.badge === 'cross' ? <MarkerCross color={color} outline={outline} /> : null}
     </group>
   );
 }
@@ -297,28 +191,13 @@ function CollapseWarningMarker({
   );
 }
 
-/** Accessible shape-first marks for M2 civilians, hazards, and collapse warnings. */
+/** Accessible shape-first marks for M2 hazards and collapse warnings. */
 export function IncidentEntities({ visualStyle }: { readonly visualStyle: Style }) {
   useStore(simDebugController.store, (snapshot) => snapshot.simulationRevision);
-  const { simulation, civilians, hazards, structures, thermalView } =
-    simDebugController.store.getState();
+  const { simulation, hazards, structures } = simDebugController.store.getState();
 
   return (
     <group name="incident-entities">
-      {Object.values(civilians.civilians).map((civilian) => {
-        const kind = getCivilianMarkerKind(civilian, thermalView);
-        if (!kind) return null;
-        const position = getCellWorldPosition(civilian.position, simulation.grid.dimensions);
-        return (
-          <CivilianMarker
-            key={civilian.id}
-            civilian={civilian}
-            kind={kind}
-            position={position}
-            visualStyle={visualStyle}
-          />
-        );
-      })}
       {Object.values(hazards.hazards).map((hazard) => (
         <PropaneMarker
           key={hazard.id}
