@@ -1,14 +1,6 @@
-import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { getMostUrgentHazard, PropaneHazardState } from '@sim/hazards';
 import { simDebugController } from '../state/simDebugController';
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName))
-  );
-}
 
 export function IncidentHud() {
   const snapshot = useStore(simDebugController.store);
@@ -18,15 +10,6 @@ export function IncidentHud() {
       left.remainingSeconds - right.remainingSeconds || left.cellId.localeCompare(right.cellId),
   );
   const urgentHazard = getMostUrgentHazard(snapshot.hazards);
-
-  useEffect(() => {
-    const handleKey = (event: KeyboardEvent): void => {
-      if (event.repeat || isEditableTarget(event.target)) return;
-      if (event.code === 'KeyT') simDebugController.toggleThermalView();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, []);
 
   if (hazards.length === 0 && structuralWarnings.length === 0) {
     return null;
@@ -41,7 +24,7 @@ export function IncidentHud() {
         : `Stable · ${urgentHazard.heat.toFixed(0)} heat`;
 
   return (
-    <aside className={`incident-tools${snapshot.thermalView ? ' incident-tools--thermal' : ''}`}>
+    <aside className="incident-tools">
       {urgentHazard && hazardStatus ? (
         <section aria-label="Propane hazard">
           <header>

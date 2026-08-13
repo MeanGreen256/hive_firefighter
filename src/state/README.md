@@ -31,9 +31,9 @@ timestep runner and exposes transport/tuning actions without placing functions
 or browser APIs inside the JSON-safe simulation state.
 
 The same controller is the incident host: it owns water-use telemetry, elapsed
-scenario time, end-state detection, immutable debrief snapshot, thermal view
-mode, propane hazard state, structural warning state, and the same-seed retry
-loop. It is the mutation boundary for unlimited water application, hazard
+scenario time, end-state detection, immutable debrief snapshot, propane hazard
+state, structural warning state, and the same-seed retry loop. It is the mutation
+boundary for unlimited water application, hazard
 cooling, and collapse host effects. Fire and incident events share one
 subscription stream so audio can react without entering the simulation.
 `sessionStats.ts` keeps fuel-mass, hazard, and par-time grading pure so the UI

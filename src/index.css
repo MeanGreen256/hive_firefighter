@@ -43,10 +43,6 @@ canvas {
   filter: saturate(var(--scene-saturation));
 }
 
-.scene--thermal canvas {
-  filter: saturate(0.18) contrast(1.45) brightness(0.68);
-}
-
 .scene::after {
   position: absolute;
   inset: 0;

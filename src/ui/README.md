@@ -9,8 +9,8 @@ must work without required reading. It points
 to exactly one active quest, provides one point-and-hold water action, and awards
 1–3 stars with positive feedback. Tank bars, foam selection, manual hookup,
 tether warnings, hydrant refill, and every people-related readout have been
-removed (#97). Thermal view, harmful outcomes, and A–F grading below are
-remaining legacy M2 controls scheduled for removal.
+removed (#97). Harmful outcomes and A–F grading below are remaining legacy M2
+behaviour scheduled for removal.
 See `docs/game-direction.md`, ADR-006, and ADR-007 for the control floor.
 
 ## What lives here
@@ -37,8 +37,8 @@ control. Holding the hose input always sprays water. The controller retains
 water-use telemetry for later child-friendly results, but that value never gates
 the action.
 
-`IncidentHud` exposes the hazard loop without simulating it. `T` still toggles
-thermal view, which #105 retires. The panel announces propane warning state and
+`IncidentHud` exposes the hazard loop without simulating it. The panel announces
+propane warning state and
 presents the active countdown as accessible progress. It also announces the most urgent
 structural warning and its remaining telegraph time.
 
