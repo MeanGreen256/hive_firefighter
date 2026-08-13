@@ -22,6 +22,19 @@ export interface FollowCameraPose {
 
 export const MIN_FOLLOW_PITCH_RADIANS = (-10 * Math.PI) / 180;
 export const MAX_FOLLOW_PITCH_RADIANS = (65 * Math.PI) / 180;
+export const CHASE_CAMERA_SPEED_PULLBACK = 3.25;
+
+/** Adds a modest pullback at speed without changing the shoulder profile. */
+export function getSpeedReactiveFollowDistance(
+  profile: FollowCameraProfileId,
+  speedRatio: number,
+): number {
+  const normalizedSpeed = Math.min(1, Math.max(0, speedRatio));
+  return (
+    FOLLOW_CAMERA_PROFILES[profile].distance +
+    (profile === 'chase' ? CHASE_CAMERA_SPEED_PULLBACK * normalizedSpeed : 0)
+  );
+}
 
 export const FOLLOW_CAMERA_PROFILES = Object.freeze({
   chase: Object.freeze({

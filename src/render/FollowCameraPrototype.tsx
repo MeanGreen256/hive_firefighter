@@ -8,22 +8,22 @@ import {
 } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useStore } from 'zustand';
-import { Vector3, type Group } from 'three';
+import type { Group } from 'three';
+import { fireAudioSystem } from '../audio/fireAudioSystem';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import { AudioControls } from '@ui/AudioControls';
 import { AnchoredHoseEffects, type HoseBurnTarget } from './AnchoredHoseEffects';
 import { FirefighterController } from './FirefighterController';
 import { FollowCameraRig } from './FollowCameraRig';
+import { ArcadeTruck } from './ArcadeTruck';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
-import type { FollowCameraProfileId } from './followCamera';
+import { getSafeDismountPose, isWithinBoardingRange, type PlayerMode } from './mountDismount';
 
-const PROXY_MOVE_SPEED = 4.5;
-const PROXY_TURN_SPEED = 2.2;
 const PROTOTYPE_BOUNDS = 12;
 const TRUCK_START = [-4, 0, 1] as const;
-const FIREFIGHTER_START = [4, 0, -1] as const;
-const FIREFIGHTER_MOVEMENT_BOUNDS: CharacterMovementBounds = {
+const TRUCK_START_YAW = -0.35;
+const MOVEMENT_BOUNDS: CharacterMovementBounds = {
   minX: -PROTOTYPE_BOUNDS,
   maxX: PROTOTYPE_BOUNDS,
   minZ: -PROTOTYPE_BOUNDS,
@@ -42,7 +42,6 @@ const PROTOTYPE_OBSTACLES: readonly CharacterObstacle[] = PROTOTYPE_BUILDINGS.ma
     maxZ: z + depth / 2,
   }),
 );
-/** One exterior flame point per prototype building — the #93 acceptance target. */
 const HOSE_BURN_TARGETS: readonly HoseBurnTarget[] = PROTOTYPE_BUILDINGS.map((building) => ({
   id: building.id,
   position: [
@@ -66,103 +65,46 @@ interface HudCssVariables extends CSSProperties {
   '--hud-control': string;
 }
 
-function TruckProxy({
-  targetRef,
-  visualStyle,
-}: {
-  targetRef: RefObject<Group | null>;
-  visualStyle: Style;
-}) {
-  return (
-    <group ref={targetRef} position={TRUCK_START} rotation={[0, -0.35, 0]}>
-      <mesh position={[0, 0.65, 0]} castShadow>
-        <boxGeometry args={[1.7, 1.05, 3.4]} />
-        <meshStandardMaterial color={visualStyle.hud.warning} roughness={0.72} />
-      </mesh>
-      <mesh position={[0, 1.25, -0.85]} castShadow>
-        <boxGeometry args={[1.55, 0.7, 1.25]} />
-        <meshStandardMaterial color={visualStyle.hud.warning} roughness={0.72} />
-      </mesh>
-      {[-0.92, 0.92].flatMap((z) =>
-        [-0.9, 0.9].map((x) => (
-          <mesh key={`${x}-${z}`} position={[x * 0.76, 0.32, z]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.34, 0.34, 0.22, 12]} />
-            <meshStandardMaterial color={visualStyle.hud.text} roughness={0.9} />
-          </mesh>
-        )),
-      )}
-    </group>
-  );
+interface PrototypeWorldProps {
+  readonly visualStyle: Style;
+  readonly mode: PlayerMode;
+  readonly sirenOn: boolean;
+  readonly truckRef: RefObject<Group | null>;
+  readonly firefighterRef: RefObject<Group | null>;
+  readonly truckSpeedRatio: RefObject<number>;
+  readonly onBoardingRangeChange: (canBoard: boolean) => void;
 }
 
 function PrototypeWorld({
   visualStyle,
-  profile,
-}: {
-  visualStyle: Style;
-  profile: FollowCameraProfileId;
-}) {
-  const truckRef = useRef<Group>(null);
-  const firefighterRef = useRef<Group>(null);
+  mode,
+  sirenOn,
+  truckRef,
+  firefighterRef,
+  truckSpeedRatio,
+  onBoardingRangeChange,
+}: PrototypeWorldProps) {
   const collisionRoot = useRef<Group>(null);
-  const heldKeys = useRef(new Set<string>());
-  const forward = useRef(new Vector3());
-  const activeTarget = profile === 'chase' ? truckRef : firefighterRef;
-
-  useEffect(() => {
-    if (profile !== 'chase') {
-      heldKeys.current.clear();
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
-      ) {
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
-        event.preventDefault();
-        heldKeys.current.add(key);
-      }
-    };
-    const handleKeyUp = (event: KeyboardEvent) => heldKeys.current.delete(event.key.toLowerCase());
-    const clearKeys = () => heldKeys.current.clear();
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('blur', clearKeys);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('blur', clearKeys);
-    };
-  }, [profile]);
+  const lastCanBoard = useRef(false);
+  const boardingCheckElapsed = useRef(0);
+  const profile = mode === 'driving' ? 'chase' : 'shoulder';
+  const activeTarget = mode === 'driving' ? truckRef : firefighterRef;
 
   useFrame((_state, delta) => {
-    const subject = activeTarget.current;
-    if (!subject) return;
-
-    const keys = heldKeys.current;
-    const turn = Number(keys.has('a')) - Number(keys.has('d'));
-    const move = Number(keys.has('w')) - Number(keys.has('s'));
-    subject.rotation.y += turn * PROXY_TURN_SPEED * delta;
-    if (move === 0) return;
-
-    forward.current.set(0, 0, -1).applyQuaternion(subject.quaternion).setY(0).normalize();
-    subject.position.addScaledVector(forward.current, move * PROXY_MOVE_SPEED * delta);
-    subject.position.x = Math.max(
-      -PROTOTYPE_BOUNDS,
-      Math.min(PROTOTYPE_BOUNDS, subject.position.x),
-    );
-    subject.position.z = Math.max(
-      -PROTOTYPE_BOUNDS,
-      Math.min(PROTOTYPE_BOUNDS, subject.position.z),
-    );
+    boardingCheckElapsed.current += delta;
+    if (boardingCheckElapsed.current < 0.1) return;
+    boardingCheckElapsed.current = 0;
+    const truck = truckRef.current;
+    const firefighter = firefighterRef.current;
+    const canBoard =
+      mode === 'on-foot' &&
+      truck !== null &&
+      firefighter !== null &&
+      isWithinBoardingRange(firefighter.position, truck.position);
+    if (canBoard !== lastCanBoard.current) {
+      lastCanBoard.current = canBoard;
+      onBoardingRangeChange(canBoard);
+    }
   });
 
   return (
@@ -175,19 +117,35 @@ function PrototypeWorld({
         color={visualStyle.palette.scene.sunlight}
         castShadow
       />
-      <FollowCameraRig target={activeTarget} profile={profile} collisionRoot={collisionRoot} />
-      <TruckProxy targetRef={truckRef} visualStyle={visualStyle} />
+      <FollowCameraRig
+        target={activeTarget}
+        profile={profile}
+        collisionRoot={collisionRoot}
+        speedRatio={truckSpeedRatio}
+      />
+      <ArcadeTruck
+        targetRef={truckRef}
+        visualStyle={visualStyle}
+        enabled={mode === 'driving'}
+        sirenOn={sirenOn}
+        obstacles={PROTOTYPE_OBSTACLES}
+        movementBounds={MOVEMENT_BOUNDS}
+        initialPosition={TRUCK_START}
+        initialYaw={TRUCK_START_YAW}
+        speedRatioRef={truckSpeedRatio}
+      />
       <FirefighterController
         targetRef={firefighterRef}
         visualStyle={visualStyle}
-        enabled={profile === 'shoulder'}
+        enabled={mode === 'on-foot'}
+        visible={mode === 'on-foot'}
         obstacles={PROTOTYPE_OBSTACLES}
-        initialPosition={FIREFIGHTER_START}
-        movementBounds={FIREFIGHTER_MOVEMENT_BOUNDS}
+        initialPosition={TRUCK_START}
+        movementBounds={MOVEMENT_BOUNDS}
       />
       <AnchoredHoseEffects
         characterRef={firefighterRef}
-        enabled={profile === 'shoulder'}
+        enabled={mode === 'on-foot'}
         visualStyle={visualStyle}
         targets={HOSE_BURN_TARGETS}
       />
@@ -215,22 +173,63 @@ function PrototypeWorld({
   );
 }
 
-/** Development-only acceptance harness for the M3 camera and character controller. */
+/** Development acceptance harness for the complete drive, dismount, and hose-control seam. */
 export default function FollowCameraPrototype() {
-  const [profile, setProfile] = useState<FollowCameraProfileId>('chase');
+  const [mode, setMode] = useState<PlayerMode>('driving');
+  const [sirenOn, setSirenOn] = useState(true);
+  const [canBoard, setCanBoard] = useState(false);
+  const truckRef = useRef<Group>(null);
+  const firefighterRef = useRef<Group>(null);
+  const truckSpeedRatio = useRef(0);
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
   const visualStyle = STYLES[activeStyleId];
-  const switchSubject = useCallback(() => {
-    setProfile((current) => (current === 'chase' ? 'shoulder' : 'chase'));
-  }, []);
+
+  const transitionPlayer = useCallback(() => {
+    const truck = truckRef.current;
+    const firefighter = firefighterRef.current;
+    if (!truck || !firefighter) return;
+
+    if (mode === 'driving') {
+      const pose = getSafeDismountPose(
+        { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
+        PROTOTYPE_OBSTACLES,
+        MOVEMENT_BOUNDS,
+      );
+      firefighter.position.set(pose.x, 0, pose.z);
+      firefighter.rotation.y = pose.yaw;
+      setMode('on-foot');
+      setCanBoard(true);
+      return;
+    }
+
+    if (isWithinBoardingRange(firefighter.position, truck.position)) {
+      setMode('driving');
+      setCanBoard(false);
+    }
+  }, [mode]);
+
+  const toggleSiren = useCallback(() => setSirenOn((current) => !current), []);
+
+  useEffect(() => {
+    fireAudioSystem.setSirenActive(sirenOn);
+    return () => fireAudioSystem.setSirenActive(false);
+  }, [sirenOn]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === 'v' && !event.repeat) switchSubject();
+      if (event.repeat) return;
+      const key = event.key.toLowerCase();
+      if (key === 'e' && (mode === 'driving' || canBoard)) {
+        event.preventDefault();
+        transitionPlayer();
+      } else if (key === 'l') {
+        event.preventDefault();
+        toggleSiren();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [switchSubject]);
+  }, [canBoard, mode, toggleSiren, transitionPlayer]);
 
   const sceneCssVariables: SceneCssVariables = {
     '--scene-saturation': visualStyle.postProcessing.saturation,
@@ -245,32 +244,44 @@ export default function FollowCameraPrototype() {
     '--hud-control': visualStyle.hud.control,
   };
 
+  const boardingActionAvailable = mode === 'driving' || canBoard;
+  const actionLabel = mode === 'driving' ? 'Dismount' : canBoard ? 'Board truck' : 'Return to cab';
+
   return (
     <div className="app-shell" style={hudCssVariables}>
       <div className="scene" style={sceneCssVariables}>
         <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]}>
-          <PrototypeWorld visualStyle={visualStyle} profile={profile} />
+          <PrototypeWorld
+            visualStyle={visualStyle}
+            mode={mode}
+            sirenOn={sirenOn}
+            truckRef={truckRef}
+            firefighterRef={firefighterRef}
+            truckSpeedRatio={truckSpeedRatio}
+            onBoardingRangeChange={setCanBoard}
+          />
         </Canvas>
       </div>
       <div className="placard" role="status" aria-live="polite">
-        M3 movement prototype
+        M3 drive + dismount prototype
         <br />
-        <b>{profile === 'chase' ? 'Truck · chase camera' : 'Firefighter · shoulder camera'}</b>
+        <b>{mode === 'driving' ? 'Truck · chase camera' : 'Firefighter · shoulder camera'}</b>
         <br />
-        {profile === 'chase'
-          ? 'WASD moves and turns the truck'
-          : 'WASD / left stick moves · walk and run are automatic'}
-        <br />
-        Optional right-drag / right stick orbit · V switches subject
-        {profile === 'shoulder' ? (
-          <>
-            <br />
-            Point the character at the flame · hold space, left click, or a gamepad trigger to spray
-          </>
-        ) : null}
+        {mode === 'driving'
+          ? 'WASD / left stick drives · brake before reverse'
+          : 'WASD / left stick moves · point and hold to spray'}
+        <br />E boards or dismounts near the cab · L toggles siren + lights
         <div className="audio-controls">
-          <button type="button" onClick={switchSubject} aria-pressed={profile === 'shoulder'}>
-            Switch to {profile === 'chase' ? 'firefighter' : 'truck'}
+          <button
+            type="button"
+            onClick={transitionPlayer}
+            disabled={!boardingActionAvailable}
+            aria-label={actionLabel}
+          >
+            {actionLabel}
+          </button>
+          <button type="button" onClick={toggleSiren} aria-pressed={sirenOn}>
+            Siren + lights {sirenOn ? 'on' : 'off'}
           </button>
           <AudioControls />
         </div>

@@ -25,6 +25,7 @@ export type AudioContextFactory = () => AudioContext;
 interface FireVoices {
   crackleGains: readonly GainNode[];
   roarGain: GainNode;
+  sirenGain: GainNode;
 }
 
 function clampVolume(value: number): number {
@@ -71,6 +72,7 @@ export function createFireAudioSystem(
   let masterGain: GainNode | null = null;
   let voices: FireVoices | null = null;
   let latestMix = getFireAudioMix(0);
+  let sirenActive = false;
   let nextWaterHissTime = 0;
   let nextCivilianCueTime = 0;
   let nextPropanePulseTime = 0;
@@ -105,6 +107,25 @@ export function createFireAudioSystem(
       scheduleGain(gain, latestMix.crackleGains[index] ?? 0, now),
     );
     scheduleGain(voices.roarGain, latestMix.roarGain, now);
+    scheduleGain(voices.sirenGain, sirenActive ? 0.08 : 0, now);
+  };
+
+  const makeSiren = (output: AudioNode): GainNode => {
+    if (!context) throw new Error('Audio context is unavailable');
+    const oscillator = context.createOscillator();
+    oscillator.type = 'sawtooth';
+    oscillator.frequency.value = 760;
+    const lfo = context.createOscillator();
+    lfo.frequency.value = 0.55;
+    const lfoDepth = context.createGain();
+    lfoDepth.gain.value = 190;
+    const gain = context.createGain();
+    gain.gain.value = 0;
+    lfo.connect(lfoDepth).connect(oscillator.frequency);
+    oscillator.connect(gain).connect(output);
+    oscillator.start();
+    lfo.start();
+    return gain;
   };
 
   const initialize = (): void => {
@@ -118,6 +139,7 @@ export function createFireAudioSystem(
         makeLoop(3400, 0x3c4d5e6f, masterGain),
       ],
       roarGain: makeLoop(115, 0x4d5e6f70, masterGain),
+      sirenGain: makeSiren(masterGain),
     };
     applyMasterGain();
     applyMix();
@@ -191,6 +213,10 @@ export function createFireAudioSystem(
     setVolume: (volume: number): void => {
       store.setState({ volume: clampVolume(volume) });
       applyMasterGain();
+    },
+    setSirenActive: (active: boolean): void => {
+      sirenActive = active;
+      applyMix();
     },
     syncFire: (state: FireSimulationState): void => {
       latestMix = getFireAudioMix(calculateFireIntensity(state));
