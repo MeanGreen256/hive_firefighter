@@ -107,16 +107,16 @@
 }
 
 .debrief-panel > header {
-  display: flex;
+  display: grid;
+  justify-items: center;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  gap: 14px;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--hud-border);
+  text-align: center;
 }
 
-.debrief-panel header span,
-.debrief-breakdown h2 {
+.debrief-heading > span {
   color: var(--hud-muted);
   font-size: 10px;
   font-weight: 400;
@@ -140,21 +140,78 @@
   line-height: 1;
 }
 
-.debrief-panel header strong {
-  color: var(--hud-success);
-  font-size: clamp(54px, 16vw, 86px);
-  line-height: 0.8;
+.debrief-stars {
+  display: flex;
+  justify-content: center;
+  gap: clamp(8px, 3vw, 18px);
+  min-height: 74px;
 }
 
-.debrief-panel--warning header strong {
-  color: var(--hud-warning);
+.debrief-star {
+  color: var(--hud-muted);
+  font-size: clamp(52px, 14vw, 78px);
+  line-height: 0.9;
+  opacity: 0;
+  transform: translateY(18px) scale(0.3) rotate(-14deg);
+  animation: debrief-star-reveal 420ms cubic-bezier(0.2, 1.6, 0.4, 1) forwards;
+  animation-delay: var(--star-delay);
+}
+
+.debrief-star--earned {
+  color: var(--hud-success);
+  text-shadow: 0 5px 22px color-mix(in srgb, var(--hud-success) 38%, transparent);
+}
+
+@keyframes debrief-star-reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+.debrief-picture {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-control);
+}
+
+.debrief-picture__icon {
+  font-size: 32px;
+}
+
+.debrief-picture strong {
+  color: var(--hud-success);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.debrief-property-bar {
+  height: 20px;
+  overflow: hidden;
+  border: 2px solid var(--hud-border);
+  border-radius: 999px;
+  background: var(--hud-panel);
+}
+
+.debrief-property-bar span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left;
+  background: var(--hud-success);
+  transition: transform 600ms ease-out 620ms;
 }
 
 .debrief-summary {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 1px;
-  margin: 18px 0;
+  margin: 0 0 12px;
   background: var(--hud-border);
   border: 1px solid var(--hud-border);
 }
@@ -165,14 +222,10 @@
   background: var(--hud-control);
 }
 
-.debrief-summary div:last-child {
-  grid-column: 1 / -1;
-}
-
 .debrief-summary dt {
-  min-height: 24px;
+  min-height: 28px;
   color: var(--hud-muted);
-  font-size: 8px;
+  font-size: 20px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -182,26 +235,6 @@
   color: var(--hud-text);
   font-size: 17px;
   font-variant-numeric: tabular-nums;
-}
-
-.debrief-breakdown {
-  padding: 14px;
-  border: 1px solid var(--hud-border);
-}
-
-.debrief-breakdown h2 {
-  margin: 0 0 10px;
-}
-
-.debrief-breakdown div,
-.debrief-breakdown p {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0;
-  padding: 7px 0;
-  border-top: 1px solid var(--hud-border);
-  font-size: 11px;
 }
 
 .debrief-best {
@@ -251,22 +284,9 @@
   outline: none;
 }
 
-.debrief-breakdown output {
-  color: var(--hud-accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.debrief-breakdown p {
-  margin-top: 4px;
-  color: var(--hud-muted);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .debrief-panel footer {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-top: 18px;
 }
@@ -283,6 +303,12 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+.debrief-panel button.debrief-panel__primary {
+  border-color: var(--hud-accent);
+  background: var(--hud-accent);
+  color: var(--hud-panel);
 }
 
 .debrief-panel button:hover,
@@ -304,5 +330,17 @@
 
   .debrief-panel footer {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .debrief-star {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  .debrief-property-bar span {
+    transition: none;
   }
 }

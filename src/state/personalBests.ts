@@ -1,6 +1,6 @@
 import type { SessionBest, SessionDebrief } from './sessionStats';
 
-export const PERSONAL_BESTS_STORAGE_KEY = 'hive-firefighter:personal-bests:v1';
+export const PERSONAL_BESTS_STORAGE_KEY = 'hive-firefighter:personal-bests:v2';
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -8,7 +8,7 @@ export interface StorageLike {
 }
 
 interface PersistedPersonalBests {
-  readonly version: 1;
+  readonly version: 2;
   readonly records: Record<string, SessionBest>;
 }
 
@@ -26,7 +26,7 @@ function isSessionBest(value: unknown): value is SessionBest {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<SessionBest>;
   return (
-    ['A', 'B', 'C', 'D', 'F'].includes(candidate.grade ?? '') &&
+    [1, 2, 3].includes(candidate.stars ?? 0) &&
     Number.isInteger(candidate.overallScore) &&
     (candidate.overallScore ?? -1) >= 0 &&
     (candidate.overallScore ?? 101) <= 100 &&
@@ -41,7 +41,7 @@ function readRecords(storage: StorageLike | null): Record<string, SessionBest> {
     const raw = storage.getItem(PERSONAL_BESTS_STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Partial<PersistedPersonalBests>;
-    if (parsed.version !== 1 || typeof parsed.records !== 'object' || parsed.records === null) {
+    if (parsed.version !== 2 || typeof parsed.records !== 'object' || parsed.records === null) {
       return {};
     }
     return Object.fromEntries(
@@ -56,9 +56,11 @@ function readRecords(storage: StorageLike | null): Record<string, SessionBest> {
 
 function isBetter(candidate: SessionBest, incumbent: SessionBest): boolean {
   return (
-    candidate.overallScore > incumbent.overallScore ||
-    (candidate.overallScore === incumbent.overallScore &&
-      candidate.elapsedSeconds < incumbent.elapsedSeconds)
+    candidate.stars > incumbent.stars ||
+    (candidate.stars === incumbent.stars &&
+      (candidate.overallScore > incumbent.overallScore ||
+        (candidate.overallScore === incumbent.overallScore &&
+          candidate.elapsedSeconds < incumbent.elapsedSeconds)))
   );
 }
 
@@ -72,7 +74,7 @@ export function createPersonalBestStore(storage: StorageLike | null) {
       const key = recordKey(debrief.scenarioId, debrief.seed);
       const previousBest = records[key] ?? null;
       const candidate: SessionBest = {
-        grade: debrief.grade,
+        stars: debrief.stars,
         overallScore: debrief.scores.overall,
         elapsedSeconds: debrief.elapsedSeconds,
       };
@@ -82,7 +84,7 @@ export function createPersonalBestStore(storage: StorageLike | null) {
         try {
           storage.setItem(
             PERSONAL_BESTS_STORAGE_KEY,
-            JSON.stringify({ version: 1, records: { ...records, [key]: best } }),
+            JSON.stringify({ version: 2, records: { ...records, [key]: best } }),
           );
         } catch {
           // Storage can be unavailable or quota-limited. The run still completes.

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
 import { getQuestForSite } from '@sim/quests';
 import { createQuestFireController } from './questFireController';
+import { SessionStatus } from './sessionStats';
 
 function controllerFor(questSiteId: string) {
   const controller = createQuestFireController();
@@ -13,6 +14,10 @@ describe('quest fire controller', () => {
   it('starts empty and reports nothing until a quest is set', () => {
     const controller = createQuestFireController();
     expect(controller.store.getState().questId).toBeNull();
+    expect(controller.store.getState()).toMatchObject({
+      status: SessionStatus.Active,
+      debrief: null,
+    });
     expect(controller.getBurningCells()).toEqual([]);
     expect(controller.applyWater('0,0,0', 1)).toBeNull();
     expect(controller.advance(1)).toBe(0);
@@ -60,6 +65,10 @@ describe('quest fire controller', () => {
       controller.advance(0.1);
     }
     expect(controller.store.getState().extinguished).toBe(true);
+    expect(controller.store.getState()).toMatchObject({
+      status: SessionStatus.Contained,
+      debrief: { outcome: SessionStatus.Contained, stars: 3 },
+    });
   });
 
   it('ignores water aimed at a cell this fire does not have', () => {
@@ -81,5 +90,35 @@ describe('quest fire controller', () => {
     controller.restart();
     expect(controller.store.getState().burningCellCount).toBe(1);
     expect(controller.store.getState().elapsedSeconds).toBe(0);
+    expect(controller.store.getState().debrief).toBeNull();
+  });
+
+  it('turns a burned-out quest into a one-star scorched retry', () => {
+    const controller = controllerFor('bakery-awning');
+    const fire = controller.getFire();
+    const originalSeed = fire?.state.seed;
+    for (const cell of Object.values(fire?.state.grid.cells ?? {})) {
+      cell.state = CellState.Burnt;
+      cell.fuel = 0;
+    }
+
+    controller.advance(0.1);
+
+    expect(controller.store.getState()).toMatchObject({
+      status: SessionStatus.Scorched,
+      extinguished: false,
+      debrief: { outcome: SessionStatus.Scorched, stars: 1 },
+    });
+    expect(controller.advance(1)).toBe(0);
+
+    controller.restart();
+    expect(controller.getFire()?.state.seed).toBe(originalSeed);
+    expect(controller.store.getState()).toMatchObject({
+      status: SessionStatus.Active,
+      debrief: null,
+    });
+
+    controller.restartWithNewSeed();
+    expect(controller.getFire()?.state.seed).not.toBe(originalSeed);
   });
 });

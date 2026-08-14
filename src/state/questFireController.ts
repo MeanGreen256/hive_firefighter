@@ -10,6 +10,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { CellState } from '@sim/cellGrid';
 import {
+  calculatePropertySaved,
   createFixedTimestepRunner,
   type FireSimulationState,
   type FixedTimestepRunner,
@@ -22,6 +23,18 @@ import {
   type WaterApplicationResult,
 } from '@sim/waterApplication';
 import { reportSimTick } from '../perf/metrics';
+import {
+  createSessionDebrief,
+  getSessionStatus,
+  nextScenarioSeed,
+  SessionStatus,
+  type SessionDebrief,
+} from './sessionStats';
+import {
+  createPersonalBestStore,
+  getBrowserPersonalBestStorage,
+  type StorageLike,
+} from './personalBests';
 
 /** Cap on catch-up work after a stall, so a backgrounded tab cannot burn a city down. */
 const MAX_ADVANCE_SECONDS = 0.25;
@@ -37,6 +50,8 @@ export interface QuestFireSnapshot {
   readonly heatingCellCount: number;
   readonly extinguished: boolean;
   readonly elapsedSeconds: number;
+  readonly status: SessionStatus;
+  readonly debrief: SessionDebrief | null;
 }
 
 export interface BurningCell {
@@ -51,6 +66,7 @@ export interface QuestFireController {
   /** Swap in a quest and light it. Safe to call while running. */
   setQuest(quest: QuestDefinition): void;
   restart(): void;
+  restartWithNewSeed(): void;
   getFire(): QuestFire | null;
   getBurningCells(): BurningCell[];
   /** Returns null when the quest is over or the cell is not part of this fire. */
@@ -67,18 +83,33 @@ const EMPTY_SNAPSHOT: QuestFireSnapshot = {
   heatingCellCount: 0,
   extinguished: false,
   elapsedSeconds: 0,
+  status: SessionStatus.Active,
+  debrief: null,
 };
 
 function isAlight(state: CellState): boolean {
   return state === CellState.Burning || state === CellState.Flashover;
 }
 
-export function createQuestFireController(): QuestFireController {
+export interface QuestFireControllerOptions {
+  readonly personalBestStorage?: StorageLike | null;
+}
+
+export function createQuestFireController(
+  options: QuestFireControllerOptions = {},
+): QuestFireController {
   const store = createStore<QuestFireSnapshot>(() => EMPTY_SNAPSHOT);
   let fire: QuestFire | null = null;
   let runner: FixedTimestepRunner | null = null;
   let elapsedSeconds = 0;
+  let waterUsedLitres = 0;
+  let debrief: SessionDebrief | null = null;
   let animationFrameId: number | null = null;
+  const personalBests = createPersonalBestStore(
+    options.personalBestStorage === undefined
+      ? getBrowserPersonalBestStorage()
+      : options.personalBestStorage,
+  );
 
   const countCells = (state: FireSimulationState) => {
     let burning = 0;
@@ -98,6 +129,31 @@ export function createQuestFireController(): QuestFireController {
       return;
     }
     const { burning, heating } = countCells(fire.state);
+    const status = getSessionStatus(fire.state.grid);
+    if (status !== SessionStatus.Active && debrief === null) {
+      const baseDebrief = createSessionDebrief({
+        scenarioId: fire.quest.id,
+        seed: fire.state.seed,
+        outcome: status,
+        propertySaved: calculatePropertySaved(
+          fire.state.grid,
+          fire.state.initialCombustibleFuelMass,
+        ),
+        initialPropertyFuelMass: fire.state.initialCombustibleFuelMass,
+        elapsedSeconds,
+        parTimeSeconds: fire.quest.parTimeSeconds,
+        waterUsedLitres,
+        foamUsedLitres: 0,
+        hazardTotal: 0,
+        hazardsMissed: 0,
+      });
+      const bestResult = personalBests.record(baseDebrief);
+      debrief = {
+        ...baseDebrief,
+        previousBest: bestResult.previousBest,
+        isNewPersonalBest: bestResult.isNewPersonalBest,
+      };
+    }
     const previous = store.getState();
     const next: QuestFireSnapshot = {
       questId: fire.quest.id,
@@ -105,9 +161,10 @@ export function createQuestFireController(): QuestFireController {
       questName: fire.quest.name,
       burningCellCount: burning,
       heatingCellCount: heating,
-      // Heating cells still count as a live incident: they are about to catch.
-      extinguished: burning === 0 && heating === 0,
+      extinguished: status === SessionStatus.Contained,
       elapsedSeconds: Math.round(elapsedSeconds),
+      status,
+      debrief,
     };
     if (
       previous.questId === next.questId &&
@@ -115,7 +172,9 @@ export function createQuestFireController(): QuestFireController {
       previous.burningCellCount === next.burningCellCount &&
       previous.heatingCellCount === next.heatingCellCount &&
       previous.extinguished === next.extinguished &&
-      previous.elapsedSeconds === next.elapsedSeconds
+      previous.elapsedSeconds === next.elapsedSeconds &&
+      previous.status === next.status &&
+      previous.debrief === next.debrief
     ) {
       return;
     }
@@ -129,11 +188,19 @@ export function createQuestFireController(): QuestFireController {
       fire = createQuestFire(quest);
       runner = createFixedTimestepRunner(fire.state);
       elapsedSeconds = 0;
+      waterUsedLitres = 0;
+      debrief = null;
       publish();
     },
 
     restart: () => {
       if (fire) controller.setQuest(fire.quest);
+    },
+
+    restartWithNewSeed: () => {
+      if (fire) {
+        controller.setQuest({ ...fire.quest, seed: nextScenarioSeed(fire.state.seed) });
+      }
     },
 
     getFire: () => fire,
@@ -150,16 +217,19 @@ export function createQuestFireController(): QuestFireController {
     },
 
     applyWater: (cellId, litres) => {
-      if (!fire || !runner || litres <= 0) return null;
+      if (!fire || !runner || litres <= 0 || store.getState().status !== SessionStatus.Active) {
+        return null;
+      }
       if (!fire.state.grid.cells[cellId]) return null;
       const result = applySuppression(fire.state, cellId, litres, SuppressionAgent.Water);
+      if (result.contacts.length > 0) waterUsedLitres += litres;
       runner.setState(fire.state);
       publish();
       return result;
     },
 
     advance: (rawElapsedSeconds) => {
-      if (!runner) return 0;
+      if (!runner || store.getState().status !== SessionStatus.Active) return 0;
       const elapsed = Math.min(Math.max(rawElapsedSeconds, 0), MAX_ADVANCE_SECONDS);
       const startedAt = performance.now();
       const ticks = runner.advance(elapsed);

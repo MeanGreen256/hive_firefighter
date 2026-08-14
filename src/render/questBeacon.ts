@@ -11,6 +11,8 @@
  * is a testable number rather than something buried in a frame loop.
  */
 
+import { SessionStatus, type SessionStatus as SessionStatusValue } from '../state/sessionStats';
+
 /** A one-cell fire still gets a column this tall, or nobody finds the first quest. */
 export const MIN_COLUMN_HEIGHT = 24;
 export const MAX_COLUMN_HEIGHT = 58;
@@ -42,6 +44,7 @@ export interface QuestFireSignal {
   /** The site the live fire belongs to, not the one the UI wants to show. */
   readonly questSiteId: string | null;
   readonly extinguished: boolean;
+  readonly status?: SessionStatusValue;
 }
 
 /**
@@ -57,7 +60,7 @@ export function getBeaconTarget(
   signal: QuestFireSignal,
 ): BeaconPoint | null {
   if (signal.questSiteId !== site.id) return null;
-  if (signal.extinguished) return null;
+  if (signal.extinguished || (signal.status && signal.status !== SessionStatus.Active)) return null;
   return { x: site.x, z: site.z };
 }
 

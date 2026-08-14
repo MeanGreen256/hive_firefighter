@@ -192,7 +192,7 @@ describe('sim debug controller', () => {
     expect(controller.store.getState().waterUsedLitres).toBe(0);
   });
 
-  it('ends a contained scenario with a grade and complete breakdown', () => {
+  it('ends a contained scenario with stars and a complete breakdown', () => {
     const controller = createSimDebugController(15);
 
     controller.sprayCell(STARTER_HOSE_TARGET_CELL_ID, 1);
@@ -204,7 +204,7 @@ describe('sim debug controller', () => {
       outcome: SessionStatus.Contained,
       propertySavedPercent: 100,
       waterUsedLitres: 1,
-      grade: 'A',
+      stars: 3,
       scores: { property: 100, time: 100 },
     });
     expect(controller.advance(1)).toBe(0);
@@ -264,7 +264,7 @@ describe('sim debug controller', () => {
     controller.sprayCell(STARTER_HOSE_TARGET_CELL_ID, 1);
     expect(controller.store.getState().debrief).toMatchObject({
       previousBest: {
-        grade: first?.grade,
+        stars: first?.stars,
         overallScore: first?.scores.overall,
         elapsedSeconds: first?.elapsedSeconds,
       },

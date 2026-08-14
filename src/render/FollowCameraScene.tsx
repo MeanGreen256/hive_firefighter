@@ -23,6 +23,7 @@ import { questFireController } from '../state/questFireController';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import { AudioControls } from '@ui/AudioControls';
+import { QuestDebriefPanel } from '@ui/QuestDebriefPanel';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { QuestFireAudioBridge } from '../audio/QuestFireAudioBridge';
 import { AnchoredHoseEffects } from './AnchoredHoseEffects';
@@ -39,6 +40,7 @@ import { buildDistrictLayout } from './districtLayout';
 import { createHosePresentationState } from './hoseTargeting';
 import { getSafeDismountPose, isWithinBoardingRange, type PlayerMode } from './mountDismount';
 import type { BeaconPoint } from './questBeacon';
+import { SessionStatus } from '../state/sessionStats';
 
 const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
 const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
@@ -97,7 +99,7 @@ interface HudCssVariables extends CSSProperties {
   '--hud-control': string;
 }
 
-interface PrototypeWorldProps {
+interface GameWorldProps {
   readonly visualStyle: Style;
   readonly mode: PlayerMode;
   readonly sirenOn: boolean;
@@ -119,7 +121,7 @@ function GameWorld({
   firefighterRef,
   truckSpeedRatio,
   onBoardingRangeChange,
-}: PrototypeWorldProps) {
+}: GameWorldProps) {
   const collisionRoot = useRef<Group>(null);
   const hosePresentationRef = useRef(createHosePresentationState());
   const lastCanBoard = useRef(false);
@@ -324,7 +326,9 @@ export default function FollowCameraScene() {
         Quest {questIndex + 1} of {DISTRICT.questSites.length}: <b>{activeQuestSite.name}</b> —{' '}
         {questDistance.toFixed(0)}m away
         <br />
-        {fireSnapshot.extinguished ? (
+        {fireSnapshot.status === SessionStatus.Scorched ? (
+          <b>Scorched · ready to retry</b>
+        ) : fireSnapshot.extinguished ? (
           <b>Fire out · {fireSnapshot.elapsedSeconds}s</b>
         ) : (
           <>
@@ -369,6 +373,7 @@ export default function FollowCameraScene() {
           <AudioControls />
         </div>
       </div>
+      <QuestDebriefPanel onNextQuest={takeNextQuest} />
       {import.meta.env.DEV ? <PerfOverlay /> : null}
     </div>
   );

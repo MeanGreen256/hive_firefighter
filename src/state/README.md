@@ -8,8 +8,8 @@ Fiber; UI components subscribe to low-frequency snapshots from here.
 
 The controller exposes one point-and-hold unlimited-water action. Tank levels,
 foam selection, hookup, refill, and hose-reach state are no longer part of its
-runtime contract. Harmful outcomes and A–F grading remain migration targets rather than product requirements. M3 must host exactly one
-active exterior quest, safe outcomes, and 1–3 stars as specified in
+runtime contract. M3 hosts exactly one active exterior quest, safe outcomes, and
+1–3 stars as specified in
 `docs/game-direction.md`. Keep the fixed-timestep and renderer/UI boundary while
 replacing the remaining obsolete incident rules.
 
@@ -26,6 +26,10 @@ back to a city that burned down while nobody was watching. `applyWater` takes a
 cell id and returns the real `@sim/waterApplication` result, which is what lets
 the hose stay a renderer concern and the fire stay a simulation one.
 
+The controller ends each quest as `contained` or `scorched`, freezes the fire,
+and publishes a 1–3 star debrief. Retry keeps the current seed; the alternate
+new-fire action advances deterministically to another seed.
+
 `simDebugController.ts` is development tooling for issue #10. It owns a fixed
 timestep runner and exposes transport/tuning actions without placing functions
 or browser APIs inside the JSON-safe simulation state.
@@ -36,8 +40,8 @@ state, structural warning state, and the same-seed retry loop. It is the mutatio
 boundary for unlimited water application, hazard
 cooling, and collapse host effects. Fire and incident events share one
 subscription stream so audio can react without entering the simulation.
-`sessionStats.ts` keeps fuel-mass, hazard, and par-time grading pure so the UI
-only formats and presents store data. Property now leads that weighting because
-there are no lives to score (#97); #96 replaces the whole A–F model with
-1–3 stars. `personalBests.ts` owns defensive, versioned local-storage
-records keyed by scenario and seed.
+`sessionStats.ts` keeps fuel-mass, hazard, and par-time scoring pure so the UI
+only formats and presents store data. Property leads the first-pass star weights,
+every completed quest earns at least one star, and a scorched run always gets one
+encouraging star. `personalBests.ts` owns defensive v2 local-storage records keyed
+by scenario and seed; the old letter-grade records are intentionally not migrated.
