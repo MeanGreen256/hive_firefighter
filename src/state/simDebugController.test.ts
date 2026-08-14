@@ -233,7 +233,6 @@ describe('sim debug controller', () => {
     const initial = controller.store.getState();
     const initialCell = { ...initial.simulation.grid.cells['2,1,1'] };
     controller.sprayCell('3,1,1', 2);
-    controller.toggleThermalView();
     initial.hazards.hazards['propane-a']!.state = PropaneHazardState.Failed;
     controller.advance(1);
 
@@ -243,7 +242,6 @@ describe('sim debug controller', () => {
     expect(retried).toMatchObject({
       scenarioId: 'workshop',
       waterUsedLitres: 0,
-      thermalView: false,
       elapsedScenarioSeconds: 0,
       sessionStatus: SessionStatus.Active,
       debrief: null,

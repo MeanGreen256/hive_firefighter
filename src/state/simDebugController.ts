@@ -79,7 +79,6 @@ export interface SimDebugSnapshot {
   waterUsedLitres: number;
   hazards: HazardSimulationState;
   structures: StructuralSimulationState;
-  thermalView: boolean;
   elapsedScenarioSeconds: number;
   sessionStatus: SessionStatus;
   debrief: SessionDebrief | null;
@@ -94,8 +93,6 @@ export interface SimDebugController {
   stepOnce(): void;
   reset(seed?: number): void;
   resetWithNewSeed(): void;
-  toggleThermalView(): void;
-  setThermalView(active: boolean): void;
   setSeed(seed: number): void;
   selectScenario(scenarioId: string): void;
   setSpeed(speed: number): void;
@@ -142,7 +139,6 @@ export function createSimDebugController(
   );
   let hazards = createHazardSimulation(scenario.hazards);
   let structures = createStructuralSimulation();
-  let thermalView = false;
   const personalBests = createPersonalBestStore(
     options.personalBestStorage === undefined
       ? getBrowserPersonalBestStorage()
@@ -160,7 +156,6 @@ export function createSimDebugController(
     waterUsedLitres: 0,
     hazards,
     structures,
-    thermalView,
     elapsedScenarioSeconds: 0,
     sessionStatus: SessionStatus.Active,
     debrief: null,
@@ -181,7 +176,6 @@ export function createSimDebugController(
     waterUsedLitres,
     hazards,
     structures,
-    thermalView,
     elapsedScenarioSeconds,
     sessionStatus,
     debrief,
@@ -394,7 +388,6 @@ export function createSimDebugController(
       incidentNozzlePosition = getIncidentNozzleGridPosition(runner.getState().grid.dimensions);
       hazards = createHazardSimulation(scenario.hazards);
       structures = createStructuralSimulation();
-      thermalView = false;
       waterCellId = null;
       waterUsedLitres = 0;
       elapsedScenarioSeconds = 0;
@@ -412,14 +405,6 @@ export function createSimDebugController(
     resetWithNewSeed: () => {
       controller.reset(nextScenarioSeed(store.getState().simulation.seed));
     },
-    toggleThermalView: () => {
-      thermalView = !thermalView;
-      store.setState(sessionFields());
-    },
-    setThermalView: (active) => {
-      thermalView = active;
-      store.setState(sessionFields());
-    },
     setSeed: (seed) => {
       controller.reset(seed);
     },
@@ -429,7 +414,6 @@ export function createSimDebugController(
       incidentNozzlePosition = getIncidentNozzleGridPosition(runner.getState().grid.dimensions);
       hazards = createHazardSimulation(scenario.hazards);
       structures = createStructuralSimulation();
-      thermalView = false;
       waterCellId = null;
       waterUsedLitres = 0;
       elapsedScenarioSeconds = 0;

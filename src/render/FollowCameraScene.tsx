@@ -106,7 +106,7 @@ interface PrototypeWorldProps {
   readonly onBoardingRangeChange: (canBoard: boolean) => void;
 }
 
-function PrototypeWorld({
+function GameWorld({
   visualStyle,
   mode,
   sirenOn,
@@ -203,8 +203,8 @@ function PrototypeWorld({
   );
 }
 
-/** Development acceptance harness for the complete drive, dismount, and hose-control seam. */
-export default function FollowCameraPrototype() {
+/** The shipped M3 drive, dismount, and hose-control game scene. */
+export default function FollowCameraScene() {
   const [mode, setMode] = useState<PlayerMode>('driving');
   const [sirenOn, setSirenOn] = useState(true);
   const [canBoard, setCanBoard] = useState(false);
@@ -300,7 +300,7 @@ export default function FollowCameraPrototype() {
     <div className="app-shell" style={hudCssVariables}>
       <div className="scene" style={sceneCssVariables}>
         <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]}>
-          <PrototypeWorld
+          <GameWorld
             visualStyle={visualStyle}
             mode={mode}
             sirenOn={sirenOn}
@@ -314,7 +314,7 @@ export default function FollowCameraPrototype() {
         </Canvas>
       </div>
       <div className="placard" role="status" aria-live="polite">
-        M3 free-roam prototype · <b>{DISTRICT.name}</b>
+        <b>{DISTRICT.name}</b> · free roam
         <br />
         Quest {questIndex + 1} of {DISTRICT.questSites.length}: <b>{activeQuestSite.name}</b> —{' '}
         {questDistance.toFixed(0)}m away

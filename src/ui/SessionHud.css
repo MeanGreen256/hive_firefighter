@@ -61,8 +61,7 @@
 }
 
 .incident-tools__actions button:hover,
-.incident-tools__actions button:focus-visible,
-.incident-tools--thermal .incident-tools__actions button:first-child {
+.incident-tools__actions button:focus-visible {
   border-color: var(--hud-accent);
   outline: none;
 }

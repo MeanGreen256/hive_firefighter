@@ -36,13 +36,14 @@ obstacles. The rig raycasts from its damped target pivot to the desired camera
 position and shortens the boom before the first hit. A ground-height callback
 keeps the camera above terrain; flat ground at `y = 0` is the default.
 
-In development, open `/?camera=follow` for the M3 movement acceptance harness.
+The shipped scene opens at `/`. In development, open `/?scene=m2` for the legacy
+M2 comparison harness.
 WASD or the left stick drives the truck and moves the firefighter. While driving,
 right-drag or the right stick optionally orbits; on foot those inputs steer optional
 free aim and the shoulder camera remains automatic. `E` boards or dismounts near the
-cab, `L` toggles siren and lights, and `N` takes the next quest. This harness is
-lazy-loaded only in development; the existing M2 scene remains the default while M3
-systems replace it.
+cab, `L` toggles siren and lights, and `N` takes the next quest. The legacy M2
+scene is lazy-loaded only in development and is not part of the production
+entrypoint.
 
 ## City district contract
 

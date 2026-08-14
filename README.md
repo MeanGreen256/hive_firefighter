@@ -85,6 +85,10 @@ npm run check   # typecheck + lint
 npm run build   # production build
 ```
 
+The shipped M3 scene opens at `/` in every environment. During development,
+`/?scene=m2` opens the legacy cutaway scene for regression comparison; it is not
+included in the production bundle.
+
 ## Contributing
 
 Issues are labelled by `area:*`, `type:*`, and `size:*`. The
