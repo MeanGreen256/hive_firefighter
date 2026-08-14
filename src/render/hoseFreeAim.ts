@@ -1,4 +1,4 @@
-import type { Vector3Tuple } from './buildingLayout';
+import type { Vector3Tuple } from './worldUnits';
 import { HOSE_AIM_ASSIST_STRENGTH } from './hoseTargeting';
 
 export const HOSE_FREE_AIM_MAX_YAW_RADIANS = (70 * Math.PI) / 180;

@@ -85,9 +85,9 @@ npm run check   # typecheck + lint
 npm run build   # production build
 ```
 
-The shipped M3 scene opens at `/` in every environment. During development,
-`/?scene=m2` opens the legacy cutaway scene for regression comparison; it is not
-included in the production bundle.
+The game opens at `/`, and it is the only scene there is. The legacy M2 cutaway
+view and its `?scene=m2` route were retired in #100 once the exterior loop was
+proven.
 
 ## Contributing
 

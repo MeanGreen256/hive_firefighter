@@ -34,9 +34,12 @@ controls, content, UI, or milestones; it is the product-direction authority.
   including code under `src/sim/`, may change for exterior authoring and the new
   age-appropriate rules.
 
-The current implementation still contains M1/M2 isometric and simulation-heavy
-systems. Their existence is migration context, not evidence that they remain in
-the product direction.
+The M1/M2 isometric renderer is gone — #100 deleted the cutaway view, the
+isometric rig, and the debug host that booted them. What remains from those
+milestones is simulation-side: authored scenarios, propane hazards, and
+structural collapse still live under `src/sim/` awaiting exterior use. Their
+existence is migration context, not evidence that they remain in the product
+direction.
 
 ## Stack
 

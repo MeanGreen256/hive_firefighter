@@ -1,92 +1,3 @@
-.incident-tools {
-  position: fixed;
-  top: 48px;
-  left: 20px;
-  z-index: 10;
-  display: grid;
-  width: min(280px, calc(100vw - 40px));
-  border: 1px solid var(--hud-border);
-  border-radius: 4px;
-  background: var(--hud-panel);
-  color: var(--hud-text);
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  text-transform: uppercase;
-  box-shadow: 0 10px 30px rgb(0 0 0 / 14%);
-}
-
-.incident-tools section {
-  padding: 11px 13px;
-}
-
-.incident-tools section + section {
-  border-top: 1px solid var(--hud-border);
-}
-
-.incident-tools header,
-.incident-tools__actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.incident-tools header {
-  font-size: 10px;
-  letter-spacing: 0.09em;
-}
-
-.incident-tools header output {
-  color: var(--hud-accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.incident-tools p {
-  margin: 7px 0;
-  color: var(--hud-muted);
-  font-size: 9px;
-  letter-spacing: 0.07em;
-}
-
-.incident-tools__actions button {
-  flex: 1;
-  min-height: 30px;
-  border: 1px solid var(--hud-border);
-  border-radius: 3px;
-  background: var(--hud-control);
-  color: var(--hud-text);
-  font: inherit;
-  font-size: 8px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.incident-tools__actions button:hover,
-.incident-tools__actions button:focus-visible {
-  border-color: var(--hud-accent);
-  outline: none;
-}
-
-.incident-tools__actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.incident-tools__countdown {
-  height: 7px;
-  overflow: hidden;
-  border: 1px solid var(--hud-border);
-  background: var(--hud-control);
-}
-
-.incident-tools__countdown span {
-  display: block;
-  width: 100%;
-  height: 100%;
-  transform-origin: left;
-  background: var(--hud-warning);
-  transition: transform 100ms linear;
-}
-
 .debrief-panel::backdrop {
   background: rgb(8 10 12 / 58%);
   backdrop-filter: blur(8px);
@@ -162,11 +73,9 @@
   text-shadow: 0 5px 22px color-mix(in srgb, var(--hud-success) 38%, transparent);
 }
 
-@keyframes debrief-star-reveal {
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1) rotate(0);
-  }
+to {
+  opacity: 1;
+  transform: translateY(0) scale(1) rotate(0);
 }
 
 .debrief-picture {
@@ -317,30 +226,20 @@
   outline: none;
 }
 
-@media (max-width: 600px) {
-  .incident-tools {
-    top: 148px;
-    left: 10px;
-    width: min(230px, calc(100vw - 20px));
-  }
-
-  .debrief-summary {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .debrief-panel footer {
-    grid-template-columns: 1fr;
-  }
+.debrief-summary {
+  grid-template-columns: 1fr 1fr;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .debrief-star {
-    opacity: 1;
-    transform: none;
-    animation: none;
-  }
+.debrief-panel footer {
+  grid-template-columns: 1fr;
+}
 
-  .debrief-property-bar span {
-    transition: none;
-  }
+.debrief-star {
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+
+.debrief-property-bar span {
+  transition: none;
 }

@@ -24,6 +24,15 @@ import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import { AudioControls } from '@ui/AudioControls';
 import { createPressLatch, firstConnectedGamepad, isIntentHeld, readPress } from '@ui/gamepad';
+import { OnboardingCoach } from '@ui/OnboardingCoach';
+import {
+  getBrowserOnboardingStorage,
+  getOnboardingStep,
+  hasCompletedOnboarding,
+  markOnboardingComplete,
+  OnboardingStep,
+  type OnboardingStepId,
+} from '@ui/onboardingSteps';
 import { QuestDebriefPanel } from '@ui/QuestDebriefPanel';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { QuestFireAudioBridge } from '../audio/QuestFireAudioBridge';
@@ -115,6 +124,8 @@ interface GameWorldProps {
   readonly firefighterRef: RefObject<Group | null>;
   readonly truckSpeedRatio: RefObject<number>;
   readonly onBoardingRangeChange: (canBoard: boolean) => void;
+  /** Null once the player has been taught, so nothing is sampled for nobody. */
+  readonly onOnboardingStep: ((step: OnboardingStepId) => void) | null;
 }
 
 function GameWorld({
@@ -127,11 +138,14 @@ function GameWorld({
   firefighterRef,
   truckSpeedRatio,
   onBoardingRangeChange,
+  onOnboardingStep,
 }: GameWorldProps) {
   const collisionRoot = useRef<Group>(null);
   const hosePresentationRef = useRef(createHosePresentationState());
   const lastCanBoard = useRef(false);
   const boardingCheckElapsed = useRef(0);
+  const hasSprayed = useRef(false);
+  const lastOnboardingStep = useRef<OnboardingStepId | null>(null);
   const profile = mode === 'driving' ? 'chase' : 'shoulder';
   const activeTarget = mode === 'driving' ? truckRef : firefighterRef;
 
@@ -149,6 +163,26 @@ function GameWorld({
     if (canBoard !== lastCanBoard.current) {
       lastCanBoard.current = canBoard;
       onBoardingRangeChange(canBoard);
+    }
+
+    // The coach reads the world at the same 10 Hz the boarding check does, and
+    // publishes to React only when the prompt itself changes.
+    if (!onOnboardingStep || !truck) return;
+    if (firefighter?.userData.spraying === true) hasSprayed.current = true;
+    const subject = mode === 'driving' ? truck : (firefighter ?? truck);
+    const [startX, , startZ] = DISTRICT_LAYOUT.truckStart.position;
+    const step = getOnboardingStep({
+      truckMovedMeters: Math.hypot(truck.position.x - startX, truck.position.z - startZ),
+      distanceToQuestMeters: Math.hypot(
+        subject.position.x - activeQuestSite.x,
+        subject.position.z - activeQuestSite.z,
+      ),
+      onFoot: mode === 'on-foot',
+      hasSprayed: hasSprayed.current,
+    });
+    if (step !== lastOnboardingStep.current) {
+      lastOnboardingStep.current = step;
+      onOnboardingStep(step);
     }
   });
 
@@ -233,6 +267,30 @@ export default function FollowCameraScene() {
   const fireSnapshot = useStore(questFireController.store);
 
   const beaconTarget = getBeaconTarget(activeQuestSite, fireSnapshot);
+
+  /**
+   * The guided first quest (#107). It starts on the first prompt rather than
+   * waiting for the world to be sampled, so a player who has never seen the
+   * game is told what to do before they have touched anything — and it is
+   * skipped outright, with nothing sampled, for anyone who has finished it once.
+   */
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStepId>(() =>
+    hasCompletedOnboarding(getBrowserOnboardingStorage())
+      ? OnboardingStep.Done
+      : OnboardingStep.Drive,
+  );
+  const teaching = onboardingStep !== OnboardingStep.Done;
+  const finishOnboarding = useCallback(() => {
+    markOnboardingComplete(getBrowserOnboardingStorage());
+    setOnboardingStep(OnboardingStep.Done);
+  }, []);
+  const advanceOnboarding = useCallback(
+    (step: OnboardingStepId) => {
+      if (step === OnboardingStep.Done) finishOnboarding();
+      else setOnboardingStep(step);
+    },
+    [finishOnboarding],
+  );
 
   useEffect(() => {
     questFireController.setQuest(getQuestForSite(DISTRICT.id, activeQuestSite.id));
@@ -365,6 +423,7 @@ export default function FollowCameraScene() {
             firefighterRef={firefighterRef}
             truckSpeedRatio={truckSpeedRatio}
             onBoardingRangeChange={setCanBoard}
+            onOnboardingStep={teaching ? advanceOnboarding : null}
           />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
@@ -418,6 +477,8 @@ export default function FollowCameraScene() {
           <AudioControls />
         </div>
       </div>
+      {/* Hidden behind the star screen: one thing to look at at a time. */}
+      {debriefOpen ? null : <OnboardingCoach step={onboardingStep} onSkip={finishOnboarding} />}
       <QuestDebriefPanel onNextQuest={takeNextQuest} />
       {import.meta.env.DEV ? <PerfOverlay /> : null}
     </div>
