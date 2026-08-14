@@ -141,8 +141,7 @@ people at an incident, along with every marker, readout, audio cue, and score
 component that fed on them; search went with them because finding people was the
 only thing it ever did. Nothing the fire can hurt belongs in this folder — see
 ADR-006 and `docs/game-direction.md` before adding an entity to an incident. The
-hazard and collapse paragraphs below still describe M2 behaviour that is being
-made cosmetic (#98), not retuned.
+hazard paragraph below still describes M2 behaviour.
 
 `hazards.ts` advances authored propane hazards on the fixed simulation clock.
 The occupied cell heats the tank; crossing the warning threshold begins a
@@ -153,6 +152,10 @@ player health is not modelled yet, the event records whether the current nozzle 
 `structuralCollapse.ts` treats the cell directly below as column support. A
 support burning below 25% fuel starts a warning; once support is gone, the
 three-second countdown advances before a permanent `Collapsed` state. Cells
-resolve bottom-up, so one drop can warn or drop the next floor. Collapse blocks
-the cell, moves hazards down one level, and emits separate warning and impact
-events.
+resolve bottom-up, so one drop can warn or drop the next floor. It emits
+separate warning and impact events, and that is the whole of its output: #98
+made collapse cosmetic, so the module no longer takes the hazard table or the
+player's position, and a `Collapsed` cell is a slumped, scorched cell rather
+than a thing that has happened to anybody. It takes the fire state and a
+duration; if a future change needs it to take a third system, that is the
+signal collapse has grown teeth again.
