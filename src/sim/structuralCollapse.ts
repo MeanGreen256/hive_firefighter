@@ -1,7 +1,16 @@
-import { CellState, cellIdAt, type Cell, type GridPosition } from './cellGrid';
+/**
+ * Collapse is a consequence the player watches, not one that happens to them.
+ *
+ * ADR-006 makes fire destructive to property and harmless to everyone standing
+ * near it, so this module knows about exactly one thing: which cells have lost
+ * their support. It used to take the hazard table and the player's position
+ * purely so it could drop tanks a floor and record whether the collapse landed
+ * on someone — reaching into two other simulations to hurt things (#98). Both
+ * are gone, and with them the only reasons this file had to import them.
+ */
+
+import { CellState, cellIdAt, type Cell } from './cellGrid';
 import type { FireSimulationState } from './fireSimulation';
-import type { HazardSimulationState } from './hazards';
-import type { IncidentPoint } from './incidentPosition';
 
 export const COLLAPSE_WARNING_SECONDS = 3;
 export const COLLAPSE_WARNING_FUEL_THRESHOLD = 0.25;
@@ -28,13 +37,11 @@ export interface CollapseWarningEvent {
   readonly warningSeconds: number;
 }
 
+/** A cue for the slump and scorch. It carries no consequence for anything else. */
 export interface CellCollapsedEvent {
   readonly type: typeof StructuralEventType.CellCollapsed;
   readonly cellId: string;
   readonly supportCellId: string;
-  readonly destination: GridPosition;
-  readonly fallenHazardIds: readonly string[];
-  readonly playerAffected: boolean;
 }
 
 export type StructuralSimulationEvent = CollapseWarningEvent | CellCollapsedEvent;
@@ -55,19 +62,9 @@ function isWarningSupport(cell: Cell): boolean {
   );
 }
 
-function sameCell(left: IncidentPoint, right: GridPosition): boolean {
-  return (
-    Math.abs(left.x - right.x) <= 0.5 &&
-    Math.abs(left.y - right.y) <= 0.5 &&
-    Math.abs(left.z - right.z) <= 0.5
-  );
-}
-
 function collapseCell(
   state: StructuralSimulationState,
   fire: FireSimulationState,
-  hazards: HazardSimulationState,
-  playerPosition: IncidentPoint,
   cell: Cell,
   supportCellId: string,
 ): CellCollapsedEvent {
@@ -78,21 +75,10 @@ function collapseCell(
   fire.activeCellIds.delete(cell.id);
   delete state.warnings[cell.id];
 
-  const destination = { ...cell.gridPos, y: Math.max(0, cell.gridPos.y - 1) };
-  const fallenHazardIds: string[] = [];
-  for (const hazard of Object.values(hazards.hazards)) {
-    if (cellIdAt(hazard.position) !== cell.id) continue;
-    hazard.position = { ...destination };
-    fallenHazardIds.push(hazard.id);
-  }
-
   return {
     type: StructuralEventType.CellCollapsed,
     cellId: cell.id,
     supportCellId,
-    destination,
-    fallenHazardIds,
-    playerAffected: sameCell(playerPosition, cell.gridPos),
   };
 }
 
@@ -100,8 +86,6 @@ function collapseCell(
 export function advanceStructuralCollapse(
   state: StructuralSimulationState,
   fire: FireSimulationState,
-  hazards: HazardSimulationState,
-  playerPosition: IncidentPoint,
   elapsedSeconds: number,
 ): StructuralSimulationEvent[] {
   if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) {
@@ -141,13 +125,9 @@ export function advanceStructuralCollapse(
       warning.remainingSeconds = Math.max(0, warning.remainingSeconds - elapsedSeconds);
     }
     if (isUnsupported(support) && warning.remainingSeconds === 0) {
-      events.push(collapseCell(state, fire, hazards, playerPosition, cell, supportCellId));
+      events.push(collapseCell(state, fire, cell, supportCellId));
     }
   }
 
   return events;
-}
-
-export function isCellBlocked(fire: FireSimulationState, position: GridPosition): boolean {
-  return fire.grid.cells[cellIdAt(position)]?.state === CellState.Collapsed;
 }

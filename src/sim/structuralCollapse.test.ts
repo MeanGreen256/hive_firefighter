@@ -8,7 +8,6 @@ import {
   StructuralEventType,
   advanceStructuralCollapse,
   createStructuralSimulation,
-  isCellBlocked,
 } from './structuralCollapse';
 
 describe('structural collapse', () => {
@@ -19,13 +18,7 @@ describe('structural collapse', () => {
     support.fuel = COLLAPSE_WARNING_FUEL_THRESHOLD;
     const structures = createStructuralSimulation();
 
-    const events = advanceStructuralCollapse(
-      structures,
-      fire,
-      createHazardSimulation([]),
-      { x: -1, y: 0, z: 0 },
-      0.1,
-    );
+    const events = advanceStructuralCollapse(structures, fire, 0.1);
 
     expect(events).toEqual([
       {
@@ -39,47 +32,45 @@ describe('structural collapse', () => {
     expect(fire.grid.cells['0,1,0']?.state).toBe(CellState.Clear);
   });
 
-  it('drops hazards, blocks the cell, and propagates loss of support upward', () => {
+  it('collapses the unsupported cell and propagates loss of support upward', () => {
     const fire = createFireSimulation(createCellGrid({ width: 1, height: 3, depth: 1 }));
+    fire.grid.cells['0,0,0']!.state = CellState.Burnt;
+    const structures = createStructuralSimulation();
+
+    const warning = advanceStructuralCollapse(structures, fire, 0.1);
+    expect(warning.map((event) => event.type)).toEqual([StructuralEventType.CollapseWarning]);
+
+    const collapse = advanceStructuralCollapse(structures, fire, COLLAPSE_WARNING_SECONDS);
+    expect(collapse).toEqual([
+      {
+        type: StructuralEventType.CellCollapsed,
+        cellId: '0,1,0',
+        supportCellId: '0,0,0',
+      },
+      expect.objectContaining({
+        type: StructuralEventType.CollapseWarning,
+        cellId: '0,2,0',
+      }),
+    ]);
+    expect(fire.grid.cells['0,1,0']?.state).toBe(CellState.Collapsed);
+    expect(structures.warnings['0,2,0']?.remainingSeconds).toBe(COLLAPSE_WARNING_SECONDS);
+
+    advanceStructuralCollapse(structures, fire, COLLAPSE_WARNING_SECONDS);
+    expect(fire.grid.cells['0,2,0']?.state).toBe(CellState.Collapsed);
+  });
+
+  it('leaves hazards where they are when the floor under them drops', () => {
+    const fire = createFireSimulation(createCellGrid({ width: 1, height: 2, depth: 1 }));
     fire.grid.cells['0,0,0']!.state = CellState.Burnt;
     const structures = createStructuralSimulation();
     const hazards = createHazardSimulation([
       { id: 'tank', type: 'propane', position: { x: 0, y: 1, z: 0 } },
     ]);
 
-    const warning = advanceStructuralCollapse(structures, fire, hazards, { x: 0, y: 1, z: 0 }, 0.1);
-    expect(warning.map((event) => event.type)).toEqual([StructuralEventType.CollapseWarning]);
+    advanceStructuralCollapse(structures, fire, 0.1);
+    advanceStructuralCollapse(structures, fire, COLLAPSE_WARNING_SECONDS);
 
-    const collapse = advanceStructuralCollapse(
-      structures,
-      fire,
-      hazards,
-      { x: 0, y: 1, z: 0 },
-      COLLAPSE_WARNING_SECONDS,
-    );
-    expect(collapse).toEqual([
-      expect.objectContaining({
-        type: StructuralEventType.CellCollapsed,
-        cellId: '0,1,0',
-        fallenHazardIds: ['tank'],
-        playerAffected: true,
-      }),
-      expect.objectContaining({
-        type: StructuralEventType.CollapseWarning,
-        cellId: '0,2,0',
-      }),
-    ]);
-    expect(hazards.hazards.tank?.position).toEqual({ x: 0, y: 0, z: 0 });
-    expect(isCellBlocked(fire, { x: 0, y: 1, z: 0 })).toBe(true);
-    expect(structures.warnings['0,2,0']?.remainingSeconds).toBe(COLLAPSE_WARNING_SECONDS);
-
-    advanceStructuralCollapse(
-      structures,
-      fire,
-      hazards,
-      { x: -1, y: 0, z: 0 },
-      COLLAPSE_WARNING_SECONDS,
-    );
-    expect(fire.grid.cells['0,2,0']?.state).toBe(CellState.Collapsed);
+    expect(fire.grid.cells['0,1,0']?.state).toBe(CellState.Collapsed);
+    expect(hazards.hazards.tank?.position).toEqual({ x: 0, y: 1, z: 0 });
   });
 });

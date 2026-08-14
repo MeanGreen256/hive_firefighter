@@ -16,6 +16,7 @@ See `docs/game-direction.md`, ADR-006, and ADR-007 for the control floor.
 ## What lives here
 
 - Hose targeting and input handling (#15)
+- The gamepad half of the control floor (#106) — `gamepad.ts`
 - Star debrief and retry panel (#96, #99)
 - Propane warning and countdown status (#71)
 - Structural warning status (#73)
@@ -45,4 +46,14 @@ structural warning and its remaining telegraph time.
 The debrief leads with three animated stars, a house icon, and a property-saved
 bar so its result is legible without reading. It compares the run with the
 previous best for that exact scenario and seed, then offers same-fire retry, a
-deterministic new fire, and—on the M3 route—the next quest.
+deterministic new fire, and—on the M3 route—the next quest. Its primary button
+is whatever the action input does, so pressing a button and clicking agree.
+
+`gamepad.ts` is the one place that knows a pad exists. It names the intents
+(`action`, `board`, `siren`) rather than the buttons, so no caller decides for
+itself what button 0 means, and it holds the press latch every non-movement
+binding uses: fresh presses only, and a button already held when the latch is
+made does not count. That second rule is why a player still holding the hose
+when the fire goes out does not skip their own star screen. A control added
+here has to pass ADR-007 — one press, harmless if wrong, and reachable from a
+pad — or it does not belong in the shipped scene.

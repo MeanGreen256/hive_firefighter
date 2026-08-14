@@ -9,6 +9,7 @@ import {
   type Object3D,
   type PerspectiveCamera as ThreePerspectiveCamera,
 } from 'three';
+import { firstConnectedGamepad } from '@ui/gamepad';
 import {
   applyRadialDeadzone,
   clampFollowPitch,
@@ -66,14 +67,6 @@ function copyProfile(profile: FollowCameraProfile): MutableProfile {
 
 function dampVector(current: Vector3, desired: Vector3, damping: number, delta: number): void {
   current.lerp(desired, 1 - Math.exp(-damping * delta));
-}
-
-function firstConnectedGamepad(): Gamepad | null {
-  if (!navigator.getGamepads) return null;
-  for (const gamepad of navigator.getGamepads()) {
-    if (gamepad?.connected) return gamepad;
-  }
-  return null;
 }
 
 function resolveCollision(

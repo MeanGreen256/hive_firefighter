@@ -97,9 +97,6 @@ describe('fire audio mix', () => {
         type: StructuralEventType.CellCollapsed,
         cellId: '0,1,0',
         supportCellId: '0,0,0',
-        destination: { x: 0, y: 0, z: 0 },
-        fallenHazardIds: [],
-        playerAffected: false,
       },
     ];
 

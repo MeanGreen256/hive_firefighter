@@ -330,8 +330,6 @@ export function createSimDebugController(
           const structuralEvents = advanceStructuralCollapse(
             structures,
             runner.getState(),
-            hazards,
-            incidentNozzlePosition,
             simulatedInterval,
           );
           if (structuralEvents.length > 0) {
@@ -369,8 +367,6 @@ export function createSimDebugController(
         const structuralEvents = advanceStructuralCollapse(
           structures,
           runner.getState(),
-          hazards,
-          incidentNozzlePosition,
           FIRE_TICK_SECONDS,
         );
         if (structuralEvents.length > 0) {

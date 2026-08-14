@@ -2,6 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { MathUtils, Vector3, type Group } from 'three';
 import type { Style } from '@styles/styles';
+import { firstConnectedGamepad } from '@ui/gamepad';
 import {
   applyCharacterMovementDeadzone,
   CHARACTER_RADIUS,
@@ -29,14 +30,6 @@ const SPRAY_BLEND_DAMPING = 16;
 
 function flatGroundHeight(): number {
   return 0;
-}
-
-function firstConnectedGamepad(): Gamepad | null {
-  if (!navigator.getGamepads) return null;
-  for (const gamepad of navigator.getGamepads()) {
-    if (gamepad?.connected) return gamepad;
-  }
-  return null;
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {

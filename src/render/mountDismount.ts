@@ -11,6 +11,27 @@ export type PlayerMode = 'driving' | 'on-foot';
 export const BOARDING_RANGE = 2.6;
 export const DISMOUNT_SIDE_OFFSET = 1.7;
 
+export interface ActionContext {
+  readonly mode: PlayerMode;
+  readonly canBoard: boolean;
+  /** Whether aim assist currently holds a burning cell. */
+  readonly targetCaptured: boolean;
+}
+
+/**
+ * What the one action button means right now (ADR-007 rule 1).
+ *
+ * There is no third input to spend on getting in and out of the truck, so the
+ * button that sprays also drives the transition — but only where spraying is
+ * not what the player meant. The hose is dead in the cab, and a captured
+ * target beats the truck standing next to you.
+ */
+export function getActionIntent(context: ActionContext): 'transition' | 'spray' {
+  if (context.mode === 'driving') return 'transition';
+  if (context.canBoard && !context.targetCaptured) return 'transition';
+  return 'spray';
+}
+
 export interface SubjectPose extends CharacterPoint {
   readonly yaw: number;
 }
