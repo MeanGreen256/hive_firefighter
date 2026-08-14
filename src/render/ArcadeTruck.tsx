@@ -2,6 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { Group } from 'three';
 import type { Style } from '@styles/styles';
+import { firstConnectedGamepad } from '@ui/gamepad';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
 import {
   applyTruckInputDeadzone,
@@ -12,14 +13,6 @@ import {
 } from './truckController';
 
 const MAX_FRAME_DELTA_SECONDS = 1 / 20;
-
-function firstConnectedGamepad(): Gamepad | null {
-  if (!navigator.getGamepads) return null;
-  for (const gamepad of navigator.getGamepads()) {
-    if (gamepad?.connected) return gamepad;
-  }
-  return null;
-}
 
 function isTypingTarget(target: EventTarget | null): boolean {
   return (

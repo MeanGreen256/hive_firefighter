@@ -3,6 +3,7 @@ import { CHARACTER_RADIUS, type CharacterObstacle } from './characterController'
 import {
   BOARDING_RANGE,
   DISMOUNT_SIDE_OFFSET,
+  getActionIntent,
   getSafeDismountPose,
   isWithinBoardingRange,
 } from './mountDismount';
@@ -42,5 +43,31 @@ describe('safe dismount placement', () => {
       maxZ: 5,
     });
     expect(pose.x).toBeGreaterThanOrEqual(-5 + CHARACTER_RADIUS);
+  });
+});
+
+describe('the one action button', () => {
+  it('hops out of the truck, because the hose is not live in the cab', () => {
+    expect(getActionIntent({ mode: 'driving', canBoard: false, targetCaptured: false })).toBe(
+      'transition',
+    );
+    expect(getActionIntent({ mode: 'driving', canBoard: false, targetCaptured: true })).toBe(
+      'transition',
+    );
+  });
+
+  it('sprays on foot whenever the reticle has hold of something burning', () => {
+    expect(getActionIntent({ mode: 'on-foot', canBoard: true, targetCaptured: true })).toBe(
+      'spray',
+    );
+  });
+
+  it('climbs back in only beside the cab with nothing to squirt', () => {
+    expect(getActionIntent({ mode: 'on-foot', canBoard: true, targetCaptured: false })).toBe(
+      'transition',
+    );
+    expect(getActionIntent({ mode: 'on-foot', canBoard: false, targetCaptured: false })).toBe(
+      'spray',
+    );
   });
 });

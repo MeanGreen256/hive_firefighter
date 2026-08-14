@@ -23,6 +23,7 @@ import { questFireController } from '../state/questFireController';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import { AudioControls } from '@ui/AudioControls';
+import { createPressLatch, firstConnectedGamepad, isIntentHeld, readPress } from '@ui/gamepad';
 import { QuestDebriefPanel } from '@ui/QuestDebriefPanel';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { QuestFireAudioBridge } from '../audio/QuestFireAudioBridge';
@@ -38,7 +39,12 @@ import { FollowCameraRig } from './FollowCameraRig';
 import { ArcadeTruck } from './ArcadeTruck';
 import { buildDistrictLayout } from './districtLayout';
 import { createHosePresentationState } from './hoseTargeting';
-import { getSafeDismountPose, isWithinBoardingRange, type PlayerMode } from './mountDismount';
+import {
+  getActionIntent,
+  getSafeDismountPose,
+  isWithinBoardingRange,
+  type PlayerMode,
+} from './mountDismount';
 import type { BeaconPoint } from './questBeacon';
 import { SessionStatus } from '../state/sessionStats';
 
@@ -266,24 +272,68 @@ export default function FollowCameraScene() {
     return () => fireAudioSystem.setSirenActive(false);
   }, [sirenOn]);
 
+  /**
+   * The whole game on one button (ADR-007 rule 1).
+   *
+   * Driving, the action input hops out — the hose is not live in the cab, so
+   * the button is free. On foot it sprays, except when the player is standing
+   * beside the cab with nothing under the reticle, where it climbs back in.
+   * Getting that wrong costs one more press of the same button, which is what
+   * rule 7 asks of every control.
+   *
+   * While the star screen is up that same button belongs to the star screen,
+   * which reads it itself — otherwise one press both dismisses the debrief and
+   * moves the player.
+   */
+  const debriefOpen = fireSnapshot.debrief !== null;
+  const pressAction = useCallback(() => {
+    if (debriefOpen) return;
+    const intent = getActionIntent({
+      mode,
+      canBoard,
+      targetCaptured: firefighterRef.current?.userData.targetCaptured === true,
+    });
+    if (intent === 'transition') transitionPlayer();
+  }, [canBoard, debriefOpen, mode, transitionPlayer]);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
       const key = event.key.toLowerCase();
-      if (key === 'e' && (mode === 'driving' || canBoard)) {
+      if (key === ' ') {
+        pressAction();
+      } else if (key === 'e' && !debriefOpen && (mode === 'driving' || canBoard)) {
         event.preventDefault();
         transitionPlayer();
       } else if (key === 'l') {
         event.preventDefault();
         toggleSiren();
-      } else if (key === 'n') {
-        event.preventDefault();
-        takeNextQuest();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canBoard, mode, takeNextQuest, toggleSiren, transitionPlayer]);
+  }, [canBoard, debriefOpen, mode, pressAction, toggleSiren, transitionPlayer]);
+
+  // Gamepad parity (rule 5). The sticks are read inside the Canvas by whichever
+  // controller is driving; the buttons that are not movement are read here,
+  // because they change React state the scene owns.
+  useEffect(() => {
+    const latches = {
+      action: createPressLatch(),
+      board: createPressLatch(),
+      siren: createPressLatch(),
+    };
+    let frameId = requestAnimationFrame(function poll() {
+      const gamepad = firstConnectedGamepad();
+      if (readPress(latches.action, isIntentHeld(gamepad, 'action'))) pressAction();
+      if (readPress(latches.board, isIntentHeld(gamepad, 'board'))) {
+        if (!debriefOpen && (mode === 'driving' || canBoard)) transitionPlayer();
+      }
+      if (readPress(latches.siren, isIntentHeld(gamepad, 'siren'))) toggleSiren();
+      frameId = requestAnimationFrame(poll);
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [canBoard, debriefOpen, mode, pressAction, toggleSiren, transitionPlayer]);
 
   const sceneCssVariables: SceneCssVariables = {
     '--scene-saturation': visualStyle.postProcessing.saturation,
@@ -299,7 +349,7 @@ export default function FollowCameraScene() {
   };
 
   const boardingActionAvailable = mode === 'driving' || canBoard;
-  const actionLabel = mode === 'driving' ? 'Dismount' : canBoard ? 'Board truck' : 'Return to cab';
+  const actionLabel = mode === 'driving' ? 'Hop out' : canBoard ? 'Hop in' : 'Walk to the truck';
 
   return (
     <div className="app-shell" style={hudCssVariables}>
@@ -337,21 +387,22 @@ export default function FollowCameraScene() {
           </>
         )}
         <br />
-        <b>{mode === 'driving' ? 'Truck · chase camera' : 'Firefighter · shoulder camera'}</b>
-        <br />
-        {mode === 'driving'
-          ? 'WASD / left stick drives · brake before reverse'
-          : 'WASD / left stick moves · point and hold to spray'}
-        <br />
-        {mode === 'driving'
-          ? 'Right-drag / right stick orbits · E dismounts · L siren + lights · N next quest'
-          : 'Right-drag / right stick aims · release to recentre · E boards near the cab'}
-        {mode === 'on-foot' ? (
-          <>
-            <br />
-            Move and spray still completes every fire · free aim is optional
-          </>
-        ) : null}
+        <b>{mode === 'driving' ? 'Truck' : 'Firefighter'}</b>
+        {/*
+          The whole control surface, per ADR-007: a direction and one button.
+          Two lines of icons, the second of which is the optional half — nothing
+          on it is needed to finish a quest. The words are for the adult reading
+          over the player's shoulder; the icons are what a five-year-old reads.
+        */}
+        <p className="placard__controls" aria-label="Controls">
+          <span aria-hidden="true">🕹</span> move · <span aria-hidden="true">💦</span> hold to squirt
+          · <span aria-hidden="true">🚒</span> hop in and out
+          <br />
+          <small>
+            <span aria-hidden="true">🔊</span> siren · <span aria-hidden="true">👀</span> look
+            around — both optional
+          </small>
+        </p>
         <div className="audio-controls">
           <button
             type="button"
@@ -359,16 +410,10 @@ export default function FollowCameraScene() {
             disabled={!boardingActionAvailable}
             aria-label={actionLabel}
           >
-            {actionLabel}
+            🚒 {actionLabel}
           </button>
           <button type="button" onClick={toggleSiren} aria-pressed={sirenOn}>
-            Siren + lights {sirenOn ? 'on' : 'off'}
-          </button>
-          <button type="button" onClick={takeNextQuest}>
-            Next quest
-          </button>
-          <button type="button" onClick={() => questFireController.restart()}>
-            Relight
+            🔊 Siren {sirenOn ? 'on' : 'off'}
           </button>
           <AudioControls />
         </div>

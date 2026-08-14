@@ -1,5 +1,6 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, type CSSProperties } from 'react';
 import { SessionStatus, type SessionDebrief } from '../state/sessionStats';
+import { createPressLatch, firstConnectedGamepad, isIntentHeld, readPress } from './gamepad';
 import './SessionHud.css';
 
 function formatElapsedTime(elapsedSeconds: number): string {
@@ -48,6 +49,12 @@ export function SessionDebriefPanel({
   onScenarioChange,
 }: SessionDebriefPanelProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const contained = debrief?.outcome === SessionStatus.Contained;
+  /** Carry on with the run: another go at a scorched fire, the next one otherwise. */
+  const advance = useCallback(() => {
+    if (contained && onNextQuest) onNextQuest();
+    else onRetry();
+  }, [contained, onNextQuest, onRetry]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -58,9 +65,41 @@ export function SessionDebriefPanel({
     return () => dialog.close();
   }, [debrief]);
 
+  /**
+   * This screen was the one place a gamepad could not reach (ADR-007 rule 5):
+   * the star reveal is modal, and its buttons are DOM buttons no stick can
+   * focus. The action button carries on from here too.
+   *
+   * Both readers insist on a *fresh* press. A player still holding the hose
+   * when the last flame goes out would otherwise never see their stars — the
+   * pad latch starts from whatever the pad is doing right now, and a held key
+   * only ever arrives as `repeat`.
+   */
+  useEffect(() => {
+    if (!debrief) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      if (event.key !== ' ' && event.key !== 'Enter') return;
+      event.preventDefault();
+      advance();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    const latch = createPressLatch(isIntentHeld(firstConnectedGamepad(), 'action'));
+    let frameId = requestAnimationFrame(function poll() {
+      if (readPress(latch, isIntentHeld(firstConnectedGamepad(), 'action'))) advance();
+      frameId = requestAnimationFrame(poll);
+    });
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      cancelAnimationFrame(frameId);
+    };
+  }, [advance, debrief]);
+
   if (!debrief) return null;
 
-  const contained = debrief.outcome === SessionStatus.Contained;
   const title = contained ? 'Fire out!' : 'Scorched — try again!';
 
   return (
@@ -146,18 +185,33 @@ export function SessionDebriefPanel({
         </label>
       ) : null}
 
+      {/* The primary button is whatever the action input does, so a player who
+          presses the button and a player who clicks get the same thing. */}
       <footer>
-        <button type="button" className="debrief-panel__primary" onClick={onRetry}>
-          ↻ Retry
-        </button>
+        {contained && onNextQuest ? (
+          <>
+            <button type="button" className="debrief-panel__primary" onClick={onNextQuest}>
+              → Next
+            </button>
+            <button type="button" onClick={onRetry}>
+              ↻ Retry
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" className="debrief-panel__primary" onClick={onRetry}>
+              ↻ Retry
+            </button>
+            {onNextQuest ? (
+              <button type="button" onClick={onNextQuest}>
+                → Next
+              </button>
+            ) : null}
+          </>
+        )}
         <button type="button" onClick={onNewFire}>
           ✦ New fire
         </button>
-        {onNextQuest ? (
-          <button type="button" onClick={onNextQuest}>
-            → Next
-          </button>
-        ) : null}
       </footer>
     </dialog>
   );

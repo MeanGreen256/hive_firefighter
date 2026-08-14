@@ -73,6 +73,21 @@ canvas {
   font-weight: 400;
 }
 
+/* Icons carry this line for a player who cannot read the words beside them. */
+.placard__controls {
+  margin: 6px 0 0;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  line-height: 1.6;
+  color: var(--hud-text);
+}
+
+.placard__controls small {
+  font-size: 11px;
+  color: var(--hud-muted);
+}
+
 .style-switcher {
   display: grid;
   gap: 3px;

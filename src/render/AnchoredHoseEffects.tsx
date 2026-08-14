@@ -13,6 +13,7 @@ import {
 import type { Style } from '@styles/styles';
 import type { ShellPoint } from '@sim/exteriorShell';
 import type { WaterApplicationResult } from '@sim/waterApplication';
+import { firstConnectedGamepad, isIntentHeld } from '@ui/gamepad';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
 import type { Vector3Tuple } from './buildingLayout';
 import { applyRadialDeadzone } from './followCamera';
@@ -47,20 +48,9 @@ export interface HoseFireField {
   applyWater(cellId: string, litres: number): WaterApplicationResult | null;
 }
 
-function firstConnectedGamepad(): Gamepad | null {
-  if (!navigator.getGamepads) return null;
-  for (const gamepad of navigator.getGamepads()) {
-    if (gamepad?.connected) return gamepad;
-  }
-  return null;
-}
-
 /** Held state only, independent of gamepad D-pad/stick position or mouse location. */
 function isSprayButtonHeld(spaceHeld: boolean, mouseHeld: boolean): boolean {
-  if (spaceHeld || mouseHeld) return true;
-  const gamepad = firstConnectedGamepad();
-  if (!gamepad) return false;
-  return Boolean(gamepad.buttons[7]?.pressed || gamepad.buttons[0]?.pressed);
+  return spaceHeld || mouseHeld || isIntentHeld(firstConnectedGamepad(), 'action');
 }
 
 function updateStreamArc(line: Line, start: Vector3, end: Vector3): void {
