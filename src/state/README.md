@@ -4,14 +4,12 @@ Vanilla Zustand stores and runtime controllers that bridge plain simulation
 modules to React. The simulation still runs outside React and React Three
 Fiber; UI components subscribe to low-frequency snapshots from here.
 
-## M3 direction versus current code
+## The shape of this folder
 
-The controller exposes one point-and-hold unlimited-water action. Tank levels,
-foam selection, hookup, refill, and hose-reach state are no longer part of its
-runtime contract. M3 hosts exactly one active exterior quest, safe outcomes, and
-1–3 stars as specified in
-`docs/game-direction.md`. Keep the fixed-timestep and renderer/UI boundary while
-replacing the remaining obsolete incident rules.
+One point-and-hold unlimited-water action, one active exterior quest, safe
+outcomes, and 1–3 stars, as specified in `docs/game-direction.md`. Tank levels,
+foam selection, hookup, refill, and hose reach are not part of any runtime
+contract here. Keep the fixed-timestep and renderer/UI boundary.
 
 ## Quest fire controller
 
@@ -30,16 +28,13 @@ The controller ends each quest as `contained` or `scorched`, freezes the fire,
 and publishes a 1–3 star debrief. Retry keeps the current seed; the alternate
 new-fire action advances deterministically to another seed.
 
-`simDebugController.ts` is development tooling for issue #10. It owns a fixed
-timestep runner and exposes transport/tuning actions without placing functions
-or browser APIs inside the JSON-safe simulation state.
+#100 deleted `simDebugController.ts` and `hoseController.ts` with the M2 view
+they hosted. The Sim Lab overlay went with them: it inspected cells and tuned
+constants for a scenario grid that no longer has a renderer, so what remained
+would have been numbers describing a scene nobody can see. If cell-level
+inspection is wanted again, it belongs against the exterior shell and the quest
+controller, not resurrected against a building the game no longer draws.
 
-The same controller is the incident host: it owns water-use telemetry, elapsed
-scenario time, end-state detection, immutable debrief snapshot, propane hazard
-state, structural warning state, and the same-seed retry loop. It is the mutation
-boundary for unlimited water application, hazard
-cooling, and collapse host effects. Fire and incident events share one
-subscription stream so audio can react without entering the simulation.
 `sessionStats.ts` keeps fuel-mass, hazard, and par-time scoring pure so the UI
 only formats and presents store data. Property leads the first-pass star weights,
 every completed quest earns at least one star, and a scorched run always gets one

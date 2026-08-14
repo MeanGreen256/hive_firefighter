@@ -23,7 +23,7 @@ import {
 } from '@sim/districts';
 import { getBuildingAttachments } from '@sim/exteriorShell';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
-import type { Vector3Tuple } from './buildingLayout';
+import type { Vector3Tuple } from './worldUnits';
 
 /** Walkable kerbside slab, wide enough to hold street trees and benches. */
 export const PAVEMENT_WIDTH = 2.2;

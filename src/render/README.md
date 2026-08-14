@@ -10,16 +10,18 @@ ESLint enforces this rule for string and template literals in `src/render/`.
 Components receive the active `Style` from the app and use its material factory;
 they do not import a preferred palette directly.
 
-## M3 direction versus current code
+## What this folder draws
 
-The isometric rig, cutaway building, and interior markers below describe the M2
-renderer. Tether feedback, supply-line rendering, and water/foam distinctions
-have been removed. M3 replaces the remaining legacy surfaces with a chase camera
-for the truck, an over-the-shoulder camera for one firefighter, eye-level
-exterior fire, and a simple unlimited-water hose. Players never enter buildings.
-Keep old components only while they help migration or comparison; do not adapt
-them into permanent target-game architecture. See
-`docs/game-direction.md` and ADR-005.
+One view: a chase camera behind the truck, an over-the-shoulder camera on the
+firefighter, exterior fire at eye level, and an unlimited-water hose. Players
+never enter buildings.
+
+#100 deleted the M2 renderer — the isometric rig, the cutaway building, the
+interior marker vocabulary, the M2 particle system, and the `?scene=m2` route
+that booted them. They were kept through M3 so regressions in the new loop could
+be compared against the old view; the loop is proven, so they are gone. Nothing
+under `src/sim/` moved to make that possible, which is the boundary working as
+intended. See `docs/game-direction.md` and ADR-005.
 
 ## Follow-camera contract
 
@@ -36,14 +38,12 @@ obstacles. The rig raycasts from its damped target pivot to the desired camera
 position and shortens the boom before the first hit. A ground-height callback
 keeps the camera above terrain; flat ground at `y = 0` is the default.
 
-The shipped scene opens at `/`. In development, open `/?scene=m2` for the legacy
-M2 comparison harness.
-WASD or the left stick drives the truck and moves the firefighter. While driving,
-right-drag or the right stick optionally orbits; on foot those inputs steer optional
-free aim and the shoulder camera remains automatic. `E` boards or dismounts near the
-cab, `L` toggles siren and lights, and `N` takes the next quest. The legacy M2
-scene is lazy-loaded only in development and is not part of the production
-entrypoint.
+The scene opens at `/`, and it is the only one. WASD or the left stick drives the
+truck and moves the firefighter. The action input — space, left click, or the pad's
+A/right trigger — sprays, hops in and out of the cab, and carries on from the star
+screen; that one button plus a direction finishes the game (ADR-007). Everything
+else is optional: right-drag or the right stick orbits while driving and steers
+free aim on foot, `E` boards or dismounts, `L` toggles siren and lights.
 
 ## City district contract
 
@@ -116,6 +116,11 @@ which cells are alight, aims at those, and hands water back by cell id — so
 extinguishing is real `@sim/waterApplication` behaviour on the quest's shell
 rather than a scripted one-cell placeholder.
 
+On foot, right-drag and right stick are optional free aim, not camera orbit.
+Relative aim clamps before turning the body, recentres on release/idle, and
+linearly reduces but never removes target assistance. Move plus spray remains
+sufficient to complete every fire per ADR-007.
+
 ## Firefighter-controller contract
 
 `FirefighterController` owns the on-foot subject transform and passes that transform
@@ -151,76 +156,24 @@ audio system; browser audio still waits for the explicit sound-enable gesture.
 
 ## What lives here
 
-- Isometric camera rig (#11)
-- Cutaway building geometry generated from cell data (#12)
-- Cell state visuals (#13)
-- Flame, smoke, and the smoke column (#14)
-- Propane state and countdown visualization (#71)
-- Unlimited-water stream and structural sag/collapse telegraphs (#72, #73, #76)
-- Shape-first incident marker language and colour-vision audit (#76)
+- Follow camera, firefighter, truck, and mount/dismount (#86–#89)
+- The city district and its burnable exteriors (#90, #91)
+- Anchored hose, assisted aim, and optional free aim (#93, #114)
+- Smoke column beacon and waypoint arrow (#92)
+- Firefighter arm animation and spray pose (#115)
 
-## Camera-facing contract
+## Shared units
 
-`isometricCamera.ts` is the renderer-facing source of truth for quarter turns. Its
-coordinate convention is +X east and +Z south. `getCameraFacing()` returns the
-normalized rotation, camera quadrant, yaw, and the two exterior walls on the
-camera side of the scene. Camera-dependent geometry should consume
-`cameraFacingWalls` instead of inferring direction from Three.js camera vectors.
-
-`IsometricCameraRig` calls `onFacingChange` with the requested target facing at
-the start of each smooth Q/E rotation, as well as once on mount.
-
-## Cutaway building contract
-
-`buildingLayout.ts` converts any valid `CellGrid` dimensions into pure instance
-transforms. `CutawayBuilding` renders those transforms in one instanced layer
-for walls, floors, and roof, plus one cell layer per simulation material. It
-hides the two sides named by `cameraFacingWalls` and retains their opposites.
-
-Cell layers expose both `instanceId -> cellId` through `mesh.userData.cellIds`
-and `cellId -> { mesh, instanceIndex }` through `CutawayBuildingHandle`. Cell
-state rendering (#13) keeps that invisible interaction layer stable, then draws
-one bounded instanced colour/marker layer per semantic state. Their instance
-transforms update directly on the render loop rather than introducing one mesh
-per cell or routing the 10 Hz simulation through React. Old-state instances
-shrink as new-state instances grow, so ignition and suppression do not pop.
-
-The secondary marker channel is semantic: clear has no marker, heating gets an
-upper band, burning a full frame, flashover an expanded frame, wetted a lower
-band, and burnt an inset frame. `cellVisuals.ts` owns the geometry mapping;
-colours and transition timing stay in the active style.
-
-Structural state reuses those instanced cell layers rather than adding one mesh
-per floor. Warning progress lowers and compresses the live cell transform;
-`Collapsed` flattens it into a blocked slab. The ink outline follows the same
-transform, so sag and drop read in both art styles.
-
-`ModelStage` is the shared base-slab renderer. The toy style supplies a thick
-sage slab, rounded pastel trees, and a one-frame contact-shadow bake that gives
-the procedural pieces soft AO-like grounding without a continuous full-screen
-post-process.
-
-`IncidentEntities` draws the semantic incident marker language. Propane uses a
-capped cylinder, counter-rotating countdown rings, and a crossed failed state.
-Structural warnings combine the existing floor sag with a pulsing diamond and
-falling dust. The people-marker vocabulary — pose, thermal ring, carry diamond,
-cross — went with #97; shape stays the primary state channel for what remains.
-
-Known semantic markers deliberately render over occluding structure. Every fill
-has an outline with at least 3:1 contrast in normal, protanopia, and
-deuteranopia simulation. The palettes stay muted so fire remains the scene's
-saturated focal point.
-
-`HoseEffects` renders one water stream from the character-anchored nozzle to the
-assisted exterior target. It has no tank, agent, hookup, or hose-length branch.
-Hydrants may appear elsewhere as street dressing but are not rendered as an
-interactive supply system.
-
-On foot, right-drag and right stick are optional free aim, not camera orbit. Relative
-aim clamps before turning the body, recentres on release/idle, and linearly reduces
-but never removes target assistance. Move plus spray remains sufficient to complete
-every fire per ADR-007.
+`worldUnits.ts` holds the size of a fire cell and the tuple type positions are
+passed in. It is what survived `buildingLayout.ts`, which was otherwise wall,
+floor, and roof geometry for the cutaway.
 
 ## Budget
 
 < 80 draw calls, < 2000 active particles, 60fps at 1080p on integrated graphics. The harness in #4 makes violations visible.
+
+The particle count now reads zero: `FireParticles` was the M2 volumetric system
+and went with the cutaway (#100). Exterior fire and the smoke column are
+instanced geometry instead, which is why a fire costs draw calls rather than
+particles. The budget line stays because the ceiling still applies to whatever
+fills it next.

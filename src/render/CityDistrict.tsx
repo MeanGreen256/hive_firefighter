@@ -8,7 +8,7 @@ import {
   type LandmarkShape,
 } from '@sim/districts';
 import type { Style } from '@styles/styles';
-import type { Vector3Tuple } from './buildingLayout';
+import type { Vector3Tuple } from './worldUnits';
 import {
   KERB_HEIGHT,
   LANE_MARKING_Y,

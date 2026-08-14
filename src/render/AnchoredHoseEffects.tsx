@@ -15,7 +15,7 @@ import type { ShellPoint } from '@sim/exteriorShell';
 import type { WaterApplicationResult } from '@sim/waterApplication';
 import { firstConnectedGamepad, isIntentHeld } from '@ui/gamepad';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
-import type { Vector3Tuple } from './buildingLayout';
+import type { Vector3Tuple } from './worldUnits';
 import { applyRadialDeadzone } from './followCamera';
 import { getHoseFreeAimDirection, stepHoseFreeAim } from './hoseFreeAim';
 import {

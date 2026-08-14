@@ -1,5 +1,5 @@
 import type { Cell, GridDimensions, GridPosition } from '@sim/cellGrid';
-import { CELL_HEIGHT, CELL_SIZE, type Vector3Tuple } from './buildingLayout';
+import { CELL_HEIGHT, CELL_SIZE, type Vector3Tuple } from './worldUnits';
 
 interface RaycastHitLike {
   readonly instanceId?: number | undefined;
