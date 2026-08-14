@@ -6,7 +6,7 @@ import {
   type CSSProperties,
   type RefObject,
 } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, type RootState } from '@react-three/fiber';
 import { useStore } from 'zustand';
 import type { DirectionalLight, Group } from 'three';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
@@ -36,6 +36,10 @@ import {
 import { QuestDebriefPanel } from '@ui/QuestDebriefPanel';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { QuestFireAudioBridge } from '../audio/QuestFireAudioBridge';
+import {
+  performanceSceneFromSearch,
+  type PerformanceAcceptanceScene,
+} from '../perf/acceptanceScene';
 import { AnchoredHoseEffects } from './AnchoredHoseEffects';
 import { PerformanceSampler } from './PerformanceSampler';
 import { CityDistrict } from './CityDistrict';
@@ -59,6 +63,15 @@ import { SessionStatus } from '../state/sessionStats';
 
 const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
 const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
+const PERFORMANCE_SCENE = import.meta.env.DEV
+  ? performanceSceneFromSearch(window.location.search)
+  : null;
+
+/** Bake the static district shadow map once; moving heroes use contact blobs. */
+function configureStaticShadows({ gl }: RootState) {
+  gl.shadowMap.autoUpdate = false;
+  gl.shadowMap.needsUpdate = true;
+}
 
 /**
  * One sun lights the whole city, so its shadow frustum has to cover every
@@ -126,6 +139,7 @@ interface GameWorldProps {
   readonly onBoardingRangeChange: (canBoard: boolean) => void;
   /** Null once the player has been taught, so nothing is sampled for nobody. */
   readonly onOnboardingStep: ((step: OnboardingStepId) => void) | null;
+  readonly performanceScene: PerformanceAcceptanceScene | null;
 }
 
 function GameWorld({
@@ -139,6 +153,7 @@ function GameWorld({
   truckSpeedRatio,
   onBoardingRangeChange,
   onOnboardingStep,
+  performanceScene,
 }: GameWorldProps) {
   const collisionRoot = useRef<Group>(null);
   const hosePresentationRef = useRef(createHosePresentationState());
@@ -205,7 +220,11 @@ function GameWorld({
         sirenOn={sirenOn}
         obstacles={DISTRICT_LAYOUT.obstacles}
         movementBounds={DISTRICT_LAYOUT.movementBounds}
-        initialPosition={DISTRICT_LAYOUT.truckStart.position}
+        initialPosition={
+          performanceScene?.onFoot
+            ? [activeQuestSite.x - 5, 0, activeQuestSite.z + 9]
+            : DISTRICT_LAYOUT.truckStart.position
+        }
         initialYaw={DISTRICT_LAYOUT.truckStart.yaw}
         speedRatioRef={truckSpeedRatio}
       />
@@ -216,7 +235,11 @@ function GameWorld({
         enabled={mode === 'on-foot'}
         visible={mode === 'on-foot'}
         obstacles={DISTRICT_LAYOUT.obstacles}
-        initialPosition={DISTRICT_LAYOUT.truckStart.position}
+        initialPosition={
+          performanceScene?.onFoot
+            ? [activeQuestSite.x, 0, activeQuestSite.z + 10]
+            : DISTRICT_LAYOUT.truckStart.position
+        }
         movementBounds={DISTRICT_LAYOUT.movementBounds}
       />
       <AnchoredHoseEffects
@@ -250,10 +273,10 @@ function GameWorld({
 
 /** The shipped M3 drive, dismount, and hose-control game scene. */
 export default function FollowCameraScene() {
-  const [mode, setMode] = useState<PlayerMode>('driving');
+  const [mode, setMode] = useState<PlayerMode>(PERFORMANCE_SCENE?.onFoot ? 'on-foot' : 'driving');
   const [sirenOn, setSirenOn] = useState(true);
   const [canBoard, setCanBoard] = useState(false);
-  const [questIndex, setQuestIndex] = useState(0);
+  const [questIndex, setQuestIndex] = useState(PERFORMANCE_SCENE?.questIndex ?? 0);
   const truckRef = useRef<Group>(null);
   const firefighterRef = useRef<Group>(null);
   const truckSpeedRatio = useRef(0);
@@ -275,7 +298,7 @@ export default function FollowCameraScene() {
    * skipped outright, with nothing sampled, for anyone who has finished it once.
    */
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStepId>(() =>
-    hasCompletedOnboarding(getBrowserOnboardingStorage())
+    PERFORMANCE_SCENE || hasCompletedOnboarding(getBrowserOnboardingStorage())
       ? OnboardingStep.Done
       : OnboardingStep.Drive,
   );
@@ -294,7 +317,21 @@ export default function FollowCameraScene() {
 
   useEffect(() => {
     questFireController.setQuest(getQuestForSite(DISTRICT.id, activeQuestSite.id));
-    questFireController.start();
+    if (PERFORMANCE_SCENE?.advanceFireSeconds) {
+      const steps = Math.ceil(PERFORMANCE_SCENE.advanceFireSeconds / 0.25);
+      for (let step = 0; step < steps; step += 1) questFireController.advance(0.25);
+    }
+    if (PERFORMANCE_SCENE?.completeQuest) {
+      for (let attempt = 0; attempt < 240; attempt += 1) {
+        if (questFireController.store.getState().debrief) break;
+        for (const cell of questFireController.getBurningCells()) {
+          questFireController.applyWater(cell.cellId, 6);
+        }
+        questFireController.advance(0.1);
+      }
+    } else {
+      questFireController.start();
+    }
     fireAudioSystem.playIncidentChirp();
     return () => questFireController.stop();
   }, [activeQuestSite.id]);
@@ -412,7 +449,7 @@ export default function FollowCameraScene() {
   return (
     <div className="app-shell" style={hudCssVariables}>
       <div className="scene" style={sceneCssVariables}>
-        <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]}>
+        <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]} onCreated={configureStaticShadows}>
           <GameWorld
             visualStyle={visualStyle}
             mode={mode}
@@ -424,6 +461,7 @@ export default function FollowCameraScene() {
             truckSpeedRatio={truckSpeedRatio}
             onBoardingRangeChange={setCanBoard}
             onOnboardingStep={teaching ? advanceOnboarding : null}
+            performanceScene={PERFORMANCE_SCENE}
           />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>

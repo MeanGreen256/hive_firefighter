@@ -39,6 +39,10 @@ Concept pass 02 (`docs/style-directions.html`) narrowed six isometric directions
 
 ADR-002 selects toy diorama as the primary direction, but this layer still keeps accessibility variants, marketing screenshots, and a high-contrast mode as configuration rather than forks. Cel-shaded ink remains a supported secondary style.
 
+The current street-level authority is `docs/art/m3-visual-benchmark.md`. It fixes
+what both styles share—camera, scale, silhouette and interaction hierarchy—and
+what ink alone changes: banding, outlines, graphic effects, and smoke halftone.
+
 Material content declares smoke with the semantic `SmokeTint` tokens from
 `src/sim/materials.ts`. Mapping `neutral`, `pale`, `sooty`, and `toxic` to
 colour, texture, particle shape, or another visual treatment belongs here in

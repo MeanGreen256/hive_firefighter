@@ -14,7 +14,8 @@ they do not import a preferred palette directly.
 
 One view: a chase camera behind the truck, an over-the-shoulder camera on the
 firefighter, exterior fire at eye level, and an unlimited-water hose. Players
-never enter buildings.
+never enter buildings. `docs/art/m3-visual-benchmark.md` is the visual authority
+for both camera profiles and the fire-station-to-bakery production slice.
 
 #100 deleted the M2 renderer — the isometric rig, the cutaway building, the
 interior marker vocabulary, the M2 particle system, and the `?scene=m2` route
@@ -64,7 +65,9 @@ repeated element — road slabs, kerbs, buildings of one use, each part of each
 prop type — is one instanced layer, so a city of forty-odd props stays inside
 the draw-call budget. The single sun's shadow frustum is widened to the district
 bounds; the five-unit default only shadows one junction, and widening it needs
-an explicit projection rebuild.
+an explicit projection rebuild. Because the town never moves, that shadow map is
+baked once. The truck and firefighter use style-token contact blobs, preserving
+the toy grounding without paying a full city shadow pass every frame.
 
 Exactly one quest site is marked, because exactly one quest is active. The
 smoke column and waypoint arrow that make it findable from across town are

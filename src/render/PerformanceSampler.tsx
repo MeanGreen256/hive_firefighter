@@ -3,6 +3,8 @@ import { addAfterEffect, useThree } from '@react-three/fiber';
 import { commitRendererSample } from '../perf/metrics';
 
 const PUBLISH_INTERVAL_MS = 250;
+/** Ignore startup frames while the static town shadow map is baked once. */
+const WARMUP_FRAME_COUNT = 8;
 
 /** Samples completed Three.js frames and publishes at most four times a second. */
 export function PerformanceSampler() {
@@ -15,8 +17,16 @@ export function PerformanceSampler() {
     let totalFrameTimeMs = 0;
     let maxDrawCalls = 0;
     let maxTriangles = 0;
+    let warmupFramesRemaining = WARMUP_FRAME_COUNT;
 
     return addAfterEffect((timestamp) => {
+      if (warmupFramesRemaining > 0) {
+        warmupFramesRemaining -= 1;
+        previousTimestamp = timestamp;
+        windowStartedAt = timestamp;
+        return;
+      }
+
       if (previousTimestamp === null || windowStartedAt === null) {
         previousTimestamp = timestamp;
         windowStartedAt = timestamp;

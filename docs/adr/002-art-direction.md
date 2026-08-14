@@ -18,6 +18,10 @@ Use **toy diorama as the primary art direction**. New visual work targets its
 soft matte materials, rounded silhouettes, pastel model-stage palette, and
 high-key daylight first.
 
+For M3 street-level work, `docs/art/m3-visual-benchmark.md` is the authoritative
+translation of those principles into chase and over-the-shoulder cameras. The
+older isometric studies remain decision history, not the production target.
+
 Keep cel-shaded ink as a supported secondary style behind the runtime switcher.
 It remains useful as a high-contrast alternative, a regression test for the
 style boundary, and a distinct marketing treatment. Choosing toy diorama does
@@ -67,6 +71,8 @@ simulation-driven effects shipped, rather than from the concept frames alone.
 
 ## Source material
 
+- `docs/art/m3-visual-benchmark.md` — authoritative third-person target and
+  pass/fail review criteria for the Harbour Hill vertical slice.
 - `docs/style-directions.html` — six-way isometric style comparison and scoring
   matrix.
 - `docs/m1-closeout.md` — implementation evidence and the remaining deployment
