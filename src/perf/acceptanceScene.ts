@@ -1,4 +1,10 @@
-export const PERFORMANCE_SCENE_IDS = ['spawn', 'incident', 'debrief'] as const;
+export const PERFORMANCE_SCENE_IDS = [
+  'spawn',
+  'incident',
+  'hazard',
+  'collapse',
+  'debrief',
+] as const;
 
 export type PerformanceSceneId = (typeof PERFORMANCE_SCENE_IDS)[number];
 
@@ -8,6 +14,9 @@ export interface PerformanceAcceptanceScene {
   readonly onFoot: boolean;
   readonly advanceFireSeconds: number;
   readonly completeQuest: boolean;
+  readonly hazardCountdownSeconds: number | null;
+  readonly collapseWarning: boolean;
+  readonly freezeClock: boolean;
 }
 
 const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAcceptanceScene>> = {
@@ -17,6 +26,9 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     onFoot: false,
     advanceFireSeconds: 0,
     completeQuest: false,
+    hazardCountdownSeconds: null,
+    collapseWarning: false,
+    freezeClock: false,
   },
   incident: {
     id: 'incident',
@@ -24,6 +36,29 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     onFoot: true,
     advanceFireSeconds: 20,
     completeQuest: false,
+    hazardCountdownSeconds: null,
+    collapseWarning: false,
+    freezeClock: false,
+  },
+  hazard: {
+    id: 'hazard',
+    questIndex: 1,
+    onFoot: true,
+    advanceFireSeconds: 0,
+    completeQuest: false,
+    hazardCountdownSeconds: 6,
+    collapseWarning: false,
+    freezeClock: true,
+  },
+  collapse: {
+    id: 'collapse',
+    questIndex: 1,
+    onFoot: true,
+    advanceFireSeconds: 0,
+    completeQuest: false,
+    hazardCountdownSeconds: null,
+    collapseWarning: true,
+    freezeClock: true,
   },
   debrief: {
     id: 'debrief',
@@ -31,6 +66,9 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     onFoot: true,
     advanceFireSeconds: 0,
     completeQuest: true,
+    hazardCountdownSeconds: null,
+    collapseWarning: false,
+    freezeClock: false,
   },
 };
 

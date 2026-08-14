@@ -140,14 +140,14 @@ Fire burns things, never people. #97 deleted the two modules that modelled
 people at an incident, along with every marker, readout, audio cue, and score
 component that fed on them; search went with them because finding people was the
 only thing it ever did. Nothing the fire can hurt belongs in this folder — see
-ADR-006 and `docs/game-direction.md` before adding an entity to an incident. The
-hazard paragraph below still describes M2 behaviour.
+ADR-006 and `docs/game-direction.md` before adding an entity to an incident.
 
 `hazards.ts` advances authored propane hazards on the fixed simulation clock.
 The occupied cell heats the tank; crossing the warning threshold begins a
 resettable countdown, while delivered water cools it. Expiry emits one incident
-event, ignites the blast radius, and destroys nearby combustible cells. Because
-player health is not modelled yet, the event records whether the current nozzle anchor was inside the blast radius.
+event, ignites the blast radius, and destroys nearby combustible cells. The
+event has no player position, damage, or affected-player concept: its entire
+result is property spectacle and more fire.
 
 `structuralCollapse.ts` treats the cell directly below as column support. A
 support burning below 25% fuel starts a warning; once support is gone, the

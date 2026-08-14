@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
+import { IncidentEventType, PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { getQuestForSite } from '@sim/quests';
+import { COLLAPSE_WARNING_SECONDS, StructuralEventType } from '@sim/structuralCollapse';
 import { createQuestFireController } from './questFireController';
 import { SessionStatus } from './sessionStats';
 
@@ -71,6 +73,21 @@ describe('quest fire controller', () => {
     });
   });
 
+  it('counts an intact authored cylinder as saved in the star debrief', () => {
+    const controller = controllerFor('bakery-awning');
+    for (let attempt = 0; attempt < 220; attempt += 1) {
+      if (controller.store.getState().debrief) break;
+      for (const cell of controller.getBurningCells()) controller.applyWater(cell.cellId, 6);
+      controller.advance(0.1);
+    }
+
+    expect(controller.store.getState().debrief?.hazards).toEqual({
+      total: 1,
+      saved: 1,
+      missed: 0,
+    });
+  });
+
   it('ignores water aimed at a cell this fire does not have', () => {
     const controller = controllerFor('bakery-awning');
     expect(controller.applyWater('9999,9999,9999', 3)).toBeNull();
@@ -91,6 +108,120 @@ describe('quest fire controller', () => {
     expect(controller.store.getState().burningCellCount).toBe(1);
     expect(controller.store.getState().elapsedSeconds).toBe(0);
     expect(controller.store.getState().debrief).toBeNull();
+  });
+
+  it('runs, cools, scores, and resets an exterior propane countdown on the quest clock', () => {
+    const controller = controllerFor('bakery-awning');
+    const fire = controller.getFire();
+    const placement = fire?.hazards[0];
+    expect(placement).toBeDefined();
+    const heatCell = fire?.state.grid.cells[placement?.cellId ?? ''];
+    expect(heatCell).toBeDefined();
+    heatCell!.state = CellState.Burning;
+    heatCell!.heat = 600;
+    fire?.state.activeCellIds.add(heatCell!.id);
+
+    for (let step = 0; step < 12; step += 1) controller.advance(0.1);
+    expect(controller.store.getState()).toMatchObject({
+      hazardTotal: 1,
+      hazardsMissed: 0,
+      hazardState: PropaneHazardState.Countdown,
+    });
+    expect(controller.getSuppressionTargets()).toContainEqual(
+      expect.objectContaining({ id: 'hazard:bakery-propane', kind: 'hazard' }),
+    );
+
+    const result = controller.applyWater('hazard:bakery-propane', 2);
+    expect(result?.contacts.length).toBeGreaterThan(0);
+    expect(controller.store.getState()).toMatchObject({
+      hazardState: PropaneHazardState.Stable,
+      hazardsMissed: 0,
+    });
+    expect(controller.drainSimulationEvents()).toContainEqual({
+      type: IncidentEventType.PropaneCountdownReset,
+      hazardId: 'bakery-propane',
+    });
+
+    controller.restart();
+    expect(controller.getHazards().hazards['bakery-propane']).toMatchObject({
+      state: PropaneHazardState.Stable,
+      heat: 0,
+    });
+    controller.restartWithNewSeed();
+    expect(controller.getHazards().hazards['bakery-propane']).toMatchObject({
+      state: PropaneHazardState.Stable,
+      heat: 0,
+    });
+  });
+
+  it('turns propane expiry into property fire only and reports the miss in the debrief', () => {
+    const controller = controllerFor('bakery-awning');
+    const fire = controller.getFire()!;
+    const placement = fire.hazards[0]!;
+    const hazard = controller.getHazards().hazards[placement.id]!;
+    const heatCell = fire.state.grid.cells[placement.cellId]!;
+    heatCell.state = CellState.Burning;
+    heatCell.heat = 600;
+    fire.state.activeCellIds.add(heatCell.id);
+    hazard.state = PropaneHazardState.Countdown;
+    hazard.heat = PROPANE_COUNTDOWN_HEAT;
+    hazard.countdownRemainingSeconds = 0.1;
+
+    controller.advance(0.1);
+    const failure = controller
+      .drainSimulationEvents()
+      .find((event) => event.type === IncidentEventType.PropaneFailed);
+    expect(failure).toBeDefined();
+    expect(failure).not.toHaveProperty('playerAffected');
+    expect(controller.store.getState()).toMatchObject({
+      hazardState: PropaneHazardState.Failed,
+      hazardsMissed: 1,
+    });
+
+    for (const cell of Object.values(fire.state.grid.cells)) {
+      if (cell.state === CellState.Collapsed) continue;
+      cell.state = CellState.Burnt;
+      cell.fuel = 0;
+    }
+    controller.advance(0.1);
+    expect(controller.store.getState().debrief?.hazards).toEqual({ total: 1, saved: 0, missed: 1 });
+  });
+
+  it('advances warning, slump, scorch, and retry for an exterior support without harm state', () => {
+    const controller = controllerFor('bakery-awning');
+    const fire = controller.getFire()!;
+    const subjectCells = Object.keys(fire.shell.cellSubjectIds);
+    const upperId = subjectCells.find((cellId) => {
+      const cell = fire.state.grid.cells[cellId];
+      if (!cell || cell.gridPos.y === 0) return false;
+      return subjectCells.includes(`${cell.gridPos.x},${cell.gridPos.y - 1},${cell.gridPos.z}`);
+    });
+    expect(upperId).toBeDefined();
+    const upper = fire.state.grid.cells[upperId!]!;
+    const supportId = `${upper.gridPos.x},${upper.gridPos.y - 1},${upper.gridPos.z}`;
+    const support = fire.state.grid.cells[supportId]!;
+    support.state = CellState.Burnt;
+    support.fuel = 0;
+    fire.state.activeCellIds.delete(support.id);
+
+    controller.advance(0.1);
+    expect(controller.getStructures().warnings[upper.id]).toBeDefined();
+    expect(controller.drainSimulationEvents()).toContainEqual(
+      expect.objectContaining({ type: StructuralEventType.CollapseWarning, cellId: upper.id }),
+    );
+
+    for (let step = 0; step < COLLAPSE_WARNING_SECONDS * 10; step += 1) {
+      controller.advance(0.1);
+    }
+    expect(upper.state).toBe(CellState.Collapsed);
+    expect(controller.store.getState().collapsedCellCount).toBeGreaterThan(0);
+    expect(controller.getStructures()).not.toHaveProperty('playerPosition');
+
+    controller.restart();
+    expect(controller.store.getState()).toMatchObject({
+      collapseWarningCount: 0,
+      collapsedCellCount: 0,
+    });
   });
 
   it('turns a burned-out quest into a one-star scorched retry', () => {

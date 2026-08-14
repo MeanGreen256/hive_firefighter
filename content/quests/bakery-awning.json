@@ -9,6 +9,13 @@
       "burnable": "awning"
     }
   ],
+  "hazards": [
+    {
+      "id": "bakery-propane",
+      "type": "propane",
+      "position": { "x": 8.5, "z": -7 }
+    }
+  ],
   "seed": 1901,
   "wind": {
     "direction": {

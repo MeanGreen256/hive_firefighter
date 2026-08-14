@@ -42,18 +42,22 @@ to catch:
 ```text
 /?perfScene=spawn&style=diorama
 /?perfScene=incident&style=diorama
+/?perfScene=hazard&style=diorama
+/?perfScene=collapse&style=diorama
 /?perfScene=debrief&style=diorama
 ```
 
 Repeat each with `style=ink`, open the F3 overlay, and record the stable maximum
 after the one-time shadow bake. `incident` places the shoulder camera at the bakery
-vertical slice after twenty simulated seconds; `debrief` completes that quest and
-opens the real star result. These parameters are development-only and have no effect
-in production builds.
+vertical slice after twenty simulated seconds. `hazard` holds the six-light propane
+countdown and `collapse` holds its exterior warning so short cues can be reviewed and
+profiled without racing the clock. `debrief` completes that quest and opens the real
+star result. These parameters are development-only and have no effect in production
+builds.
 
-The representative M3 budget is fewer than 80 draws in all six combinations. Keep
-at least 18 draws uncommitted for the approved vertical-slice art, propane spectacle,
-and cosmetic collapse. Harbour Hill's static directional shadow map is baked once;
+The representative M3 budget is fewer than 80 draws in all ten combinations. Keep
+at least 13 draws uncommitted after the current propane and cosmetic-collapse cues
+for the approved vertical-slice art. Harbour Hill's static directional shadow map is baked once;
 moving hero assets use style-token contact blobs so they do not rerender the whole
 town into the shadow map every frame. The sampler ignores eight startup frames so
 that one-time bake is not mistaken for sustained gameplay cost.
@@ -64,11 +68,13 @@ Measured locally at the same viewport on `main` (`c3157d7`) and this change. Mai
 had no deterministic acceptance URLs, so its on-foot value is the closest manual
 state at spawn rather than the bakery camera added here:
 
-| Scene             |        Diorama main → after |            Ink main → after |
-| ----------------- | --------------------------: | --------------------------: |
-| Spawn / chase     |                     79 → 51 |                     79 → 51 |
-| Active / shoulder | 108 at spawn → 62 at bakery | 107 at spawn → 62 at bakery |
-| Bakery debrief    |         not repeatable → 60 |         not repeatable → 60 |
+| Scene                     |        Diorama main → after |            Ink main → after |
+| ------------------------- | --------------------------: | --------------------------: |
+| Spawn / chase             |                     79 → 51 |                     79 → 51 |
+| Active / shoulder         | 108 at spawn → 66 at bakery | 107 at spawn → 66 at bakery |
+| Propane countdown         |         not repeatable → 66 |         not repeatable → 66 |
+| Exterior collapse warning |         not repeatable → 67 |         not repeatable → 67 |
+| Bakery debrief            |         not repeatable → 63 |         not repeatable → 63 |
 
 The sustained city shadow pass accounted for 28 draws at spawn. The truck's three
 dynamic shadow casters became one contact blob, and the firefighter's thirteen

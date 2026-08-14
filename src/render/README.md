@@ -86,7 +86,14 @@ reads the live grid off `questFireController` every frame and writes instance
 matrices directly; the 10 Hz simulation never becomes React state, and a fire
 costs one draw call per visible state however far it spreads. Burning and
 flashover cells are unshaded and stand slightly proud of the surface, so flame
-reads as the brightest thing in the scene from street level.
+reads as the brightest thing in the scene from street level. Collapsed cells
+remain as broad, low scorched toy bricks; `ExteriorIncidentEffects` adds the
+wireframe warning wobble and a short dust poof without changing city collision.
+
+`ExteriorIncidentEffects` also renders quest-authored propane as a toy cylinder.
+Eight disappearing pips and accelerating audio pulses carry the countdown; a
+cool-color ring confirms a reset, while expiry produces a harmless blast ring
+and property spread. Both styles resolve the same semantic incident tokens.
 
 ## Finding the fire
 
@@ -114,10 +121,10 @@ the site being drawn, and nothing at all once it is out. That is what makes
 "completing the quest clears it before the next becomes active" structural: no
 column can stand over a site whose fire is not the live one.
 
-`AnchoredHoseEffects` no longer owns any fire of its own. It asks the field
-which cells are alight, aims at those, and hands water back by cell id — so
-extinguishing is real `@sim/waterApplication` behaviour on the quest's shell
-rather than a scripted one-cell placeholder.
+`AnchoredHoseEffects` no longer owns any fire of its own. It asks the field for
+suppression targets — alight cells plus an active propane countdown — and hands
+water back by target id. Extinguishing and cooling therefore remain real
+simulation behaviour rather than scripted effects.
 
 On foot, right-drag and right stick are optional free aim, not camera orbit.
 Relative aim clamps before turning the body, recentres on release/idle, and

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import bakeryQuest from '../../content/quests/bakery-awning.json' with { type: 'json' };
 import { CellState } from './cellGrid';
 import { getDistrict } from './districts';
-import { buildExteriorShell, getSubjectCellIds } from './exteriorShell';
+import { buildExteriorShell, getShellCellWorldPosition, getSubjectCellIds } from './exteriorShell';
 import {
   FIRE_TICK_SECONDS,
   createFireSimulation,
@@ -79,6 +79,26 @@ describe('quest loading', () => {
     expect(() => validateQuestDefinition(quest, 'broken')).toThrow(QuestValidationError);
   });
 
+  it('keeps propane outside buildings and close enough to read from the quest site', () => {
+    const inside = cloneBakeryQuest();
+    inside.hazards = [{ id: 'tank', type: 'propane', position: { x: 12, z: -12 } }];
+    expect(() => validateQuestDefinition(inside, 'inside')).toThrow(
+      /propane must stay visible and reachable outside/,
+    );
+
+    const overlapsTree = cloneBakeryQuest();
+    overlapsTree.hazards = [{ id: 'tank', type: 'propane', position: { x: 10, z: -6.5 } }];
+    expect(() => validateQuestDefinition(overlapsTree, 'overlap')).toThrow(
+      /overlaps prop "main-tree-e1"/,
+    );
+
+    const tooFar = cloneBakeryQuest();
+    tooFar.hazards = [{ id: 'tank', type: 'propane', position: { x: 0, z: 0 } }];
+    expect(() => validateQuestDefinition(tooFar, 'far-away')).toThrow(
+      /must be within 9m of the exterior quest site/,
+    );
+  });
+
   it('names the same site twice as a conflict rather than picking one', () => {
     expect(() => getQuestForSite('harbour-hill', 'not-a-site')).toThrow(/No quest is authored/);
   });
@@ -93,6 +113,23 @@ describe('authored quests', () => {
 
     expect(burning).toHaveLength(1);
     expect(fire.shell.cellSubjectIds[burning[0]?.id ?? '']).toBe('bakery:awning');
+  });
+
+  it('resolves the bakery cylinder to a visible world placement and a real shell heat cell', () => {
+    const fire = createQuestFire(getQuestForSite('harbour-hill', 'bakery-awning'));
+    expect(fire.hazards).toEqual([
+      expect.objectContaining({
+        id: 'bakery-propane',
+        type: 'propane',
+        worldPosition: { x: 8.5, y: 0, z: -7 },
+      }),
+    ]);
+    expect(fire.shell.cellSubjectIds[fire.hazards[0]?.cellId ?? '']).toBeDefined();
+    const tankHeatCell = getShellCellWorldPosition(fire.shell, fire.hazards[0]!.cellId);
+    const ignition = getShellCellWorldPosition(fire.shell, fire.shell.ignitionCellIds[0]!);
+    expect(
+      Math.hypot(tankHeatCell.x - ignition.x, tankHeatCell.z - ignition.z),
+    ).toBeLessThanOrEqual(2);
   });
 
   it('keeps every quest small enough to be cheap', () => {

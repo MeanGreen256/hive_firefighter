@@ -12,11 +12,30 @@ import { CellState } from '@sim/cellGrid';
 import {
   calculatePropertySaved,
   createFixedTimestepRunner,
+  DEFAULT_FIRE_SIMULATION_TUNING,
+  FIRE_TICK_SECONDS,
+  type FireSimulationEvent,
   type FireSimulationState,
   type FixedTimestepRunner,
 } from '@sim/fireSimulation';
 import { getShellCellWorldPosition, type ShellPoint } from '@sim/exteriorShell';
 import { createQuestFire, type QuestDefinition, type QuestFire } from '@sim/quests';
+import {
+  advanceHazards,
+  coolHazardsAtCell,
+  countHazards,
+  createHazardSimulation,
+  getMostUrgentHazard,
+  PropaneHazardState,
+  type HazardSimulationState,
+  type IncidentSimulationEvent,
+} from '@sim/hazards';
+import {
+  advanceStructuralCollapse,
+  createStructuralSimulation,
+  type StructuralSimulationEvent,
+  type StructuralSimulationState,
+} from '@sim/structuralCollapse';
 import {
   applySuppression,
   SuppressionAgent,
@@ -50,6 +69,12 @@ export interface QuestFireSnapshot {
   readonly heatingCellCount: number;
   readonly extinguished: boolean;
   readonly elapsedSeconds: number;
+  readonly hazardTotal: number;
+  readonly hazardsMissed: number;
+  readonly hazardState: PropaneHazardState | null;
+  readonly hazardCountdownSeconds: number | null;
+  readonly collapseWarningCount: number;
+  readonly collapsedCellCount: number;
   readonly status: SessionStatus;
   readonly debrief: SessionDebrief | null;
 }
@@ -58,6 +83,15 @@ export interface BurningCell {
   readonly cellId: string;
   readonly position: ShellPoint;
 }
+
+export interface SuppressionTarget {
+  readonly id: string;
+  readonly kind: 'fire' | 'hazard';
+  readonly position: ShellPoint;
+}
+
+export type QuestSimulationEvent =
+  FireSimulationEvent | IncidentSimulationEvent | StructuralSimulationEvent;
 
 export interface QuestFireController {
   readonly store: StoreApi<QuestFireSnapshot>;
@@ -68,9 +102,13 @@ export interface QuestFireController {
   restart(): void;
   restartWithNewSeed(): void;
   getFire(): QuestFire | null;
+  getHazards(): HazardSimulationState;
+  getStructures(): StructuralSimulationState;
   getBurningCells(): BurningCell[];
-  /** Returns null when the quest is over or the cell is not part of this fire. */
-  applyWater(cellId: string, litres: number): WaterApplicationResult | null;
+  getSuppressionTargets(): SuppressionTarget[];
+  drainSimulationEvents(): QuestSimulationEvent[];
+  /** Returns null when the quest is over or the target is not part of this incident. */
+  applyWater(targetId: string, litres: number): WaterApplicationResult | null;
   /** Advance by real elapsed time. Exposed for tests; the loop calls it. */
   advance(elapsedSeconds: number): number;
 }
@@ -83,6 +121,12 @@ const EMPTY_SNAPSHOT: QuestFireSnapshot = {
   heatingCellCount: 0,
   extinguished: false,
   elapsedSeconds: 0,
+  hazardTotal: 0,
+  hazardsMissed: 0,
+  hazardState: null,
+  hazardCountdownSeconds: null,
+  collapseWarningCount: 0,
+  collapsedCellCount: 0,
   status: SessionStatus.Active,
   debrief: null,
 };
@@ -104,6 +148,9 @@ export function createQuestFireController(
   let elapsedSeconds = 0;
   let waterUsedLitres = 0;
   let debrief: SessionDebrief | null = null;
+  let hazards = createHazardSimulation([]);
+  let structures = createStructuralSimulation();
+  let pendingSimulationEvents: QuestSimulationEvent[] = [];
   let animationFrameId: number | null = null;
   const personalBests = createPersonalBestStore(
     options.personalBestStorage === undefined
@@ -129,7 +176,22 @@ export function createQuestFireController(
       return;
     }
     const { burning, heating } = countCells(fire.state);
-    const status = getSessionStatus(fire.state.grid);
+    const urgentHazard = getMostUrgentHazard(hazards);
+    const hazardTotal = countHazards(hazards);
+    const hazardsMissed = Object.values(hazards.hazards).filter(
+      (hazard) => hazard.state === PropaneHazardState.Failed,
+    ).length;
+    const collapsedCellCount = Object.keys(fire.shell.cellSubjectIds).filter(
+      (cellId) => fire?.state.grid.cells[cellId]?.state === CellState.Collapsed,
+    ).length;
+    const fireStatus = getSessionStatus(fire.state.grid);
+    // Extinguishing the last flame does not silently skip a visible propane
+    // countdown. The clock keeps moving until the tank cools or the player
+    // deliberately hoses it; scorched property still ends immediately.
+    const status =
+      fireStatus === SessionStatus.Contained && urgentHazard?.state === PropaneHazardState.Countdown
+        ? SessionStatus.Active
+        : fireStatus;
     if (status !== SessionStatus.Active && debrief === null) {
       const baseDebrief = createSessionDebrief({
         scenarioId: fire.quest.id,
@@ -144,8 +206,8 @@ export function createQuestFireController(
         parTimeSeconds: fire.quest.parTimeSeconds,
         waterUsedLitres,
         foamUsedLitres: 0,
-        hazardTotal: 0,
-        hazardsMissed: 0,
+        hazardTotal,
+        hazardsMissed,
       });
       const bestResult = personalBests.record(baseDebrief);
       debrief = {
@@ -163,6 +225,15 @@ export function createQuestFireController(
       heatingCellCount: heating,
       extinguished: status === SessionStatus.Contained,
       elapsedSeconds: Math.round(elapsedSeconds),
+      hazardTotal,
+      hazardsMissed,
+      hazardState: urgentHazard?.state ?? null,
+      hazardCountdownSeconds:
+        urgentHazard?.state === PropaneHazardState.Countdown
+          ? Math.ceil(urgentHazard.countdownRemainingSeconds)
+          : null,
+      collapseWarningCount: Object.keys(structures.warnings).length,
+      collapsedCellCount,
       status,
       debrief,
     };
@@ -173,6 +244,12 @@ export function createQuestFireController(
       previous.heatingCellCount === next.heatingCellCount &&
       previous.extinguished === next.extinguished &&
       previous.elapsedSeconds === next.elapsedSeconds &&
+      previous.hazardTotal === next.hazardTotal &&
+      previous.hazardsMissed === next.hazardsMissed &&
+      previous.hazardState === next.hazardState &&
+      previous.hazardCountdownSeconds === next.hazardCountdownSeconds &&
+      previous.collapseWarningCount === next.collapseWarningCount &&
+      previous.collapsedCellCount === next.collapsedCellCount &&
       previous.status === next.status &&
       previous.debrief === next.debrief
     ) {
@@ -187,6 +264,15 @@ export function createQuestFireController(
     setQuest: (quest) => {
       fire = createQuestFire(quest);
       runner = createFixedTimestepRunner(fire.state);
+      hazards = createHazardSimulation(
+        fire.hazards.map((hazard) => ({
+          id: hazard.id,
+          type: hazard.type,
+          position: { ...fire!.state.grid.cells[hazard.cellId]!.gridPos },
+        })),
+      );
+      structures = createStructuralSimulation();
+      pendingSimulationEvents = [];
       elapsedSeconds = 0;
       waterUsedLitres = 0;
       debrief = null;
@@ -205,6 +291,10 @@ export function createQuestFireController(
 
     getFire: () => fire,
 
+    getHazards: () => hazards,
+
+    getStructures: () => structures,
+
     getBurningCells: () => {
       if (!fire) return [];
       const burning: BurningCell[] = [];
@@ -216,13 +306,49 @@ export function createQuestFireController(
       return burning;
     },
 
-    applyWater: (cellId, litres) => {
+    getSuppressionTargets: () => {
+      if (!fire) return [];
+      const targets: SuppressionTarget[] = controller.getBurningCells().map((cell) => ({
+        id: `cell:${cell.cellId}`,
+        kind: 'fire',
+        position: cell.position,
+      }));
+      for (const placement of fire.hazards) {
+        const hazard = hazards.hazards[placement.id];
+        if (!hazard || hazard.state !== PropaneHazardState.Countdown) continue;
+        targets.push({
+          id: `hazard:${hazard.id}`,
+          kind: 'hazard',
+          position: {
+            x: placement.worldPosition.x,
+            y: placement.worldPosition.y + 0.8,
+            z: placement.worldPosition.z,
+          },
+        });
+      }
+      return targets;
+    },
+
+    drainSimulationEvents: () => {
+      const events = pendingSimulationEvents;
+      pendingSimulationEvents = [];
+      return events;
+    },
+
+    applyWater: (targetId, litres) => {
       if (!fire || !runner || litres <= 0 || store.getState().status !== SessionStatus.Active) {
         return null;
       }
+      const hazardId = targetId.startsWith('hazard:') ? targetId.slice('hazard:'.length) : null;
+      const hazardPlacement = hazardId
+        ? fire.hazards.find((placement) => placement.id === hazardId)
+        : null;
+      const cellId = hazardPlacement?.cellId ?? targetId.replace(/^cell:/, '');
       if (!fire.state.grid.cells[cellId]) return null;
       const result = applySuppression(fire.state, cellId, litres, SuppressionAgent.Water);
-      if (result.contacts.length > 0) waterUsedLitres += litres;
+      const hazardEvents = coolHazardsAtCell(hazards, cellId, litres);
+      pendingSimulationEvents.push(...hazardEvents);
+      if (result.contacts.length > 0 || hazardPlacement) waterUsedLitres += litres;
       runner.setState(fire.state);
       publish();
       return result;
@@ -235,8 +361,13 @@ export function createQuestFireController(
       const ticks = runner.advance(elapsed);
       if (ticks > 0) {
         reportSimTick((performance.now() - startedAt) / ticks);
-        runner.drainEvents();
-        elapsedSeconds += elapsed;
+        const simulatedSeconds = ticks * FIRE_TICK_SECONDS;
+        pendingSimulationEvents.push(
+          ...runner.drainEvents(),
+          ...advanceHazards(hazards, fire!.state, DEFAULT_FIRE_SIMULATION_TUNING, simulatedSeconds),
+          ...advanceStructuralCollapse(structures, fire!.state, simulatedSeconds),
+        );
+        elapsedSeconds += simulatedSeconds;
         publish();
       }
       return ticks;

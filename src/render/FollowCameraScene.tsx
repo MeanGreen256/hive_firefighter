@@ -19,6 +19,8 @@ import {
   type DistrictQuestSite,
 } from '@sim/districts';
 import { getQuestForSite } from '@sim/quests';
+import { CellState } from '@sim/cellGrid';
+import { PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { questFireController } from '../state/questFireController';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
@@ -44,6 +46,7 @@ import { AnchoredHoseEffects } from './AnchoredHoseEffects';
 import { PerformanceSampler } from './PerformanceSampler';
 import { CityDistrict } from './CityDistrict';
 import { ExteriorFire } from './ExteriorFire';
+import { ExteriorIncidentEffects } from './ExteriorIncidentEffects';
 import { SmokeBeacon } from './SmokeBeacon';
 import { WaypointArrow } from './WaypointArrow';
 import { getBeaconTarget } from './questBeacon';
@@ -254,6 +257,11 @@ function GameWorld({
         questId={activeQuestSite.id}
         visualStyle={visualStyle}
       />
+      <ExteriorIncidentEffects
+        controller={questFireController}
+        questId={activeQuestSite.id}
+        visualStyle={visualStyle}
+      />
       <SmokeBeacon
         controller={questFireController}
         target={beaconTarget}
@@ -317,6 +325,34 @@ export default function FollowCameraScene() {
 
   useEffect(() => {
     questFireController.setQuest(getQuestForSite(DISTRICT.id, activeQuestSite.id));
+    if (PERFORMANCE_SCENE && PERFORMANCE_SCENE.hazardCountdownSeconds !== null) {
+      const hazard = Object.values(questFireController.getHazards().hazards)[0];
+      if (hazard) {
+        hazard.state = PropaneHazardState.Countdown;
+        hazard.heat = PROPANE_COUNTDOWN_HEAT;
+        hazard.countdownRemainingSeconds = PERFORMANCE_SCENE.hazardCountdownSeconds;
+        questFireController.advance(0.1);
+      }
+    }
+    if (PERFORMANCE_SCENE?.collapseWarning) {
+      const fire = questFireController.getFire();
+      const subjectCells = Object.keys(fire?.shell.cellSubjectIds ?? {});
+      const upperId = subjectCells.find((cellId) => {
+        const cell = fire?.state.grid.cells[cellId];
+        if (!cell || cell.gridPos.y === 0) return false;
+        return subjectCells.includes(`${cell.gridPos.x},${cell.gridPos.y - 1},${cell.gridPos.z}`);
+      });
+      const upper = upperId ? fire?.state.grid.cells[upperId] : null;
+      const support = upper
+        ? fire?.state.grid.cells[`${upper.gridPos.x},${upper.gridPos.y - 1},${upper.gridPos.z}`]
+        : null;
+      if (fire && support) {
+        support.state = CellState.Burnt;
+        support.fuel = 0;
+        fire.state.activeCellIds.delete(support.id);
+        questFireController.advance(0.1);
+      }
+    }
     if (PERFORMANCE_SCENE?.advanceFireSeconds) {
       const steps = Math.ceil(PERFORMANCE_SCENE.advanceFireSeconds / 0.25);
       for (let step = 0; step < steps; step += 1) questFireController.advance(0.25);
@@ -329,7 +365,7 @@ export default function FollowCameraScene() {
         }
         questFireController.advance(0.1);
       }
-    } else {
+    } else if (!PERFORMANCE_SCENE?.freezeClock) {
       questFireController.start();
     }
     fireAudioSystem.playIncidentChirp();

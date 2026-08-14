@@ -9,6 +9,7 @@
       "burnable": "barn-door"
     }
   ],
+  "hazards": [],
   "seed": 1903,
   "wind": {
     "direction": {

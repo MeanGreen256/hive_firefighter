@@ -11,8 +11,8 @@ Game data as JSON. **Adding content should not require writing code.**
   props, and the quest sites a quest can be staged at.
 - `burnables.json` — what exterior fire is allowed to live on (#91), and the
   shape of the shell it occupies.
-- `quests/*.json` — one authored incident per quest site: what may burn, and
-  where the fire starts.
+- `quests/*.json` — one authored incident per quest site: what may burn, where
+  the fire starts, and any exterior propane cylinder.
 - Later: building prefabs.
 
 ## Rules
@@ -29,8 +29,9 @@ expected to grow, and adding one should be a content change rather than a code c
 
 Finite tank and foam capacities are no longer authored by current scenarios.
 The loader temporarily accepts and ignores those fields so older external files
-can migrate. Hydrants are optional, non-interactive street props. Harmful hazards are a
-remaining legacy input. Scenarios no longer place people at an incident: #97
+can migrate. Hydrants are optional, non-interactive street props. Legacy
+scenarios may still carry grid-space propane data, while shipped M3 propane
+belongs to quests. Scenarios no longer place people at an incident: #97
 removed that field outright rather than retuning it, because fire in this game
 burns things and never people. See `docs/game-direction.md`.
 
@@ -140,6 +141,9 @@ A quest names:
   Each one contributes every burnable its use or type grows;
 - `ignitions`: the one place the fire starts, as a subject plus a burnable id.
   Both must be legal for that target — you cannot light a `canopy` on a bakery;
+- `hazards`: zero or more world-space propane cylinders. They must remain
+  outside every building and within nine metres of the quest site, which keeps
+  them visible and reachable with the normal hose action;
 - a deterministic `seed`, `wind`, and `parTimeSeconds`.
 
 Fire spreads between subjects only where their shells actually touch. Two trees
