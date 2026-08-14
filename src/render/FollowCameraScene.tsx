@@ -23,7 +23,10 @@ import { questFireController } from '../state/questFireController';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import { AudioControls } from '@ui/AudioControls';
+import { PerfOverlay } from '@ui/PerfOverlay';
+import { QuestFireAudioBridge } from '../audio/QuestFireAudioBridge';
 import { AnchoredHoseEffects } from './AnchoredHoseEffects';
+import { PerformanceSampler } from './PerformanceSampler';
 import { CityDistrict } from './CityDistrict';
 import { ExteriorFire } from './ExteriorFire';
 import { SmokeBeacon } from './SmokeBeacon';
@@ -311,8 +314,10 @@ export default function FollowCameraScene() {
             truckSpeedRatio={truckSpeedRatio}
             onBoardingRangeChange={setCanBoard}
           />
+          {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
       </div>
+      <QuestFireAudioBridge />
       <div className="placard" role="status" aria-live="polite">
         <b>{DISTRICT.name}</b> · free roam
         <br />
@@ -364,6 +369,7 @@ export default function FollowCameraScene() {
           <AudioControls />
         </div>
       </div>
+      {import.meta.env.DEV ? <PerfOverlay /> : null}
     </div>
   );
 }
