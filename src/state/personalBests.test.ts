@@ -20,7 +20,7 @@ function debrief(overallInputs: { elapsedSeconds: number; propertySaved: number 
     waterUsedLitres: 4,
     foamUsedLitres: 0,
     hazardTotal: 1,
-    hazardsFailed: 0,
+    hazardsMissed: 0,
     ...overallInputs,
   });
 }
@@ -52,5 +52,24 @@ describe('personal bests', () => {
     expect(fast.isNewPersonalBest).toBe(true);
     expect(fast.previousBest).toEqual(slow.best);
     expect(fast.best.elapsedSeconds).toBe(110);
+  });
+
+  it('starts fresh instead of reading the old letter-grade storage shape', () => {
+    const storage = createMemoryStorage();
+    storage.setItem(
+      'hive-firefighter:personal-bests:v1',
+      JSON.stringify({
+        version: 1,
+        records: { 'workshop:42': { grade: 'A', overallScore: 100, elapsedSeconds: 1 } },
+      }),
+    );
+
+    const bests = createPersonalBestStore(storage);
+
+    expect(bests.get('workshop', 42)).toBeNull();
+    expect(
+      bests.record(debrief({ elapsedSeconds: 120, propertySaved: 0.8 })).previousBest,
+    ).toBeNull();
+    expect(storage.getItem(PERSONAL_BESTS_STORAGE_KEY)).toContain('"version":2');
   });
 });

@@ -184,7 +184,7 @@ export function createSimDebugController(
   const finishSessionIfNeeded = (): void => {
     if (sessionStatus !== SessionStatus.Active) return;
     const nextStatus = getSessionStatus(runner.getState().grid);
-    if (nextStatus !== SessionStatus.Contained && nextStatus !== SessionStatus.Lost) return;
+    if (nextStatus !== SessionStatus.Contained && nextStatus !== SessionStatus.Scorched) return;
 
     sessionStatus = nextStatus;
     const fire = runner.getState();
@@ -200,7 +200,7 @@ export function createSimDebugController(
       waterUsedLitres,
       foamUsedLitres: 0,
       hazardTotal: hazardList.length,
-      hazardsFailed: hazardList.filter((hazard) => hazard.state === PropaneHazardState.Failed)
+      hazardsMissed: hazardList.filter((hazard) => hazard.state === PropaneHazardState.Failed)
         .length,
     });
     const bestResult = personalBests.record(baseDebrief);

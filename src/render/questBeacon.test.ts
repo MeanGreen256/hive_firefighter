@@ -10,6 +10,7 @@ import {
   getSmokeColumnPlan,
   getWaypointArrowState,
 } from './questBeacon';
+import { SessionStatus } from '../state/sessionStats';
 
 const site = { id: 'bakery-awning', x: 12, z: -6 };
 
@@ -23,6 +24,16 @@ describe('beacon target', () => {
 
   it('clears the moment the fire is out', () => {
     expect(getBeaconTarget(site, { questSiteId: 'bakery-awning', extinguished: true })).toBeNull();
+  });
+
+  it('clears when a fire ends scorched', () => {
+    expect(
+      getBeaconTarget(site, {
+        questSiteId: 'bakery-awning',
+        extinguished: false,
+        status: SessionStatus.Scorched,
+      }),
+    ).toBeNull();
   });
 
   it('shows nothing while the fire controller still holds the previous quest', () => {
