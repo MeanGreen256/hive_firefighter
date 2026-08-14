@@ -32,3 +32,47 @@ and tree-shaken from production builds.
 Count and sim-tick budget failures warn immediately. FPS must remain under
 budget for four consecutive published samples (one second) so page startup or
 one dropped frame does not produce a false warning.
+
+## M3 acceptance scenes
+
+Development builds provide deterministic URL scenes so measurements compare the
+same camera, quest, and fire state instead of whichever moment a profiler happened
+to catch:
+
+```text
+/?perfScene=spawn&style=diorama
+/?perfScene=incident&style=diorama
+/?perfScene=debrief&style=diorama
+```
+
+Repeat each with `style=ink`, open the F3 overlay, and record the stable maximum
+after the one-time shadow bake. `incident` places the shoulder camera at the bakery
+vertical slice after twenty simulated seconds; `debrief` completes that quest and
+opens the real star result. These parameters are development-only and have no effect
+in production builds.
+
+The representative M3 budget is fewer than 80 draws in all six combinations. Keep
+at least 18 draws uncommitted for the approved vertical-slice art, propane spectacle,
+and cosmetic collapse. Harbour Hill's static directional shadow map is baked once;
+moving hero assets use style-token contact blobs so they do not rerender the whole
+town into the shadow map every frame. The sampler ignores eight startup frames so
+that one-time bake is not mistaken for sustained gameplay cost.
+
+### 2026-08-14 baseline and result
+
+Measured locally at the same viewport on `main` (`c3157d7`) and this change. Main
+had no deterministic acceptance URLs, so its on-foot value is the closest manual
+state at spawn rather than the bakery camera added here:
+
+| Scene             |        Diorama main → after |            Ink main → after |
+| ----------------- | --------------------------: | --------------------------: |
+| Spawn / chase     |                     79 → 51 |                     79 → 51 |
+| Active / shoulder | 108 at spawn → 62 at bakery | 107 at spawn → 62 at bakery |
+| Bakery debrief    |         not repeatable → 60 |         not repeatable → 60 |
+
+The sustained city shadow pass accounted for 28 draws at spawn. The truck's three
+dynamic shadow casters became one contact blob, and the firefighter's thirteen
+casters became one. City surfaces, buildings, props, hero geometry, fire-state
+layers, smoke, reticle, and UI-adjacent scene work remain independently batched as
+described in `src/render/README.md`. Both styles now have the same measured cost;
+the secondary style adds no always-on pass to the primary style.

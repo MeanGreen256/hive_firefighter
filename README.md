@@ -42,9 +42,13 @@ Visual direction lives in [`docs/`](docs/) and is worth reading before proposing
 
 - [`docs/game-direction.md`](docs/game-direction.md) — authoritative audience,
   gameplay loop, scope, and anti-drift constraints.
+- [`docs/art/m3-visual-benchmark.md`](docs/art/m3-visual-benchmark.md) — authoritative
+  third-person toy-diorama target for chase driving, shoulder firefighting, hero
+  silhouettes, and the supported ink translation.
 - [`docs/concept-art.html`](docs/concept-art.html) — exploratory camera comparison;
-  the adopted direction uses chase and over-the-shoulder third-person views.
-- [`docs/style-directions.html`](docs/style-directions.html) — six isometric art treatments of the same scene, with competitive research and a scored recommendation.
+  historical pre-pivot input to the adopted chase and shoulder views.
+- [`docs/style-directions.html`](docs/style-directions.html) — historical pre-pivot
+  isometric style exploration and scoring.
 
 Open them in a browser; they're self-contained pages.
 
@@ -59,7 +63,7 @@ Open them in a browser; they're self-contained pages.
 - **An ages 5+ control floor.** Two-input completion, automatic camera, assisted aim,
   no modal state, gamepad parity, and nothing that depends on reading. See
   [ADR-007](docs/adr/007-ages-5-plus-control-floor.md).
-- **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md).
+- **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md) and the [M3 street-level benchmark](docs/art/m3-visual-benchmark.md).
 - **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
 
 Decision records live in `docs/adr/`.

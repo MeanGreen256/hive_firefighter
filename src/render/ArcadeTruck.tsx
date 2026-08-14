@@ -123,11 +123,20 @@ export function ArcadeTruck({
 
   return (
     <group ref={targetRef} position={initialPosition} rotation={[0, initialYaw, 0]}>
-      <mesh position={[0, 0.72, 0]} castShadow>
+      <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.15, 2.1, 1]}>
+        <circleGeometry args={[1, 24]} />
+        <meshBasicMaterial
+          color={visualStyle.stage.contactShadow.color}
+          transparent
+          opacity={visualStyle.stage.contactShadow.opacity * 0.72}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh position={[0, 0.72, 0]}>
         <boxGeometry args={[1.8, 1.12, 3.5]} />
         <meshStandardMaterial color={visualStyle.hud.warning} roughness={0.72} />
       </mesh>
-      <mesh position={[0, 1.35, -0.9]} castShadow>
+      <mesh position={[0, 1.35, -0.9]}>
         <boxGeometry args={[1.64, 0.72, 1.28]} />
         <meshStandardMaterial color={visualStyle.hud.warning} roughness={0.68} />
       </mesh>
@@ -135,7 +144,7 @@ export function ArcadeTruck({
         <planeGeometry args={[1.3, 0.42]} />
         <meshStandardMaterial color={visualStyle.hud.control} roughness={0.35} />
       </mesh>
-      <mesh position={[0, 1.16, 0.62]} castShadow>
+      <mesh position={[0, 1.16, 0.62]}>
         <boxGeometry args={[1.54, 0.12, 1.15]} />
         <meshStandardMaterial color={visualStyle.hose.nozzle} roughness={0.5} metalness={0.45} />
       </mesh>
