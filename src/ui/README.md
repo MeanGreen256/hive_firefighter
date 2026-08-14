@@ -16,6 +16,7 @@ See `docs/game-direction.md`, ADR-006, and ADR-007 for the control floor.
 ## What lives here
 
 - The gamepad half of the control floor (#106) — `gamepad.ts`
+- The wordless guided first quest (#107) — `onboardingSteps.ts`, `OnboardingCoach.tsx`
 - Star debrief, retry, and personal bests (#96, #99)
 - Performance overlay (#4) — `F3` in development
 
@@ -47,3 +48,28 @@ made does not count. That second rule is why a player still holding the hose
 when the fire goes out does not skip their own star screen. A control added
 here has to pass ADR-007 — one press, harmless if wrong, and reachable from a
 pad — or it does not belong in the shipped scene.
+
+## The guided first quest
+
+`onboardingSteps.ts` answers one question — which prompt is owed right now — as a
+pure function of what the player has done: how far the truck has moved, how far
+they are from the quest site, whether they are on foot, and whether water has
+ever left the nozzle. Four prompts, in order: drive, go to the smoke, hop out,
+hold to squirt.
+
+There is no clock in it. A prompt is owed until the thing it asks for has
+happened, whether that takes four seconds or four minutes, and it can go
+backwards — drive away after arriving and "go to the smoke" returns. That is
+re-teaching, not punishment; the alternative is a child stranded with no prompt
+because the game decided they had already learned it.
+
+`OnboardingCoach` draws one prompt with no words in it: what to press, an arrow,
+and what happens, with the thing being asked for as the only thing that moves.
+The device glyphs are drawn — a space bar and a round pad button — rather than
+named. The card is `pointer-events: none` apart from its skip control, so a
+child mashing the screen cannot lose the prompt by accident.
+
+It runs once ever. Finishing the first squirt or pressing skip writes a
+completion record to local storage, and a player who has it is never sampled for
+again — `FollowCameraScene` passes a null callback rather than doing frame work
+for nobody.

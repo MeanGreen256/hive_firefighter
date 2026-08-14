@@ -1,0 +1,131 @@
+/*
+ * The coach is the only thing on screen a five-year-old is asked to read, and
+ * they cannot read, so everything here is size, motion, and shape. Nothing is
+ * smaller than a thumbnail and nothing depends on colour alone.
+ */
+
+.coach {
+  position: fixed;
+  left: 50%;
+  bottom: 34px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 18px;
+  border: 1px solid var(--hud-border);
+  border-radius: 18px;
+  background: var(--hud-panel);
+  user-select: none;
+  pointer-events: none;
+  animation: coach-enter 320ms ease-out both;
+}
+
+@keyframes coach-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.coach__icons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 38px;
+  line-height: 1;
+}
+
+/* The thing the player is being asked to do is the thing that moves. */
+.coach__act {
+  animation: coach-act 1100ms ease-in-out infinite;
+}
+
+@keyframes coach-act {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.22);
+  }
+}
+
+.coach__arrow {
+  font-size: 26px;
+  color: var(--hud-accent);
+  animation: coach-arrow 1100ms ease-in-out infinite;
+}
+
+@keyframes coach-arrow {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translateX(7px);
+    opacity: 1;
+  }
+}
+
+/* Device glyphs: a space bar and a pad face button, drawn rather than named. */
+.coach__keys {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coach__key {
+  display: block;
+  width: 58px;
+  height: 20px;
+  border: 2px solid var(--hud-text);
+  border-radius: 6px;
+  background: var(--hud-control);
+}
+
+.coach__button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--hud-text);
+  border-radius: 50%;
+  background: var(--hud-control);
+  color: var(--hud-text);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 16px;
+}
+
+.coach__skip {
+  pointer-events: auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--hud-border);
+  border-radius: 50%;
+  background: var(--hud-control);
+  color: var(--hud-muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.coach__skip:hover,
+.coach__skip:focus-visible {
+  color: var(--hud-text);
+  border-color: var(--hud-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach,
+  .coach__act,
+  .coach__arrow {
+    animation: none;
+  }
+}
