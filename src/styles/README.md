@@ -47,3 +47,10 @@ Material content declares smoke with the semantic `SmokeTint` tokens from
 `src/sim/materials.ts`. Mapping `neutral`, `pale`, `sooty`, and `toxic` to
 colour, texture, particle shape, or another visual treatment belongs here in
 the active style—not in `content/materials.json`.
+
+`particles.smoke.beacon` is the exception that proves that rule. The navigation
+column over the active quest is a landmark before it is smoke: local smoke from
+a burning awning is allowed to be pale, but pale-on-pale sky is invisible from
+across the district, which is what #130 was filed about. So the style says how
+far to pull the material's own tint toward something that reads against its own
+sky, and by how much — the renderer never picks a smoke colour for itself.

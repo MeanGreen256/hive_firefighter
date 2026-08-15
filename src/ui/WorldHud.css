@@ -1,0 +1,188 @@
+/*
+ * The permanent play HUD (#130). Icons and pips only; the words live in a
+ * drawer that starts closed, and the numbers do not ship at all.
+ */
+
+.world-hud {
+  position: fixed;
+  left: 20px;
+  bottom: 18px;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  max-width: min(340px, calc(100vw - 40px));
+  user-select: none;
+}
+
+.world-hud__signals,
+.world-hud__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--hud-border);
+  border-radius: 999px;
+  background: var(--hud-panel);
+}
+
+.world-hud__mode {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: var(--hud-control);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.world-hud__meter {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.world-hud__meter--approach {
+  font-size: 18px;
+  color: var(--hud-muted);
+}
+
+.world-hud__meter--approach .world-hud__pip--lit {
+  color: var(--hud-accent);
+}
+
+.world-hud__meter--fire {
+  font-size: 21px;
+  line-height: 1;
+}
+
+/* A spent flame is drawn as water rather than removed, so the row never
+   changes length and "one fewer flame" stays the only thing that moved. */
+.world-hud__meter--fire .world-hud__pip {
+  opacity: 0.42;
+}
+
+.world-hud__meter--fire .world-hud__pip--lit {
+  opacity: 1;
+}
+
+.world-hud__target {
+  margin: 0 2px 0 -2px;
+  font-size: 23px;
+  line-height: 1;
+}
+
+/* The two meters answer different questions, so they must not read as one row. */
+.world-hud__divider {
+  width: 1px;
+  height: 24px;
+  background: var(--hud-border);
+}
+
+.world-hud__action {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border: 1px solid var(--hud-border);
+  border-radius: 999px;
+  background: var(--hud-control);
+  color: var(--hud-text);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.world-hud__action:hover:not(:disabled),
+.world-hud__action:focus-visible {
+  border-color: var(--hud-accent);
+  outline: none;
+}
+
+.world-hud__action:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.world-hud__action--enable {
+  border-color: var(--hud-accent);
+}
+
+.world-hud__adults {
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--hud-border);
+  border-radius: 4px;
+  background: var(--hud-panel);
+  color: var(--hud-muted);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.world-hud__adults summary {
+  cursor: pointer;
+}
+
+.world-hud__adults b {
+  color: var(--hud-accent);
+  font-weight: 400;
+}
+
+.world-hud__place {
+  margin: 8px 0 0;
+  line-height: 1.7;
+}
+
+.world-hud__legend {
+  margin: 6px 0 0;
+  color: var(--hud-text);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  text-transform: none;
+}
+
+.world-hud__legend small {
+  font-size: 10px;
+  color: var(--hud-muted);
+}
+
+.world-hud__volume {
+  margin-top: 8px;
+}
+
+.world-hud__volume label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 7px;
+  color: var(--hud-text);
+}
+
+.world-hud__volume input {
+  accent-color: var(--hud-accent);
+}
+
+.world-hud__volume output {
+  display: block;
+  margin-top: 4px;
+  color: var(--hud-accent);
+  font-size: 9px;
+}
+
+@media (max-width: 600px) {
+  .world-hud {
+    left: 12px;
+    bottom: 12px;
+    gap: 6px;
+  }
+
+  .world-hud__signals,
+  .world-hud__actions {
+    padding: 6px 9px;
+    gap: 6px;
+  }
+}

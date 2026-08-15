@@ -15,7 +15,6 @@ import {
   getActiveQuestSite,
   getDistrict,
   getNextQuestIndex,
-  getQuestSiteDistanceFromStart,
   type DistrictQuestSite,
 } from '@sim/districts';
 import { getQuestForSite } from '@sim/quests';
@@ -24,9 +23,11 @@ import { PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { questFireController } from '../state/questFireController';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
-import { AudioControls } from '@ui/AudioControls';
 import { createPressLatch, firstConnectedGamepad, isIntentHeld, readPress } from '@ui/gamepad';
+import { DevTelemetry } from '@ui/DevTelemetry';
 import { OnboardingCoach } from '@ui/OnboardingCoach';
+import { WorldHud } from '@ui/WorldHud';
+import { ApproachBand, getApproachBand, getFireBand, type ApproachBandId } from '@ui/worldGuidance';
 import {
   getBrowserOnboardingStorage,
   getOnboardingStep,
@@ -62,7 +63,6 @@ import {
   type PlayerMode,
 } from './mountDismount';
 import type { BeaconPoint } from './questBeacon';
-import { SessionStatus } from '../state/sessionStats';
 
 const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
 const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
@@ -142,7 +142,13 @@ interface GameWorldProps {
   readonly onBoardingRangeChange: (canBoard: boolean) => void;
   /** Null once the player has been taught, so nothing is sampled for nobody. */
   readonly onOnboardingStep: ((step: OnboardingStepId) => void) | null;
+  readonly onApproachChange: (approach: ApproachSample) => void;
   readonly performanceScene: PerformanceAcceptanceScene | null;
+}
+
+export interface ApproachSample {
+  readonly band: ApproachBandId;
+  readonly distanceMeters: number;
 }
 
 function GameWorld({
@@ -156,6 +162,7 @@ function GameWorld({
   truckSpeedRatio,
   onBoardingRangeChange,
   onOnboardingStep,
+  onApproachChange,
   performanceScene,
 }: GameWorldProps) {
   const collisionRoot = useRef<Group>(null);
@@ -164,6 +171,13 @@ function GameWorld({
   const boardingCheckElapsed = useRef(0);
   const hasSprayed = useRef(false);
   const lastOnboardingStep = useRef<OnboardingStepId | null>(null);
+  const lastApproachBand = useRef<ApproachBandId | null>(null);
+  const telemetryElapsed = useRef(0);
+
+  // A new quest starts the approach over, so the next sample always publishes.
+  useEffect(() => {
+    lastApproachBand.current = null;
+  }, [activeQuestSite.id]);
   const profile = mode === 'driving' ? 'chase' : 'shoulder';
   const activeTarget = mode === 'driving' ? truckRef : firefighterRef;
 
@@ -183,18 +197,35 @@ function GameWorld({
       onBoardingRangeChange(canBoard);
     }
 
-    // The coach reads the world at the same 10 Hz the boarding check does, and
-    // publishes to React only when the prompt itself changes.
-    if (!onOnboardingStep || !truck) return;
+    // The HUD and the coach both read the world at the same 10 Hz the boarding
+    // check does, and publish to React only when what they say changes — the
+    // approach meter is four bands wide, so an entire drive across the district
+    // costs three renders rather than three hundred.
+    if (!truck) return;
     if (firefighter?.userData.spraying === true) hasSprayed.current = true;
     const subject = mode === 'driving' ? truck : (firefighter ?? truck);
+    const distanceToQuestMeters = Math.hypot(
+      subject.position.x - activeQuestSite.x,
+      subject.position.z - activeQuestSite.z,
+    );
+
+    const band = getApproachBand(distanceToQuestMeters, lastApproachBand.current);
+    // Development telemetry wants live metres, which no band change can carry.
+    // It is the only reason anything here publishes on a timer, and it is
+    // compiled out of the bundle a player downloads.
+    telemetryElapsed.current += 0.1;
+    const telemetryDue = import.meta.env.DEV && telemetryElapsed.current >= 0.5;
+    if (band !== lastApproachBand.current || telemetryDue) {
+      if (telemetryDue) telemetryElapsed.current = 0;
+      lastApproachBand.current = band;
+      onApproachChange({ band, distanceMeters: distanceToQuestMeters });
+    }
+
+    if (!onOnboardingStep) return;
     const [startX, , startZ] = DISTRICT_LAYOUT.truckStart.position;
     const step = getOnboardingStep({
       truckMovedMeters: Math.hypot(truck.position.x - startX, truck.position.z - startZ),
-      distanceToQuestMeters: Math.hypot(
-        subject.position.x - activeQuestSite.x,
-        subject.position.z - activeQuestSite.z,
-      ),
+      distanceToQuestMeters,
       onFoot: mode === 'on-foot',
       hasSprayed: hasSprayed.current,
     });
@@ -291,11 +322,20 @@ export default function FollowCameraScene() {
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
   const visualStyle = STYLES[activeStyleId];
   const activeQuestSite = getActiveQuestSite(DISTRICT, questIndex);
-  const questDistance = getQuestSiteDistanceFromStart(DISTRICT, activeQuestSite);
   const takeNextQuest = useCallback(() => {
     setQuestIndex((current) => getNextQuestIndex(DISTRICT, current));
   }, []);
   const fireSnapshot = useStore(questFireController.store);
+
+  /**
+   * How close the player is, sampled in the world rather than measured once
+   * from the truck's parking space. The old placard's "74 m away" was computed
+   * from `truckStart` and never moved (#130). Null until the first sample.
+   */
+  const [approach, setApproach] = useState<ApproachSample | null>(null);
+  // A new quest is a new distance; carrying "arrived" into it would light every
+  // pip over a fire on the other side of town.
+  useEffect(() => setApproach(null), [activeQuestSite.id]);
 
   const beaconTarget = getBeaconTarget(activeQuestSite, fireSnapshot);
 
@@ -479,8 +519,7 @@ export default function FollowCameraScene() {
     '--hud-control': visualStyle.hud.control,
   };
 
-  const boardingActionAvailable = mode === 'driving' || canBoard;
-  const actionLabel = mode === 'driving' ? 'Hop out' : canBoard ? 'Hop in' : 'Walk to the truck';
+  const approachBand = approach?.band ?? ApproachBand.Far;
 
   return (
     <div className="app-shell" style={hudCssVariables}>
@@ -497,64 +536,45 @@ export default function FollowCameraScene() {
             truckSpeedRatio={truckSpeedRatio}
             onBoardingRangeChange={setCanBoard}
             onOnboardingStep={teaching ? advanceOnboarding : null}
+            onApproachChange={setApproach}
             performanceScene={PERFORMANCE_SCENE}
           />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
       </div>
       <QuestFireAudioBridge />
-      <div className="placard" role="status" aria-live="polite">
-        <b>{DISTRICT.name}</b> · free roam
-        <br />
-        Quest {questIndex + 1} of {DISTRICT.questSites.length}: <b>{activeQuestSite.name}</b> —{' '}
-        {questDistance.toFixed(0)}m away
-        <br />
-        {fireSnapshot.status === SessionStatus.Scorched ? (
-          <b>Scorched · ready to retry</b>
-        ) : fireSnapshot.extinguished ? (
-          <b>Fire out · {fireSnapshot.elapsedSeconds}s</b>
-        ) : (
-          <>
-            {fireSnapshot.burningCellCount} alight · {fireSnapshot.heatingCellCount} catching ·{' '}
-            {fireSnapshot.elapsedSeconds}s
-          </>
-        )}
-        <br />
-        <b>{mode === 'driving' ? 'Truck' : 'Firefighter'}</b>
-        {/*
-          The whole control surface, per ADR-007: a direction and one button.
-          Two lines of icons, the second of which is the optional half — nothing
-          on it is needed to finish a quest. The words are for the adult reading
-          over the player's shoulder; the icons are what a five-year-old reads.
-        */}
-        <p className="placard__controls" aria-label="Controls">
-          <span aria-hidden="true">🕹</span> move · <span aria-hidden="true">💦</span> hold to squirt
-          · <span aria-hidden="true">🚒</span> hop in and out
-          <br />
-          <small>
-            <span aria-hidden="true">🔊</span> siren · <span aria-hidden="true">👀</span> look
-            around — both optional
-          </small>
-        </p>
-        <div className="audio-controls">
-          <button
-            type="button"
-            onClick={transitionPlayer}
-            disabled={!boardingActionAvailable}
-            aria-label={actionLabel}
-          >
-            🚒 {actionLabel}
-          </button>
-          <button type="button" onClick={toggleSiren} aria-pressed={sirenOn}>
-            🔊 Siren {sirenOn ? 'on' : 'off'}
-          </button>
-          <AudioControls />
-        </div>
-      </div>
+      <WorldHud
+        districtName={DISTRICT.name}
+        questName={activeQuestSite.name}
+        onFoot={mode === 'on-foot'}
+        approach={approachBand}
+        fire={getFireBand(fireSnapshot)}
+        boardingAvailable={canBoard}
+        onBoard={transitionPlayer}
+        sirenOn={sirenOn}
+        onToggleSiren={toggleSiren}
+      />
       {/* Hidden behind the star screen: one thing to look at at a time. */}
       {debriefOpen ? null : <OnboardingCoach step={onboardingStep} onSkip={finishOnboarding} />}
       <QuestDebriefPanel onNextQuest={takeNextQuest} />
-      {import.meta.env.DEV ? <PerfOverlay /> : null}
+      {import.meta.env.DEV ? (
+        <>
+          <PerfOverlay />
+          <DevTelemetry
+            districtName={DISTRICT.name}
+            questIndex={questIndex}
+            questCount={DISTRICT.questSites.length}
+            questName={activeQuestSite.name}
+            distanceMeters={approach?.distanceMeters ?? null}
+            approach={approachBand}
+            burningCellCount={fireSnapshot.burningCellCount}
+            heatingCellCount={fireSnapshot.heatingCellCount}
+            elapsedSeconds={fireSnapshot.elapsedSeconds}
+            mode={mode}
+            status={fireSnapshot.extinguished ? 'extinguished' : fireSnapshot.status}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

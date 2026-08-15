@@ -17,8 +17,10 @@ See `docs/game-direction.md`, ADR-006, and ADR-007 for the control floor.
 
 - The gamepad half of the control floor (#106) — `gamepad.ts`
 - The wordless guided first quest (#107) — `onboardingSteps.ts`, `OnboardingCoach.tsx`
+- The permanent play HUD (#130) — `worldGuidance.ts`, `WorldHud.tsx`
 - Star debrief, retry, and personal bests (#96, #99)
 - Performance overlay (#4) — `F3` in development
+- Quest telemetry (#130) — `F4` in development
 
 ## Note
 
@@ -48,6 +50,39 @@ made does not count. That second rule is why a player still holding the hose
 when the fire goes out does not skip their own star screen. A control added
 here has to pass ADR-007 — one press, harmless if wrong, and reachable from a
 pad — or it does not belong in the shipped scene.
+
+## The permanent HUD
+
+The test `WorldHud` is built to is the one #130 states: cover every word and
+number on the panel, and a first-time player must still be able to find the
+fire, know whether they are driving or walking, spray, see progress, and take
+the next quest. So the shipped panel has no sentences on it. Two meters answer
+the only two questions a five-year-old asks — _am I getting closer_ and _is it
+going out_ — as pips rather than values, a chip says which body they are in, and
+the buttons are an icon with a label attached for screen readers and adults.
+
+`worldGuidance.ts` owns both meters as pure functions. Bands rather than numbers
+are what a row of pips can draw, and they change rarely enough that React
+renders them without the simulation ever running through it: an entire drive
+across the district costs three renders. `getApproachBand` reuses the coach's own
+arrival distance, so the HUD and the tutorial never disagree about having
+arrived, and it holds a band through a hysteresis margin when the player drifts
+back over a threshold — progress is instant, losing it is not.
+
+Distance is sampled in the world at 10 Hz by `GameWorld`, alongside the boarding
+check and the coach, and published only when the band changes. The panel this
+replaced printed a distance computed once from where the truck spawns, which
+never moved however far anyone drove.
+
+The words that help an adult and the volume mixer live in a `<details>` drawer
+that starts closed. Sound has to stay reachable — browsers will not start audio
+without a click — but a mixer is not part of playing, so `AudioControls` is the
+one-press enable/mute icon and `VolumeControl` is the slider in the drawer.
+
+Everything that was really instrumentation — quest numbering, cell counts, the
+clock, metres — is in `DevTelemetry` behind `import.meta.env.DEV` and `F4`. It
+is not deleted, because it is genuinely useful for tuning; it is somewhere a
+child will never meet it, and it is not in the bundle a player downloads.
 
 ## The guided first quest
 
