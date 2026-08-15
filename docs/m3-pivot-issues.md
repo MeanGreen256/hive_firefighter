@@ -1,5 +1,31 @@
 # M3 issues — Drive, Dismount, Douse
 
+> **Historical planning snapshot — written 2026-08-11, frozen 2026-08-15.** This
+> document was the implementation plan for the M3 pivot at the moment it was
+> filed to GitHub. It is **not a live tracker.** GitHub issue
+> [#101](https://github.com/MeanGreen256/hive_firefighter/issues/101) is the
+> live M3 tracking issue, and GitHub issue/milestone state is the current
+> status authority for this repo (see `README.md`, Contributing).
+>
+> The reasoning below — the phase ordering, the go/no-go gate, the per-issue
+> tasks and notes — is kept because it is still the record of *why* the work
+> was sequenced this way, and most of it shipped as written. What is stale is
+> every unchecked `- [ ]` box: they were unchecked at filing time and were
+> never updated as issues closed.
+>
+> **Status as of 2026-08-15:** of the 22 issues filed from this plan
+> (#86–#100, #104–#108, #114–#115), 21 are closed/merged. The sole exception is
+> [#108](https://github.com/MeanGreen256/hive_firefighter/issues/108) — Stakes
+> tuning pass and playtest with children — which remains open because it is a
+> playtest-and-tune spike, not a shippable diff, and genuinely has not run yet.
+> Issue #101 itself also remains open for that reason. A handful of further
+> issues (#128, #130–#135) were filed after this plan, from playing and
+> reviewing the merged result rather than from this document; they are not
+> reflected in the checklists below and are tracked directly on GitHub.
+>
+> If you're deciding what to build next, check the GitHub issue, not the box
+> below it.
+
 Issue set for the pivot decided in [ADR-005](adr/005-third-person-apparatus-control.md),
 [ADR-006](adr/006-arcade-tone-for-younger-players.md), and
 [ADR-007](adr/007-ages-5-plus-control-floor.md), serving the product-direction
