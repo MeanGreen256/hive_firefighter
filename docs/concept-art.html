@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fire — Camera &amp; Art Direction Concepts</title>
 
 <style>
@@ -356,7 +361,79 @@
   @media (prefers-reduced-motion: reduce) {
     .fx-flicker, .fx-drift, .fx-ping { animation: none; }
   }
+
+  /* --- Historical-study banner (#132). Not part of the original study. --- */
+  .pre-pivot {
+    max-width: 1180px;
+    margin: 22px auto 0;
+    padding: 18px 20px;
+    border: 2px solid var(--ember);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--ink-2);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .pre-pivot h2 {
+    margin: 0 0 8px;
+    color: var(--ember);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .pre-pivot p { margin: 0 0 8px; }
+  .pre-pivot ul { margin: 8px 0 0; padding-left: 20px; }
+  .pre-pivot li { margin: 3px 0; }
+  .pre-pivot a { color: var(--ink); }
+  .superseded {
+    margin: 10px 0 0;
+    padding: 9px 11px;
+    border-left: 3px solid var(--ember);
+    background: var(--ground-2);
+    color: var(--ink-2);
+    font-family: var(--body);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .superseded b {
+    display: block;
+    color: var(--ember);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
 </style>
+</head>
+<body>
+
+<aside class="pre-pivot">
+  <h2>Historical study · pre-pivot · not the current product</h2>
+  <p>
+    This page is the first camera and art-direction pass, written before
+    <em>hive_firefighter</em> settled on what it is. It is kept because the
+    reasoning is still worth reading and because the third-person rig it argues
+    for is the one that shipped. It is <b>not</b> a requirements document, and
+    several of the frames below show a game that was deliberately not built.
+  </p>
+  <p>
+    Superseded on this page: civilians and rescue, building interiors and
+    first-person interior play, finite air and water, lethal stakes, crew
+    command, and a dispatch map you pick missions from. The game has one active
+    quest at a time, exterior fires only, unlimited water, no civilians, and no
+    way for the player to come to harm.
+  </p>
+  <p>What is actually true now:</p>
+  <ul>
+    <li><a href="game-direction.md">docs/game-direction.md</a> — the authoritative product direction.</li>
+    <li><a href="art/m3-visual-benchmark.md">docs/art/m3-visual-benchmark.md</a> — the current third-person toy-diorama visual target (#128).</li>
+    <li><a href="adr/005-third-person-apparatus-control.md">ADR-005</a> — third-person firefighter and drivable apparatus, exterior fires only.</li>
+    <li><a href="adr/006-arcade-tone-for-younger-players.md">ADR-006</a> — arcade tone for ages 5+; no civilians, no rescue, no harm.</li>
+    <li><a href="adr/007-ages-5-plus-control-floor.md">ADR-007</a> — the control floor: move and spray, on a gamepad, without reading.</li>
+  </ul>
+</aside>
 
 <div class="wrap">
 
@@ -696,6 +773,14 @@
         <h2>Over-the-shoulder</h2>
         <p class="lede">The recommendation. You see your firefighter, you see the fire, and the hose stream reads as a physical arc you're aiming with the mouse. Fire is the brightest thing on screen and everything else is desaturated to let it be.</p>
         <p>Note what the HUD is doing: water and air are the two bars that actually constrain you, the spread meter is climbing while you work, and the smoke column doubles as the map marker so you never need a floating quest arrow.</p>
+        <p class="superseded">
+          <b>Half adopted</b>
+          The camera is what shipped (ADR-005), and "the smoke column is the map
+          marker" is now the rule the navigation is built to. The HUD in this
+          frame is not: water and air are unlimited, nothing constrains the
+          player, and the shipped panel carries no bars, no numbers and no
+          words that a five-year-old has to read (ADR-007).
+        </p>
       </div>
       <div>
         <span class="verdict">Recommended</span>
@@ -880,6 +965,13 @@
         <h2>Isometric tactical</h2>
         <p class="lede">The real alternative, and it's a different game — you command rather than perform. Buildings cut away so you watch fire propagate room to room, which turns the simulation from something you infer into something you read directly.</p>
         <p>This view also makes multi-crew play obvious: send two firefighters up the stairwell while you feed the line from the hydrant. Cheaper to build, too — no interiors to model, no first-person hands, far fewer animations.</p>
+        <p class="superseded">
+          <b>Not adopted</b>
+          The isometric rig and its cutaway building were built for M1–M2 and
+          then deleted (#100). There is one directly controlled firefighter and
+          no crew command, and fire never propagates through rooms the player
+          can see into — it spreads across exteriors only.
+        </p>
       </div>
       <div>
         <span class="verdict alt">Alternative</span>
@@ -1083,6 +1175,13 @@
         <h2>Chase cam — the drive</h2>
         <p class="lede">The same ground-level world, different rig. This is the frame that decides whether the drive is fun or a loading screen, and the answer is the meter at the top: the fire is growing the whole time you're en route, so route choice is a real decision.</p>
         <p>Siren-cleared traffic, wet asphalt catching the light bar, and the destination legible as a smoke column on the skyline rather than a UI arrow. Same asset set as the on-foot frames, so it costs a controller and a camera, not a new art pipeline.</p>
+        <p class="superseded">
+          <b>Half adopted</b>
+          The chase rig shipped and "the smoke column on the skyline, not a UI
+          arrow" is the navigation rule the game is tuned to. The pressure is
+          not: free roam is a pillar rather than transit, so nothing punishes a
+          slow drive and the player is never racing a growth meter.
+        </p>
       </div>
       <div>
         <span class="verdict alt">Pairs with over-the-shoulder</span>
@@ -1229,6 +1328,13 @@
         <h2>First-person — interiors only</h2>
         <p class="lede">Don't ship this as the default camera, but do use it inside burning buildings. The mask port narrows your view, smoke kills your sightlines, and the thermal camera becomes the only way to find someone — which is exactly the tension the real job has.</p>
         <p>Switching cameras at the doorway is a strong beat: outside you're competent and in control, inside you're half-blind on a two-minute air clock. It's the same trick <em>Alien: Isolation</em> plays with locker vents.</p>
+        <p class="superseded">
+          <b>Not adopted</b>
+          Players never enter buildings, there are no interiors to enter, and
+          there is no air clock — nothing on this frame survives the pivot. The
+          tension it is reaching for is the opposite of what an arcade game for
+          ages five and up wants (ADR-006).
+        </p>
       </div>
       <div>
         <span class="verdict alt">Situational</span>
@@ -1570,6 +1676,11 @@
           <span class="camspec">UI <span class="dot">·</span> character select</span>
           <h2>Roster</h2>
           <p>Two base rigs sharing one animation set. Gear is swappable mesh layers, so every unlock is visible on your firefighter — that's what makes rank progression feel like something instead of a number going up.</p>
+          <p class="superseded">
+            <b>Not adopted</b>
+            There is one firefighter, no roster, and no rank. Progression is
+            1–3 stars on the quest you just finished.
+          </p>
         </div>
       </figcaption>
     </figure>
@@ -1675,6 +1786,12 @@
           <span class="camspec">UI <span class="dot">·</span> dispatch map</span>
           <h2>Dispatch</h2>
           <p>The map screen doubles as your content roadmap. Locked districts are hatched out and gated by rank, which means shipping a new district is a data file plus one unlock rule — no new systems, no new code.</p>
+          <p class="superseded">
+            <b>Not adopted</b>
+            There is no dispatch screen and no choosing of incidents: one quest
+            is active at a time and the next one follows the last. A district is
+            still a data file, which is the part of this that survived.
+          </p>
         </div>
       </figcaption>
     </figure>
@@ -1686,6 +1803,12 @@
   <div class="rule"><h3>What to decide next</h3></div>
 
   <section class="decide">
+    <p class="superseded">
+      <b>All three since answered</b>
+      Ground level, not isometric (ADR-005). Arcade, not sim-lite, for ages five
+      and up (ADR-006). Open district and free roam, not mission select. This
+      section is the question this study left open; it is not an open question.
+    </p>
     <h3>Three calls, in order</h3>
     <ol>
       <li><b>Ground level or isometric.</b> Everything else follows from this. Ground level is the more distinctive game and the harder build; isometric is the safer build and a genuinely different, more strategic game. Pick before any code.</li>
@@ -1695,3 +1818,6 @@
   </section>
 
 </div>
+
+</body>
+</html>
