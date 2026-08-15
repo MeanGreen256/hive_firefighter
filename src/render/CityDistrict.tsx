@@ -1,4 +1,5 @@
 import { Instance, Instances } from '@react-three/drei';
+import { ConeGeometry } from 'three';
 import {
   BUILDING_USES,
   PROP_TYPES,
@@ -10,12 +11,16 @@ import {
 import type { Style } from '@styles/styles';
 import type { Vector3Tuple } from './worldUnits';
 import {
+  HIP_ROOF_CONE_RADIAL_SEGMENTS,
+  HIP_ROOF_CONE_RADIUS,
+  HIP_ROOF_CONE_ROTATION_Y,
   HIP_ROOF_USES,
   KERB_HEIGHT,
   LANE_MARKING_Y,
   PARK_SURFACE_Y,
   PAVEMENT_HEIGHT,
   ROAD_SURFACE_Y,
+  ROOF_OVERHANG,
   WATER_SURFACE_Y,
   getHipRoofHeight,
   type DistrictAttachmentPlacement,
@@ -26,9 +31,26 @@ import {
 } from './districtLayout';
 
 const ROOF_THICKNESS = 0.32;
-const ROOF_OVERHANG = 0.45;
 const QUEST_MARKER_RADIUS = 2.4;
 const QUEST_MARKER_Y = 0.05;
+
+/**
+ * The hip roof's shared base geometry, rotated once at module load — never
+ * per instance. See the long comment on `HIP_ROOF_CONE_RADIUS` in
+ * `districtLayout.ts` for why the rotation has to be baked into the geometry
+ * itself rather than passed as a per-`Instance` `rotation` prop: composing a
+ * 45-degree rotation with a non-uniform per-instance scale the normal way
+ * (`Matrix4.compose`, scale-then-rotate) collapses every hip roof into a
+ * square, whatever the building's actual footprint. A `primitive` shares this
+ * one geometry across every `Instances` layer that draws with it; `dispose=
+ * {null}` keeps one layer unmounting from freeing it out from under another.
+ */
+const HIP_ROOF_CONE_GEOMETRY = new ConeGeometry(
+  HIP_ROOF_CONE_RADIUS,
+  1,
+  HIP_ROOF_CONE_RADIAL_SEGMENTS,
+);
+HIP_ROOF_CONE_GEOMETRY.rotateY(HIP_ROOF_CONE_ROTATION_Y);
 
 /**
  * One prop's shape, as unit primitives scaled into place. Keeping props to a
@@ -322,9 +344,11 @@ function BuildingLayer({
       {isHipRoof ? (
         // A pitched cottage roof: one four-sided cone per building, scaled to
         // its footprint. Same draw call as the flat box it replaces, but a
-        // child can tell a house apart from a shop by silhouette alone.
+        // child can tell a house apart from a shop by silhouette alone. The
+        // 45-degree turn is baked into `HIP_ROOF_CONE_GEOMETRY` itself, not
+        // passed as a per-instance `rotation` — see the comment there for why.
         <Instances limit={placements.length} range={placements.length} castShadow receiveShadow>
-          <coneGeometry args={[0.5, 1, 4]} />
+          <primitive object={HIP_ROOF_CONE_GEOMETRY} attach="geometry" dispose={null} />
           <meshLambertMaterial color={paint.roof} />
           {placements.map((building) => {
             const ridgeHeight = getHipRoofHeight(building);
@@ -336,7 +360,6 @@ function BuildingLayer({
                   building.height + ridgeHeight / 2,
                   building.position[2],
                 ]}
-                rotation={[0, Math.PI / 4, 0]}
                 scale={[
                   building.width + ROOF_OVERHANG,
                   ridgeHeight,

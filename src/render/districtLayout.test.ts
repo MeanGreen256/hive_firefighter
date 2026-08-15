@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { ConeGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 import { PROP_FOOTPRINTS, getDistrict, getRoadRect, type DistrictDefinition } from '@sim/districts';
 import { resolveCharacterMovement, CHARACTER_RADIUS } from './characterController';
 import {
+  HIP_ROOF_CONE_RADIAL_SEGMENTS,
+  HIP_ROOF_CONE_RADIUS,
+  HIP_ROOF_CONE_ROTATION_Y,
   KERB_WIDTH,
   PAVEMENT_WIDTH,
+  ROOF_OVERHANG,
   buildDistrictLayout,
   getHipRoofHeight,
   subtractSpans,
@@ -164,5 +169,75 @@ describe('getHipRoofHeight', () => {
   it('never collapses to a spike or a flat roof at the extremes', () => {
     expect(getHipRoofHeight({ width: 0.5, depth: 0.5 })).toBeGreaterThanOrEqual(1.15);
     expect(getHipRoofHeight({ width: 40, depth: 40 })).toBeLessThanOrEqual(2.6);
+  });
+});
+
+describe('hip roof geometry footprint', () => {
+  /**
+   * Mirrors what `CityDistrict.tsx` actually draws: the 45-degree turn baked
+   * into the shared cone geometry once (`.rotateY`), then one
+   * `Matrix4.compose(position, rotation, scale)` per instance — the exact
+   * call `@react-three/drei`'s `Instances` makes internally — applying only
+   * the per-building `[width + ROOF_OVERHANG, _, depth + ROOF_OVERHANG]`
+   * scale on top of the already-rotated vertices.
+   */
+  function bakedRoofFootprint(width: number, depth: number): { x: number; z: number } {
+    const geometry = new ConeGeometry(HIP_ROOF_CONE_RADIUS, 1, HIP_ROOF_CONE_RADIAL_SEGMENTS);
+    geometry.rotateY(HIP_ROOF_CONE_ROTATION_Y);
+    const matrix = new Matrix4().compose(
+      new Vector3(),
+      new Quaternion(),
+      new Vector3(width + ROOF_OVERHANG, 1, depth + ROOF_OVERHANG),
+    );
+    geometry.applyMatrix4(matrix);
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    if (!box) throw new Error('ConeGeometry.computeBoundingBox produced no box');
+    return { x: box.max.x - box.min.x, z: box.max.z - box.min.z };
+  }
+
+  it('matches the building footprint for a non-square house', () => {
+    const footprint = bakedRoofFootprint(10, 8);
+    expect(footprint.x).toBeCloseTo(10 + ROOF_OVERHANG, 3);
+    expect(footprint.z).toBeCloseTo(8 + ROOF_OVERHANG, 3);
+  });
+
+  it('matches the building footprint for a second, differently-proportioned house', () => {
+    const footprint = bakedRoofFootprint(9, 8);
+    expect(footprint.x).toBeCloseTo(9 + ROOF_OVERHANG, 3);
+    expect(footprint.z).toBeCloseTo(8 + ROOF_OVERHANG, 3);
+  });
+
+  it('regression: composing the same rotation as a per-instance transform instead of baking it into the geometry collapses a non-square roof into a square', () => {
+    // This is the bug the baked rotation fixes (verified against real
+    // ConeGeometry + Matrix4 output, not derived on paper). Documented here
+    // so nobody "simplifies" `HIP_ROOF_CONE_GEOMETRY` back into a per-Instance
+    // `rotation` prop without noticing the footprint stops matching the
+    // building: Matrix4.compose is `matrix = R * S`, so scale is always
+    // applied in the instance's own unrotated local axes before rotation —
+    // a 45-degree rotation composed that way with a non-uniform XZ scale
+    // always collapses to a square, whatever radius is chosen.
+    const geometry = new ConeGeometry(HIP_ROOF_CONE_RADIUS, 1, HIP_ROOF_CONE_RADIAL_SEGMENTS);
+    const rotation = new Quaternion().setFromAxisAngle(
+      new Vector3(0, 1, 0),
+      HIP_ROOF_CONE_ROTATION_Y,
+    );
+    const matrix = new Matrix4().compose(
+      new Vector3(),
+      rotation,
+      new Vector3(10 + ROOF_OVERHANG, 1, 8 + ROOF_OVERHANG),
+    );
+    geometry.applyMatrix4(matrix);
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    if (!box) throw new Error('ConeGeometry.computeBoundingBox produced no box');
+    const width = box.max.x - box.min.x;
+    const depth = box.max.z - box.min.z;
+
+    // Both axes collapse to the *wider* dimension: x matches the building
+    // (10 + overhang), but z is wrong — it should be 8 + overhang and isn't.
+    expect(width).toBeCloseTo(depth, 3);
+    expect(width).toBeCloseTo(10 + ROOF_OVERHANG, 3);
+    expect(depth).not.toBeCloseTo(8 + ROOF_OVERHANG, 1);
   });
 });
