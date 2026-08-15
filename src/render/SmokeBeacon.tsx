@@ -37,6 +37,7 @@ export function SmokeBeacon({
   const scratchPosition = useMemo(() => new Vector3(), []);
   const scratchScale = useMemo(() => new Vector3(), []);
   const scratchColor = useMemo(() => new Color(), []);
+  const beaconColor = useMemo(() => new Color(), []);
   const appliedTint = useRef<string | null>(null);
 
   useFrame(({ clock }) => {
@@ -57,10 +58,15 @@ export function SmokeBeacon({
       return;
     }
 
+    // The material says what is burning; the style says how hard that has to
+    // read against the sky from across the district (#130).
+    const beacon = visualStyle.particles.smoke.beacon;
     const tint = visualStyle.particles.smoke.byTint[signal.smokeTint].color;
-    if (appliedTint.current !== tint) {
-      appliedTint.current = tint;
-      (mesh.material as MeshBasicMaterial).color.copy(scratchColor.set(tint));
+    const resolved = `${tint}:${beacon.tint}:${beacon.tintMix}`;
+    if (appliedTint.current !== resolved) {
+      appliedTint.current = resolved;
+      scratchColor.set(tint).lerp(beaconColor.set(beacon.tint), beacon.tintMix);
+      (mesh.material as MeshBasicMaterial).color.copy(scratchColor);
     }
 
     const plan = getSmokeColumnPlan(getFireSize(signal.burningCellCount), clock.elapsedTime);
@@ -87,9 +93,9 @@ export function SmokeBeacon({
     >
       <sphereGeometry args={[1, 10, 8]} />
       <meshBasicMaterial
-        color={visualStyle.particles.smoke.byTint.neutral.color}
+        color={visualStyle.particles.smoke.beacon.tint}
         transparent
-        opacity={visualStyle.particles.smoke.opacity}
+        opacity={visualStyle.particles.smoke.beacon.opacity}
         depthWrite={false}
       />
     </instancedMesh>

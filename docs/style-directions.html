@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fire — Isometric Style Directions</title>
 
 <style>
@@ -210,7 +215,79 @@
   .fx-flicker { animation: flicker 2.9s ease-in-out infinite; }
   .fx-drift { animation: drift 12s ease-in-out infinite alternate; }
   @media (prefers-reduced-motion: reduce) { .fx-flicker, .fx-drift { animation: none; } }
+
+  /* --- Historical-study banner (#132). Not part of the original study. --- */
+  .pre-pivot {
+    max-width: 1180px;
+    margin: 22px auto 0;
+    padding: 18px 20px;
+    border: 2px solid var(--ember);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--ink-2);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .pre-pivot h2 {
+    margin: 0 0 8px;
+    color: var(--ember);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .pre-pivot p { margin: 0 0 8px; }
+  .pre-pivot ul { margin: 8px 0 0; padding-left: 20px; }
+  .pre-pivot li { margin: 3px 0; }
+  .pre-pivot a { color: var(--ink); }
+  .superseded {
+    margin: 10px 0 0;
+    padding: 9px 11px;
+    border-left: 3px solid var(--ember);
+    background: var(--ground-2);
+    color: var(--ink-2);
+    font-family: var(--body);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .superseded b {
+    display: block;
+    color: var(--ember);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
 </style>
+</head>
+<body>
+
+<aside class="pre-pivot">
+  <h2>Historical study · pre-pivot · not the current product</h2>
+  <p>
+    This page is the second concept pass: one warehouse fire drawn six ways to
+    choose an art direction. Its conclusion held — <b>toy diorama</b> is the
+    primary style and cel-shaded ink is the supported secondary — so it is worth
+    reading. Everything around that conclusion has moved on.
+  </p>
+  <p>
+    Superseded on this page: the isometric camera, cutaway buildings and interior
+    room-by-room propagation, the incident pre-plan treatment as a play surface,
+    and the scoring table's weighting toward reading a simulation from above.
+    The game is third-person — chase while driving, over the shoulder on foot —
+    with exterior fires only and no interiors of any kind. Every frame here is
+    an isometric study; read them for treatment, never for camera.
+  </p>
+  <p>What is actually true now:</p>
+  <ul>
+    <li><a href="game-direction.md">docs/game-direction.md</a> — the authoritative product direction.</li>
+    <li><a href="art/m3-visual-benchmark.md">docs/art/m3-visual-benchmark.md</a> — the current third-person toy-diorama visual target (#128), which is where the toy-diorama call is now expressed.</li>
+    <li><a href="adr/002-art-direction.md">ADR-002</a> — toy diorama primary, cel-shaded ink supported.</li>
+    <li><a href="adr/005-third-person-apparatus-control.md">ADR-005</a> — third-person firefighter and drivable apparatus, exterior fires only.</li>
+    <li><a href="adr/006-arcade-tone-for-younger-players.md">ADR-006</a> — arcade tone for ages 5+; no civilians, no rescue, no harm.</li>
+  </ul>
+</aside>
 
 <div class="wrap">
 
@@ -732,6 +809,12 @@
         <h2>Incident pre-plan</h2>
         <p>The world rendered the way a fire department actually documents a building: schematic line work, occupancy shading, hazard notes, a title block. Fire is <em>the only solid colour on the board</em>. Cold, precise, and completely unlike anything shipping.</p>
         <div class="chips"><span class="chip hot">Most distinctive</span><span class="chip">Near-zero art cost</span><span class="chip warn">Emotionally cold</span></div>
+        <p class="superseded">
+          <b>Not adopted</b>
+          A schematic board is a thing you read, and the audience is five years
+          old and cannot (ADR-007). It also depends on the cutaway plan view,
+          which no longer exists.
+        </p>
       </div>
     </article>
 
@@ -1085,6 +1168,16 @@
         <p class="lede">Soft matte materials, rounded silhouettes, a floating base slab, high-key daylight. It looks like a beautifully made model of a town where one building happens to be on fire — and that framing is doing a lot of work for you.</p>
         <p>Three reasons beyond taste. It's the only direction on this page that no competitor occupies, so a screenshot is instantly identifiable as yours. It's the cheapest to make <em>look finished</em> — rounded matte shapes with baked ambient occlusion hide the imprecision that faceted or realistic styles expose. And bright pastels make the fire read hotter than a dark palette does, because the eye judges saturation relatively.</p>
         <p>The honest risk: it reads playful, and firefighting has real stakes. That's manageable — keep civilians abstract, keep the writing straight, and let the fire behave seriously even when the world looks soft. <em>Lego City</em> and <em>Two Point</em> pull off the same trick. But if you want the dread of the night-fire frames from pass 01, this isn't the direction.</p>
+        <p class="superseded">
+          <b>Adopted — and the risk was answered by taking it</b>
+          Toy diorama is the primary art direction (ADR-002), translated to
+          third-person street level in
+          <a href="art/m3-visual-benchmark.md">the M3 visual benchmark</a>.
+          The "playful versus real stakes" tension resolved the other way from
+          this paragraph: the game is deliberately for ages five and up, so
+          there are no civilians at all, nothing lethal, and no dread to
+          preserve (ADR-006).
+        </p>
       </div>
       <div>
         <ul class="tradeoffs">
@@ -1103,6 +1196,15 @@
   <!-- ============ MATRIX ============ -->
 
   <div class="rule"><h3>Scored</h3></div>
+
+  <p class="superseded">
+    <b>Scored against an isometric game</b>
+    Several columns below weigh how well a treatment reads a simulation from
+    above — a cutaway, a cell grid, a plan view. None of that is how the game is
+    played now, so the ranking is a record of how the toy-diorama call was
+    reached, not a live comparison. The two styles that survived are the two
+    that ship: toy diorama and cel-shaded ink.
+  </p>
 
   <div class="matrix-scroll">
     <table>
@@ -1212,3 +1314,6 @@
   </div>
 
 </div>
+
+</body>
+</html>

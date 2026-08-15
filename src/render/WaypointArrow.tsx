@@ -18,6 +18,10 @@ const PULSE_DEPTH = 0.18;
  * when the fire is across town and urgent when it is round the corner — and it
  * leaves the screen entirely once the player is on scene, so the last thing
  * they are looking at is the fire rather than the HUD.
+ *
+ * It also stands down whenever the fire is in front of the player (#130).
+ * An arrow drawn over the smoke teaches a child to follow the arrow, and the
+ * whole point of the column is that they follow the world instead.
  */
 export function WaypointArrow({
   subjectRef,

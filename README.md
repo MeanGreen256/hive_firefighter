@@ -38,17 +38,31 @@ The authoritative product constraints live in
 
 ## Concept work
 
-Visual direction lives in [`docs/`](docs/) and is worth reading before proposing anything visual.
+Visual direction lives in [`docs/`](docs/). Two of these pages say what to build
+and two record how the decision was reached; read the first pair before
+proposing anything visual, and read the second pair as history.
+
+**Current — these are the requirements**
 
 - [`docs/game-direction.md`](docs/game-direction.md) — authoritative audience,
   gameplay loop, scope, and anti-drift constraints.
 - [`docs/art/m3-visual-benchmark.md`](docs/art/m3-visual-benchmark.md) — authoritative
   third-person toy-diorama target for chase driving, shoulder firefighting, hero
   silhouettes, and the supported ink translation.
-- [`docs/concept-art.html`](docs/concept-art.html) — exploratory camera comparison;
-  historical pre-pivot input to the adopted chase and shoulder views.
-- [`docs/style-directions.html`](docs/style-directions.html) — historical pre-pivot
-  isometric style exploration and scoring.
+
+**Historical — pre-pivot studies, not requirements**
+
+Both pages open on a banner saying so, and superseded frames carry an inline
+note. They show civilians, interiors, air and water limits, crew command, and
+mission select — none of which the game has. They are kept for the reasoning and
+for the parts that did survive.
+
+- [`docs/concept-art.html`](docs/concept-art.html) — concept pass 01, an
+  exploratory camera comparison. The chase and over-the-shoulder rigs it argues
+  for are what shipped; almost everything around them is not.
+- [`docs/style-directions.html`](docs/style-directions.html) — concept pass 02,
+  six isometric style treatments and a scoring table. Its toy-diorama conclusion
+  held; its camera did not.
 
 Open them in a browser; they're self-contained pages.
 

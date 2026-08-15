@@ -141,10 +141,13 @@ describe('waypoint arrow', () => {
     expect(facingTheFire.angleRadians).toBeCloseTo(0);
   });
 
+  /** Facing away from the fire, so the arrow is doing the job it is left for. */
+  const turnedAway = { cameraYawRadians: Math.PI };
+
   it('fades out once the player is on scene', () => {
     const onScene = getWaypointArrowState({
       playerPosition: player,
-      cameraYawRadians: 0,
+      ...turnedAway,
       target: { x: 0, z: -ARROW_ON_SCENE_DISTANCE + 1 },
       elapsedSeconds: 0,
     });
@@ -153,12 +156,53 @@ describe('waypoint arrow', () => {
 
     const arriving = getWaypointArrowState({
       playerPosition: player,
-      cameraYawRadians: 0,
+      ...turnedAway,
       target: { x: 0, z: -ARROW_FADE_DISTANCE },
       elapsedSeconds: 0,
     });
     expect(arriving.opacity).toBeCloseTo(1);
     expect(arriving.onScene).toBe(false);
+  });
+
+  /**
+   * The arrow is the recovery for having turned away, not a second navigation
+   * signal competing with the smoke (#130).
+   */
+  it('stands down while the player is pointed at the fire', () => {
+    const lookingAtIt = getWaypointArrowState({
+      playerPosition: player,
+      cameraYawRadians: 0,
+      target: { x: 0, z: -80 },
+      elapsedSeconds: 0,
+    });
+    expect(lookingAtIt.angleRadians).toBeCloseTo(0);
+    expect(lookingAtIt.opacity).toBe(0);
+  });
+
+  it('comes back at full strength once the fire is behind them', () => {
+    const behind = getWaypointArrowState({
+      playerPosition: player,
+      ...turnedAway,
+      target: { x: 0, z: -80 },
+      elapsedSeconds: 0,
+    });
+    expect(behind.opacity).toBeCloseTo(1);
+  });
+
+  it('rises smoothly as the player turns off the smoke', () => {
+    const at = (yawDegrees: number) =>
+      getWaypointArrowState({
+        playerPosition: player,
+        cameraYawRadians: (yawDegrees * Math.PI) / 180,
+        target: { x: 0, z: -80 },
+        elapsedSeconds: 0,
+      }).opacity;
+
+    expect(at(20)).toBe(0);
+    expect(at(38)).toBeGreaterThan(0);
+    expect(at(38)).toBeLessThan(1);
+    expect(at(38)).toBeGreaterThan(at(30));
+    expect(at(60)).toBeCloseTo(1);
   });
 
   it('beats faster the closer the fire gets, so distance needs no number', () => {

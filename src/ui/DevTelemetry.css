@@ -1,0 +1,62 @@
+/* Sits under the perf overlay, in the same development corner. */
+
+.dev-telemetry-hint,
+.dev-telemetry {
+  position: fixed;
+  top: 40px;
+  right: 20px;
+  z-index: 10;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: var(--ink-dim);
+}
+
+.dev-telemetry-hint {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+}
+
+.dev-telemetry {
+  width: 268px;
+  padding: 12px;
+  border: 1px solid #2b3240;
+  background: rgb(16 19 25 / 92%);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 35%);
+  backdrop-filter: blur(8px);
+}
+
+.dev-telemetry header {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 9px;
+  border-bottom: 1px solid #2b3240;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+}
+
+.dev-telemetry header strong {
+  color: var(--ember);
+  font-weight: 500;
+}
+
+.dev-telemetry dl {
+  margin: 8px 0 0;
+}
+
+.dev-telemetry dl > div {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  align-items: baseline;
+  min-height: 22px;
+  font-size: 11px;
+}
+
+.dev-telemetry dt {
+  color: var(--ink-dim);
+}
+
+.dev-telemetry dd {
+  margin: 0;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}

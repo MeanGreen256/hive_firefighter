@@ -73,9 +73,11 @@
   text-shadow: 0 5px 22px color-mix(in srgb, var(--hud-success) 38%, transparent);
 }
 
-to {
-  opacity: 1;
-  transform: translateY(0) scale(1) rotate(0);
+@keyframes debrief-star-reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
 }
 
 .debrief-picture {
@@ -226,20 +228,24 @@ to {
   outline: none;
 }
 
-.debrief-summary {
-  grid-template-columns: 1fr 1fr;
+@media (max-width: 600px) {
+  .debrief-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .debrief-panel footer {
+    grid-template-columns: 1fr;
+  }
 }
 
-.debrief-panel footer {
-  grid-template-columns: 1fr;
-}
+@media (prefers-reduced-motion: reduce) {
+  .debrief-star {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
 
-.debrief-star {
-  opacity: 1;
-  transform: none;
-  animation: none;
-}
-
-.debrief-property-bar span {
-  transition: none;
+  .debrief-property-bar span {
+    transition: none;
+  }
 }

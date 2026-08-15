@@ -110,11 +110,26 @@ draw call — puffs shrink to nothing as they rise instead of fading, because
 per-instance transparency would cost a draw call each and a thinning plume reads
 the same.
 
-The arrow is the backstop for a player who has turned away from the column. It
-sits in the camera's view, rotates in screen space toward the incident, and
-carries distance as a beat rather than a number — slow across town, urgent round
-the corner — then fades out entirely once the player is on scene, so the last
-thing they are looking at is the fire and not the HUD.
+Width matters more than height, which is not obvious and cost #130 to discover.
+The chase camera sits about five metres up and pitches 22° down, so the top of
+the frame is only eight degrees above the horizon: past forty metres the column
+runs off the top of the screen however tall it is, and all anyone sees is the
+slice standing between the rooftops and the frame. `beaconVisibility.ts` models
+exactly that slice — what the rooftops on the line of sight hide, what the frame
+clips, and how wide what is left looks in degrees — and `beaconVisibility.test.ts`
+asserts it for every quest site from every corner of Harbour Hill, plus the one
+frame nobody gets to turn away from first: the heading the truck is parked at.
+The style also decides how far the column's tint is pulled toward something that
+reads against its sky (`particles.smoke.beacon`), because a pale plume on a pale
+sky is invisible at the range where the signal matters.
+
+The arrow is the backstop for a player who has turned away from the column, and
+only that. It sits in the camera's view, rotates in screen space toward the
+incident, and carries distance as a beat rather than a number — slow across
+town, urgent round the corner. It fades out on two axes: by distance, so it is
+gone once the player is on scene, and by bearing, so it stands down while the
+fire is in front of them. An arrow drawn on top of the smoke teaches a child to
+follow the arrow, which is the opposite of the point.
 
 `getBeaconTarget` returns nothing unless the live fire's own quest site matches
 the site being drawn, and nothing at all once it is out. That is what makes

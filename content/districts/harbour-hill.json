@@ -1,7 +1,7 @@
 {
   "name": "Harbour Hill",
   "bounds": { "minX": -64, "maxX": 64, "minZ": -64, "maxZ": 64 },
-  "truckStart": { "x": -30, "z": -18, "yawDegrees": 180 },
+  "truckStart": { "x": -33, "z": -12, "yawDegrees": 180 },
   "roads": [
     {
       "id": "main-street",

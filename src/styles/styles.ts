@@ -115,6 +115,7 @@ export interface ParticleAppearance {
     readonly opacity: number;
     readonly treatment: 'rounded' | 'halftone';
     readonly halftone: HalftoneSmokeConfig | null;
+    readonly beacon: SmokeBeaconAppearance;
   };
   readonly heat: HeatAppearance;
 }
@@ -146,6 +147,25 @@ export interface IncidentMarkerAppearance {
 /** The active style's visual treatment for one semantic smoke category. */
 export interface SmokeAppearance {
   readonly color: string;
+}
+
+/**
+ * The navigation column over the active quest, which is a landmark before it is
+ * smoke (#130).
+ *
+ * Local smoke is allowed to be pale — a burning awning that smokes white should
+ * look like it. The column has a second job: it is how a five-year-old finds
+ * the fire from the far side of the district, and pale-on-pale sky is invisible
+ * at that range. So the style says how far to pull the material's own tint
+ * toward a colour that reads against its sky, rather than the renderer deciding
+ * a smoke colour for itself.
+ */
+export interface SmokeBeaconAppearance {
+  /** What the column tends toward at full mix; the style's own "reads at distance". */
+  readonly tint: string;
+  /** 0 keeps the material's tint exactly, 1 replaces it with `tint`. */
+  readonly tintMix: number;
+  readonly opacity: number;
 }
 
 /** Dot spacing and size are visual language, not simulation data. */
@@ -388,6 +408,9 @@ const diorama: Style = {
       opacity: 0.72,
       treatment: 'rounded',
       halftone: null,
+      // A warm slate against a pale blue sky: dark enough to find from the far
+      // corner of the district, soft enough to still be a toy.
+      beacon: { tint: '#4a423c', tintMix: 0.85, opacity: 0.9 },
     },
     heat: { treatment: 'none', color: '#d84d35', lineCount: 0, lineLength: 0, opacity: 0 },
   },
@@ -517,6 +540,9 @@ const ink: Style = {
       opacity: 0.9,
       treatment: 'halftone',
       halftone: { dotSize: 6.5, dotSpacing: 0.24 },
+      // Ink already trades in flat blacks, so the column goes almost all the
+      // way to the line colour against its cream sky.
+      beacon: { tint: '#22262b', tintMix: 0.85, opacity: 0.94 },
     },
     heat: {
       treatment: 'drawn-lines',
