@@ -24,7 +24,24 @@ export function QuestFireAudioBridge() {
     syncFire();
     // The snapshot publishes on cell-count and whole-second changes, which is
     // ample for a bed the mix already smooths over ~0.12s.
-    return questFireController.store.subscribe(syncFire);
+    const unsubscribe = questFireController.store.subscribe(syncFire);
+
+    // Countdown pulse spacing is sub-second near expiry, and one-shot events
+    // must be drained exactly once even when no React-facing count changed.
+    let frameId = requestAnimationFrame(function syncIncident() {
+      fireAudioSystem.syncIncident(
+        questFireController.getHazards(),
+        questFireController.getStructures(),
+      );
+      const events = questFireController.drainSimulationEvents();
+      if (events.length > 0) fireAudioSystem.handleSimulationEvents(events);
+      frameId = requestAnimationFrame(syncIncident);
+    });
+
+    return () => {
+      unsubscribe();
+      cancelAnimationFrame(frameId);
+    };
   }, []);
 
   return null;

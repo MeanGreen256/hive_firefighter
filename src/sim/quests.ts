@@ -17,10 +17,25 @@ import {
   readPlacementArray,
   readPositiveNumber,
   readString,
+  validateUniqueIds,
 } from './contentValidation';
 import { burnables, isBurnableId, type BurnableId } from './burnables';
-import { getDistrict, isDistrictId, type DistrictDefinition } from './districts';
-import { buildExteriorShell, type ExteriorShell, type ShellIgnition } from './exteriorShell';
+import {
+  getBuildingRect,
+  getDistrict,
+  getPropRect,
+  isDistrictId,
+  isPointInsideRect,
+  type DistrictDefinition,
+  type DistrictPoint,
+} from './districts';
+import {
+  buildExteriorShell,
+  getShellCellWorldPosition,
+  type ExteriorShell,
+  type ShellIgnition,
+  type ShellPoint,
+} from './exteriorShell';
 import {
   createFireSimulation,
   igniteCell,
@@ -36,9 +51,17 @@ export interface QuestDefinition {
   /** District building and prop ids the fire is allowed to live on. */
   readonly subjects: readonly string[];
   readonly ignitions: readonly ShellIgnition[];
+  readonly hazards: readonly QuestHazardDefinition[];
   readonly seed: number;
   readonly wind: Wind;
   readonly parTimeSeconds: number;
+}
+
+/** A ground-level, world-space cylinder placement visible from the quest staging point. */
+export interface QuestHazardDefinition {
+  readonly id: string;
+  readonly type: 'propane';
+  readonly position: DistrictPoint;
 }
 
 export class QuestValidationError extends ContentValidationError {
@@ -54,10 +77,14 @@ const ROOT_FIELDS = [
   'questSite',
   'subjects',
   'ignitions',
+  'hazards',
   'seed',
   'wind',
   'parTimeSeconds',
 ] as const;
+
+/** Keeps a cylinder inside the same readable hose-scale scene as its quest marker. */
+export const MAX_QUEST_HAZARD_SITE_DISTANCE = 9;
 
 function readWind(value: unknown, path: string, problems: string[]): Wind {
   const object = readObject(value, path, problems);
@@ -123,6 +150,28 @@ export function validateQuestDefinition(data: unknown, id: string): QuestDefinit
   if (Array.isArray(root.ignitions) && ignitions.length === 0) {
     problems.push(`${id}.ignitions must start the fire somewhere`);
   }
+  const hazards = readPlacementArray(
+    root.hazards,
+    `${id}.hazards`,
+    problems,
+    (object, path, hazardProblems): QuestHazardDefinition => {
+      checkFields(object, path, ['id', 'type', 'position'], hazardProblems);
+      if (object.type !== 'propane') {
+        hazardProblems.push(`${path}.type must be "propane"`);
+      }
+      const position = readObject(object.position, `${path}.position`, hazardProblems) ?? {};
+      checkFields(position, `${path}.position`, ['x', 'z'], hazardProblems);
+      return {
+        id: readString(object.id, `${path}.id`, hazardProblems),
+        type: 'propane',
+        position: {
+          x: readFiniteNumber(position.x, `${path}.position.x`, hazardProblems),
+          z: readFiniteNumber(position.z, `${path}.position.z`, hazardProblems),
+        },
+      };
+    },
+  );
+  validateUniqueIds(hazards, `${id}.hazards`, problems);
   const seed = readInteger(root.seed, `${id}.seed`, problems);
   const wind = readWind(root.wind, `${id}.wind`, problems);
   const parTimeSeconds = readPositiveNumber(root.parTimeSeconds, `${id}.parTimeSeconds`, problems);
@@ -131,11 +180,44 @@ export function validateQuestDefinition(data: unknown, id: string): QuestDefinit
   if (!isDistrictId(districtId)) {
     problems.push(`${id}.district ${JSON.stringify(districtId)} is not an authored district`);
   } else {
-    district = getDistrict(districtId);
-    if (!district.questSites.some((site) => site.id === questSiteId)) {
+    const activeDistrict = getDistrict(districtId);
+    district = activeDistrict;
+    const questSite = activeDistrict.questSites.find((site) => site.id === questSiteId);
+    if (!questSite) {
       problems.push(
         `${id}.questSite ${JSON.stringify(questSiteId)} is not a quest site in ${districtId}`,
       );
+    } else {
+      hazards.forEach((hazard, index) => {
+        const path = `${id}.hazards[${index}].position`;
+        if (!isPointInsideRect(hazard.position, activeDistrict.bounds)) {
+          problems.push(`${path} must stay inside district ${JSON.stringify(activeDistrict.id)}`);
+        }
+        if (
+          Math.hypot(hazard.position.x - questSite.x, hazard.position.z - questSite.z) >
+          MAX_QUEST_HAZARD_SITE_DISTANCE
+        ) {
+          problems.push(
+            `${path} must be within ${MAX_QUEST_HAZARD_SITE_DISTANCE}m of the exterior quest site`,
+          );
+        }
+        const coveringBuilding = activeDistrict.buildings.find((building) =>
+          isPointInsideRect(hazard.position, getBuildingRect(building)),
+        );
+        if (coveringBuilding) {
+          problems.push(
+            `${path} is inside building ${JSON.stringify(coveringBuilding.id)}; propane must stay visible and reachable outside`,
+          );
+        }
+        const coveringProp = activeDistrict.props.find((prop) =>
+          isPointInsideRect(hazard.position, getPropRect(prop)),
+        );
+        if (coveringProp) {
+          problems.push(
+            `${path} overlaps prop ${JSON.stringify(coveringProp.id)}; propane must stay visible and reachable outside`,
+          );
+        }
+      });
     }
     const targets = new Set([
       ...district.buildings.map((building) => building.id),
@@ -181,6 +263,7 @@ export function validateQuestDefinition(data: unknown, id: string): QuestDefinit
     questSiteId,
     subjects,
     ignitions,
+    hazards,
     seed,
     wind,
     parTimeSeconds,
@@ -240,6 +323,38 @@ export interface QuestFire {
   readonly quest: QuestDefinition;
   readonly shell: ExteriorShell;
   readonly state: FireSimulationState;
+  readonly hazards: readonly QuestFireHazard[];
+}
+
+export interface QuestFireHazard extends QuestHazardDefinition {
+  /** Shell cell whose heat drives this exterior cylinder. */
+  readonly cellId: string;
+  readonly worldPosition: ShellPoint;
+}
+
+function resolveQuestHazard(shell: ExteriorShell, hazard: QuestHazardDefinition): QuestFireHazard {
+  const candidates = Object.keys(shell.cellSubjectIds);
+  const cellId = candidates.sort((left, right) => {
+    const leftPoint = getShellCellWorldPosition(shell, left);
+    const rightPoint = getShellCellWorldPosition(shell, right);
+    const leftDistance = Math.hypot(
+      leftPoint.x - hazard.position.x,
+      leftPoint.y - shell.cellSize / 2,
+      leftPoint.z - hazard.position.z,
+    );
+    const rightDistance = Math.hypot(
+      rightPoint.x - hazard.position.x,
+      rightPoint.y - shell.cellSize / 2,
+      rightPoint.z - hazard.position.z,
+    );
+    return leftDistance - rightDistance || left.localeCompare(right);
+  })[0];
+  if (!cellId) throw new Error(`Quest hazard ${JSON.stringify(hazard.id)} has no exterior cell`);
+  return {
+    ...hazard,
+    cellId,
+    worldPosition: { x: hazard.position.x, y: 0, z: hazard.position.z },
+  };
 }
 
 /** Builds the shell for one quest and lights it where the quest says. */
@@ -251,6 +366,7 @@ export function createQuestFire(quest: QuestDefinition): QuestFire {
   });
   const state = createFireSimulation(shell.grid, { seed: quest.seed, wind: quest.wind });
   for (const cellId of shell.ignitionCellIds) igniteCell(state, cellId);
+  const hazards = quest.hazards.map((hazard) => resolveQuestHazard(shell, hazard));
 
-  return { quest, shell, state };
+  return { quest, shell, state, hazards };
 }

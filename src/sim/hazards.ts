@@ -1,8 +1,13 @@
 import { CellState, cellIdAt, type CellGrid, type GridPosition } from './cellGrid';
 import { igniteCell, type FireSimulationState, type FireSimulationTuning } from './fireSimulation';
 import { materials } from './materials';
-import type { ScenarioHazardPlacement } from './scenarios';
-import type { IncidentPoint } from './incidentPosition';
+
+/** Grid-space placement shared by legacy scenarios and exterior quests. */
+export interface PropaneHazardPlacement {
+  readonly id: string;
+  readonly type: 'propane';
+  readonly position: GridPosition;
+}
 
 export const PropaneHazardState = Object.freeze({
   Stable: 'stable',
@@ -51,17 +56,16 @@ export interface PropaneFailedEvent {
   readonly position: GridPosition;
   readonly ignitedCellIds: readonly string[];
   readonly destroyedCellIds: readonly string[];
-  readonly playerAffected: boolean;
 }
 
 export type IncidentSimulationEvent = PropaneCountdownEvent | PropaneFailedEvent;
 
-function distance(left: IncidentPoint, right: IncidentPoint): number {
+function distance(left: GridPosition, right: GridPosition): number {
   return Math.hypot(left.x - right.x, left.y - right.y, left.z - right.z);
 }
 
 export function createHazardSimulation(
-  placements: readonly ScenarioHazardPlacement[],
+  placements: readonly PropaneHazardPlacement[],
 ): HazardSimulationState {
   const hazards: Record<string, PropaneHazard> = {};
   for (const placement of placements) {
@@ -80,7 +84,6 @@ export function createHazardSimulation(
 function applyBlast(
   hazard: PropaneHazard,
   fire: FireSimulationState,
-  playerPosition: IncidentPoint,
   tuning: FireSimulationTuning,
 ): PropaneFailedEvent {
   const ignitedCellIds: string[] = [];
@@ -112,14 +115,12 @@ function applyBlast(
     position: { ...hazard.position },
     ignitedCellIds,
     destroyedCellIds,
-    playerAffected: distance(hazard.position, playerPosition) <= PROPANE_BLAST_RADIUS,
   };
 }
 
 export function advanceHazards(
   state: HazardSimulationState,
   fire: FireSimulationState,
-  playerPosition: IncidentPoint,
   tuning: FireSimulationTuning,
   elapsedSeconds: number,
 ): IncidentSimulationEvent[] {
@@ -133,14 +134,15 @@ export function advanceHazards(
     if (!cell) throw new Error(`Hazard ${JSON.stringify(hazard.id)} occupies a missing cell`);
 
     const response = Math.min(1, PROPANE_HEAT_RESPONSE_PER_SECOND * elapsedSeconds);
-    hazard.heat += (Math.max(0, cell.heat) - hazard.heat) * response;
-    if (hazard.state === PropaneHazardState.Countdown && hazard.heat < PROPANE_COUNTDOWN_HEAT) {
-      hazard.state = PropaneHazardState.Stable;
-      hazard.countdownRemainingSeconds = PROPANE_COUNTDOWN_SECONDS;
-      events.push({ type: IncidentEventType.PropaneCountdownReset, hazardId: hazard.id });
-      continue;
+    const cellHeat = Math.max(0, cell.heat);
+    // Once the visible countdown begins it is a player-facing promise: it
+    // cannot quietly save itself because a thin exterior fire cell burned
+    // through. Only delivered water resets it. Stable tanks still follow the
+    // environment so authored cold starts remain cold.
+    if (hazard.state === PropaneHazardState.Stable || cellHeat > hazard.heat) {
+      hazard.heat += (cellHeat - hazard.heat) * response;
     }
-    if (hazard.heat >= PROPANE_COUNTDOWN_HEAT) {
+    if (hazard.heat >= PROPANE_COUNTDOWN_HEAT || hazard.state === PropaneHazardState.Countdown) {
       if (hazard.state === PropaneHazardState.Stable) {
         hazard.state = PropaneHazardState.Countdown;
         hazard.countdownRemainingSeconds = PROPANE_COUNTDOWN_SECONDS;
@@ -152,7 +154,7 @@ export function advanceHazards(
       );
       if (hazard.countdownRemainingSeconds === 0) {
         hazard.state = PropaneHazardState.Failed;
-        events.push(applyBlast(hazard, fire, playerPosition, tuning));
+        events.push(applyBlast(hazard, fire, tuning));
       }
     }
   }

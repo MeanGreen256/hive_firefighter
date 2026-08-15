@@ -9,6 +9,7 @@
       "burnable": "porch"
     }
   ],
+  "hazards": [],
   "seed": 1902,
   "wind": {
     "direction": {

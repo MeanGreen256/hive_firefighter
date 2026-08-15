@@ -11,6 +11,7 @@
 
 import { CellState, cellIdAt, type Cell } from './cellGrid';
 import type { FireSimulationState } from './fireSimulation';
+import { materials } from './materials';
 
 export const COLLAPSE_WARNING_SECONDS = 3;
 export const COLLAPSE_WARNING_FUEL_THRESHOLD = 0.25;
@@ -98,7 +99,16 @@ export function advanceStructuralCollapse(
   );
 
   for (const cell of cells) {
-    if (cell.gridPos.y === 0 || cell.state === CellState.Collapsed) continue;
+    // Exterior shells pad their visible property with inert concrete cells.
+    // Empty air-grid padding is not a roof, facade, tree, or prop and must
+    // never produce a floating warning or dust poof.
+    if (
+      cell.gridPos.y === 0 ||
+      cell.state === CellState.Collapsed ||
+      materials[cell.material]?.ignitionPoint === null
+    ) {
+      continue;
+    }
     const supportPosition = { ...cell.gridPos, y: cell.gridPos.y - 1 };
     const supportCellId = cellIdAt(supportPosition);
     const support = fire.grid.cells[supportCellId];

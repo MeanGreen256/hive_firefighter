@@ -44,8 +44,8 @@ const GAMEPAD_AIM_SPEED_RADIANS_PER_SECOND = 2.4;
  * own shell (#91).
  */
 export interface HoseFireField {
-  getBurningCells(): readonly { readonly cellId: string; readonly position: ShellPoint }[];
-  applyWater(cellId: string, litres: number): WaterApplicationResult | null;
+  getSuppressionTargets(): readonly { readonly id: string; readonly position: ShellPoint }[];
+  applyWater(targetId: string, litres: number): WaterApplicationResult | null;
 }
 
 /** Held state only, independent of gamepad D-pad/stick position or mouse location. */
@@ -302,9 +302,9 @@ export function AnchoredHoseEffects({
     const nozzlePosition = getHoseNozzlePosition(pose);
     const aimDirection = getHoseFreeAimDirection(character.rotation.y, freeAimStep.state);
 
-    const candidates: HoseAimCandidate[] = fire.getBurningCells().map((cell) => ({
-      id: cell.cellId,
-      position: [cell.position.x, cell.position.y, cell.position.z] as Vector3Tuple,
+    const candidates: HoseAimCandidate[] = fire.getSuppressionTargets().map((target) => ({
+      id: target.id,
+      position: [target.position.x, target.position.y, target.position.z] as Vector3Tuple,
     }));
 
     const resolution = resolveHoseAimTarget(

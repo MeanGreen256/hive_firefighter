@@ -13,16 +13,23 @@ contract here. Keep the fixed-timestep and renderer/UI boundary.
 
 ## Quest fire controller
 
-`questFireController.ts` is the M3 incident host (#91): one active quest, one
-exterior shell, one fixed-timestep runner, and one mutation boundary for water.
+`questFireController.ts` is the M3 incident host (#91, #131, #135): one active
+quest, one exterior shell, one fixed-timestep runner, and one mutation boundary
+for water, propane, and cosmetic support loss.
 It drives itself with `requestAnimationFrame` and is started and stopped from a
 `useEffect`, so the 10 Hz tick never becomes a React render — the store carries
 only the few numbers the HUD shows, and publishes only when one of them changes.
 
 A stall is capped rather than caught up on, so a backgrounded tab cannot come
 back to a city that burned down while nobody was watching. `applyWater` takes a
-cell id and returns the real `@sim/waterApplication` result, which is what lets
-the hose stay a renderer concern and the fire stay a simulation one.
+suppression target and returns the real `@sim/waterApplication` result. Fire
+targets address shell cells; a countdown adds its cylinder as another target,
+and water delivered to either cools a tank sharing that heat cell.
+
+Propane and structural state advance by the exact number of simulated 10 Hz
+ticks, not frame time. Retry recreates both states from authored content.
+Propane misses and collapsed fuel feed the existing star debrief, while neither
+system receives collision or player state.
 
 The controller ends each quest as `contained` or `scorched`, freezes the fire,
 and publishes a 1–3 star debrief. Retry keeps the current seed; the alternate

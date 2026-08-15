@@ -73,4 +73,17 @@ describe('structural collapse', () => {
     expect(fire.grid.cells['0,1,0']?.state).toBe(CellState.Collapsed);
     expect(hazards.hazards.tank?.position).toEqual({ x: 0, y: 1, z: 0 });
   });
+
+  it('does not turn exterior shell padding into floating collapse property', () => {
+    const fire = createFireSimulation(
+      createCellGrid({ width: 1, height: 2, depth: 1 }, (position) =>
+        position.y === 0 ? 'wood' : 'concrete',
+      ),
+    );
+    fire.grid.cells['0,0,0']!.state = CellState.Burnt;
+    const structures = createStructuralSimulation();
+
+    expect(advanceStructuralCollapse(structures, fire, COLLAPSE_WARNING_SECONDS)).toEqual([]);
+    expect(fire.grid.cells['0,1,0']?.state).toBe(CellState.Clear);
+  });
 });

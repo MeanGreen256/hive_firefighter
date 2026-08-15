@@ -14,6 +14,24 @@ describe('performance acceptance scenes', () => {
       onFoot: true,
       advanceFireSeconds: 20,
       completeQuest: false,
+      hazardCountdownSeconds: null,
+      collapseWarning: false,
+      freezeClock: false,
+    });
+  });
+
+  it('can hold the bakery at deterministic hazard and collapse cues', () => {
+    expect(performanceSceneFromSearch('?perfScene=hazard')).toMatchObject({
+      id: 'hazard',
+      hazardCountdownSeconds: 6,
+      collapseWarning: false,
+      freezeClock: true,
+    });
+    expect(performanceSceneFromSearch('?perfScene=collapse')).toMatchObject({
+      id: 'collapse',
+      hazardCountdownSeconds: null,
+      collapseWarning: true,
+      freezeClock: true,
     });
   });
 

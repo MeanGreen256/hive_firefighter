@@ -8,7 +8,8 @@ import type { Style } from '@styles/styles';
 
 /**
  * The states worth drawing, in the order they stack. Clear cells are the city
- * itself and are already drawn; Collapsed never happens to an exterior shell.
+ * itself and are already drawn. Collapsed cells stay as persistent scorched
+ * slump geometry; they never alter the district collision shell.
  */
 const DRAWN_STATES = [
   CellState.Burnt,
@@ -16,6 +17,7 @@ const DRAWN_STATES = [
   CellState.Heating,
   CellState.Burning,
   CellState.Flashover,
+  CellState.Collapsed,
 ] as const;
 type DrawnState = (typeof DRAWN_STATES)[number];
 
@@ -26,6 +28,7 @@ const STATE_SCALE: Readonly<Record<DrawnState, number>> = {
   [CellState.Heating]: 0.96,
   [CellState.Burning]: 1.08,
   [CellState.Flashover]: 1.22,
+  [CellState.Collapsed]: 1.04,
 };
 
 /** Burning cells are lit, not shaded: fire is the brightest thing in the scene. */
@@ -77,7 +80,7 @@ export function ExteriorFire({
       const flicker = 1 + Math.sin(clock.elapsedTime * FLICKER_HZ * Math.PI) * FLICKER_DEPTH;
       for (const cellId of Object.keys(fire.shell.cellSubjectIds)) {
         const cell = fire.state.grid.cells[cellId];
-        if (!cell || cell.state === CellState.Clear || cell.state === CellState.Collapsed) continue;
+        if (!cell || cell.state === CellState.Clear) continue;
         const state = cell.state as DrawnState;
         const mesh = meshes.current.get(state);
         const index = counts.get(state) ?? 0;
@@ -85,8 +88,18 @@ export function ExteriorFire({
 
         const position = getShellCellWorldPosition(fire.shell, cellId);
         const scale = fire.shell.cellSize * STATE_SCALE[state];
-        scratchPosition.set(position.x, position.y, position.z);
-        scratchScale.setScalar(UNSHADED_STATES.has(state) ? scale * flicker : scale);
+        scratchPosition.set(
+          position.x,
+          state === CellState.Collapsed ? position.y - scale * 0.34 : position.y,
+          position.z,
+        );
+        if (state === CellState.Collapsed) {
+          // A broad, low toy-brick reads as a safe sag rather than a vanished
+          // facade cell or a dangerous physics object.
+          scratchScale.set(scale * 1.12, scale * 0.32, scale * 1.04);
+        } else {
+          scratchScale.setScalar(UNSHADED_STATES.has(state) ? scale * flicker : scale);
+        }
         scratchMatrix.identity().scale(scratchScale).setPosition(scratchPosition);
         mesh.setMatrixAt(index, scratchMatrix);
         counts.set(state, index + 1);
