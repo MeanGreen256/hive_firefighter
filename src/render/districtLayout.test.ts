@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { PROP_FOOTPRINTS, getDistrict, getRoadRect } from '@sim/districts';
+import { PROP_FOOTPRINTS, getDistrict, getRoadRect, type DistrictDefinition } from '@sim/districts';
 import { resolveCharacterMovement, CHARACTER_RADIUS } from './characterController';
 import {
   KERB_WIDTH,
   PAVEMENT_WIDTH,
   buildDistrictLayout,
+  getHipRoofHeight,
   subtractSpans,
   type DistrictSurfaceRect,
 } from './districtLayout';
@@ -87,9 +88,11 @@ describe('Harbour Hill layout', () => {
     ).toBe(true);
   });
 
-  it('blocks buildings and solid props but never small street furniture', () => {
+  it('blocks buildings, solid props, and water but never small street furniture', () => {
     const solidProps = district.props.filter((prop) => PROP_FOOTPRINTS[prop.type].solid);
-    expect(layout.obstacles).toHaveLength(district.buildings.length + solidProps.length);
+    expect(layout.obstacles).toHaveLength(
+      district.buildings.length + solidProps.length + district.waterBodies.length,
+    );
     expect(solidProps.length).toBeGreaterThan(0);
 
     const bench = district.props.find((prop) => prop.type === 'bench');
@@ -123,5 +126,43 @@ describe('Harbour Hill layout', () => {
   it('renders the ground past the playable bounds so the world has no visible edge', () => {
     expect(layout.groundWidth).toBeGreaterThan(district.bounds.maxX - district.bounds.minX);
     expect(layout.groundDepth).toBeGreaterThan(district.bounds.maxZ - district.bounds.minZ);
+  });
+});
+
+describe('water bodies as a hard edge', () => {
+  const base = getDistrict('harbour-hill');
+  const withCove: DistrictDefinition = {
+    ...base,
+    waterBodies: [{ id: 'test-cove', name: 'Test Cove', x: 61, z: 10, width: 2, depth: 4 }],
+  };
+  const layout = buildDistrictLayout(withCove);
+
+  it('draws one surface per authored water body', () => {
+    expect(layout.waterSurfaces).toHaveLength(1);
+    expect(layout.waterSurfaces[0]).toMatchObject({ centerX: 61, centerZ: 10, width: 2, depth: 4 });
+  });
+
+  it('blocks the firefighter from walking into open water', () => {
+    const pushed = resolveCharacterMovement(
+      { x: 59, z: 10 },
+      { x: 5, z: 0 },
+      CHARACTER_RADIUS,
+      layout.obstacles,
+      layout.movementBounds,
+    );
+    expect(pushed.x).toBeLessThan(60);
+  });
+});
+
+describe('getHipRoofHeight', () => {
+  it('scales with the smaller footprint dimension', () => {
+    const narrow = getHipRoofHeight({ width: 5, depth: 4 });
+    const wide = getHipRoofHeight({ width: 8, depth: 6 });
+    expect(wide).toBeGreaterThan(narrow);
+  });
+
+  it('never collapses to a spike or a flat roof at the extremes', () => {
+    expect(getHipRoofHeight({ width: 0.5, depth: 0.5 })).toBeGreaterThanOrEqual(1.15);
+    expect(getHipRoofHeight({ width: 40, depth: 40 })).toBeLessThanOrEqual(2.6);
   });
 });

@@ -55,9 +55,25 @@ positions of its own.
 
 The truck and the firefighter take their obstacles and movement bounds from the
 same layout the geometry is built from, so a block can never be somewhere the
-renderer and the controllers disagree about. Only buildings and props the data
-marks solid become obstacles; benches, hedges, hydrants, and lamp posts are
-scenery a five-year-old can walk straight through rather than get stuck on.
+renderer and the controllers disagree about. Only buildings, props the data
+marks solid, and any authored water body become obstacles; benches, hedges,
+hydrants, and lamp posts are scenery a five-year-old can walk straight through
+rather than get stuck on. Water is a hard edge rather than scenery — the same
+treatment as a wall — so a truck never drives out looking for a far shore that
+was never authored (#133).
+
+Houses stand apart from shops, civic buildings, and workshops by roofline, not
+only by wall colour: `HIP_ROOF_USES` in `districtLayout.ts` swaps the flat roof
+box for a four-sided cone scaled to the footprint (`getHipRoofHeight`), at the
+same one-instanced-layer cost. That is the district's "distinct shape language"
+per neighbourhood (#133) — cheap enough that adding a second pitched-roof use
+later is a one-line set addition, not a new render path.
+
+`flower-box` is a quiet-world vignette prop (#133): a street-corner planter
+that rewards looking around without ever becoming an objective. It is content
+and a reusable kit entry like every other prop type — `PROP_PARTS` in
+`CityDistrict.tsx` and `PROP_FOOTPRINTS` in `@sim/districts` — never a one-off
+position hand-placed in a component.
 
 Roads render as flat slabs with kerbs, pavement, and dashed lane markings, each
 split around crossing roads by `subtractSpans` so junctions stay open. Every
@@ -178,6 +194,17 @@ range and safe cab-side spawn selection. One player-mode value enables exactly
 one controller, changes the camera target/profile, and leaves the parked truck
 visible. Siren state defaults on and feeds both rotating lights and the shared
 audio system; browser audio still waits for the explicit sound-enable gesture.
+
+### Hero silhouettes
+
+The truck and firefighter read their paint from `Style.heroes`, not `city` or
+`hud` — see the comment on `HeroTruckAppearance` in `src/styles/styles.ts`.
+They are always-on player subjects, never district content, so their colour
+never has to move just because a HUD accent or a building palette is retuned.
+`docs/art/m3-visual-benchmark.md`'s "Hero silhouette floor" is the source for
+what each part is: a rounded red body, a high cream roof-gear pod, four
+oversized dark wheels, and a readable rear hose reel on the truck; a large
+helmet brim, compact jacketed torso, and short stable legs on the firefighter.
 
 ## What lives here
 

@@ -54,3 +54,9 @@ a burning awning is allowed to be pale, but pale-on-pale sky is invisible from
 across the district, which is what #130 was filed about. So the style says how
 far to pull the material's own tint toward something that reads against its own
 sky, and by how much — the renderer never picks a smoke colour for itself.
+
+`heroes` (#133) is a separate top-level block from `city`, on purpose: the
+truck and firefighter are always-on player subjects, not district content that
+a style paints by building `use` or prop `type`. Keeping their paint apart
+means a HUD accent retune or a building-palette pass can never accidentally
+recolour the player's own truck.

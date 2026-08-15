@@ -10,11 +10,14 @@ import {
 import type { Style } from '@styles/styles';
 import type { Vector3Tuple } from './worldUnits';
 import {
+  HIP_ROOF_USES,
   KERB_HEIGHT,
   LANE_MARKING_Y,
   PARK_SURFACE_Y,
   PAVEMENT_HEIGHT,
   ROAD_SURFACE_Y,
+  WATER_SURFACE_Y,
+  getHipRoofHeight,
   type DistrictAttachmentPlacement,
   type DistrictBuildingPlacement,
   type DistrictLayout,
@@ -67,6 +70,13 @@ const PROP_PARTS: Readonly<Record<DistrictPropType, readonly PropPart[]>> = {
     { shape: 'box', offset: [0, 0.3, 0], size: [4.2, 0.6, 4.2], paint: 'primary' },
     { shape: 'box', offset: [0, 1.6, 0], size: [2.2, 2.6, 2.2], paint: 'secondary' },
     { shape: 'box', offset: [0, 3.05, 0], size: [2.9, 0.4, 2.9], paint: 'primary' },
+  ],
+  // A quiet-world vignette (#133): a street-corner planter, never an
+  // objective. Two parts keep it cheap however many are authored — the
+  // planter box and one bloom cluster, the same trick every other prop uses.
+  'flower-box': [
+    { shape: 'box', offset: [0, 0.2, 0], size: [0.72, 0.32, 0.34], paint: 'secondary' },
+    { shape: 'sphere', offset: [0, 0.44, 0], size: [0.62, 0.32, 0.32], paint: 'primary' },
   ],
 };
 
@@ -294,6 +304,7 @@ function BuildingLayer({
 }) {
   if (placements.length === 0) return null;
   const paint = visualStyle.city.buildings[use];
+  const isHipRoof = HIP_ROOF_USES.has(use);
 
   return (
     <group name={`city-buildings-${use}`}>
@@ -308,21 +319,54 @@ function BuildingLayer({
           />
         ))}
       </Instances>
-      <Instances limit={placements.length} range={placements.length} castShadow receiveShadow>
-        <boxGeometry />
-        <meshLambertMaterial color={paint.roof} />
-        {placements.map((building) => (
-          <Instance
-            key={building.id}
-            position={[
-              building.position[0],
-              building.height + ROOF_THICKNESS / 2,
-              building.position[2],
-            ]}
-            scale={[building.width + ROOF_OVERHANG, ROOF_THICKNESS, building.depth + ROOF_OVERHANG]}
-          />
-        ))}
-      </Instances>
+      {isHipRoof ? (
+        // A pitched cottage roof: one four-sided cone per building, scaled to
+        // its footprint. Same draw call as the flat box it replaces, but a
+        // child can tell a house apart from a shop by silhouette alone.
+        <Instances limit={placements.length} range={placements.length} castShadow receiveShadow>
+          <coneGeometry args={[0.5, 1, 4]} />
+          <meshLambertMaterial color={paint.roof} />
+          {placements.map((building) => {
+            const ridgeHeight = getHipRoofHeight(building);
+            return (
+              <Instance
+                key={building.id}
+                position={[
+                  building.position[0],
+                  building.height + ridgeHeight / 2,
+                  building.position[2],
+                ]}
+                rotation={[0, Math.PI / 4, 0]}
+                scale={[
+                  building.width + ROOF_OVERHANG,
+                  ridgeHeight,
+                  building.depth + ROOF_OVERHANG,
+                ]}
+              />
+            );
+          })}
+        </Instances>
+      ) : (
+        <Instances limit={placements.length} range={placements.length} castShadow receiveShadow>
+          <boxGeometry />
+          <meshLambertMaterial color={paint.roof} />
+          {placements.map((building) => (
+            <Instance
+              key={building.id}
+              position={[
+                building.position[0],
+                building.height + ROOF_THICKNESS / 2,
+                building.position[2],
+              ]}
+              scale={[
+                building.width + ROOF_OVERHANG,
+                ROOF_THICKNESS,
+                building.depth + ROOF_OVERHANG,
+              ]}
+            />
+          ))}
+        </Instances>
+      )}
     </group>
   );
 }
@@ -376,6 +420,12 @@ export function CityDistrict({
         color={city.parkGrass}
         thickness={0.08}
         top={PARK_SURFACE_Y}
+      />
+      <SurfaceLayer
+        surfaces={layout.waterSurfaces}
+        color={city.water}
+        thickness={0.08}
+        top={WATER_SURFACE_Y}
       />
       <SurfaceLayer
         surfaces={layout.roadSurfaces}
