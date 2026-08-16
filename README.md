@@ -113,6 +113,12 @@ Issues are labelled by `area:*`, `type:*`, and `size:*`. The
 [M3 tracking issue](https://github.com/MeanGreen256/hive_firefighter/issues/101)
 records the active pivot build order.
 
+**GitHub issues and milestones are the live status authority** — what's built,
+what's open, and what's next. Markdown in this repo, including
+[`docs/m3-pivot-issues.md`](docs/m3-pivot-issues.md), records decisions and
+durable rationale; it is not kept in sync with issue state and should not be
+read as a current tracker.
+
 Crew command and AI firefighters are distant stretch ideas, not M4 or M5 work.
 They must not enter the roadmap without a new explicit design decision after the
 single-firefighter loop has been validated.
