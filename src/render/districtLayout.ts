@@ -15,6 +15,7 @@ import {
   getParkRect,
   getPropRect,
   getRoadRect,
+  getWaterBodyRect,
   type BuildingUse,
   type DistrictDefinition,
   type DistrictProp,
@@ -36,8 +37,70 @@ export const LANE_MARKING_WIDTH = 0.3;
 export const LANE_DASH_LENGTH = 3;
 export const LANE_DASH_GAP = 3.5;
 export const PARK_SURFACE_Y = 0.015;
+/** Just above park level so a harbour edge never z-fights the grass beside it. */
+export const WATER_SURFACE_Y = 0.02;
 /** Ground extends past the playable bounds so the world has no visible edge. */
 export const GROUND_MARGIN = 40;
+
+/**
+ * Building uses that get a pitched, toy-cottage roof instead of a flat one —
+ * the cheapest shape-language split available: one instanced cone swap per
+ * use, no extra draw call, and a silhouette a child can tell apart from a
+ * shopfront or a workshop while just driving past.
+ */
+export const HIP_ROOF_USES: ReadonlySet<BuildingUse> = new Set(['house']);
+
+/** How far a roof projects past the walls it caps, in metres, both roof shapes. */
+export const ROOF_OVERHANG = 0.45;
+
+/** How tall a hip roof's ridge stands above the wall top, in metres. */
+const HIP_ROOF_HEIGHT_FRACTION = 0.42;
+const HIP_ROOF_MIN_HEIGHT = 1.15;
+const HIP_ROOF_MAX_HEIGHT = 2.6;
+
+/**
+ * A roof scaled to the smaller footprint dimension reads as a roof at any
+ * building size; scaled to the larger one it would look like a spike on a
+ * narrow cottage. Clamped so a very small or very large footprint still gets
+ * a roof shaped like a roof.
+ */
+export function getHipRoofHeight(building: {
+  readonly width: number;
+  readonly depth: number;
+}): number {
+  const span = Math.min(building.width, building.depth) * HIP_ROOF_HEIGHT_FRACTION;
+  return Math.min(HIP_ROOF_MAX_HEIGHT, Math.max(HIP_ROOF_MIN_HEIGHT, span));
+}
+
+/**
+ * The hip roof is one four-sided cone (`ConeGeometry(radius, 1, 4)`), rotated
+ * 45 degrees so its flat faces run parallel to the walls instead of crossing
+ * them diagonally, then scaled per building by `[width + ROOF_OVERHANG,
+ * ridgeHeight, depth + ROOF_OVERHANG]` as an `Instance` prop.
+ *
+ * The rotation is baked into the geometry itself (`.rotateY(...)`, applied
+ * once, shared by every instance) rather than passed as a separate `Instance`
+ * `rotation` prop. That distinction is load-bearing: `Instances` composes each
+ * instance's transform the standard Three.js way — `Matrix4.compose(position,
+ * quaternion, scale)`, i.e. `matrix = R * S` — so scale is always applied in
+ * the instance's *own*, still-unrotated local axes before rotation happens.
+ * A 45-degree rotation composed that way with a non-uniform (width != depth)
+ * XZ scale always collapses to a square of side `radius * sqrt(2) *
+ * max(width, depth)`, never a `width x depth` rectangle, no matter what
+ * radius is chosen — verified against real `ConeGeometry` + `Matrix4` output
+ * in `districtLayout.test.ts`. Baking the rotation into the shared geometry
+ * first, then letting the per-instance scale act on the already-rotated
+ * vertices, is what actually reproduces the intended footprint.
+ *
+ * `HIP_ROOF_CONE_RADIUS` is `Math.SQRT1_2` (`1/sqrt(2)`) so that, after the
+ * bake, the resulting axis-aligned square base is exactly `1 x 1` before the
+ * per-building scale — matching the flat roof's unit `boxGeometry` base, so
+ * the same `[width + ROOF_OVERHANG, ridgeHeight, depth + ROOF_OVERHANG]`
+ * scale produces the same footprint on both roof shapes.
+ */
+export const HIP_ROOF_CONE_RADIUS = Math.SQRT1_2;
+export const HIP_ROOF_CONE_ROTATION_Y = Math.PI / 4;
+export const HIP_ROOF_CONE_RADIAL_SEGMENTS = 4;
 
 export interface DistrictSurfaceRect {
   readonly id: string;
@@ -89,6 +152,7 @@ export interface DistrictLayout {
   readonly pavements: readonly DistrictSurfaceRect[];
   readonly kerbs: readonly DistrictSurfaceRect[];
   readonly parkSurfaces: readonly DistrictSurfaceRect[];
+  readonly waterSurfaces: readonly DistrictSurfaceRect[];
   readonly buildings: readonly DistrictBuildingPlacement[];
   readonly attachments: readonly DistrictAttachmentPlacement[];
   readonly props: readonly DistrictPropPlacement[];
@@ -229,6 +293,9 @@ export function buildDistrictLayout(district: DistrictDefinition): DistrictLayou
       ...district.props
         .filter((prop) => PROP_FOOTPRINTS[prop.type].solid)
         .map((prop) => toObstacle(getPropRect(prop))),
+      // Water is a hard edge, the same as a wall: nothing forgiving about
+      // driving a truck out onto open water looking for the far shore.
+      ...district.waterBodies.map((water) => toObstacle(getWaterBodyRect(water))),
     ],
     groundWidth: district.bounds.maxX - district.bounds.minX + GROUND_MARGIN * 2,
     groundDepth: district.bounds.maxZ - district.bounds.minZ + GROUND_MARGIN * 2,
@@ -237,6 +304,9 @@ export function buildDistrictLayout(district: DistrictDefinition): DistrictLayou
     pavements: kerbside.flatMap(({ pavements }) => pavements),
     kerbs: kerbside.flatMap(({ kerbs }) => kerbs),
     parkSurfaces: district.parks.map((park) => toSurface(park.id, getParkRect(park))),
+    waterSurfaces: district.waterBodies.map((water) =>
+      toSurface(water.id, getWaterBodyRect(water)),
+    ),
     buildings: district.buildings.map((building) => ({
       id: building.id,
       use: building.use,

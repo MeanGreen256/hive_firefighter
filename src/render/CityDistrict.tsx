@@ -1,4 +1,5 @@
 import { Instance, Instances } from '@react-three/drei';
+import { ConeGeometry } from 'three';
 import {
   BUILDING_USES,
   PROP_TYPES,
@@ -10,11 +11,18 @@ import {
 import type { Style } from '@styles/styles';
 import type { Vector3Tuple } from './worldUnits';
 import {
+  HIP_ROOF_CONE_RADIAL_SEGMENTS,
+  HIP_ROOF_CONE_RADIUS,
+  HIP_ROOF_CONE_ROTATION_Y,
+  HIP_ROOF_USES,
   KERB_HEIGHT,
   LANE_MARKING_Y,
   PARK_SURFACE_Y,
   PAVEMENT_HEIGHT,
   ROAD_SURFACE_Y,
+  ROOF_OVERHANG,
+  WATER_SURFACE_Y,
+  getHipRoofHeight,
   type DistrictAttachmentPlacement,
   type DistrictBuildingPlacement,
   type DistrictLayout,
@@ -23,9 +31,26 @@ import {
 } from './districtLayout';
 
 const ROOF_THICKNESS = 0.32;
-const ROOF_OVERHANG = 0.45;
 const QUEST_MARKER_RADIUS = 2.4;
 const QUEST_MARKER_Y = 0.05;
+
+/**
+ * The hip roof's shared base geometry, rotated once at module load — never
+ * per instance. See the long comment on `HIP_ROOF_CONE_RADIUS` in
+ * `districtLayout.ts` for why the rotation has to be baked into the geometry
+ * itself rather than passed as a per-`Instance` `rotation` prop: composing a
+ * 45-degree rotation with a non-uniform per-instance scale the normal way
+ * (`Matrix4.compose`, scale-then-rotate) collapses every hip roof into a
+ * square, whatever the building's actual footprint. A `primitive` shares this
+ * one geometry across every `Instances` layer that draws with it; `dispose=
+ * {null}` keeps one layer unmounting from freeing it out from under another.
+ */
+const HIP_ROOF_CONE_GEOMETRY = new ConeGeometry(
+  HIP_ROOF_CONE_RADIUS,
+  1,
+  HIP_ROOF_CONE_RADIAL_SEGMENTS,
+);
+HIP_ROOF_CONE_GEOMETRY.rotateY(HIP_ROOF_CONE_ROTATION_Y);
 
 /**
  * One prop's shape, as unit primitives scaled into place. Keeping props to a
@@ -67,6 +92,13 @@ const PROP_PARTS: Readonly<Record<DistrictPropType, readonly PropPart[]>> = {
     { shape: 'box', offset: [0, 0.3, 0], size: [4.2, 0.6, 4.2], paint: 'primary' },
     { shape: 'box', offset: [0, 1.6, 0], size: [2.2, 2.6, 2.2], paint: 'secondary' },
     { shape: 'box', offset: [0, 3.05, 0], size: [2.9, 0.4, 2.9], paint: 'primary' },
+  ],
+  // A quiet-world vignette (#133): a street-corner planter, never an
+  // objective. Two parts keep it cheap however many are authored — the
+  // planter box and one bloom cluster, the same trick every other prop uses.
+  'flower-box': [
+    { shape: 'box', offset: [0, 0.2, 0], size: [0.72, 0.32, 0.34], paint: 'secondary' },
+    { shape: 'sphere', offset: [0, 0.44, 0], size: [0.62, 0.32, 0.32], paint: 'primary' },
   ],
 };
 
@@ -294,6 +326,7 @@ function BuildingLayer({
 }) {
   if (placements.length === 0) return null;
   const paint = visualStyle.city.buildings[use];
+  const isHipRoof = HIP_ROOF_USES.has(use);
 
   return (
     <group name={`city-buildings-${use}`}>
@@ -308,21 +341,55 @@ function BuildingLayer({
           />
         ))}
       </Instances>
-      <Instances limit={placements.length} range={placements.length} castShadow receiveShadow>
-        <boxGeometry />
-        <meshLambertMaterial color={paint.roof} />
-        {placements.map((building) => (
-          <Instance
-            key={building.id}
-            position={[
-              building.position[0],
-              building.height + ROOF_THICKNESS / 2,
-              building.position[2],
-            ]}
-            scale={[building.width + ROOF_OVERHANG, ROOF_THICKNESS, building.depth + ROOF_OVERHANG]}
-          />
-        ))}
-      </Instances>
+      {isHipRoof ? (
+        // A pitched cottage roof: one four-sided cone per building, scaled to
+        // its footprint. Same draw call as the flat box it replaces, but a
+        // child can tell a house apart from a shop by silhouette alone. The
+        // 45-degree turn is baked into `HIP_ROOF_CONE_GEOMETRY` itself, not
+        // passed as a per-instance `rotation` — see the comment there for why.
+        <Instances limit={placements.length} range={placements.length} castShadow receiveShadow>
+          <primitive object={HIP_ROOF_CONE_GEOMETRY} attach="geometry" dispose={null} />
+          <meshLambertMaterial color={paint.roof} />
+          {placements.map((building) => {
+            const ridgeHeight = getHipRoofHeight(building);
+            return (
+              <Instance
+                key={building.id}
+                position={[
+                  building.position[0],
+                  building.height + ridgeHeight / 2,
+                  building.position[2],
+                ]}
+                scale={[
+                  building.width + ROOF_OVERHANG,
+                  ridgeHeight,
+                  building.depth + ROOF_OVERHANG,
+                ]}
+              />
+            );
+          })}
+        </Instances>
+      ) : (
+        <Instances limit={placements.length} range={placements.length} castShadow receiveShadow>
+          <boxGeometry />
+          <meshLambertMaterial color={paint.roof} />
+          {placements.map((building) => (
+            <Instance
+              key={building.id}
+              position={[
+                building.position[0],
+                building.height + ROOF_THICKNESS / 2,
+                building.position[2],
+              ]}
+              scale={[
+                building.width + ROOF_OVERHANG,
+                ROOF_THICKNESS,
+                building.depth + ROOF_OVERHANG,
+              ]}
+            />
+          ))}
+        </Instances>
+      )}
     </group>
   );
 }
@@ -376,6 +443,12 @@ export function CityDistrict({
         color={city.parkGrass}
         thickness={0.08}
         top={PARK_SURFACE_Y}
+      />
+      <SurfaceLayer
+        surfaces={layout.waterSurfaces}
+        color={city.water}
+        thickness={0.08}
+        top={WATER_SURFACE_Y}
       />
       <SurfaceLayer
         surfaces={layout.roadSurfaces}

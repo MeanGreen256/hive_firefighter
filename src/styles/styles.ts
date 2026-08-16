@@ -98,10 +98,48 @@ export interface CityAppearance {
   readonly kerb: string;
   readonly pavement: string;
   readonly parkGrass: string;
+  /** The harbour, a river edge — any authored water body. Optional per district. */
+  readonly water: string;
   readonly landmarkAccent: string;
   readonly questMarker: string;
   readonly buildings: Readonly<Record<BuildingUse, CityBuildingPaint>>;
   readonly props: Readonly<Record<DistrictPropType, CityPropPaint>>;
+}
+
+/**
+ * Hero-character paint, kept apart from `CityAppearance` on purpose: the truck
+ * and firefighter are always-on player subjects, not district content, so
+ * their colour should never move just because a HUD accent or a building
+ * palette is retuned. See the render README for the silhouette floor these
+ * tokens are drawn from.
+ */
+export interface HeroTruckAppearance {
+  readonly body: string;
+  /** The high roof-mounted light bar and gear pod — cream, not red, so it reads as its own shape against the body. */
+  readonly roofGear: string;
+  readonly windshield: string;
+  /** Four oversized, dark wheels are half of the toy silhouette. */
+  readonly wheel: string;
+  /** The readable rear hose reel the benchmark's hero-silhouette floor calls for. */
+  readonly hoseReel: string;
+  readonly beaconRed: string;
+  readonly beaconAmber: string;
+}
+
+export interface HeroFirefighterAppearance {
+  readonly skin: string;
+  readonly jacket: string;
+  /** Reflective trim stripes across the jacket and boots. */
+  readonly jacketTrim: string;
+  readonly pants: string;
+  readonly boots: string;
+  readonly helmet: string;
+  readonly helmetBrim: string;
+}
+
+export interface HeroAppearance {
+  readonly truck: HeroTruckAppearance;
+  readonly firefighter: HeroFirefighterAppearance;
 }
 
 export interface ParticleAppearance {
@@ -208,6 +246,7 @@ export interface Style {
   readonly cellVisuals: CellVisualAppearance;
   readonly stage: ModelStageAppearance;
   readonly city: CityAppearance;
+  readonly heroes: HeroAppearance;
   readonly particles: ParticleAppearance;
   readonly hose: HoseAppearance;
   readonly incidentMarkers: IncidentMarkerAppearance;
@@ -377,6 +416,9 @@ const diorama: Style = {
     kerb: '#d8cfbd',
     pavement: '#e2d8c4',
     parkGrass: '#8fc079',
+    // A toy-bright, readable teal — distinct from the sky so the harbour edge
+    // never disappears into the backdrop from across the district.
+    water: '#3f8fa6',
     landmarkAccent: '#f2a03d',
     questMarker: '#f2c14e',
     buildings: {
@@ -394,6 +436,28 @@ const diorama: Style = {
       hydrant: { primary: '#d1453a', secondary: '#fff6e6' },
       'lamp-post': { primary: '#5d6b74', secondary: '#ffe9a8' },
       'play-structure': { primary: '#f0a93f', secondary: '#5aa9c9' },
+      // primary: the bloom cluster; secondary: the planter box beneath it.
+      'flower-box': { primary: '#e8637a', secondary: '#a8825e' },
+    },
+  },
+  heroes: {
+    truck: {
+      body: '#d9463a',
+      roofGear: '#fff3dc',
+      windshield: '#cfe3ec',
+      wheel: '#2c2620',
+      hoseReel: '#f2a03d',
+      beaconRed: '#ff6b52',
+      beaconAmber: '#ffd873',
+    },
+    firefighter: {
+      skin: '#eab98a',
+      jacket: '#e0563f',
+      jacketTrim: '#fff6e6',
+      pants: '#3e3028',
+      boots: '#2c241d',
+      helmet: '#f2a03d',
+      helmetBrim: '#d1453a',
     },
   },
   particles: {
@@ -509,6 +573,8 @@ const ink: Style = {
     kerb: '#9a917c',
     pavement: '#ddd0a4',
     parkGrass: '#8ea559',
+    // Ink's flatter palette still needs the harbour to read as water, not sky.
+    water: '#2d6f85',
     landmarkAccent: '#e0912f',
     questMarker: '#fff36a',
     buildings: {
@@ -526,6 +592,27 @@ const ink: Style = {
       hydrant: { primary: '#c22f2a', secondary: '#f3e8c9' },
       'lamp-post': { primary: '#2b2f34', secondary: '#ffd36b' },
       'play-structure': { primary: '#e08a2c', secondary: '#2d8fa8' },
+      'flower-box': { primary: '#d04a62', secondary: '#6b4d37' },
+    },
+  },
+  heroes: {
+    truck: {
+      body: '#d0362f',
+      roofGear: '#fff2cb',
+      windshield: '#c6e1e5',
+      wheel: '#16120e',
+      hoseReel: '#e0912f',
+      beaconRed: '#ff4937',
+      beaconAmber: '#ffd36b',
+    },
+    firefighter: {
+      skin: '#e0b878',
+      jacket: '#ff4937',
+      jacketTrim: '#fff2cb',
+      pants: '#16120e',
+      boots: '#16120e',
+      helmet: '#e0912f',
+      helmetBrim: '#c22f2a',
     },
   },
   particles: {

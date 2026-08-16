@@ -124,6 +124,87 @@ describe('drivable-city validation', () => {
   });
 });
 
+describe('water bodies', () => {
+  it('accepts a water body that clears every other footprint', () => {
+    const withWater = cloneHarbourHill();
+    withWater.waterBodies = [
+      { id: 'test-cove', name: 'Test Cove', x: 61, z: 10, width: 2, depth: 4 },
+    ];
+    const district = validateDistrictDefinition(withWater, 'with-water');
+    expect(district.waterBodies).toHaveLength(1);
+  });
+
+  it('rejects a water body parked on a road', () => {
+    const onRoad = cloneHarbourHill();
+    onRoad.waterBodies = [
+      { id: 'flooded-road', name: 'Flooded Road', x: 0, z: 0, width: 2, depth: 2 },
+    ];
+    expect(() => validateDistrictDefinition(onRoad, 'on-road')).toThrow(
+      /waterBodies\[0\] sits on a road/,
+    );
+  });
+
+  it('rejects a water body overlapping a building', () => {
+    const buildings = cloneHarbourHill().buildings as Record<string, unknown>[];
+    const bakery = buildings.find((building) => building.id === 'bakery');
+    expect(bakery).toBeDefined();
+    const overlapping = cloneHarbourHill();
+    overlapping.waterBodies = [
+      {
+        id: 'submerged-bakery',
+        name: 'Submerged Bakery',
+        x: bakery?.x ?? 0,
+        z: bakery?.z ?? 0,
+        width: 2,
+        depth: 2,
+      },
+    ];
+    expect(() => validateDistrictDefinition(overlapping, 'submerged')).toThrow(
+      /waterBodies\[0\] overlaps a building footprint/,
+    );
+  });
+
+  it('rejects a water body overlapping a park', () => {
+    const parks = cloneHarbourHill().parks as Record<string, unknown>[];
+    const meadow = parks.find((park) => park.id === 'meadow-park');
+    expect(meadow).toBeDefined();
+    const overlapping = cloneHarbourHill();
+    overlapping.waterBodies = [
+      {
+        id: 'flooded-meadow',
+        name: 'Flooded Meadow',
+        x: meadow?.x ?? 0,
+        z: meadow?.z ?? 0,
+        width: 2,
+        depth: 2,
+      },
+    ];
+    expect(() => validateDistrictDefinition(overlapping, 'flooded')).toThrow(
+      /waterBodies\[0\] overlaps a park/,
+    );
+  });
+
+  it('rejects a water body that leaves the district bounds', () => {
+    const outOfBounds = cloneHarbourHill();
+    outOfBounds.waterBodies = [
+      { id: 'off-the-edge', name: 'Off The Edge', x: 63, z: 0, width: 6, depth: 4 },
+    ];
+    expect(() => validateDistrictDefinition(outOfBounds, 'off-edge')).toThrow(
+      /waterBodies\[0\] leaves the district bounds/,
+    );
+  });
+
+  it('rejects a prop placed in the water', () => {
+    const flooded = cloneHarbourHill();
+    flooded.waterBodies = [{ id: 'test-cove', name: 'Test Cove', x: 61, z: 0, width: 2, depth: 4 }];
+    const props = flooded.props as Record<string, unknown>[];
+    props[0] = { ...props[0], x: 61, z: 0 };
+    expect(() => validateDistrictDefinition(flooded, 'flooded-prop')).toThrow(
+      /props\[0\] overlaps a water body/,
+    );
+  });
+});
+
 describe('prop footprints', () => {
   it('widens a rotated footprint instead of tilting it', () => {
     const upright = getPropRect({

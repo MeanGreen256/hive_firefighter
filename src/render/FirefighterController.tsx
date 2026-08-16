@@ -287,57 +287,63 @@ export function FirefighterController({
         <group ref={leftLeg} position={[-0.19, 0.72, 0]}>
           <mesh position={[0, -0.33, 0]}>
             <capsuleGeometry args={[0.12, 0.42, 5, 10]} />
-            <meshStandardMaterial color={visualStyle.hud.text} roughness={0.82} />
+            <meshStandardMaterial color={visualStyle.heroes.firefighter.pants} roughness={0.82} />
           </mesh>
           <mesh position={[0, -0.68, -0.05]}>
             <boxGeometry args={[0.24, 0.16, 0.38]} />
-            <meshStandardMaterial color={visualStyle.hud.text} roughness={0.9} />
+            <meshStandardMaterial color={visualStyle.heroes.firefighter.boots} roughness={0.9} />
           </mesh>
         </group>
         <group ref={rightLeg} position={[0.19, 0.72, 0]}>
           <mesh position={[0, -0.33, 0]}>
             <capsuleGeometry args={[0.12, 0.42, 5, 10]} />
-            <meshStandardMaterial color={visualStyle.hud.text} roughness={0.82} />
+            <meshStandardMaterial color={visualStyle.heroes.firefighter.pants} roughness={0.82} />
           </mesh>
           <mesh position={[0, -0.68, -0.05]}>
             <boxGeometry args={[0.24, 0.16, 0.38]} />
-            <meshStandardMaterial color={visualStyle.hud.text} roughness={0.9} />
+            <meshStandardMaterial color={visualStyle.heroes.firefighter.boots} roughness={0.9} />
           </mesh>
         </group>
 
         <mesh position={[0, 1.08, 0]}>
           <capsuleGeometry args={[0.34, 0.62, 7, 14]} />
-          <meshStandardMaterial color={visualStyle.hud.warning} roughness={0.78} />
+          <meshStandardMaterial color={visualStyle.heroes.firefighter.jacket} roughness={0.78} />
         </mesh>
         <mesh position={[0, 1.08, -0.335]}>
           <boxGeometry args={[0.58, 0.1, 0.035]} />
-          <meshStandardMaterial color={visualStyle.hud.control} roughness={0.68} />
+          <meshStandardMaterial
+            color={visualStyle.heroes.firefighter.jacketTrim}
+            roughness={0.68}
+          />
         </mesh>
 
         <group ref={leftArm} position={[-0.37, 1.3, -0.02]} rotation={[READY_ARM_ANGLE, 0, 0.12]}>
           <mesh position={[0, -0.25, 0]}>
             <capsuleGeometry args={[0.1, 0.34, 5, 10]} />
-            <meshStandardMaterial color={visualStyle.hud.warning} roughness={0.78} />
+            <meshStandardMaterial color={visualStyle.heroes.firefighter.jacket} roughness={0.78} />
           </mesh>
         </group>
         <group ref={rightArm} position={[0.37, 1.3, -0.02]} rotation={[READY_ARM_ANGLE, 0, -0.12]}>
           <mesh position={[0, -0.25, 0]}>
             <capsuleGeometry args={[0.1, 0.34, 5, 10]} />
-            <meshStandardMaterial color={visualStyle.hud.warning} roughness={0.78} />
+            <meshStandardMaterial color={visualStyle.heroes.firefighter.jacket} roughness={0.78} />
           </mesh>
         </group>
 
         <mesh position={[0, 1.65, 0]}>
           <sphereGeometry args={[0.27, 16, 12]} />
-          <meshStandardMaterial color={visualStyle.palette.building.wall} roughness={0.74} />
+          <meshStandardMaterial color={visualStyle.heroes.firefighter.skin} roughness={0.74} />
         </mesh>
         <mesh position={[0, 1.84, 0]}>
           <sphereGeometry args={[0.31, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshStandardMaterial color={visualStyle.hud.accent} roughness={0.72} />
+          <meshStandardMaterial color={visualStyle.heroes.firefighter.helmet} roughness={0.72} />
         </mesh>
         <mesh position={[0, 1.79, -0.18]}>
           <boxGeometry args={[0.72, 0.08, 0.32]} />
-          <meshStandardMaterial color={visualStyle.hud.accent} roughness={0.72} />
+          <meshStandardMaterial
+            color={visualStyle.heroes.firefighter.helmetBrim}
+            roughness={0.72}
+          />
         </mesh>
 
         <group ref={nozzle} position={HOSE_NOZZLE_LOCAL_OFFSET}>

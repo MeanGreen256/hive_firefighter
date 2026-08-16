@@ -42,6 +42,7 @@ export const PROP_TYPES = [
   'hydrant',
   'lamp-post',
   'play-structure',
+  'flower-box',
 ] as const;
 export type DistrictPropType = (typeof PROP_TYPES)[number];
 
@@ -65,6 +66,10 @@ export const PROP_FOOTPRINTS: Readonly<Record<DistrictPropType, PropFootprint>> 
   hydrant: { halfWidth: 0.28, halfDepth: 0.28, solid: false },
   'lamp-post': { halfWidth: 0.2, halfDepth: 0.2, solid: false },
   'play-structure': { halfWidth: 2.4, halfDepth: 2.4, solid: true },
+  // A tiny scenic planter — reward for looking at a street corner, never a
+  // reason to get wedged. Small enough that "solid" would be a trap, not a
+  // wall, so it stays walk-through like a bench or a hydrant.
+  'flower-box': { halfWidth: 0.36, halfDepth: 0.18, solid: false },
 });
 
 /** At least this many quest sites, so one district holds a run of quests (#90). */
@@ -123,6 +128,21 @@ export interface DistrictPark {
   readonly depth: number;
 }
 
+/**
+ * A body of water — the harbour, a river edge — as a flat rectangle, the same
+ * shape a park is. Optional per district: an inland district authors none.
+ * Where one exists it is a hard edge to the world, the same as a building, so
+ * a truck never drives out onto open water looking for the far shore.
+ */
+export interface DistrictWaterBody {
+  readonly id: string;
+  readonly name: string;
+  readonly x: number;
+  readonly z: number;
+  readonly width: number;
+  readonly depth: number;
+}
+
 export interface DistrictProp {
   readonly id: string;
   readonly type: DistrictPropType;
@@ -149,6 +169,7 @@ export interface DistrictDefinition {
   readonly roads: readonly DistrictRoad[];
   readonly buildings: readonly DistrictBuilding[];
   readonly parks: readonly DistrictPark[];
+  readonly waterBodies: readonly DistrictWaterBody[];
   readonly props: readonly DistrictProp[];
   readonly questSites: readonly DistrictQuestSite[];
 }
@@ -167,6 +188,7 @@ const ROOT_FIELDS = [
   'roads',
   'buildings',
   'parks',
+  'waterBodies',
   'props',
   'questSites',
 ] as const;
@@ -194,6 +216,10 @@ export function getBuildingRect(building: DistrictBuilding): DistrictRect {
 
 export function getParkRect(park: DistrictPark): DistrictRect {
   return rectFromCenter(park, park.width / 2, park.depth / 2);
+}
+
+export function getWaterBodyRect(water: DistrictWaterBody): DistrictRect {
+  return rectFromCenter(water, water.width / 2, water.depth / 2);
 }
 
 export function getRoadRect(road: DistrictRoad): DistrictRect {
@@ -360,6 +386,23 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     problems.push(`${id}.parks must contain at least one park; green space is a first-class area`);
   }
 
+  const waterBodies = readPlacementArray(
+    root.waterBodies,
+    `${id}.waterBodies`,
+    problems,
+    (object, path, waterProblems): DistrictWaterBody => {
+      checkFields(object, path, ['id', 'name', 'x', 'z', 'width', 'depth'], waterProblems);
+      return {
+        id: readString(object.id, `${path}.id`, waterProblems),
+        name: readString(object.name, `${path}.name`, waterProblems),
+        x: readFiniteNumber(object.x, `${path}.x`, waterProblems),
+        z: readFiniteNumber(object.z, `${path}.z`, waterProblems),
+        width: readPositiveNumber(object.width, `${path}.width`, waterProblems),
+        depth: readPositiveNumber(object.depth, `${path}.depth`, waterProblems),
+      };
+    },
+  );
+
   const props = readPlacementArray(
     root.props,
     `${id}.props`,
@@ -398,6 +441,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   validateUniqueIds(roads, `${id}.roads`, problems);
   validateUniqueIds(buildings, `${id}.buildings`, problems);
   validateUniqueIds(parks, `${id}.parks`, problems);
+  validateUniqueIds(waterBodies, `${id}.waterBodies`, problems);
   validateUniqueIds(props, `${id}.props`, problems);
   validateUniqueIds(questSites, `${id}.questSites`, problems);
 
@@ -430,6 +474,25 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   });
 
   const buildingRects = buildings.map(getBuildingRect);
+  const parkRects = parks.map(getParkRect);
+
+  waterBodies.forEach((water, index) => {
+    const rect = getWaterBodyRect(water);
+    if (!isRectInsideBounds(rect, bounds)) {
+      problems.push(`${id}.waterBodies[${index}] leaves the district bounds`);
+    }
+    if (onRoad(rect)) {
+      problems.push(`${id}.waterBodies[${index}] sits on a road and would block driving`);
+    }
+    if (buildingRects.some((buildingRect) => rectsOverlap(rect, buildingRect))) {
+      problems.push(`${id}.waterBodies[${index}] overlaps a building footprint`);
+    }
+    if (parkRects.some((parkRect) => rectsOverlap(rect, parkRect))) {
+      problems.push(`${id}.waterBodies[${index}] overlaps a park`);
+    }
+  });
+
+  const waterRects = waterBodies.map(getWaterBodyRect);
   props.forEach((prop, index) => {
     const rect = getPropRect(prop);
     if (!isRectInsideBounds(rect, bounds)) {
@@ -440,6 +503,9 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     }
     if (buildingRects.some((buildingRect) => rectsOverlap(rect, buildingRect))) {
       problems.push(`${id}.props[${index}] overlaps a building footprint`);
+    }
+    if (waterRects.some((waterRect) => rectsOverlap(rect, waterRect))) {
+      problems.push(`${id}.props[${index}] overlaps a water body`);
     }
   });
 
@@ -493,6 +559,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     roads,
     buildings,
     parks,
+    waterBodies,
     props,
     questSites,
   };

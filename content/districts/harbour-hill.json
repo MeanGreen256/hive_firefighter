@@ -367,6 +367,7 @@
       "depth": 22
     }
   ],
+  "waterBodies": [],
   "props": [
     { "id": "main-tree-w1", "type": "tree", "x": -58, "z": -6.5 },
     { "id": "main-tree-w2", "type": "tree", "x": -46, "z": -6.5 },
@@ -443,7 +444,15 @@
     { "id": "lamp-orchard-e", "type": "lamp-post", "x": 5.8, "z": 39.8 },
     { "id": "lamp-orchard-w", "type": "lamp-post", "x": -5.8, "z": 39.8 },
     { "id": "meadow-play", "type": "play-structure", "x": -51, "z": 17 },
-    { "id": "riverside-play", "type": "play-structure", "x": 17, "z": 52 }
+    { "id": "riverside-play", "type": "play-structure", "x": 17, "z": 52 },
+    { "id": "bakery-flowers-1", "type": "flower-box", "x": 9, "z": -7.2 },
+    { "id": "bakery-flowers-2", "type": "flower-box", "x": 15, "z": -7.2 },
+    { "id": "firehouse-flowers-1", "type": "flower-box", "x": -22, "z": -11.5 },
+    { "id": "firehouse-flowers-2", "type": "flower-box", "x": -14, "z": -11.5 },
+    { "id": "market-flowers-north", "type": "flower-box", "x": 6.6, "z": -14 },
+    { "id": "market-flowers-south", "type": "flower-box", "x": -6.6, "z": 20 },
+    { "id": "school-flowers", "type": "flower-box", "x": 17, "z": 22 },
+    { "id": "corner-shop-flowers", "type": "flower-box", "x": 6.3, "z": 26 }
   ],
   "questSites": [
     {

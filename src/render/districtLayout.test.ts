@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { PROP_FOOTPRINTS, getDistrict, getRoadRect } from '@sim/districts';
+import { ConeGeometry, Matrix4, Quaternion, Vector3 } from 'three';
+import { PROP_FOOTPRINTS, getDistrict, getRoadRect, type DistrictDefinition } from '@sim/districts';
 import { resolveCharacterMovement, CHARACTER_RADIUS } from './characterController';
 import {
+  HIP_ROOF_CONE_RADIAL_SEGMENTS,
+  HIP_ROOF_CONE_RADIUS,
+  HIP_ROOF_CONE_ROTATION_Y,
   KERB_WIDTH,
   PAVEMENT_WIDTH,
+  ROOF_OVERHANG,
   buildDistrictLayout,
+  getHipRoofHeight,
   subtractSpans,
   type DistrictSurfaceRect,
 } from './districtLayout';
@@ -87,9 +93,11 @@ describe('Harbour Hill layout', () => {
     ).toBe(true);
   });
 
-  it('blocks buildings and solid props but never small street furniture', () => {
+  it('blocks buildings, solid props, and water but never small street furniture', () => {
     const solidProps = district.props.filter((prop) => PROP_FOOTPRINTS[prop.type].solid);
-    expect(layout.obstacles).toHaveLength(district.buildings.length + solidProps.length);
+    expect(layout.obstacles).toHaveLength(
+      district.buildings.length + solidProps.length + district.waterBodies.length,
+    );
     expect(solidProps.length).toBeGreaterThan(0);
 
     const bench = district.props.find((prop) => prop.type === 'bench');
@@ -123,5 +131,113 @@ describe('Harbour Hill layout', () => {
   it('renders the ground past the playable bounds so the world has no visible edge', () => {
     expect(layout.groundWidth).toBeGreaterThan(district.bounds.maxX - district.bounds.minX);
     expect(layout.groundDepth).toBeGreaterThan(district.bounds.maxZ - district.bounds.minZ);
+  });
+});
+
+describe('water bodies as a hard edge', () => {
+  const base = getDistrict('harbour-hill');
+  const withCove: DistrictDefinition = {
+    ...base,
+    waterBodies: [{ id: 'test-cove', name: 'Test Cove', x: 61, z: 10, width: 2, depth: 4 }],
+  };
+  const layout = buildDistrictLayout(withCove);
+
+  it('draws one surface per authored water body', () => {
+    expect(layout.waterSurfaces).toHaveLength(1);
+    expect(layout.waterSurfaces[0]).toMatchObject({ centerX: 61, centerZ: 10, width: 2, depth: 4 });
+  });
+
+  it('blocks the firefighter from walking into open water', () => {
+    const pushed = resolveCharacterMovement(
+      { x: 59, z: 10 },
+      { x: 5, z: 0 },
+      CHARACTER_RADIUS,
+      layout.obstacles,
+      layout.movementBounds,
+    );
+    expect(pushed.x).toBeLessThan(60);
+  });
+});
+
+describe('getHipRoofHeight', () => {
+  it('scales with the smaller footprint dimension', () => {
+    const narrow = getHipRoofHeight({ width: 5, depth: 4 });
+    const wide = getHipRoofHeight({ width: 8, depth: 6 });
+    expect(wide).toBeGreaterThan(narrow);
+  });
+
+  it('never collapses to a spike or a flat roof at the extremes', () => {
+    expect(getHipRoofHeight({ width: 0.5, depth: 0.5 })).toBeGreaterThanOrEqual(1.15);
+    expect(getHipRoofHeight({ width: 40, depth: 40 })).toBeLessThanOrEqual(2.6);
+  });
+});
+
+describe('hip roof geometry footprint', () => {
+  /**
+   * Mirrors what `CityDistrict.tsx` actually draws: the 45-degree turn baked
+   * into the shared cone geometry once (`.rotateY`), then one
+   * `Matrix4.compose(position, rotation, scale)` per instance — the exact
+   * call `@react-three/drei`'s `Instances` makes internally — applying only
+   * the per-building `[width + ROOF_OVERHANG, _, depth + ROOF_OVERHANG]`
+   * scale on top of the already-rotated vertices.
+   */
+  function bakedRoofFootprint(width: number, depth: number): { x: number; z: number } {
+    const geometry = new ConeGeometry(HIP_ROOF_CONE_RADIUS, 1, HIP_ROOF_CONE_RADIAL_SEGMENTS);
+    geometry.rotateY(HIP_ROOF_CONE_ROTATION_Y);
+    const matrix = new Matrix4().compose(
+      new Vector3(),
+      new Quaternion(),
+      new Vector3(width + ROOF_OVERHANG, 1, depth + ROOF_OVERHANG),
+    );
+    geometry.applyMatrix4(matrix);
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    if (!box) throw new Error('ConeGeometry.computeBoundingBox produced no box');
+    return { x: box.max.x - box.min.x, z: box.max.z - box.min.z };
+  }
+
+  it('matches the building footprint for a non-square house', () => {
+    const footprint = bakedRoofFootprint(10, 8);
+    expect(footprint.x).toBeCloseTo(10 + ROOF_OVERHANG, 3);
+    expect(footprint.z).toBeCloseTo(8 + ROOF_OVERHANG, 3);
+  });
+
+  it('matches the building footprint for a second, differently-proportioned house', () => {
+    const footprint = bakedRoofFootprint(9, 8);
+    expect(footprint.x).toBeCloseTo(9 + ROOF_OVERHANG, 3);
+    expect(footprint.z).toBeCloseTo(8 + ROOF_OVERHANG, 3);
+  });
+
+  it('regression: composing the same rotation as a per-instance transform instead of baking it into the geometry collapses a non-square roof into a square', () => {
+    // This is the bug the baked rotation fixes (verified against real
+    // ConeGeometry + Matrix4 output, not derived on paper). Documented here
+    // so nobody "simplifies" `HIP_ROOF_CONE_GEOMETRY` back into a per-Instance
+    // `rotation` prop without noticing the footprint stops matching the
+    // building: Matrix4.compose is `matrix = R * S`, so scale is always
+    // applied in the instance's own unrotated local axes before rotation —
+    // a 45-degree rotation composed that way with a non-uniform XZ scale
+    // always collapses to a square, whatever radius is chosen.
+    const geometry = new ConeGeometry(HIP_ROOF_CONE_RADIUS, 1, HIP_ROOF_CONE_RADIAL_SEGMENTS);
+    const rotation = new Quaternion().setFromAxisAngle(
+      new Vector3(0, 1, 0),
+      HIP_ROOF_CONE_ROTATION_Y,
+    );
+    const matrix = new Matrix4().compose(
+      new Vector3(),
+      rotation,
+      new Vector3(10 + ROOF_OVERHANG, 1, 8 + ROOF_OVERHANG),
+    );
+    geometry.applyMatrix4(matrix);
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    if (!box) throw new Error('ConeGeometry.computeBoundingBox produced no box');
+    const width = box.max.x - box.min.x;
+    const depth = box.max.z - box.min.z;
+
+    // Both axes collapse to the *wider* dimension: x matches the building
+    // (10 + overhang), but z is wrong — it should be 8 + overhang and isn't.
+    expect(width).toBeCloseTo(depth, 3);
+    expect(width).toBeCloseTo(10 + ROOF_OVERHANG, 3);
+    expect(depth).not.toBeCloseTo(8 + ROOF_OVERHANG, 1);
   });
 });
