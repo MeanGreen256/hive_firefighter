@@ -438,6 +438,9 @@ const diorama: Style = {
       'play-structure': { primary: '#f0a93f', secondary: '#5aa9c9' },
       // primary: the bloom cluster; secondary: the planter box beneath it.
       'flower-box': { primary: '#e8637a', secondary: '#a8825e' },
+      pinwheel: { primary: '#f2a03d', secondary: '#3f8fa6' },
+      'harbour-bollard': { primary: '#3f6f86', secondary: '#fff3dc' },
+      'bee-sign': { primary: '#f2a03d', secondary: '#fff3dc' },
     },
   },
   heroes: {
@@ -593,6 +596,9 @@ const ink: Style = {
       'lamp-post': { primary: '#2b2f34', secondary: '#ffd36b' },
       'play-structure': { primary: '#e08a2c', secondary: '#2d8fa8' },
       'flower-box': { primary: '#d04a62', secondary: '#6b4d37' },
+      pinwheel: { primary: '#e0912f', secondary: '#2d8fa8' },
+      'harbour-bollard': { primary: '#2d69a1', secondary: '#f3e8c9' },
+      'bee-sign': { primary: '#e0912f', secondary: '#f3e8c9' },
     },
   },
   heroes: {

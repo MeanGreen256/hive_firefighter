@@ -62,24 +62,27 @@ rather than get stuck on. Water is a hard edge rather than scenery — the same
 treatment as a wall — so a truck never drives out looking for a far shore that
 was never authored (#133).
 
-Houses stand apart from shops, civic buildings, and workshops by roofline, not
-only by wall colour: `HIP_ROOF_USES` in `districtLayout.ts` swaps the flat roof
-box for a four-sided cone scaled to the footprint (`getHipRoofHeight`), at the
-same one-instanced-layer cost. That is the district's "distinct shape language"
-per neighbourhood (#133) — cheap enough that adding a second pitched-roof use
-later is a one-line set addition, not a new render path.
+Houses and workshops stand apart from Main Street shops by roofline, not only
+by wall colour: `HIP_ROOF_USES` gives cottages four-sided hip roofs while
+`GABLE_ROOF_USES` gives harbour workshops broad triangular roofs. Towers use
+round bodies, and all other bodies use a shared softened box. These shapes
+replace the flat equivalents rather than layering on top of them.
 
-`flower-box` is a quiet-world vignette prop (#133): a street-corner planter
-that rewards looking around without ever becoming an objective. It is content
-and a reusable kit entry like every other prop type — `PROP_PARTS` in
+The `flower-box`, animated `pinwheel`, `bee-sign`, and `harbour-bollard` are
+quiet-world vignette props (#133). They reward looking around without becoming
+objectives. Each is content plus a reusable kit entry — `PROP_PARTS` in
 `CityDistrict.tsx` and `PROP_FOOTPRINTS` in `@sim/districts` — never a one-off
-position hand-placed in a component.
+position hand-placed in a component. The lighthouse beacon turns slowly by the
+same subordinate-motion rule: incident flame, water, and smoke remain faster
+and brighter.
 
 Roads render as flat slabs with kerbs, pavement, and dashed lane markings, each
-split around crossing roads by `subtractSpans` so junctions stay open. Every
-repeated element — road slabs, kerbs, buildings of one use, each part of each
-prop type — is one instanced layer, so a city of forty-odd props stays inside
-the draw-call budget. The single sun's shadow frustum is widened to the district
+split around crossing roads by `subtractSpans` so junctions stay open. Repeated
+elements batch by geometry and shadow behavior, with per-instance style colour:
+building bodies and roofs batch by shape, every facade attachment shares one
+box layer, and all prop kits share box/cylinder/sphere layers. Adding a prop
+type made from an existing primitive therefore adds instance data rather than a
+draw call. The single sun's shadow frustum is widened to the district
 bounds; the five-unit default only shadows one junction, and widening it needs
 an explicit projection rebuild. Because the town never moves, that shadow map is
 baked once. The truck and firefighter use style-token contact blobs, preserving

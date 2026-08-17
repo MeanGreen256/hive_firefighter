@@ -90,6 +90,15 @@ describe('fire audio autoplay guard', () => {
     expect(targetGains).toContain(0.08);
   });
 
+  it('starts a quiet town ambience only after the audio gate succeeds', async () => {
+    const targetGains: number[] = [];
+    const audio = createFireAudioSystem(() => createRunningContextDouble(targetGains));
+
+    expect(targetGains).not.toContain(0.018);
+    await expect(audio.enable()).resolves.toBe(true);
+    expect(targetGains).toContain(0.018);
+  });
+
   it('only attempts to create audio when the explicit enable gate is called', async () => {
     let contextCreations = 0;
     const audio = createFireAudioSystem(() => {

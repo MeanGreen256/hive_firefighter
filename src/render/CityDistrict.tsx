@@ -1,13 +1,8 @@
-import { Instance, Instances } from '@react-three/drei';
-import { ConeGeometry } from 'three';
-import {
-  BUILDING_USES,
-  PROP_TYPES,
-  type BuildingUse,
-  type DistrictPropType,
-  type DistrictQuestSite,
-  type LandmarkShape,
-} from '@sim/districts';
+import { useRef } from 'react';
+import { Instance, Instances, RoundedBoxGeometry } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import { BufferGeometry, ConeGeometry, Float32BufferAttribute, type Group } from 'three';
+import { type DistrictPropType, type DistrictQuestSite, type LandmarkShape } from '@sim/districts';
 import type { Style } from '@styles/styles';
 import type { Vector3Tuple } from './worldUnits';
 import {
@@ -15,6 +10,7 @@ import {
   HIP_ROOF_CONE_RADIUS,
   HIP_ROOF_CONE_ROTATION_Y,
   HIP_ROOF_USES,
+  GABLE_ROOF_USES,
   KERB_HEIGHT,
   LANE_MARKING_Y,
   PARK_SURFACE_Y,
@@ -53,6 +49,24 @@ const HIP_ROOF_CONE_GEOMETRY = new ConeGeometry(
 HIP_ROOF_CONE_GEOMETRY.rotateY(HIP_ROOF_CONE_ROTATION_Y);
 
 /**
+ * Unit triangular prism for the workshop route's broad gable roofs. Like the
+ * hip roof, it is built once and scaled by every instance, so the extra shape
+ * language replaces the flat-roof draw rather than adding another one.
+ */
+const GABLE_ROOF_GEOMETRY = new BufferGeometry();
+GABLE_ROOF_GEOMETRY.setAttribute(
+  'position',
+  new Float32BufferAttribute(
+    [-0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, 0.5, 0, 0.5, 0.5, 0],
+    3,
+  ),
+);
+GABLE_ROOF_GEOMETRY.setIndex([
+  0, 2, 3, 0, 3, 1, 0, 1, 5, 0, 5, 4, 2, 4, 5, 2, 5, 3, 0, 4, 2, 1, 3, 5,
+]);
+GABLE_ROOF_GEOMETRY.computeVertexNormals();
+
+/**
  * One prop's shape, as unit primitives scaled into place. Keeping props to a
  * fixed part list means every tree in the district is one instanced draw call
  * per part instead of one draw call per tree.
@@ -62,6 +76,9 @@ interface PropPart {
   readonly offset: Vector3Tuple;
   readonly size: Vector3Tuple;
   readonly paint: 'primary' | 'secondary';
+  readonly rotation?: Vector3Tuple;
+  /** Radians per second around the prop's local Z axis. */
+  readonly spinSpeed?: number;
 }
 
 const PROP_PARTS: Readonly<Record<DistrictPropType, readonly PropPart[]>> = {
@@ -100,6 +117,35 @@ const PROP_PARTS: Readonly<Record<DistrictPropType, readonly PropPart[]>> = {
     { shape: 'box', offset: [0, 0.2, 0], size: [0.72, 0.32, 0.34], paint: 'secondary' },
     { shape: 'sphere', offset: [0, 0.44, 0], size: [0.62, 0.32, 0.32], paint: 'primary' },
   ],
+  pinwheel: [
+    { shape: 'cylinder', offset: [0, 1.05, 0], size: [0.1, 2.1, 0.1], paint: 'secondary' },
+    { shape: 'sphere', offset: [0, 2.08, -0.04], size: [0.24, 0.24, 0.16], paint: 'secondary' },
+    {
+      shape: 'box',
+      offset: [0, 2.08, 0],
+      size: [1.15, 0.16, 0.08],
+      paint: 'primary',
+      spinSpeed: 1.25,
+    },
+    {
+      shape: 'box',
+      offset: [0, 2.08, 0],
+      size: [1.15, 0.16, 0.08],
+      paint: 'primary',
+      rotation: [0, 0, Math.PI / 2],
+      spinSpeed: 1.25,
+    },
+  ],
+  'harbour-bollard': [
+    { shape: 'cylinder', offset: [0, 0.34, 0], size: [0.34, 0.68, 0.34], paint: 'primary' },
+    { shape: 'sphere', offset: [0, 0.7, 0], size: [0.42, 0.24, 0.42], paint: 'secondary' },
+  ],
+  'bee-sign': [
+    { shape: 'cylinder', offset: [0, 0.85, 0], size: [0.12, 1.7, 0.12], paint: 'secondary' },
+    { shape: 'sphere', offset: [0, 1.82, 0], size: [0.7, 0.52, 0.28], paint: 'primary' },
+    { shape: 'sphere', offset: [-0.38, 1.94, 0], size: [0.48, 0.3, 0.18], paint: 'secondary' },
+    { shape: 'sphere', offset: [0.38, 1.94, 0], size: [0.48, 0.3, 0.18], paint: 'secondary' },
+  ],
 };
 
 /**
@@ -117,6 +163,13 @@ function PartGeometry({ shape }: { readonly shape: PropPart['shape'] }) {
   if (shape === 'cylinder') return <cylinderGeometry args={[0.5, 0.5, 1, 10]} />;
   if (shape === 'sphere') return <sphereGeometry args={[0.5, 12, 8]} />;
   return <boxGeometry />;
+}
+
+interface PropRenderPart {
+  readonly id: string;
+  readonly placement: DistrictPropPlacement;
+  readonly part: PropPart;
+  readonly color: string;
 }
 
 /** Flat slabs — roads, markings, pavement, kerbs, park grass — as one layer each. */
@@ -160,41 +213,66 @@ function partPosition(placement: DistrictPropPlacement, part: PropPart): [number
   ];
 }
 
-function PropLayer({
-  type,
-  placements,
-  visualStyle,
-}: {
-  readonly type: DistrictPropType;
-  readonly placements: readonly DistrictPropPlacement[];
-  readonly visualStyle: Style;
-}) {
-  if (placements.length === 0) return null;
-  const paint = visualStyle.city.props[type];
+function AnimatedPropPartInstance({ renderPart }: { readonly renderPart: PropRenderPart }) {
+  const instanceRef = useRef<Group>(null);
+  const { part, placement } = renderPart;
+  useFrame((_state, delta) => {
+    if (instanceRef.current) instanceRef.current.rotation.z += delta * (part.spinSpeed ?? 0);
+  });
+  const rotation = part.rotation ?? [0, 0, 0];
 
   return (
-    <group name={`city-props-${type}`}>
-      {PROP_PARTS[type].map((part, partIndex) => (
-        <Instances
-          key={`${type}:${String(partIndex)}`}
-          limit={placements.length}
-          range={placements.length}
-          castShadow={SHADOW_CASTING_PROPS.has(type)}
-          receiveShadow
-        >
-          <PartGeometry shape={part.shape} />
-          <meshLambertMaterial color={paint[part.paint]} />
-          {placements.map((placement) => (
-            <Instance
-              key={placement.id}
-              position={partPosition(placement, part)}
-              rotation={[0, placement.yaw, 0]}
-              scale={[...part.size]}
-            />
-          ))}
-        </Instances>
-      ))}
-    </group>
+    <Instance
+      ref={instanceRef}
+      position={partPosition(placement, part)}
+      rotation={[rotation[0], placement.yaw + rotation[1], rotation[2]]}
+      scale={[...part.size]}
+      color={renderPart.color}
+    />
+  );
+}
+
+function StaticPropPartInstance({ renderPart }: { readonly renderPart: PropRenderPart }) {
+  const { part, placement } = renderPart;
+  const rotation = part.rotation ?? [0, 0, 0];
+
+  return (
+    <Instance
+      position={partPosition(placement, part)}
+      rotation={[rotation[0], placement.yaw + rotation[1], rotation[2]]}
+      scale={[...part.size]}
+      color={renderPart.color}
+    />
+  );
+}
+
+function PropShapeLayer({
+  shape,
+  castShadow,
+  parts,
+}: {
+  readonly shape: PropPart['shape'];
+  readonly castShadow: boolean;
+  readonly parts: readonly PropRenderPart[];
+}) {
+  return (
+    <Instances
+      name={`city-prop-parts-${shape}-${castShadow ? 'shadow' : 'plain'}`}
+      limit={parts.length}
+      range={parts.length}
+      castShadow={castShadow}
+      receiveShadow
+    >
+      <PartGeometry shape={shape} />
+      <meshLambertMaterial />
+      {parts.map((renderPart) =>
+        renderPart.part.spinSpeed === undefined ? (
+          <StaticPropPartInstance key={renderPart.id} renderPart={renderPart} />
+        ) : (
+          <AnimatedPropPartInstance key={renderPart.id} renderPart={renderPart} />
+        ),
+      )}
+    </Instances>
   );
 }
 
@@ -204,11 +282,9 @@ function PropLayer({
  * not anything is burning — a house has a porch on a quiet day too.
  */
 function AttachmentLayer({
-  use,
   placements,
   visualStyle,
 }: {
-  readonly use: BuildingUse;
   readonly placements: readonly DistrictAttachmentPlacement[];
   readonly visualStyle: Style;
 }) {
@@ -216,22 +292,58 @@ function AttachmentLayer({
 
   return (
     <Instances
-      name={`city-attachments-${use}`}
+      name="city-attachments"
       limit={placements.length}
       range={placements.length}
       castShadow
       receiveShadow
     >
-      <boxGeometry />
-      <meshLambertMaterial color={visualStyle.city.buildings[use].trim} />
+      <RoundedBoxGeometry args={[1, 1, 1]} radius={0.06} smoothness={2} bevelSegments={2} />
+      <meshLambertMaterial />
       {placements.map((attachment) => (
         <Instance
           key={attachment.id}
           position={[...attachment.position]}
           scale={[...attachment.size]}
+          color={visualStyle.city.buildings[attachment.use].trim}
         />
       ))}
     </Instances>
+  );
+}
+
+function LighthouseLandmark({
+  building,
+  visualStyle,
+  roofTop,
+}: {
+  readonly building: DistrictBuildingPlacement;
+  readonly visualStyle: Style;
+  readonly roofTop: number;
+}) {
+  const beaconRef = useRef<Group>(null);
+  useFrame((_state, delta) => {
+    if (beaconRef.current) beaconRef.current.rotation.y += delta * 0.55;
+  });
+  const paint = visualStyle.city.buildings[building.use];
+
+  return (
+    <group position={[building.position[0], 0, building.position[2]]} name="landmark-lighthouse">
+      <mesh position={[0, roofTop + 0.42, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[building.width * 0.36, building.width * 0.4, 0.84, 12]} />
+        <meshLambertMaterial color={paint.trim} />
+      </mesh>
+      <group ref={beaconRef} position={[0, roofTop + 1.08, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[building.width * 0.78, 0.18, 0.28]} />
+          <meshLambertMaterial color={visualStyle.city.landmarkAccent} />
+        </mesh>
+      </group>
+      <mesh position={[0, roofTop + 1.78, 0]} castShadow>
+        <coneGeometry args={[building.width * 0.42, 1.4, 12]} />
+        <meshLambertMaterial color={paint.roof} />
+      </mesh>
+    </group>
   );
 }
 
@@ -248,6 +360,10 @@ function Landmark({
   const { landmarkAccent, buildings } = visualStyle.city;
   const paint = buildings[building.use];
   const roofTop = building.height + ROOF_THICKNESS;
+
+  if (shape === 'lighthouse') {
+    return <LighthouseLandmark building={building} visualStyle={visualStyle} roofTop={roofTop} />;
+  }
 
   if (shape === 'bell-tower') {
     return (
@@ -315,82 +431,91 @@ function Landmark({
   );
 }
 
-function BuildingLayer({
-  use,
+type BuildingBodyShape = 'rounded' | 'tower';
+type BuildingRoofShape = 'flat' | 'gable' | 'hip';
+
+function BuildingBodyLayer({
+  shape,
   placements,
   visualStyle,
 }: {
-  readonly use: BuildingUse;
+  readonly shape: BuildingBodyShape;
   readonly placements: readonly DistrictBuildingPlacement[];
   readonly visualStyle: Style;
 }) {
-  if (placements.length === 0) return null;
-  const paint = visualStyle.city.buildings[use];
-  const isHipRoof = HIP_ROOF_USES.has(use);
-
   return (
-    <group name={`city-buildings-${use}`}>
-      <Instances limit={placements.length} range={placements.length} castShadow receiveShadow>
+    <Instances
+      name={`city-building-bodies-${shape}`}
+      limit={placements.length}
+      range={placements.length}
+      castShadow
+      receiveShadow
+    >
+      {shape === 'tower' ? (
+        <cylinderGeometry args={[0.5, 0.5, 1, 14]} />
+      ) : (
+        <RoundedBoxGeometry args={[1, 1, 1]} radius={0.06} smoothness={2} bevelSegments={2} />
+      )}
+      <meshLambertMaterial />
+      {placements.map((building) => (
+        <Instance
+          key={building.id}
+          position={[...building.position]}
+          scale={[building.width, building.height, building.depth]}
+          color={visualStyle.city.buildings[building.use].wall}
+        />
+      ))}
+    </Instances>
+  );
+}
+
+function BuildingRoofLayer({
+  shape,
+  placements,
+  visualStyle,
+}: {
+  readonly shape: BuildingRoofShape;
+  readonly placements: readonly DistrictBuildingPlacement[];
+  readonly visualStyle: Style;
+}) {
+  return (
+    <Instances
+      name={`city-building-roofs-${shape}`}
+      limit={placements.length}
+      range={placements.length}
+      castShadow
+      receiveShadow
+    >
+      {shape === 'hip' ? (
+        <primitive object={HIP_ROOF_CONE_GEOMETRY} attach="geometry" dispose={null} />
+      ) : shape === 'gable' ? (
+        <primitive object={GABLE_ROOF_GEOMETRY} attach="geometry" dispose={null} />
+      ) : (
         <boxGeometry />
-        <meshLambertMaterial color={paint.wall} />
-        {placements.map((building) => (
+      )}
+      <meshLambertMaterial />
+      {placements.map((building) => {
+        const ridgeHeight = getHipRoofHeight(building);
+        return (
           <Instance
             key={building.id}
-            position={[...building.position]}
-            scale={[building.width, building.height, building.depth]}
+            position={[
+              building.position[0],
+              shape === 'flat'
+                ? building.height + ROOF_THICKNESS / 2
+                : building.height + ridgeHeight / 2,
+              building.position[2],
+            ]}
+            scale={[
+              building.width + ROOF_OVERHANG,
+              shape === 'flat' ? ROOF_THICKNESS : ridgeHeight,
+              building.depth + ROOF_OVERHANG,
+            ]}
+            color={visualStyle.city.buildings[building.use].roof}
           />
-        ))}
-      </Instances>
-      {isHipRoof ? (
-        // A pitched cottage roof: one four-sided cone per building, scaled to
-        // its footprint. Same draw call as the flat box it replaces, but a
-        // child can tell a house apart from a shop by silhouette alone. The
-        // 45-degree turn is baked into `HIP_ROOF_CONE_GEOMETRY` itself, not
-        // passed as a per-instance `rotation` — see the comment there for why.
-        <Instances limit={placements.length} range={placements.length} castShadow receiveShadow>
-          <primitive object={HIP_ROOF_CONE_GEOMETRY} attach="geometry" dispose={null} />
-          <meshLambertMaterial color={paint.roof} />
-          {placements.map((building) => {
-            const ridgeHeight = getHipRoofHeight(building);
-            return (
-              <Instance
-                key={building.id}
-                position={[
-                  building.position[0],
-                  building.height + ridgeHeight / 2,
-                  building.position[2],
-                ]}
-                scale={[
-                  building.width + ROOF_OVERHANG,
-                  ridgeHeight,
-                  building.depth + ROOF_OVERHANG,
-                ]}
-              />
-            );
-          })}
-        </Instances>
-      ) : (
-        <Instances limit={placements.length} range={placements.length} castShadow receiveShadow>
-          <boxGeometry />
-          <meshLambertMaterial color={paint.roof} />
-          {placements.map((building) => (
-            <Instance
-              key={building.id}
-              position={[
-                building.position[0],
-                building.height + ROOF_THICKNESS / 2,
-                building.position[2],
-              ]}
-              scale={[
-                building.width + ROOF_OVERHANG,
-                ROOF_THICKNESS,
-                building.depth + ROOF_OVERHANG,
-              ]}
-            />
-          ))}
-        </Instances>
-      )}
-    </group>
+        );
+      })}
+    </Instances>
   );
 }
 
@@ -412,11 +537,22 @@ export function CityDistrict({
   readonly activeQuestSite: DistrictQuestSite;
 }) {
   const city = visualStyle.city;
-  const buildingsByUse = new Map<BuildingUse, DistrictBuildingPlacement[]>();
+  const buildingBodyLayers = new Map<BuildingBodyShape, DistrictBuildingPlacement[]>();
+  const buildingRoofLayers = new Map<BuildingRoofShape, DistrictBuildingPlacement[]>();
   for (const building of layout.buildings) {
-    const group = buildingsByUse.get(building.use) ?? [];
-    group.push(building);
-    buildingsByUse.set(building.use, group);
+    const bodyShape: BuildingBodyShape = building.use === 'tower' ? 'tower' : 'rounded';
+    const bodyLayer = buildingBodyLayers.get(bodyShape) ?? [];
+    bodyLayer.push(building);
+    buildingBodyLayers.set(bodyShape, bodyLayer);
+
+    const roofShape: BuildingRoofShape = HIP_ROOF_USES.has(building.use)
+      ? 'hip'
+      : GABLE_ROOF_USES.has(building.use)
+        ? 'gable'
+        : 'flat';
+    const roofLayer = buildingRoofLayers.get(roofShape) ?? [];
+    roofLayer.push(building);
+    buildingRoofLayers.set(roofShape, roofLayer);
   }
   const propsByType = new Map<DistrictPropType, DistrictPropPlacement[]>();
   for (const prop of layout.props) {
@@ -424,11 +560,30 @@ export function CityDistrict({
     group.push(prop);
     propsByType.set(prop.type, group);
   }
-  const attachmentsByUse = new Map<BuildingUse, DistrictAttachmentPlacement[]>();
-  for (const attachment of layout.attachments) {
-    const group = attachmentsByUse.get(attachment.use) ?? [];
-    group.push(attachment);
-    attachmentsByUse.set(attachment.use, group);
+  const propPartLayers = new Map<
+    string,
+    { shape: PropPart['shape']; castShadow: boolean; parts: PropRenderPart[] }
+  >();
+  for (const [type, placements] of propsByType) {
+    const paint = visualStyle.city.props[type];
+    const castShadow = SHADOW_CASTING_PROPS.has(type);
+    for (const [partIndex, part] of PROP_PARTS[type].entries()) {
+      const layerKey = `${part.shape}:${castShadow ? 'shadow' : 'plain'}`;
+      const layer = propPartLayers.get(layerKey) ?? {
+        shape: part.shape,
+        castShadow,
+        parts: [],
+      };
+      for (const placement of placements) {
+        layer.parts.push({
+          id: `${placement.id}:${String(partIndex)}`,
+          placement,
+          part,
+          color: paint[part.paint],
+        });
+      }
+      propPartLayers.set(layerKey, layer);
+    }
   }
 
   return (
@@ -475,22 +630,23 @@ export function CityDistrict({
         top={KERB_HEIGHT}
       />
 
-      {BUILDING_USES.map((use) => (
-        <BuildingLayer
-          key={use}
-          use={use}
-          placements={buildingsByUse.get(use) ?? []}
+      {[...buildingBodyLayers.entries()].map(([shape, placements]) => (
+        <BuildingBodyLayer
+          key={shape}
+          shape={shape}
+          placements={placements}
           visualStyle={visualStyle}
         />
       ))}
-      {BUILDING_USES.map((use) => (
-        <AttachmentLayer
-          key={use}
-          use={use}
-          placements={attachmentsByUse.get(use) ?? []}
+      {[...buildingRoofLayers.entries()].map(([shape, placements]) => (
+        <BuildingRoofLayer
+          key={shape}
+          shape={shape}
+          placements={placements}
           visualStyle={visualStyle}
         />
       ))}
+      <AttachmentLayer placements={layout.attachments} visualStyle={visualStyle} />
       {layout.buildings.map((building) =>
         building.landmark === null ? null : (
           <Landmark
@@ -502,12 +658,12 @@ export function CityDistrict({
         ),
       )}
 
-      {PROP_TYPES.map((type) => (
-        <PropLayer
-          key={type}
-          type={type}
-          placements={propsByType.get(type) ?? []}
-          visualStyle={visualStyle}
+      {[...propPartLayers.entries()].map(([key, layer]) => (
+        <PropShapeLayer
+          key={key}
+          shape={layer.shape}
+          castShadow={layer.castShadow}
+          parts={layer.parts}
         />
       ))}
 

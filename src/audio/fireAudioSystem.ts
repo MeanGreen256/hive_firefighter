@@ -25,6 +25,8 @@ interface FireVoices {
   crackleGains: readonly GainNode[];
   roarGain: GainNode;
   sirenGain: GainNode;
+  /** A restrained wind bed that keeps quiet free-roam from sounding vacant. */
+  townAmbienceGain: GainNode;
 }
 
 function clampVolume(value: number): number {
@@ -106,6 +108,23 @@ export function createFireAudioSystem(
     );
     scheduleGain(voices.roarGain, latestMix.roarGain, now);
     scheduleGain(voices.sirenGain, sirenActive ? 0.08 : 0, now);
+    scheduleGain(voices.townAmbienceGain, 0.018, now);
+  };
+
+  const makeTownAmbience = (output: AudioNode): GainNode => {
+    if (!context) throw new Error('Audio context is unavailable');
+    const source = context.createBufferSource();
+    source.buffer = createNoiseBuffer(context, 3.2, 0x7a6b5c4d);
+    source.loop = true;
+    const filter = context.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 680;
+    filter.Q.value = 0.18;
+    const gain = context.createGain();
+    gain.gain.value = 0;
+    source.connect(filter).connect(gain).connect(output);
+    source.start();
+    return gain;
   };
 
   const makeSiren = (output: AudioNode): GainNode => {
@@ -138,6 +157,7 @@ export function createFireAudioSystem(
       ],
       roarGain: makeLoop(115, 0x4d5e6f70, masterGain),
       sirenGain: makeSiren(masterGain),
+      townAmbienceGain: makeTownAmbience(masterGain),
     };
     applyMasterGain();
     applyMix();
