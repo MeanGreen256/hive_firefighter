@@ -88,17 +88,18 @@ Each district declares:
   the other axis, the `from`/`to` span, and a `width`;
 - `buildings` as footprints with a `use` (`house`, `shop`, `civic`, `workshop`,
   `tower`) and an optional `landmark` silhouette (`bell-tower`, `water-tower`,
-  `dome`, `big-sign`);
+  `dome`, `big-sign`, `lighthouse`);
 - `parks` as green rectangles — first-class areas, not leftovers;
 - `waterBodies` as flat rectangles the same shape a park is — a harbour or a
   river edge, optional per district (an inland district authors none). Water
   is a hard edge, the same as a building: nothing may be authored on top of
   one, and neither the truck nor the firefighter can walk into it;
 - `props`, each a `type` from a fixed list (`tree`, `hedge`, `bench`,
-  `parked-car`, `hydrant`, `lamp-post`, `play-structure`, `flower-box`) with a
-  position and optional `yawDegrees`. Footprint and whether it blocks movement
-  come from the type, not the file, so no authored prop can trap a player the
-  renderer thinks is walkable;
+  `parked-car`, `hydrant`, `lamp-post`, `play-structure`, `flower-box`,
+  `pinwheel`, `harbour-bollard`, `bee-sign`) with a position and optional
+  `yawDegrees`. Footprint and whether it blocks movement come from the type,
+  not the file, so no authored prop can trap a player the renderer thinks is
+  walkable;
 - `questSites`, at least three, each anchored to a building or park.
 
 Validation enforces that the city stays drivable and the quests stay reachable,

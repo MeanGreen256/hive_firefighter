@@ -31,7 +31,13 @@ export const BUILDING_USES = ['house', 'shop', 'civic', 'workshop', 'tower'] as 
 export type BuildingUse = (typeof BUILDING_USES)[number];
 
 /** Optional silhouette a child can navigate by. Shape only; the style paints it. */
-export const LANDMARK_SHAPES = ['bell-tower', 'water-tower', 'dome', 'big-sign'] as const;
+export const LANDMARK_SHAPES = [
+  'bell-tower',
+  'water-tower',
+  'dome',
+  'big-sign',
+  'lighthouse',
+] as const;
 export type LandmarkShape = (typeof LANDMARK_SHAPES)[number];
 
 export const PROP_TYPES = [
@@ -43,6 +49,9 @@ export const PROP_TYPES = [
   'lamp-post',
   'play-structure',
   'flower-box',
+  'pinwheel',
+  'harbour-bollard',
+  'bee-sign',
 ] as const;
 export type DistrictPropType = (typeof PROP_TYPES)[number];
 
@@ -70,6 +79,11 @@ export const PROP_FOOTPRINTS: Readonly<Record<DistrictPropType, PropFootprint>> 
   // reason to get wedged. Small enough that "solid" would be a trap, not a
   // wall, so it stays walk-through like a bench or a hydrant.
   'flower-box': { halfWidth: 0.36, halfDepth: 0.18, solid: false },
+  // Animated scenery stays forgiving: these are visual landmarks, not
+  // obstacles a young player has to thread the truck around.
+  pinwheel: { halfWidth: 0.55, halfDepth: 0.24, solid: false },
+  'harbour-bollard': { halfWidth: 0.3, halfDepth: 0.3, solid: false },
+  'bee-sign': { halfWidth: 0.5, halfDepth: 0.3, solid: false },
 });
 
 /** At least this many quest sites, so one district holds a run of quests (#90). */

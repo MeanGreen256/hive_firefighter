@@ -50,6 +50,9 @@ export const GROUND_MARGIN = 40;
  */
 export const HIP_ROOF_USES: ReadonlySet<BuildingUse> = new Set(['house']);
 
+/** Workshops get a broad gable so the harbour/industrial route owns a skyline. */
+export const GABLE_ROOF_USES: ReadonlySet<BuildingUse> = new Set(['workshop']);
+
 /** How far a roof projects past the walls it caps, in metres, both roof shapes. */
 export const ROOF_OVERHANG = 0.45;
 

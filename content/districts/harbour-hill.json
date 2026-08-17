@@ -352,7 +352,7 @@
       "width": 8,
       "depth": 8,
       "height": 16,
-      "landmark": "dome"
+      "landmark": "lighthouse"
     }
   ],
   "parks": [
@@ -367,7 +367,24 @@
       "depth": 22
     }
   ],
-  "waterBodies": [],
+  "waterBodies": [
+    {
+      "id": "east-harbour",
+      "name": "East Harbour",
+      "x": 61.5,
+      "z": -18,
+      "width": 5,
+      "depth": 18
+    },
+    {
+      "id": "lighthouse-cove",
+      "name": "Lighthouse Cove",
+      "x": 62,
+      "z": 51.5,
+      "width": 4,
+      "depth": 25
+    }
+  ],
   "props": [
     { "id": "main-tree-w1", "type": "tree", "x": -58, "z": -6.5 },
     { "id": "main-tree-w2", "type": "tree", "x": -46, "z": -6.5 },
@@ -452,7 +469,14 @@
     { "id": "market-flowers-north", "type": "flower-box", "x": 6.6, "z": -14 },
     { "id": "market-flowers-south", "type": "flower-box", "x": -6.6, "z": 20 },
     { "id": "school-flowers", "type": "flower-box", "x": 17, "z": 22 },
-    { "id": "corner-shop-flowers", "type": "flower-box", "x": 6.3, "z": 26 }
+    { "id": "corner-shop-flowers", "type": "flower-box", "x": 6.3, "z": 26 },
+    { "id": "bakery-bee-sign", "type": "bee-sign", "x": 17.8, "z": -7 },
+    { "id": "flower-stall-pinwheel", "type": "pinwheel", "x": 25, "z": -20.2 },
+    { "id": "school-pinwheel", "type": "pinwheel", "x": 27, "z": 22.2 },
+    { "id": "meadow-pinwheel", "type": "pinwheel", "x": -40, "z": 18 },
+    { "id": "harbour-bollard-north", "type": "harbour-bollard", "x": 58.6, "z": -10.5 },
+    { "id": "harbour-bollard-centre", "type": "harbour-bollard", "x": 58.6, "z": -18 },
+    { "id": "harbour-bollard-south", "type": "harbour-bollard", "x": 58.6, "z": -25.5 }
   ],
   "questSites": [
     {

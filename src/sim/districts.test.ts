@@ -230,6 +230,7 @@ describe('Harbour Hill', () => {
     expect(district.roads.length).toBeGreaterThanOrEqual(4);
     expect(district.buildings.length).toBeGreaterThanOrEqual(12);
     expect(district.parks.length).toBeGreaterThanOrEqual(3);
+    expect(district.waterBodies.length).toBeGreaterThanOrEqual(2);
     expect(district.props.length).toBeGreaterThanOrEqual(40);
     expect(district.questSites.length).toBeGreaterThanOrEqual(MINIMUM_QUEST_SITES);
   });
@@ -237,6 +238,15 @@ describe('Harbour Hill', () => {
   it('gives a child landmarks to navigate by without a minimap', () => {
     const landmarks = validHarbourHill().buildings.filter((building) => building.landmark !== null);
     expect(landmarks.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(landmarks.map((building) => building.landmark)).size).toBeGreaterThanOrEqual(4);
+  });
+
+  it('authors reusable scenic kits for storefront, park, and harbour routes', () => {
+    const propTypes = new Set(validHarbourHill().props.map((prop) => prop.type));
+
+    expect(propTypes.has('bee-sign')).toBe(true);
+    expect(propTypes.has('pinwheel')).toBe(true);
+    expect(propTypes.has('harbour-bollard')).toBe(true);
   });
 
   it('places quest sites at varying drive distances', () => {

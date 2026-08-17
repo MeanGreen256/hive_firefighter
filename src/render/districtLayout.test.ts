@@ -3,9 +3,11 @@ import { ConeGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 import { PROP_FOOTPRINTS, getDistrict, getRoadRect, type DistrictDefinition } from '@sim/districts';
 import { resolveCharacterMovement, CHARACTER_RADIUS } from './characterController';
 import {
+  GABLE_ROOF_USES,
   HIP_ROOF_CONE_RADIAL_SEGMENTS,
   HIP_ROOF_CONE_RADIUS,
   HIP_ROOF_CONE_ROTATION_Y,
+  HIP_ROOF_USES,
   KERB_WIDTH,
   PAVEMENT_WIDTH,
   ROOF_OVERHANG,
@@ -169,6 +171,15 @@ describe('getHipRoofHeight', () => {
   it('never collapses to a spike or a flat roof at the extremes', () => {
     expect(getHipRoofHeight({ width: 0.5, depth: 0.5 })).toBeGreaterThanOrEqual(1.15);
     expect(getHipRoofHeight({ width: 40, depth: 40 })).toBeLessThanOrEqual(2.6);
+  });
+});
+
+describe('route roof language', () => {
+  it('separates cottage hips from harbour workshop gables', () => {
+    expect(HIP_ROOF_USES.has('house')).toBe(true);
+    expect(HIP_ROOF_USES.has('workshop')).toBe(false);
+    expect(GABLE_ROOF_USES.has('workshop')).toBe(true);
+    expect(GABLE_ROOF_USES.has('house')).toBe(false);
   });
 });
 
