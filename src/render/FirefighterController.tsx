@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { MathUtils, Vector3, type Group } from 'three';
 import type { Style } from '@styles/styles';
 import { firstConnectedGamepad } from '@ui/gamepad';
@@ -12,6 +12,7 @@ import {
   resolveCharacterMovement,
   stepCharacterVelocity,
   type CharacterAnimationState,
+  type CharacterMovementForwardRef,
   type CharacterMovementBounds,
   type CharacterMovementInput,
   type CharacterObstacle,
@@ -60,6 +61,7 @@ function chooseMovementInput(
 
 export interface FirefighterControllerProps {
   readonly targetRef: RefObject<Group | null>;
+  readonly movementForwardRef: CharacterMovementForwardRef;
   readonly hosePresentationRef: RefObject<HosePresentationState>;
   readonly visualStyle: Style;
   readonly enabled: boolean;
@@ -73,6 +75,7 @@ export interface FirefighterControllerProps {
 /** One forgiving, camera-relative firefighter subject for the M3 on-foot loop. */
 export function FirefighterController({
   targetRef,
+  movementForwardRef,
   hosePresentationRef,
   visualStyle,
   enabled,
@@ -82,10 +85,8 @@ export function FirefighterController({
   movementBounds,
   getGroundHeight = flatGroundHeight,
 }: FirefighterControllerProps) {
-  const { camera } = useThree();
   const heldKeys = useRef(new Set<string>());
   const velocity = useRef(new Vector3());
-  const cameraForward = useRef(new Vector3());
   const modelRoot = useRef<Group>(null);
   const leftLeg = useRef<Group>(null);
   const rightLeg = useRef<Group>(null);
@@ -150,10 +151,9 @@ export function FirefighterController({
     const input = enabled
       ? chooseMovementInput(readKeyboardInput(heldKeys.current), readGamepadInput())
       : { right: 0, forward: 0, intensity: 0 };
-    camera.getWorldDirection(cameraForward.current);
     const movement = getCameraRelativeMovement(input, {
-      x: cameraForward.current.x,
-      z: cameraForward.current.z,
+      x: movementForwardRef.current.x,
+      z: movementForwardRef.current.z,
     });
     const targetSpeed = getCharacterTargetSpeed(movement.intensity);
     const nextVelocity = stepCharacterVelocity(

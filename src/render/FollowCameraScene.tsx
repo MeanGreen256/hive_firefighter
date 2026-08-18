@@ -56,6 +56,7 @@ import { FollowCameraRig } from './FollowCameraRig';
 import { ArcadeTruck } from './ArcadeTruck';
 import { buildDistrictLayout } from './districtLayout';
 import { createHosePresentationState } from './hoseTargeting';
+import type { CharacterPoint } from './characterController';
 import {
   getActionIntent,
   getSafeDismountPose,
@@ -166,6 +167,7 @@ function GameWorld({
   performanceScene,
 }: GameWorldProps) {
   const collisionRoot = useRef<Group>(null);
+  const movementForwardRef = useRef<CharacterPoint>({ x: 0, z: -1 });
   const hosePresentationRef = useRef(createHosePresentationState());
   const lastCanBoard = useRef(false);
   const boardingCheckElapsed = useRef(0);
@@ -243,6 +245,7 @@ function GameWorld({
       <FollowCameraRig
         target={activeTarget}
         profile={profile}
+        movementForwardRef={movementForwardRef}
         collisionRoot={collisionRoot}
         orbitEnabled={mode === 'driving'}
         speedRatio={truckSpeedRatio}
@@ -264,6 +267,7 @@ function GameWorld({
       />
       <FirefighterController
         targetRef={firefighterRef}
+        movementForwardRef={movementForwardRef}
         hosePresentationRef={hosePresentationRef}
         visualStyle={visualStyle}
         enabled={mode === 'on-foot'}

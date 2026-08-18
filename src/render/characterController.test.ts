@@ -41,6 +41,32 @@ describe('firefighter movement input and gait', () => {
     expect(right).toEqual({ x: 1, z: 0, intensity: 1 });
   });
 
+  it.each([0, Math.PI / 6, Math.PI / 2, Math.PI, -Math.PI / 2])(
+    'maps forward, reverse, strafes, and diagonals around the planar camera heading at yaw %p',
+    (heading) => {
+      const cameraForward = { x: Math.sin(heading), z: -Math.cos(heading) };
+      const cameraRight = { x: -cameraForward.z, z: cameraForward.x };
+      const cases = [
+        { input: { right: 0, forward: 1, intensity: 1 }, forward: 1, right: 0 },
+        { input: { right: 0, forward: -1, intensity: 1 }, forward: -1, right: 0 },
+        { input: { right: -1, forward: 0, intensity: 1 }, forward: 0, right: -1 },
+        { input: { right: 1, forward: 0, intensity: 1 }, forward: 0, right: 1 },
+        { input: { right: 1, forward: 1, intensity: 1 }, forward: 1, right: 1 },
+      ] as const;
+
+      for (const testCase of cases) {
+        const movement = getCameraRelativeMovement(testCase.input, cameraForward);
+        const expectedLength = Math.hypot(testCase.forward, testCase.right);
+        expect(movement.x).toBeCloseTo(
+          (cameraForward.x * testCase.forward + cameraRight.x * testCase.right) / expectedLength,
+        );
+        expect(movement.z).toBeCloseTo(
+          (cameraForward.z * testCase.forward + cameraRight.z * testCase.right) / expectedLength,
+        );
+      }
+    },
+  );
+
   it('selects walk and run from intensity without a sprint action', () => {
     expect(getCharacterTargetSpeed(0)).toBe(0);
     expect(getCharacterTargetSpeed(0.68)).toBeCloseTo(CHARACTER_WALK_SPEED);

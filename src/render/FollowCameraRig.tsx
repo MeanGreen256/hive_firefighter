@@ -10,10 +10,12 @@ import {
   type PerspectiveCamera as ThreePerspectiveCamera,
 } from 'three';
 import { firstConnectedGamepad } from '@ui/gamepad';
+import type { CharacterMovementForwardRef } from './characterController';
 import {
   applyRadialDeadzone,
   clampFollowPitch,
   FOLLOW_CAMERA_PROFILES,
+  getPlanarOrbitForward,
   getSpeedReactiveFollowDistance,
   resolveCameraDistance,
   type FollowCameraProfile,
@@ -46,6 +48,8 @@ export interface FollowCameraSpeedRef {
 export interface FollowCameraRigProps {
   readonly target: FollowCameraTargetRef;
   readonly profile: FollowCameraProfileId;
+  /** Canonical horizontal orbit heading for camera-relative movement. */
+  readonly movementForwardRef: CharacterMovementForwardRef;
   readonly collisionRoot?: FollowCameraTargetRef;
   readonly getGroundHeight?: (x: number, z: number) => number;
   /** Optional manual orbit; disabled on foot when those inputs own free aim. */
@@ -109,6 +113,7 @@ function resolveCollision(
 export function FollowCameraRig({
   target,
   profile,
+  movementForwardRef,
   collisionRoot,
   getGroundHeight = flatGroundHeight,
   orbitEnabled = true,
@@ -277,10 +282,17 @@ export function FollowCameraRig({
       ROTATION_DAMPING,
       delta,
     );
-    orbitForward.current
-      .copy(currentForward.current)
-      .applyAxisAngle(WORLD_UP, currentYawOffset.current)
-      .normalize();
+    const movementForward = getPlanarOrbitForward(currentForward.current, currentYawOffset.current);
+    orbitForward.current.set(movementForward.x, 0, movementForward.z);
+    // The rendered camera looks slightly inward from the shoulder position.
+    // Its world direction therefore contains a lateral look-at skew. Movement
+    // uses this orbit heading instead: it is planar and is the same heading
+    // the rig follows, so walking cannot feed the shoulder skew back into
+    // subject rotation.
+    movementForwardRef.current = {
+      x: movementForward.x,
+      z: movementForward.z,
+    };
     right.current.set(-orbitForward.current.z, 0, orbitForward.current.x);
 
     const pitch = clampFollowPitch(currentProfile.pitchRadians + desiredPitchOffset.current);

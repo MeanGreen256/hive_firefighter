@@ -5,6 +5,7 @@ import {
   CHASE_CAMERA_SPEED_PULLBACK,
   clampFollowPitch,
   FOLLOW_CAMERA_PROFILES,
+  getPlanarOrbitForward,
   getSpeedReactiveFollowDistance,
   MAX_FOLLOW_PITCH_RADIANS,
   MIN_FOLLOW_PITCH_RADIANS,
@@ -12,6 +13,36 @@ import {
 } from './followCamera';
 
 describe('follow-camera profiles and pose', () => {
+  it.each([
+    [0, { x: 0, z: -1 }],
+    [Math.PI / 2, { x: -1, z: 0 }],
+    [Math.PI, { x: 0, z: 1 }],
+    [-Math.PI / 2, { x: 1, z: 0 }],
+  ])('keeps the planar orbit heading unskewed at yaw %p', (yaw, expected) => {
+    const forward = getPlanarOrbitForward({ x: 0, y: 0, z: -1 }, yaw);
+
+    expect(forward.x).toBeCloseTo(expected.x);
+    expect(forward.z).toBeCloseTo(expected.z);
+  });
+
+  it('separates the movement heading from the shoulder camera look-at skew', () => {
+    const target = { x: 0, y: 0, z: 0 };
+    const profile = FOLLOW_CAMERA_PROFILES.shoulder;
+    const pose = calculateFollowCameraPose(
+      target,
+      { x: 0, y: 0, z: -1 },
+      0,
+      profile.pitchRadians,
+      profile,
+    );
+    const lookLength = Math.hypot(pose.lookAt.x - pose.position.x, pose.lookAt.z - pose.position.z);
+    const renderedLookX = (pose.lookAt.x - pose.position.x) / lookLength;
+    const movementForward = getPlanarOrbitForward({ x: 0, y: 0, z: -1 }, 0);
+
+    expect(renderedLookX).toBeLessThan(0);
+    expect(movementForward).toEqual({ x: 0, z: -1 });
+  });
+
   it('places chase behind the target and shoulder behind and to its right', () => {
     const target = { x: 2, y: 0, z: 3 };
     const forward = { x: 0, y: 0, z: -1 };
