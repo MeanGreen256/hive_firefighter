@@ -8,6 +8,7 @@ import {
   getCharacterAnimationState,
   getCharacterTargetSpeed,
   resolveCharacterMovement,
+  stepCharacterFacingYaw,
   stepCharacterVelocity,
   type CharacterObstacle,
 } from './characterController';
@@ -82,6 +83,107 @@ describe('firefighter movement input and gait', () => {
     expect(getCharacterAnimationState(4)).toBe('run');
   });
 
+  it.each([0, Math.PI / 6, Math.PI / 2, Math.PI, -Math.PI / 2])(
+    'turns forward input toward the camera heading, but keeps reverse and strafing stable at yaw %p',
+    (heading) => {
+      const movementForward = { x: Math.sin(heading), z: -Math.cos(heading) };
+      const currentYaw = -0.4;
+      const forward = stepCharacterFacingYaw(
+        currentYaw,
+        { right: 0, forward: 1, intensity: 1 },
+        movementForward,
+        100,
+        1,
+      );
+      const expectedYaw = -heading;
+
+      expect(Math.sin(forward - expectedYaw)).toBeCloseTo(0);
+      expect(Math.cos(forward - expectedYaw)).toBeCloseTo(1);
+      for (const input of [
+        { right: -1, forward: 0, intensity: 1 },
+        { right: 1, forward: 0, intensity: 1 },
+        { right: 0, forward: -1, intensity: 1 },
+      ]) {
+        expect(stepCharacterFacingYaw(currentYaw, input, movementForward, 14, 0.05)).toBe(
+          currentYaw,
+        );
+      }
+    },
+  );
+
+  it('faces forward diagonals but keeps reverse diagonals and repeated D presses stable', () => {
+    const currentYaw = 0.3;
+    const forward = { x: 0, z: -1 };
+    const forwardDiagonal = stepCharacterFacingYaw(
+      currentYaw,
+      { right: 1, forward: 1, intensity: 1 },
+      forward,
+      100,
+      1,
+    );
+
+    expect(forwardDiagonal).toBeCloseTo(0);
+    expect(
+      stepCharacterFacingYaw(
+        currentYaw,
+        { right: 1, forward: -1, intensity: 1 },
+        forward,
+        14,
+        0.05,
+      ),
+    ).toBe(currentYaw);
+
+    let yaw = currentYaw;
+    for (const heading of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      yaw = stepCharacterFacingYaw(
+        yaw,
+        { right: 1, forward: 0, intensity: 1 },
+        { x: Math.sin(heading), z: -Math.cos(heading) },
+        14,
+        0.05,
+      );
+    }
+    expect(yaw).toBe(currentYaw);
+  });
+
+  it('uses a bounded shortest arc and holds it through quick forward-to-strafe transitions', () => {
+    const currentYaw = 3;
+    const targetYaw = -3;
+    const movementForward = { x: -Math.sin(targetYaw), z: -Math.cos(targetYaw) };
+    const nextYaw = stepCharacterFacingYaw(
+      currentYaw,
+      { right: 0, forward: 1, intensity: 1 },
+      movementForward,
+      14,
+      0.05,
+    );
+    const shortestGap = Math.atan2(
+      Math.sin(targetYaw - currentYaw),
+      Math.cos(targetYaw - currentYaw),
+    );
+
+    expect(nextYaw).toBeGreaterThan(currentYaw);
+    expect(nextYaw - currentYaw).toBeGreaterThan(0);
+    expect(nextYaw - currentYaw).toBeLessThan(Math.abs(shortestGap));
+    expect(
+      stepCharacterFacingYaw(
+        nextYaw,
+        { right: 1, forward: 0, intensity: 1 },
+        { x: 1, z: 0 },
+        14,
+        0.05,
+      ),
+    ).toBe(nextYaw);
+    expect(
+      stepCharacterFacingYaw(
+        nextYaw,
+        { right: 0, forward: -1, intensity: 1 },
+        { x: 1, z: 0 },
+        14,
+        0.05,
+      ),
+    ).toBe(nextYaw);
+  });
 });
 
 describe('firefighter capsule collision', () => {
