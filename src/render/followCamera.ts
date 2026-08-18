@@ -94,6 +94,32 @@ export function resolveCameraDistance(
 }
 
 /**
+ * The horizontal heading around which the camera orbits its target.
+ *
+ * This intentionally differs from the rendered camera's world direction: a
+ * shoulder camera looks slightly inward, so its look vector has a lateral
+ * component that must not leak into camera-relative movement.
+ */
+export function getPlanarOrbitForward(
+  targetForward: FollowCameraVector,
+  orbitYawRadians: number,
+): Pick<FollowCameraVector, 'x' | 'z'> {
+  const horizontalLength = Math.hypot(targetForward.x, targetForward.z);
+  if (horizontalLength <= Number.EPSILON) {
+    throw new RangeError('A follow-camera target must provide a horizontal forward direction');
+  }
+
+  const normalizedX = targetForward.x / horizontalLength;
+  const normalizedZ = targetForward.z / horizontalLength;
+  const cosine = Math.cos(orbitYawRadians);
+  const sine = Math.sin(orbitYawRadians);
+  return {
+    x: normalizedX * cosine + normalizedZ * sine,
+    z: -normalizedX * sine + normalizedZ * cosine,
+  };
+}
+
+/**
  * Calculates a camera pose around a horizontal target-forward vector. Positive
  * orbit yaw rotates clockwise when viewed from above; positive shoulder offset
  * moves the camera to the target's right.
@@ -105,17 +131,7 @@ export function calculateFollowCameraPose(
   pitchRadians: number,
   profile: FollowCameraProfile,
 ): FollowCameraPose {
-  const horizontalLength = Math.hypot(targetForward.x, targetForward.z);
-  if (horizontalLength <= Number.EPSILON) {
-    throw new RangeError('A follow-camera target must provide a horizontal forward direction');
-  }
-
-  const normalizedX = targetForward.x / horizontalLength;
-  const normalizedZ = targetForward.z / horizontalLength;
-  const cosine = Math.cos(orbitYawRadians);
-  const sine = Math.sin(orbitYawRadians);
-  const forwardX = normalizedX * cosine + normalizedZ * sine;
-  const forwardZ = -normalizedX * sine + normalizedZ * cosine;
+  const { x: forwardX, z: forwardZ } = getPlanarOrbitForward(targetForward, orbitYawRadians);
   const rightX = -forwardZ;
   const rightZ = forwardX;
   const pitch = clampFollowPitch(pitchRadians);

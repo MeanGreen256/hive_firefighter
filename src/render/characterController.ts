@@ -16,6 +16,11 @@ export interface CharacterPoint {
   readonly z: number;
 }
 
+/** Mutable hand-off used by the follow camera and the on-foot controller. */
+export interface CharacterMovementForwardRef {
+  current: CharacterPoint;
+}
+
 export interface CharacterObstacle {
   readonly minX: number;
   readonly maxX: number;
