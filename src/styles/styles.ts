@@ -102,6 +102,16 @@ export interface CityAppearance {
   readonly water: string;
   readonly landmarkAccent: string;
   readonly questMarker: string;
+  /**
+   * The contrasting silhouette behind the waypoint marker (#143).
+   *
+   * The marker is drawn over the world with depth testing off, so it has no
+   * background of its own: the same yellow lands on pale sky, on a red roof, and
+   * on the harbour in the course of one turn. The outline is what keeps it one
+   * readable shape through all of that, which is why it is a token each style
+   * answers for itself rather than a darkened `questMarker`.
+   */
+  readonly questMarkerOutline: string;
   readonly buildings: Readonly<Record<BuildingUse, CityBuildingPaint>>;
   readonly props: Readonly<Record<DistrictPropType, CityPropPaint>>;
 }
@@ -421,6 +431,7 @@ const diorama: Style = {
     water: '#3f8fa6',
     landmarkAccent: '#f2a03d',
     questMarker: '#f2c14e',
+    questMarkerOutline: '#4a3524',
     buildings: {
       house: { wall: '#f4d8ad', roof: '#c96a4f', trim: '#fff6e6' },
       shop: { wall: '#efb0a0', roof: '#57908c', trim: '#fff3dc' },
@@ -580,6 +591,7 @@ const ink: Style = {
     water: '#2d6f85',
     landmarkAccent: '#e0912f',
     questMarker: '#fff36a',
+    questMarkerOutline: '#16120e',
     buildings: {
       house: { wall: '#e0b856', roof: '#b7363d', trim: '#16120e' },
       shop: { wall: '#d97b53', roof: '#315d5b', trim: '#16120e' },

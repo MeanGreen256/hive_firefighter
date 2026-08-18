@@ -150,6 +150,22 @@ gone once the player is on scene, and by bearing, so it stands down while the
 fire is in front of them. An arrow drawn on top of the smoke teaches a child to
 follow the arrow, which is the opposite of the point.
 
+Where it sits is the other half of reading as navigation (#143). Parked at one
+fixed point low and central it overlapped the cab, and a small yellow shape
+bolted to a truck reads as a warning lamp. It rides a ring around the middle of
+the view instead, at the fire's bearing, so position and heading say the same
+thing and the marker moves at moments the truck does not. Ring travel is clamped
+short of the bottom: a fire directly behind would otherwise put the marker back
+on the truck, so the position saturates on the flank the player has to turn
+toward while the arrow's rotation still swings the whole way round.
+`ARROW_HERO_ZONE_*` in `questBeacon.ts` is the truck's own footprint in those
+same view units, and `questBeacon.test.ts` asserts the clamp keeps the marker's
+whole outline out of it at every bearing — retune the ring and the test says
+whether it has landed back on the cab. It is drawn as a headed arrow over a
+contrasting silhouette (`city.questMarkerOutline`) rather than a bare triangle,
+because with depth testing off it has no background of its own and crosses sky,
+roofs, and harbour within one turn.
+
 `getBeaconTarget` returns nothing unless the live fire's own quest site matches
 the site being drawn, and nothing at all once it is out. That is what makes
 "completing the quest clears it before the next becomes active" structural: no
