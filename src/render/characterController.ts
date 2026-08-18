@@ -150,6 +150,40 @@ export function stepCharacterVelocity(
   };
 }
 
+/**
+ * Smoothly turns only while the player is asking to move forward. Backpedalling
+ * and strafing deliberately keep the current body heading, which prevents a
+ * camera that follows the body from feeding a lateral input back into another
+ * turn.
+ */
+export function stepCharacterFacingYaw(
+  currentYawRadians: number,
+  input: CharacterMovementInput,
+  movementForward: CharacterPoint,
+  damping: number,
+  deltaSeconds: number,
+): number {
+  if (damping < 0 || deltaSeconds < 0) {
+    throw new RangeError('Character turn damping and delta time cannot be negative');
+  }
+  if (input.forward <= Number.EPSILON) return currentYawRadians;
+
+  const forwardLength = Math.hypot(movementForward.x, movementForward.z);
+  if (forwardLength <= Number.EPSILON) {
+    throw new RangeError('Character facing requires a horizontal movement-forward direction');
+  }
+
+  const desiredYaw = Math.atan2(
+    -movementForward.x / forwardLength,
+    -movementForward.z / forwardLength,
+  );
+  const yawDifference = Math.atan2(
+    Math.sin(desiredYaw - currentYawRadians),
+    Math.cos(desiredYaw - currentYawRadians),
+  );
+  return currentYawRadians + yawDifference * (1 - Math.exp(-damping * deltaSeconds));
+}
+
 export function getCharacterAnimationState(speed: number): CharacterAnimationState {
   if (speed < 0) throw new RangeError('Character speed cannot be negative');
   if (speed < IDLE_SPEED_THRESHOLD) return 'idle';

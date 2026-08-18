@@ -10,6 +10,7 @@ import {
   getCharacterAnimationState,
   getCharacterTargetSpeed,
   resolveCharacterMovement,
+  stepCharacterFacingYaw,
   stepCharacterVelocity,
   type CharacterAnimationState,
   type CharacterMovementForwardRef,
@@ -175,15 +176,15 @@ export function FirefighterController({
     subject.position.z = nextPosition.z;
     subject.position.y = getGroundHeight(nextPosition.x, nextPosition.z);
 
+    subject.rotation.y = stepCharacterFacingYaw(
+      subject.rotation.y,
+      input,
+      movementForwardRef.current,
+      CHARACTER_TURN_DAMPING,
+      delta,
+    );
+
     const speed = Math.hypot(velocity.current.x, velocity.current.z);
-    if (speed > 0.08) {
-      const desiredYaw = Math.atan2(-velocity.current.x, -velocity.current.z);
-      const yawDifference = Math.atan2(
-        Math.sin(desiredYaw - subject.rotation.y),
-        Math.cos(desiredYaw - subject.rotation.y),
-      );
-      subject.rotation.y += yawDifference * (1 - Math.exp(-CHARACTER_TURN_DAMPING * delta));
-    }
 
     const nextAnimationState = getCharacterAnimationState(speed);
     animationState.current = nextAnimationState;
