@@ -4,6 +4,9 @@ dist-ssr
 *.local
 .vercel
 
+# transient agent worktrees — nested checkouts, never part of a commit
+.claude/worktrees/
+
 # editor
 .vscode/*
 !.vscode/extensions.json
