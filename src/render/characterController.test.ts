@@ -81,7 +81,6 @@ describe('firefighter movement input and gait', () => {
     expect(getCharacterAnimationState(2)).toBe('walk');
     expect(getCharacterAnimationState(4)).toBe('run');
   });
-
 });
 
 describe('firefighter capsule collision', () => {
