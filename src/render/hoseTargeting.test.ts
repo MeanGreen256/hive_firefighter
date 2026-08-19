@@ -10,8 +10,10 @@ import {
   HOSE_AIM_ASSIST_STICKY_MULTIPLIER,
   HOSE_AIM_FALLBACK_DISTANCE_METERS,
   HOSE_AIM_MAX_RANGE_METERS,
+  HOSE_MUZZLE_USER_DATA_KEY,
   HOSE_NOZZLE_LOCAL_OFFSET,
   isHotWaterContact,
+  readHoseMuzzleLocalOffset,
   resolveHoseAimTarget,
 } from './hoseTargeting';
 
@@ -66,6 +68,27 @@ describe('character-anchored nozzle', () => {
     const first = getHoseNozzlePosition({ position: [0, 0, 0], forwardYawRadians: 0 });
     const second = getHoseNozzlePosition({ position: [10, 0, 10], forwardYawRadians: 1.2 });
     expect(first).not.toEqual(second);
+  });
+
+  it('starts from a posed muzzle when the character has published one', () => {
+    const posed = getHoseNozzlePosition({ position: [0, 0, 0], forwardYawRadians: 0 }, [1, 2, 3]);
+    expect(posed).toEqual([1, 2, 3]);
+  });
+
+  it('falls back to the resting muzzle for anything the character has not published', () => {
+    expect(readHoseMuzzleLocalOffset({})).toEqual(HOSE_NOZZLE_LOCAL_OFFSET);
+    expect(readHoseMuzzleLocalOffset({ [HOSE_MUZZLE_USER_DATA_KEY]: [1, 2] })).toEqual(
+      HOSE_NOZZLE_LOCAL_OFFSET,
+    );
+    expect(readHoseMuzzleLocalOffset({ [HOSE_MUZZLE_USER_DATA_KEY]: [1, 'two', 3] })).toEqual(
+      HOSE_NOZZLE_LOCAL_OFFSET,
+    );
+    expect(readHoseMuzzleLocalOffset({ [HOSE_MUZZLE_USER_DATA_KEY]: [1, Number.NaN, 3] })).toEqual(
+      HOSE_NOZZLE_LOCAL_OFFSET,
+    );
+    expect(readHoseMuzzleLocalOffset({ [HOSE_MUZZLE_USER_DATA_KEY]: [0.1, 1.2, -0.7] })).toEqual([
+      0.1, 1.2, -0.7,
+    ]);
   });
 });
 

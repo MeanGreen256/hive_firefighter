@@ -20,6 +20,7 @@ import { applyRadialDeadzone } from './followCamera';
 import { getHoseFreeAimDirection, stepHoseFreeAim } from './hoseFreeAim';
 import {
   getHoseNozzlePosition,
+  readHoseMuzzleLocalOffset,
   isHotWaterContact,
   resolveHoseAimTarget,
   type CharacterHosePose,
@@ -299,7 +300,10 @@ export function AnchoredHoseEffects({
       position: [character.position.x, character.position.y, character.position.z],
       forwardYawRadians: character.rotation.y,
     };
-    const nozzlePosition = getHoseNozzlePosition(pose);
+    const nozzlePosition = getHoseNozzlePosition(
+      pose,
+      readHoseMuzzleLocalOffset(character.userData),
+    );
     const aimDirection = getHoseFreeAimDirection(character.rotation.y, freeAimStep.state);
 
     const candidates: HoseAimCandidate[] = fire.getSuppressionTargets().map((target) => ({
