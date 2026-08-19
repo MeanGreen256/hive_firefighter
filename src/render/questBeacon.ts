@@ -58,6 +58,61 @@ export const ARROW_FAST_PULSE_HZ = 2.6;
 export const ARROW_IN_VIEW_RADIANS = (25 * Math.PI) / 180;
 export const ARROW_LOST_RADIANS = (50 * Math.PI) / 180;
 
+/**
+ * Where the marker sits in the view, and why it orbits (#143).
+ *
+ * The arrow used to sit at a fixed point low and central, which put it on top of
+ * the truck: a small yellow triangle bolted to the cab reads as a warning lamp,
+ * not as navigation. So it rides a ring around the middle of the view instead,
+ * at the bearing of the fire — the fire is off to the right, the marker is off
+ * to the right. Position and rotation then say the same thing twice, and a
+ * marker that travels as the player turns cannot be mistaken for part of the
+ * truck, because nothing bolted to a truck moves when the truck does not.
+ *
+ * All four numbers are view-space units on the plane the marker is drawn at, so
+ * they are directly comparable with `ARROW_HERO_*` below.
+ */
+export const ARROW_RING_RADIUS = 0.7;
+/**
+ * The ring sits fractionally above the view centre, where the sky is.
+ *
+ * Kept small: the shoulder camera's 52° field of view is the tight one, and
+ * `centre + radius + ARROW_MARKER_HALF_EXTENT` is how close the top of the ring
+ * comes to the top of that frame.
+ */
+export const ARROW_RING_CENTER_Y = 0.02;
+/**
+ * How far around the ring the marker may travel.
+ *
+ * Unclamped, a fire directly behind the player puts the marker at the bottom of
+ * the ring, which is exactly where the truck is. Clamping short of that keeps
+ * the marker out on the flanks; the arrow's own rotation still swings the whole
+ * way round, so "turn all the way about" is never lost — only the position
+ * saturates, and it saturates on the side the player has to turn toward.
+ */
+export const ARROW_MAX_RING_RADIANS = (112 * Math.PI) / 180;
+
+/**
+ * The part of the view the player's own vehicle occupies, padded (#143).
+ *
+ * Projected from the chase profile, and it is the truck's *length* that sets the
+ * width of this box, not its width: the camera orbits, so a 3.5 m body turns
+ * broadside and fills far more of the frame than the 1.8 m the first pass here
+ * budgeted for — which is exactly how the marker ended up back on the cab in a
+ * side-on view. Half of 3.5 m at the chase camera's ~8.4 m is about 0.4 of a
+ * view unit; it stands ~1.9 m tall against a camera looking at a point 1.8 m up,
+ * so it also fills everything below roughly `y = 0.06`. Both numbers are rounded
+ * outward so the marker clears the truck rather than grazing it.
+ *
+ * `questBeacon.test.ts` asserts the clamp above is enough to keep the marker's
+ * whole footprint out of this box at every bearing. Retune the ring and the test
+ * says whether the marker has landed back on the truck.
+ */
+export const ARROW_HERO_ZONE_HALF_WIDTH = 0.42;
+export const ARROW_HERO_ZONE_TOP = 0.08;
+/** Half the marker's drawn size, outline included, in the same view units. */
+export const ARROW_MARKER_HALF_EXTENT = 0.14;
+
 export interface BeaconPoint {
   readonly x: number;
   readonly z: number;
@@ -178,9 +233,35 @@ export interface WaypointArrowInput {
   readonly elapsedSeconds: number;
 }
 
+/** A point on the view plane the marker is drawn at; `+y` is up, `+x` is right. */
+export interface WaypointArrowPlacement {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * Where on the ring the marker rides for a given bearing.
+ *
+ * Straight up when the fire is ahead, out to the right when it is to the right,
+ * and — because the travel is clamped — down onto the flank rather than onto the
+ * truck when it is behind.
+ */
+export function getWaypointArrowPlacement(angleRadians: number): WaypointArrowPlacement {
+  const ringAngle = Math.max(
+    -ARROW_MAX_RING_RADIANS,
+    Math.min(ARROW_MAX_RING_RADIANS, angleRadians),
+  );
+  return {
+    x: Math.sin(ringAngle) * ARROW_RING_RADIUS,
+    y: ARROW_RING_CENTER_Y + Math.cos(ringAngle) * ARROW_RING_RADIUS,
+  };
+}
+
 export interface WaypointArrowState {
   /** Screen-space rotation. Zero points straight up: the fire is dead ahead. */
   readonly angleRadians: number;
+  /** Where the marker rides, so the frame loop places it without arithmetic. */
+  readonly placement: WaypointArrowPlacement;
   readonly opacity: number;
   /** Scale modulation in `[0, 1]`; it beats faster the closer the fire is. */
   readonly pulse: number;
@@ -190,6 +271,7 @@ export interface WaypointArrowState {
 
 const HIDDEN_ARROW: WaypointArrowState = {
   angleRadians: 0,
+  placement: getWaypointArrowPlacement(0),
   opacity: 0,
   pulse: 0,
   distance: Number.POSITIVE_INFINITY,
@@ -231,6 +313,7 @@ export function getWaypointArrowState(input: WaypointArrowInput): WaypointArrowS
 
   return {
     angleRadians,
+    placement: getWaypointArrowPlacement(angleRadians),
     opacity: distanceFade * lostFade,
     pulse: 0.5 + 0.5 * Math.sin(input.elapsedSeconds * pulseHz * Math.PI * 2),
     distance,

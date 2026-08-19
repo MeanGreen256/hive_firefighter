@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
   ARROW_FADE_DISTANCE,
+  ARROW_HERO_ZONE_HALF_WIDTH,
+  ARROW_HERO_ZONE_TOP,
+  ARROW_MARKER_HALF_EXTENT,
+  ARROW_MAX_RING_RADIANS,
   ARROW_ON_SCENE_DISTANCE,
+  ARROW_RING_CENTER_Y,
+  ARROW_RING_RADIUS,
   FULL_FIRE_CELL_COUNT,
   MAX_COLUMN_HEIGHT,
   MIN_COLUMN_HEIGHT,
   getBeaconTarget,
   getFireSize,
   getSmokeColumnPlan,
+  getWaypointArrowPlacement,
   getWaypointArrowState,
 } from './questBeacon';
 import { SessionStatus } from '../state/sessionStats';
@@ -235,5 +242,77 @@ describe('waypoint arrow', () => {
     });
     expect(state.opacity).toBe(0);
     expect(state.onScene).toBe(true);
+  });
+
+  it('rides the ring at the fire’s bearing, so position says what the heading says', () => {
+    const bearingTo = (target: { x: number; z: number }) =>
+      getWaypointArrowState({
+        playerPosition: player,
+        cameraYawRadians: 0,
+        target,
+        elapsedSeconds: 0,
+      }).placement;
+
+    const ahead = bearingTo({ x: 0, z: -80 });
+    expect(ahead.x).toBeCloseTo(0);
+    expect(ahead.y).toBeCloseTo(ARROW_RING_CENTER_Y + ARROW_RING_RADIUS);
+
+    const toTheRight = bearingTo({ x: 80, z: 0 });
+    expect(toTheRight.x).toBeCloseTo(ARROW_RING_RADIUS);
+    expect(toTheRight.y).toBeCloseTo(ARROW_RING_CENTER_Y);
+
+    const toTheLeft = bearingTo({ x: -80, z: 0 });
+    expect(toTheLeft.x).toBeCloseTo(-ARROW_RING_RADIUS);
+  });
+});
+
+/**
+ * The marker used to sit at one fixed point low and central, which is where the
+ * truck is — a small yellow shape bolted to the cab reads as a warning lamp
+ * rather than as navigation (#143). Everything here is that bug, held shut.
+ */
+describe('waypoint marker placement', () => {
+  /** Every bearing, at a finer step than any real turn resolves. */
+  const everyBearing = Array.from({ length: 721 }, (_, step) => -Math.PI + (step * Math.PI) / 360);
+
+  it('never puts any part of the marker on the truck, at any bearing', () => {
+    for (const angleRadians of everyBearing) {
+      const { x, y } = getWaypointArrowPlacement(angleRadians);
+      const clearsSideways = Math.abs(x) - ARROW_MARKER_HALF_EXTENT >= ARROW_HERO_ZONE_HALF_WIDTH;
+      const clearsAbove = y - ARROW_MARKER_HALF_EXTENT >= ARROW_HERO_ZONE_TOP;
+      expect(
+        clearsSideways || clearsAbove,
+        `bearing ${((angleRadians * 180) / Math.PI).toFixed(1)}° lands the marker on the truck`,
+      ).toBe(true);
+    }
+  });
+
+  it('stays on the ring, so the marker never drifts out of frame', () => {
+    for (const angleRadians of everyBearing) {
+      const { x, y } = getWaypointArrowPlacement(angleRadians);
+      expect(Math.hypot(x, y - ARROW_RING_CENTER_Y)).toBeCloseTo(ARROW_RING_RADIUS);
+    }
+  });
+
+  it('saturates on the side the player has to turn toward', () => {
+    const behindRight = getWaypointArrowPlacement(Math.PI * 0.95);
+    const behindLeft = getWaypointArrowPlacement(-Math.PI * 0.95);
+
+    expect(behindRight.x).toBeGreaterThan(0);
+    expect(behindLeft.x).toBeLessThan(0);
+    expect(behindRight.x).toBeCloseTo(-behindLeft.x);
+    // Clamped short of the bottom of the ring rather than following the bearing
+    // all the way down onto the truck.
+    expect(behindRight.y).toBeGreaterThan(ARROW_RING_CENTER_Y - ARROW_RING_RADIUS);
+  });
+
+  it('travels monotonically as the player turns, so it never jumps sides', () => {
+    const rightward = everyBearing
+      .filter((angle) => angle >= 0 && angle <= ARROW_MAX_RING_RADIANS)
+      .map((angle) => getWaypointArrowPlacement(angle).y);
+
+    for (let index = 1; index < rightward.length; index += 1) {
+      expect(rightward[index]).toBeLessThanOrEqual((rightward[index - 1] ?? 0) + 1e-9);
+    }
   });
 });
