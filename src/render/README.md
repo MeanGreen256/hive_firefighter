@@ -194,10 +194,35 @@ as a ground-height callback, so flat prototype ground can later be replaced with
 changing the controller. Keep building footprint data shared with visible geometry;
 do not infer gameplay collision by raycasting rendered meshes.
 
-Upper-body presentation consumes the hose's transient ref: carry animation has a
-readable arm swing, spraying blends into a braced pose, and arms/nozzle follow the
-same free-aim yaw and pitch as the stream. Keep these frame-loop values in refs rather
-than React state.
+Upper-body presentation consumes the hose's transient ref and is solved, not
+authored. `firefighterAnimation.ts` poses the hose first — carried at the hip,
+raised to aim, braced and pumping against recoil to spray — and then runs a
+two-bone solve from each shoulder to a grip point on that nozzle. The hands
+cannot come off the hose because their position is not a pose value anyone
+tuned; it is the answer to where the hose is. Three consequences worth knowing
+before editing either file:
+
+- **Damp the inputs, never the outputs.** The controller smooths the blends it
+  feeds the solver and applies every angle it gets back verbatim. Lerping a
+  solved arm angle toward its previous value is exactly the operation that
+  pulls a hand off the nozzle mid-transition.
+- **Euler orders are load-bearing.** Shoulders are `ZXY` so the twist that
+  chooses the elbow's bend plane cannot disturb the direction already aimed;
+  the nozzle is `YXZ` so the chest twist and the nozzle's own yaw compose into
+  the aim yaw the water uses. `applyArmPose` sets both explicitly.
+- **The stance is bladed on purpose.** Both hands meet on one nozzle, which
+  only leaves room for it near the body's centre line, and a chase camera
+  looking down the character's back cannot see anything held there. The chest
+  turns so the hose clears the torso in view while the arms keep the reach they
+  were built around, and the head unwinds that turn so the firefighter still
+  faces the fire.
+
+Because the hose moves, the muzzle is no longer a constant. The controller
+publishes the posed muzzle each frame on the character's `userData` under
+`HOSE_MUZZLE_USER_DATA_KEY`, and `AnchoredHoseEffects` starts the stream and the
+aim cone there. `HOSE_NOZZLE_LOCAL_OFFSET` remains the resting muzzle: the
+fallback, and the fixed point the rig's own geometry is derived from. Keep these
+frame-loop values in refs rather than React state.
 
 ## Truck and transition contract
 

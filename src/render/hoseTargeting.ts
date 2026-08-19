@@ -37,12 +37,34 @@ export interface CharacterHosePose {
 }
 
 /**
- * Character-local offset of the nozzle from the character root, in the same
- * units `FirefighterController` positions its body meshes in. `FirefighterController`
- * imports this constant for its nozzle group's local position so the visible model
- * and the targeting math can never drift apart.
+ * Character-local point water leaves the nozzle, in the same units
+ * `FirefighterController` positions its body meshes in, measured with the hose
+ * braced to spray and aimed straight ahead.
+ *
+ * The firefighter's arm rig derives the nozzle's rest position from this
+ * constant rather than the other way round, so the visible muzzle and the
+ * targeting math cannot drift apart. It is the resting muzzle, though: once
+ * the character is animating, the hose rides at the hip, swings with the
+ * stride, and turns with the chest, so the live muzzle is published per frame
+ * on the character's `userData` and passed to `getHoseNozzlePosition`.
  */
-export const HOSE_NOZZLE_LOCAL_OFFSET: Vector3Tuple = [0.38, 1.12, -0.72];
+export const HOSE_NOZZLE_LOCAL_OFFSET: Vector3Tuple = [0.36, 1.16, -0.68];
+
+/** `userData` key the firefighter publishes its live, posed muzzle offset under. */
+export const HOSE_MUZZLE_USER_DATA_KEY = 'hoseMuzzleLocalOffset';
+
+/** Reads a posed muzzle offset off a character's `userData`, or falls back to rest. */
+export function readHoseMuzzleLocalOffset(userData: Record<string, unknown>): Vector3Tuple {
+  const published = userData[HOSE_MUZZLE_USER_DATA_KEY];
+  if (
+    Array.isArray(published) &&
+    published.length === 3 &&
+    published.every((value) => typeof value === 'number' && Number.isFinite(value))
+  ) {
+    return published as unknown as Vector3Tuple;
+  }
+  return HOSE_NOZZLE_LOCAL_OFFSET;
+}
 
 function rotateAroundY(local: Vector3Tuple, yawRadians: number): Vector3Tuple {
   const cosine = Math.cos(yawRadians);
@@ -55,13 +77,14 @@ function rotateAroundY(local: Vector3Tuple, yawRadians: number): Vector3Tuple {
  * Nozzle origin follows the character's hands: it is the character's world
  * position plus its hose offset rotated to the character's current facing, so
  * the nozzle moves and turns with the player instead of sitting at a fixed
- * world point.
+ * world point. Callers with a live posed muzzle pass it in; the default is the
+ * resting muzzle, which is where the hose is whenever nothing has posed it.
  */
-export function getHoseNozzlePosition(pose: CharacterHosePose): Vector3Tuple {
-  const [offsetX, offsetY, offsetZ] = rotateAroundY(
-    HOSE_NOZZLE_LOCAL_OFFSET,
-    pose.forwardYawRadians,
-  );
+export function getHoseNozzlePosition(
+  pose: CharacterHosePose,
+  localOffset: Vector3Tuple = HOSE_NOZZLE_LOCAL_OFFSET,
+): Vector3Tuple {
+  const [offsetX, offsetY, offsetZ] = rotateAroundY(localOffset, pose.forwardYawRadians);
   return [pose.position[0] + offsetX, pose.position[1] + offsetY, pose.position[2] + offsetZ];
 }
 
