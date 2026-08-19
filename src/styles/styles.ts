@@ -143,6 +143,8 @@ export interface HeroFirefighterAppearance {
   readonly jacketTrim: string;
   readonly pants: string;
   readonly boots: string;
+  /** Both hands are on the nozzle at all times, so they need their own paint. */
+  readonly gloves: string;
   readonly helmet: string;
   readonly helmetBrim: string;
 }
@@ -470,6 +472,7 @@ const diorama: Style = {
       jacketTrim: '#fff6e6',
       pants: '#3e3028',
       boots: '#2c241d',
+      gloves: '#6b4a33',
       helmet: '#f2a03d',
       helmetBrim: '#d1453a',
     },
@@ -629,6 +632,7 @@ const ink: Style = {
       jacketTrim: '#fff2cb',
       pants: '#16120e',
       boots: '#16120e',
+      gloves: '#8a5c39',
       helmet: '#e0912f',
       helmetBrim: '#c22f2a',
     },
