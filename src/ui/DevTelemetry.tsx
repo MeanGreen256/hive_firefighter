@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import devTelemetryCss from './DevTelemetry.css?inline';
+import { devOverlayKeyLabel, togglesDevOverlay } from './devOverlayKeys';
 
 export interface DevTelemetryProps {
   readonly districtName: string;
@@ -25,15 +26,14 @@ export interface DevTelemetryProps {
  * scene mounts this behind `import.meta.env.DEV`, so it is not in the bundle
  * a player downloads.
  *
- * F4 toggles it, next to the perf overlay's F3, and it starts closed.
+ * `K` toggles it, next to the perf overlay's `J`, and it starts closed.
  */
 export function DevTelemetry(props: DevTelemetryProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     const toggle = (event: KeyboardEvent) => {
-      if (event.key !== 'F4') return;
-      event.preventDefault();
+      if (!togglesDevOverlay('telemetry', event)) return;
       setVisible((current) => !current);
     };
     window.addEventListener('keydown', toggle);
@@ -61,7 +61,7 @@ export function DevTelemetry(props: DevTelemetryProps) {
         <aside className="dev-telemetry" aria-label="Development telemetry">
           <header>
             <strong>QUEST STATE</strong>
-            <span>F4 TO CLOSE</span>
+            <span>{devOverlayKeyLabel('telemetry')} TO CLOSE</span>
           </header>
           <dl>
             {rows.map(([label, value]) => (
@@ -73,7 +73,7 @@ export function DevTelemetry(props: DevTelemetryProps) {
           </dl>
         </aside>
       ) : (
-        <div className="dev-telemetry-hint">F4 · QUEST</div>
+        <div className="dev-telemetry-hint">{devOverlayKeyLabel('telemetry')} · QUEST</div>
       )}
     </>
   );

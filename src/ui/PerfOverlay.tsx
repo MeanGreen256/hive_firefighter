@@ -8,6 +8,7 @@ import {
   type PerformanceBudget,
 } from '../perf/metrics';
 import perfOverlayCss from './PerfOverlay.css?inline';
+import { devOverlayKeyLabel, togglesDevOverlay } from './devOverlayKeys';
 
 function formatMetric(value: number | null, digits = 0): string {
   return value === null ? '—' : value.toFixed(digits);
@@ -44,7 +45,7 @@ function PerfPanel() {
     <aside className="perf-overlay" aria-label="Performance budget">
       <header>
         <strong>PERF BUDGET</strong>
-        <span>F3 TO CLOSE</span>
+        <span>{devOverlayKeyLabel('perf')} TO CLOSE</span>
       </header>
       <dl>
         <Metric
@@ -92,8 +93,7 @@ export function PerfOverlay() {
 
   useEffect(() => {
     const toggle = (event: KeyboardEvent) => {
-      if (event.key !== 'F3') return;
-      event.preventDefault();
+      if (!togglesDevOverlay('perf', event)) return;
       setVisible((current) => !current);
     };
 
@@ -109,7 +109,11 @@ export function PerfOverlay() {
   return (
     <>
       <style>{perfOverlayCss}</style>
-      {visible ? <PerfPanel /> : <div className="perf-hint">F3 · PERF</div>}
+      {visible ? (
+        <PerfPanel />
+      ) : (
+        <div className="perf-hint">{devOverlayKeyLabel('perf')} · PERF</div>
+      )}
     </>
   );
 }

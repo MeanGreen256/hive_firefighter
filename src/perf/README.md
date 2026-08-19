@@ -18,7 +18,7 @@ renderer flushes the next low-frequency sample, never once per rendered frame.
 
 ## Development controls
 
-Press **F3** to show or hide the overlay. In development, the same producer
+Press **J** to show or hide the overlay. In development, the same producer
 functions are available at `window.__hivePerf` for acceptance checks. For
 example, this deliberately crosses the particle budget before particles exist:
 
@@ -47,7 +47,7 @@ to catch:
 /?perfScene=debrief&style=diorama
 ```
 
-Repeat each with `style=ink`, open the F3 overlay, and record the stable maximum
+Repeat each with `style=ink`, open the J overlay, and record the stable maximum
 after the one-time shadow bake. `incident` places the shoulder camera at the bakery
 vertical slice after twenty simulated seconds. `hazard` holds the six-light propane
 countdown and `collapse` holds its exterior warning so short cues can be reviewed and
