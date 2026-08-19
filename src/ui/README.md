@@ -19,8 +19,8 @@ See `docs/game-direction.md`, ADR-006, and ADR-007 for the control floor.
 - The wordless guided first quest (#107) — `onboardingSteps.ts`, `OnboardingCoach.tsx`
 - The permanent play HUD (#130) — `worldGuidance.ts`, `WorldHud.tsx`
 - Star debrief, retry, and personal bests (#96, #99)
-- Performance overlay (#4) — `F3` in development
-- Quest telemetry (#130) — `F4` in development
+- Performance overlay (#4) — `J` in development
+- Quest telemetry (#130) — `K` in development
 
 ## Note
 
@@ -80,7 +80,7 @@ without a click — but a mixer is not part of playing, so `AudioControls` is th
 one-press enable/mute icon and `VolumeControl` is the slider in the drawer.
 
 Everything that was really instrumentation — quest numbering, cell counts, the
-clock, metres — is in `DevTelemetry` behind `import.meta.env.DEV` and `F4`. It
+clock, metres — is in `DevTelemetry` behind `import.meta.env.DEV` and `K`. It
 is not deleted, because it is genuinely useful for tuning; it is somewhere a
 child will never meet it, and it is not in the bundle a player downloads.
 
