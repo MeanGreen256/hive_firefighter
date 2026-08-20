@@ -158,7 +158,10 @@ export interface ParticleAppearance {
   readonly flame: {
     readonly core: string;
     readonly edge: string;
+    readonly ember: string;
     readonly softness: number;
+    readonly opacity: number;
+    readonly outline: OutlineAppearance | null;
   };
   readonly smoke: {
     readonly byTint: Readonly<Record<SmokeTint, SmokeAppearance>>;
@@ -173,7 +176,13 @@ export interface ParticleAppearance {
 /** Visual tokens for the player-operated hose and its immediate feedback. */
 export interface HoseAppearance {
   readonly nozzle: string;
+  readonly nozzleAccent: string;
+  readonly nozzleGrip: string;
+  readonly nozzleOpening: string;
   readonly stream: string;
+  readonly streamEdge: string;
+  readonly droplet: string;
+  readonly splash: string;
   readonly target: string;
   readonly steam: string;
   readonly wetCell: string;
@@ -478,7 +487,14 @@ const diorama: Style = {
     },
   },
   particles: {
-    flame: { core: '#fff1a3', edge: '#ff6b2c', softness: 0.78 },
+    flame: {
+      core: '#fff1a3',
+      edge: '#ff6b2c',
+      ember: '#ffd05a',
+      softness: 0.78,
+      opacity: 0.96,
+      outline: null,
+    },
     smoke: {
       byTint: {
         neutral: { color: '#a89f91' },
@@ -497,7 +513,13 @@ const diorama: Style = {
   },
   hose: {
     nozzle: '#40505b',
+    nozzleAccent: '#f2a03d',
+    nozzleGrip: '#25323a',
+    nozzleOpening: '#12191d',
     stream: '#b9ecff',
+    streamEdge: '#f2fbff',
+    droplet: '#82d8f5',
+    splash: '#d9f7ff',
     target: '#f7f0a4',
     steam: '#eef8f5',
     wetCell: '#284d5e',
@@ -638,7 +660,14 @@ const ink: Style = {
     },
   },
   particles: {
-    flame: { core: '#fff36a', edge: '#e62f24', softness: 0.18 },
+    flame: {
+      core: '#fff36a',
+      edge: '#e62f24',
+      ember: '#ff9b2f',
+      softness: 0.18,
+      opacity: 1,
+      outline: { color: '#16120e', scale: 1.12 },
+    },
     smoke: {
       byTint: {
         neutral: { color: '#6d6861' },
@@ -663,7 +692,13 @@ const ink: Style = {
   },
   hose: {
     nozzle: '#12171d',
+    nozzleAccent: '#e0912f',
+    nozzleGrip: '#292c32',
+    nozzleOpening: '#050607',
     stream: '#b7ecff',
+    streamEdge: '#fff7df',
+    droplet: '#60c8e8',
+    splash: '#fff7df',
     target: '#fff2cb',
     steam: '#fff7df',
     wetCell: '#173f55',

@@ -286,6 +286,7 @@ function GameWorld({
         enabled={mode === 'on-foot'}
         visualStyle={visualStyle}
         fire={questFireController}
+        forceSpraying={performanceScene?.id === 'spray'}
       />
       <ExteriorFire
         controller={questFireController}

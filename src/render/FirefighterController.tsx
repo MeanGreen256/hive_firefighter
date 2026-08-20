@@ -22,7 +22,6 @@ import {
   FOREARM_LENGTH,
   getFirefighterUpperBodyPose,
   HAND_LENGTH,
-  HOSE_MUZZLE_LOCAL_OFFSET,
   LEFT_SHOULDER_ORIGIN,
   NOZZLE_AIMED_ORIGIN,
   RIGHT_SHOULDER_ORIGIN,
@@ -35,6 +34,7 @@ import {
 } from './firefighterRig';
 import { HOSE_MUZZLE_USER_DATA_KEY, type HosePresentationState } from './hoseTargeting';
 import type { Vector3Tuple } from './worldUnits';
+import { HoseNozzle } from './HoseNozzle';
 
 const MAX_FRAME_DELTA_SECONDS = 1 / 20;
 const CHARACTER_TURN_DAMPING = 14;
@@ -398,28 +398,7 @@ export function FirefighterController({
           {/* Origin sits between the grips, so aim turns the nozzle in the hands
               rather than swinging the hands around the barrel. */}
           <group ref={nozzle} position={NOZZLE_AIMED_ORIGIN}>
-            <mesh
-              position={[0, 0, HOSE_MUZZLE_LOCAL_OFFSET[2] / 2 + 0.09]}
-              rotation={[-Math.PI / 2, 0, 0]}
-            >
-              <cylinderGeometry args={[0.07, 0.105, 0.52, 12]} />
-              <meshStandardMaterial
-                color={visualStyle.hose.nozzle}
-                roughness={0.45}
-                metalness={0.35}
-              />
-            </mesh>
-            <mesh
-              position={[0, 0, HOSE_MUZZLE_LOCAL_OFFSET[2] + 0.04]}
-              rotation={[-Math.PI / 2, 0, 0]}
-            >
-              <cylinderGeometry args={[0.1, 0.075, 0.12, 12]} />
-              <meshStandardMaterial
-                color={visualStyle.hose.nozzle}
-                roughness={0.42}
-                metalness={0.4}
-              />
-            </mesh>
+            <HoseNozzle visualStyle={visualStyle} />
           </group>
         </group>
       </group>

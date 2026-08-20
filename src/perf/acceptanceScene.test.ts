@@ -20,6 +20,28 @@ describe('performance acceptance scenes', () => {
     });
   });
 
+  it('can isolate the on-foot hero and hose-ready silhouette', () => {
+    expect(performanceSceneFromSearch('?perfScene=on-foot')).toEqual({
+      id: 'on-foot',
+      questIndex: 0,
+      onFoot: true,
+      advanceFireSeconds: 0,
+      completeQuest: false,
+      hazardCountdownSeconds: null,
+      collapseWarning: false,
+      freezeClock: true,
+    });
+  });
+
+  it('can hold a spray-on frame without consuming the acceptance fire', () => {
+    expect(performanceSceneFromSearch('?perfScene=spray')).toMatchObject({
+      id: 'spray',
+      onFoot: true,
+      advanceFireSeconds: 20,
+      freezeClock: true,
+    });
+  });
+
   it('can hold the bakery at deterministic hazard and collapse cues', () => {
     expect(performanceSceneFromSearch('?perfScene=hazard')).toMatchObject({
       id: 'hazard',

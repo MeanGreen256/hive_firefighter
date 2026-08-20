@@ -1,6 +1,8 @@
 export const PERFORMANCE_SCENE_IDS = [
   'spawn',
+  'on-foot',
   'incident',
+  'spray',
   'hazard',
   'collapse',
   'debrief',
@@ -30,6 +32,16 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     collapseWarning: false,
     freezeClock: false,
   },
+  'on-foot': {
+    id: 'on-foot',
+    questIndex: 0,
+    onFoot: true,
+    advanceFireSeconds: 0,
+    completeQuest: false,
+    hazardCountdownSeconds: null,
+    collapseWarning: false,
+    freezeClock: true,
+  },
   incident: {
     id: 'incident',
     questIndex: 1,
@@ -39,6 +51,16 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     hazardCountdownSeconds: null,
     collapseWarning: false,
     freezeClock: false,
+  },
+  spray: {
+    id: 'spray',
+    questIndex: 1,
+    onFoot: true,
+    advanceFireSeconds: 20,
+    completeQuest: false,
+    hazardCountdownSeconds: null,
+    collapseWarning: false,
+    freezeClock: true,
   },
   hazard: {
     id: 'hazard',

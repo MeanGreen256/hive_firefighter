@@ -2,14 +2,18 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Color, Matrix4, Vector3, type InstancedMesh, type MeshBasicMaterial } from 'three';
 import { getFireSignal } from '@sim/fireSignal';
+import { CellState } from '@sim/cellGrid';
+import { getShellCellWorldPosition } from '@sim/exteriorShell';
 import type { Style } from '@styles/styles';
 import type { QuestFireController } from '../state/questFireController';
 import {
   COLUMN_PUFF_COUNT,
+  REDUCED_COLUMN_PUFF_COUNT,
   getFireSize,
   getSmokeColumnPlan,
   type BeaconPoint,
 } from './questBeacon';
+import { getRuntimeVfxQuality } from './incidentVfx';
 
 /**
  * The smoke column over the active quest (#92).
@@ -39,6 +43,7 @@ export function SmokeBeacon({
   const scratchColor = useMemo(() => new Color(), []);
   const beaconColor = useMemo(() => new Color(), []);
   const appliedTint = useRef<string | null>(null);
+  const quality = useMemo(() => getRuntimeVfxQuality(), []);
 
   useFrame(({ clock }) => {
     const mesh = meshRef.current;
@@ -69,11 +74,26 @@ export function SmokeBeacon({
       (mesh.material as MeshBasicMaterial).color.copy(scratchColor);
     }
 
-    const plan = getSmokeColumnPlan(getFireSize(signal.burningCellCount), clock.elapsedTime);
+    const plan = getSmokeColumnPlan(
+      getFireSize(signal.burningCellCount),
+      clock.elapsedTime,
+      quality === 'reduced' ? REDUCED_COLUMN_PUFF_COUNT : COLUMN_PUFF_COUNT,
+    );
+    let plumeBaseY = 0;
+    for (const cellId of Object.keys(fire.shell.cellSubjectIds)) {
+      const cell = fire.state.grid.cells[cellId];
+      if (cell?.state !== CellState.Burning && cell?.state !== CellState.Flashover) continue;
+      const position = getShellCellWorldPosition(fire.shell, cellId);
+      plumeBaseY = Math.max(plumeBaseY, position.y + fire.shell.cellSize * 1.1);
+    }
     plan.puffs.forEach((puff, index) => {
-      scratchPosition.set(target.x + puff.driftX, puff.y, target.z + puff.driftZ);
-      scratchScale.setScalar(Math.max(0, puff.radius));
-      scratchMatrix.identity().scale(scratchScale).setPosition(scratchPosition);
+      scratchPosition.set(target.x + puff.driftX, plumeBaseY + puff.y, target.z + puff.driftZ);
+      scratchScale.set(
+        Math.max(0, puff.radius * puff.stretchX),
+        Math.max(0, puff.radius * puff.stretchY),
+        Math.max(0, puff.radius * puff.stretchZ),
+      );
+      scratchMatrix.makeRotationY(puff.yawRadians).scale(scratchScale).setPosition(scratchPosition);
       mesh.setMatrixAt(index, scratchMatrix);
     });
     mesh.count = plan.puffs.length;

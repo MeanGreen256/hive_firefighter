@@ -10,6 +10,9 @@ describe('runtime styles', () => {
       const style = STYLES[styleId];
       expect(style.id).toBe(styleId);
       expect(style.particles.flame.core).toMatch(/^#/);
+      expect(style.particles.flame.edge).toMatch(/^#/);
+      expect(style.particles.flame.ember).toMatch(/^#/);
+      expect(style.particles.flame.opacity).toBeGreaterThan(0);
       expect(Object.keys(style.particles.smoke.byTint).sort()).toEqual([...SMOKE_TINTS].sort());
       for (const tint of SMOKE_TINTS) {
         expect(style.particles.smoke.byTint[tint].color).toMatch(/^#/);
@@ -22,6 +25,12 @@ describe('runtime styles', () => {
       expect(style.cellVisuals.transitionSeconds).toBeGreaterThan(0);
       expect(style.stage.thickness).toBeGreaterThan(0);
       expect(style.stage.contactShadow.color).toMatch(/^#/);
+      expect(style.hose.nozzleAccent).toMatch(/^#/);
+      expect(style.hose.nozzleGrip).toMatch(/^#/);
+      expect(style.hose.nozzleOpening).toMatch(/^#/);
+      expect(style.hose.streamEdge).toMatch(/^#/);
+      expect(style.hose.droplet).toMatch(/^#/);
+      expect(style.hose.splash).toMatch(/^#/);
 
       for (const materialId of Object.keys(materials) as MaterialId[]) {
         expect(style.createMaterial('cell', materialId).color).toBe(
@@ -58,6 +67,8 @@ describe('runtime styles', () => {
     });
     expect(STYLES.ink.particles.heat.treatment).toBe('drawn-lines');
     expect(STYLES.diorama.particles.heat.treatment).toBe('none');
+    expect(STYLES.ink.particles.flame.outline).toMatchObject({ color: '#16120e' });
+    expect(STYLES.diorama.particles.flame.outline).toBeNull();
   });
 
   it('resolves shareable style query parameters with a safe default', () => {
