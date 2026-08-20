@@ -11,6 +11,7 @@ import type { FireSimulationState } from '@sim/fireSimulation';
 import type { WaterApplicationResult } from '@sim/waterApplication';
 import { getMostUrgentHazard, PropaneHazardState, type HazardSimulationState } from '@sim/hazards';
 import type { StructuralSimulationState } from '@sim/structuralCollapse';
+import { getAmbientAudioMix, type AmbientAudioInput } from './ambientAudioMix';
 
 export interface FireAudioSnapshot {
   enabled: boolean;
@@ -27,6 +28,8 @@ interface FireVoices {
   sirenGain: GainNode;
   /** A restrained wind bed that keeps quiet free-roam from sounding vacant. */
   townAmbienceGain: GainNode;
+  waterAmbienceGain: GainNode;
+  birdAmbienceGain: GainNode;
 }
 
 function clampVolume(value: number): number {
@@ -73,6 +76,10 @@ export function createFireAudioSystem(
   let masterGain: GainNode | null = null;
   let voices: FireVoices | null = null;
   let latestMix = getFireAudioMix(0);
+  let latestAmbientInput: Omit<AmbientAudioInput, 'fireIntensity' | 'sirenActive'> = {
+    distanceToWater: Number.POSITIVE_INFINITY,
+    distanceToBird: Number.POSITIVE_INFINITY,
+  };
   let sirenActive = false;
   let nextWaterHissTime = 0;
   let nextPropanePulseTime = 0;
@@ -103,12 +110,19 @@ export function createFireAudioSystem(
   const applyMix = (): void => {
     if (!context || !voices) return;
     const now = context.currentTime;
+    const ambientMix = getAmbientAudioMix({
+      ...latestAmbientInput,
+      fireIntensity: latestMix.intensity,
+      sirenActive,
+    });
     voices.crackleGains.forEach((gain, index) =>
       scheduleGain(gain, latestMix.crackleGains[index] ?? 0, now),
     );
     scheduleGain(voices.roarGain, latestMix.roarGain, now);
     scheduleGain(voices.sirenGain, sirenActive ? 0.08 : 0, now);
-    scheduleGain(voices.townAmbienceGain, 0.018, now);
+    scheduleGain(voices.townAmbienceGain, ambientMix.windGain, now);
+    scheduleGain(voices.waterAmbienceGain, ambientMix.waterGain, now);
+    scheduleGain(voices.birdAmbienceGain, ambientMix.birdGain, now);
   };
 
   const makeTownAmbience = (output: AudioNode): GainNode => {
@@ -158,6 +172,10 @@ export function createFireAudioSystem(
       roarGain: makeLoop(115, 0x4d5e6f70, masterGain),
       sirenGain: makeSiren(masterGain),
       townAmbienceGain: makeTownAmbience(masterGain),
+      // These remain deliberately quiet; fire and hazard voices own the
+      // foreground, while these loops give a route a sense of place.
+      waterAmbienceGain: makeLoop(240, 0x6d3a5b21, masterGain),
+      birdAmbienceGain: makeLoop(2800, 0x3b7c1f95, masterGain),
     };
     applyMasterGain();
     applyMix();
@@ -245,6 +263,11 @@ export function createFireAudioSystem(
       latestMix = getFireAudioMix(calculateFireIntensity(state));
       applyMix();
     },
+    syncAmbient: (input: Omit<AmbientAudioInput, 'fireIntensity' | 'sirenActive'>): void => {
+      latestAmbientInput = input;
+      applyMix();
+    },
+    getFireIntensity: (): number => latestMix.intensity,
     syncIncident: (hazards: HazardSimulationState, structures: StructuralSimulationState): void => {
       if (!context) return;
       const now = context.currentTime;

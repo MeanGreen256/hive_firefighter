@@ -5,7 +5,7 @@ import { CellState } from '@sim/cellGrid';
 import { getShellCellWorldPosition } from '@sim/exteriorShell';
 import type { QuestFireController } from '../state/questFireController';
 import type { Style } from '@styles/styles';
-import { getFireStateFrame, getFlameCellFrame, getRuntimeVfxQuality } from './incidentVfx';
+import { getFireAftermathFrame, getFlameCellFrame, getRuntimeVfxQuality } from './incidentVfx';
 
 const MARKER_STATES = [
   CellState.Burnt,
@@ -18,6 +18,12 @@ type MarkerState = (typeof MARKER_STATES)[number];
 function MarkerGeometry({ state }: { readonly state: MarkerState }) {
   if (state === CellState.Heating) return <dodecahedronGeometry args={[0.5, 0]} />;
   if (state === CellState.Wetted) return <sphereGeometry args={[0.5, 10, 6]} />;
+  if (state === CellState.Burnt) {
+    return <cylinderGeometry args={[0.5, 0.64, 1, 7]} />;
+  }
+  if (state === CellState.Collapsed) {
+    return <tetrahedronGeometry args={[0.62, 0]} />;
+  }
   return <boxGeometry />;
 }
 
@@ -40,6 +46,7 @@ export function ExteriorFire({
   const coreFlamesRef = useRef<InstancedMesh>(null);
   const outlineFlamesRef = useRef<InstancedMesh>(null);
   const sparksRef = useRef<InstancedMesh>(null);
+  const steamRef = useRef<InstancedMesh>(null);
   const quality = useMemo(() => getRuntimeVfxQuality(), []);
   const scratchMatrix = useMemo(() => new Matrix4(), []);
   const scratchPosition = useMemo(() => new Vector3(), []);
@@ -72,6 +79,7 @@ export function ExteriorFire({
   useFrame(({ clock }) => {
     const fire = controller.getFire();
     const markerCounts = new Map<MarkerState, number>(MARKER_STATES.map((state) => [state, 0]));
+    const aftermathCounts = { steam: 0 };
     let flameCount = 0;
     let sparkCount = 0;
 
@@ -146,18 +154,32 @@ export function ExteriorFire({
         }
 
         const markerState = cell.state as MarkerState;
-        const markerFrame = getFireStateFrame(
+        const aftermath = getFireAftermathFrame(
           cellId,
           markerState,
           fire.shell.cellSize,
           clock.elapsedTime,
+          quality,
         );
+        const markerFrame = aftermath?.base;
         const mesh = markerMeshes.current.get(markerState);
         if (!markerFrame || !mesh) continue;
         const index = markerCounts.get(markerState) ?? 0;
         scratchPosition.set(world.x, world.y + markerFrame.yOffset, world.z);
         setInstance(mesh, index, scratchPosition, markerFrame.scale, markerFrame.yawRadians);
         markerCounts.set(markerState, index + 1);
+
+        const layer = aftermath.layer;
+        if (layer?.kind === 'steam') {
+          const layerIndex = aftermathCounts.steam;
+          scratchPosition.set(
+            world.x + layer.offset[0],
+            world.y + markerFrame.yOffset + layer.offset[1],
+            world.z + layer.offset[2],
+          );
+          setInstance(steamRef.current, layerIndex, scratchPosition, layer.scale, layer.yawRadians);
+          aftermathCounts.steam = layerIndex + 1;
+        }
       }
     }
 
@@ -172,6 +194,7 @@ export function ExteriorFire({
       [coreFlamesRef.current, flameCount],
       [outlineFlamesRef.current, flameCount],
       [sparksRef.current, sparkCount],
+      [steamRef.current, aftermathCounts.steam],
     ] as const) {
       if (!mesh) continue;
       mesh.count = count;
@@ -204,6 +227,23 @@ export function ExteriorFire({
           </instancedMesh>
         );
       })}
+
+      <instancedMesh
+        ref={steamRef}
+        name="exterior-fire-steam"
+        args={[undefined, undefined, capacity]}
+        frustumCulled={false}
+        renderOrder={7}
+      >
+        <sphereGeometry args={[1, 8, 6]} />
+        <meshBasicMaterial
+          color={visualStyle.hose.steam}
+          transparent
+          opacity={0.42}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </instancedMesh>
 
       {flame.outline ? (
         <instancedMesh

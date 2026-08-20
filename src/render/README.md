@@ -76,6 +76,13 @@ position hand-placed in a component. The lighthouse beacon turns slowly by the
 same subordinate-motion rule: incident flame, water, and smoke remain faster
 and brighter.
 
+`AmbientDistrict` is the nonblocking companion layer for flags, birds, water
+ripples, rotating signs, and foliage (#161). District JSON owns the placements;
+the renderer batches their toy primitives by shape and applies restrained
+motion without creating obstacles. `AmbientAudioBridge` samples the active
+hero slowly and feeds route distance into the shared audio mix, where water and
+bird beds fade out by radius and duck beneath siren and incident voices.
+
 Roads render as flat slabs with kerbs, pavement, and dashed lane markings, each
 split around crossing roads by `subtractSpans` so junctions stay open. Repeated
 elements batch by geometry and shadow behavior, with per-instance style colour:
@@ -262,6 +269,24 @@ never has to move just because a HUD accent or a building palette is retuned.
 what each part is: a rounded red body, a high cream roof-gear pod, four
 oversized dark wheels, and a readable rear hose reel on the truck; a large
 helmet brim, compact jacketed torso, and short stable legs on the firefighter.
+
+`heroGeometry.ts` owns the production pass for those silhouettes. Static detail
+is assembled from rounded toy primitives, painted with `Style.heroes` vertex
+colours, and merged before it reaches the scene graph. That keeps the fittings
+readable without making each grille, stripe, fender, or ladder rung a new draw.
+The truck has one merged apparatus mesh plus its two siren lamps and one contact
+blob; the firefighter shares six merged geometry buffers across the animated
+leg, torso, head, arm, glove, and nozzle groups. Pivots remain in
+`FirefighterController`, so this consolidation does not change collision,
+mount/dismount, waypoint, aim, or hose-muzzle contracts.
+
+For hero acceptance, inspect front, rear, profile, chase, shoulder, and 200px
+thumbnail views in both `?style=diorama` and `?style=ink`. Start the dev
+performance harness with `?perfScene=spawn`, `?perfScene=on-foot`, and
+`?perfScene=spray`; record the post-warmup draw and triangle samples, then check
+that the contact-blob approach keeps hero geometry out of the moving shadow
+pass. The focused geometry test also bounds the silhouette and keeps every
+merged buffer below its local triangle ceiling.
 
 ## What lives here
 

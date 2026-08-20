@@ -100,6 +100,11 @@ Each district declares:
   `yawDegrees`. Footprint and whether it blocks movement come from the type,
   not the file, so no authored prop can trap a player the renderer thinks is
   walkable;
+- optional `ambient` placements for quiet-world motion and sound. Each has a
+  reusable `type` (`flag`, `bird`, `water-ripple`, `rotating-sign`, or
+  `foliage`), a world position, optional `yawDegrees`, and an optional
+  route-specific `variant`. Ambient placements are visual/audio-only: they
+  never enter collision or fire simulation data;
 - `questSites`, at least three, each anchored to a building or park.
 
 Validation enforces that the city stays drivable and the quests stay reachable,

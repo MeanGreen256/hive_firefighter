@@ -44,6 +44,7 @@ import {
   type PerformanceAcceptanceScene,
 } from '../perf/acceptanceScene';
 import { AnchoredHoseEffects } from './AnchoredHoseEffects';
+import { AmbientDistrict } from './AmbientDistrict';
 import { PerformanceSampler } from './PerformanceSampler';
 import { CityDistrict } from './CityDistrict';
 import { ExteriorFire } from './ExteriorFire';
@@ -311,6 +312,7 @@ function GameWorld({
           activeQuestSite={activeQuestSite}
         />
       </group>
+      <AmbientDistrict district={DISTRICT} visualStyle={visualStyle} listenerRef={activeTarget} />
     </>
   );
 }
@@ -529,7 +531,12 @@ export default function FollowCameraScene() {
   return (
     <div className="app-shell" style={hudCssVariables}>
       <div className="scene" style={sceneCssVariables}>
-        <Canvas shadows gl={{ antialias: true }} dpr={[1, 2]} onCreated={configureStaticShadows}>
+        <Canvas
+          shadows="percentage"
+          gl={{ antialias: true }}
+          dpr={[1, 2]}
+          onCreated={configureStaticShadows}
+        >
           <GameWorld
             visualStyle={visualStyle}
             mode={mode}

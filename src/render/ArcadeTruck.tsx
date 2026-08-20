@@ -1,6 +1,5 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { RoundedBox } from '@react-three/drei';
 import type { Group } from 'three';
 import type { Style } from '@styles/styles';
 import { firstConnectedGamepad } from '@ui/gamepad';
@@ -12,6 +11,7 @@ import {
   type TruckInput,
   type TruckState,
 } from './truckController';
+import { createTruckHeroGeometry } from './heroGeometry';
 
 const MAX_FRAME_DELTA_SECONDS = 1 / 20;
 
@@ -73,6 +73,12 @@ export function ArcadeTruck({
     speed: 0,
   });
   const beaconRef = useRef<Group>(null);
+  const heroGeometry = useMemo(
+    () => createTruckHeroGeometry(visualStyle.heroes.truck),
+    [visualStyle.heroes.truck],
+  );
+
+  useEffect(() => () => heroGeometry.dispose(), [heroGeometry]);
 
   useEffect(() => {
     const activeKeys = heldKeys.current;
@@ -133,44 +139,9 @@ export function ArcadeTruck({
           depthWrite={false}
         />
       </mesh>
-      {/* Compact red body, rounded rather than a raw box — the silhouette floor in
-          docs/art/m3-visual-benchmark.md. */}
-      <RoundedBox args={[1.8, 1.12, 3.5]} radius={0.16} smoothness={2} position={[0, 0.72, 0]}>
-        <meshStandardMaterial color={visualStyle.heroes.truck.body} roughness={0.72} />
-      </RoundedBox>
-      {/* High cream roof gear pod — the second silhouette shape a child reads
-          before any small fitting, distinct from the red body beneath it. */}
-      <RoundedBox args={[1.64, 0.72, 1.28]} radius={0.14} smoothness={2} position={[0, 1.35, -0.9]}>
-        <meshStandardMaterial color={visualStyle.heroes.truck.roofGear} roughness={0.68} />
-      </RoundedBox>
-      <mesh position={[0, 1.42, -1.56]} rotation={[Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[1.3, 0.42]} />
-        <meshStandardMaterial color={visualStyle.heroes.truck.windshield} roughness={0.35} />
+      <mesh name="truck-hero-apparatus" geometry={heroGeometry}>
+        <meshStandardMaterial vertexColors roughness={0.72} metalness={0.04} />
       </mesh>
-      <mesh position={[0, 1.16, 0.62]}>
-        <boxGeometry args={[1.54, 0.12, 1.15]} />
-        <meshStandardMaterial color={visualStyle.hose.nozzle} roughness={0.5} metalness={0.45} />
-      </mesh>
-      {/* The rear hose reel the silhouette floor calls for — one readable
-          drum, wound with the same warm colour a child already knows from
-          the hose itself. One mesh: a spool reads from its shape alone. */}
-      <mesh position={[0, 0.98, 1.58]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.46, 0.46, 0.26, 18]} />
-        <meshStandardMaterial color={visualStyle.heroes.truck.hoseReel} roughness={0.75} />
-      </mesh>
-      {[-1.05, 1.05].flatMap((z) =>
-        [-1, 1].map((side) => (
-          // Four oversized, dark wheels — the other half of the toy silhouette.
-          <mesh
-            key={`${side}-${z}`}
-            position={[side * 0.87, 0.42, z]}
-            rotation={[0, 0, Math.PI / 2]}
-          >
-            <cylinderGeometry args={[0.46, 0.46, 0.26, 16]} />
-            <meshStandardMaterial color={visualStyle.heroes.truck.wheel} roughness={0.9} />
-          </mesh>
-        )),
-      )}
       <group ref={beaconRef} position={[0, 1.82, -0.88]} visible={sirenOn}>
         <mesh position={[-0.38, 0, 0]}>
           <cylinderGeometry args={[0.13, 0.16, 0.18, 10]} />

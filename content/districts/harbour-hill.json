@@ -478,6 +478,128 @@
     { "id": "harbour-bollard-centre", "type": "harbour-bollard", "x": 58.6, "z": -18 },
     { "id": "harbour-bollard-south", "type": "harbour-bollard", "x": 58.6, "z": -25.5 }
   ],
+  "ambient": [
+    {
+      "id": "flag-station",
+      "type": "flag",
+      "x": -18,
+      "z": -11.1,
+      "yawDegrees": 0,
+      "variant": "firehouse"
+    },
+    {
+      "id": "flag-harbour",
+      "type": "flag",
+      "x": 54.8,
+      "z": -34.8,
+      "yawDegrees": 90,
+      "variant": "harbour"
+    },
+    {
+      "id": "flag-market",
+      "type": "flag",
+      "x": -27.5,
+      "z": 39.6,
+      "yawDegrees": 180,
+      "variant": "market"
+    },
+    {
+      "id": "bird-harbour-west",
+      "type": "bird",
+      "x": 44,
+      "z": -30,
+      "yawDegrees": 35,
+      "variant": "gull"
+    },
+    {
+      "id": "bird-harbour-east",
+      "type": "bird",
+      "x": 58,
+      "z": -7,
+      "yawDegrees": 155,
+      "variant": "gull"
+    },
+    {
+      "id": "bird-riverside",
+      "type": "bird",
+      "x": 20,
+      "z": 37,
+      "yawDegrees": -20,
+      "variant": "garden"
+    },
+    {
+      "id": "ripple-harbour-north",
+      "type": "water-ripple",
+      "x": 60.4,
+      "z": -10,
+      "yawDegrees": 0,
+      "variant": "small"
+    },
+    {
+      "id": "ripple-harbour-south",
+      "type": "water-ripple",
+      "x": 60.4,
+      "z": -25,
+      "yawDegrees": 20,
+      "variant": "wide"
+    },
+    {
+      "id": "ripple-cove-north",
+      "type": "water-ripple",
+      "x": 61,
+      "z": 44,
+      "yawDegrees": -10,
+      "variant": "small"
+    },
+    {
+      "id": "ripple-cove-south",
+      "type": "water-ripple",
+      "x": 61,
+      "z": 57,
+      "yawDegrees": 15,
+      "variant": "wide"
+    },
+    {
+      "id": "sign-flower-stall",
+      "type": "rotating-sign",
+      "x": 25.8,
+      "z": -24.1,
+      "yawDegrees": 90,
+      "variant": "market"
+    },
+    {
+      "id": "sign-garage",
+      "type": "rotating-sign",
+      "x": 42.3,
+      "z": 14,
+      "yawDegrees": -90,
+      "variant": "workshop"
+    },
+    {
+      "id": "foliage-harbour-road",
+      "type": "foliage",
+      "x": 45,
+      "z": -38.8,
+      "yawDegrees": 0,
+      "variant": "reed"
+    },
+    {
+      "id": "foliage-meadow-east",
+      "type": "foliage",
+      "x": -40.5,
+      "z": 27,
+      "yawDegrees": 30,
+      "variant": "wildflower"
+    },
+    {
+      "id": "foliage-riverside",
+      "type": "foliage",
+      "x": 27,
+      "z": 42.5,
+      "yawDegrees": -20,
+      "variant": "reed"
+    }
+  ],
   "questSites": [
     {
       "id": "bandstand-green",

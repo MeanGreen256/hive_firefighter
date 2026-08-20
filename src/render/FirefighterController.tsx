@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { MathUtils, Vector3, type Group } from 'three';
 import type { Style } from '@styles/styles';
@@ -21,7 +21,6 @@ import {
 import {
   FOREARM_LENGTH,
   getFirefighterUpperBodyPose,
-  HAND_LENGTH,
   LEFT_SHOULDER_ORIGIN,
   NOZZLE_AIMED_ORIGIN,
   RIGHT_SHOULDER_ORIGIN,
@@ -35,6 +34,14 @@ import {
 import { HOSE_MUZZLE_USER_DATA_KEY, type HosePresentationState } from './hoseTargeting';
 import type { Vector3Tuple } from './worldUnits';
 import { HoseNozzle } from './HoseNozzle';
+import {
+  createFirefighterBodyGeometry,
+  createFirefighterGloveGeometry,
+  createFirefighterHeadGeometry,
+  createFirefighterLegGeometry,
+  createFirefighterLowerArmGeometry,
+  createFirefighterUpperArmGeometry,
+} from './heroGeometry';
 
 const MAX_FRAME_DELTA_SECONDS = 1 / 20;
 const CHARACTER_TURN_DAMPING = 14;
@@ -51,8 +58,6 @@ const RUN_BLEND_DAMPING = 7;
 const AIM_BLEND_DAMPING = 9;
 const SPRAY_BLEND_DAMPING = 16;
 
-const UPPER_ARM_RADIUS = 0.095;
-const FOREARM_RADIUS = 0.082;
 const LEG_HALF_WIDTH = 0.19;
 
 function flatGroundHeight(): number {
@@ -144,6 +149,42 @@ export function FirefighterController({
   const runBlend = useRef(0);
   const aimBlend = useRef(0);
   const sprayBlend = useRef(0);
+  const legGeometry = useMemo(
+    () => createFirefighterLegGeometry(visualStyle.heroes.firefighter),
+    [visualStyle.heroes.firefighter],
+  );
+  const bodyGeometry = useMemo(
+    () => createFirefighterBodyGeometry(visualStyle.heroes.firefighter),
+    [visualStyle.heroes.firefighter],
+  );
+  const headGeometry = useMemo(
+    () => createFirefighterHeadGeometry(visualStyle.heroes.firefighter),
+    [visualStyle.heroes.firefighter],
+  );
+  const upperArmGeometry = useMemo(
+    () => createFirefighterUpperArmGeometry(visualStyle.heroes.firefighter),
+    [visualStyle.heroes.firefighter],
+  );
+  const lowerArmGeometry = useMemo(
+    () => createFirefighterLowerArmGeometry(visualStyle.heroes.firefighter),
+    [visualStyle.heroes.firefighter],
+  );
+  const gloveGeometry = useMemo(
+    () => createFirefighterGloveGeometry(visualStyle.heroes.firefighter),
+    [visualStyle.heroes.firefighter],
+  );
+
+  useEffect(
+    () => () => {
+      legGeometry.dispose();
+      bodyGeometry.dispose();
+      headGeometry.dispose();
+      upperArmGeometry.dispose();
+      lowerArmGeometry.dispose();
+      gloveGeometry.dispose();
+    },
+    [bodyGeometry, gloveGeometry, headGeometry, legGeometry, lowerArmGeometry, upperArmGeometry],
+  );
 
   useEffect(() => {
     const activeKeys = heldKeys.current;
@@ -322,39 +363,21 @@ export function FirefighterController({
       </mesh>
       <group ref={modelRoot}>
         <group ref={leftLeg} position={[-LEG_HALF_WIDTH, 0.72, 0]}>
-          <mesh position={[0, -0.33, 0]}>
-            <capsuleGeometry args={[0.12, 0.42, 5, 10]} />
-            <meshStandardMaterial color={visualStyle.heroes.firefighter.pants} roughness={0.82} />
-          </mesh>
-          <mesh position={[0, -0.68, -0.05]}>
-            <boxGeometry args={[0.24, 0.16, 0.38]} />
-            <meshStandardMaterial color={visualStyle.heroes.firefighter.boots} roughness={0.9} />
+          <mesh name="firefighter-left-leg" geometry={legGeometry}>
+            <meshStandardMaterial vertexColors roughness={0.82} />
           </mesh>
         </group>
         <group ref={rightLeg} position={[LEG_HALF_WIDTH, 0.72, 0]}>
-          <mesh position={[0, -0.33, 0]}>
-            <capsuleGeometry args={[0.12, 0.42, 5, 10]} />
-            <meshStandardMaterial color={visualStyle.heroes.firefighter.pants} roughness={0.82} />
-          </mesh>
-          <mesh position={[0, -0.68, -0.05]}>
-            <boxGeometry args={[0.24, 0.16, 0.38]} />
-            <meshStandardMaterial color={visualStyle.heroes.firefighter.boots} roughness={0.9} />
+          <mesh name="firefighter-right-leg" geometry={legGeometry}>
+            <meshStandardMaterial vertexColors roughness={0.82} />
           </mesh>
         </group>
 
         {/* Everything the hose turns with, so aiming across the body twists the
             chest, arms, head, and nozzle together and the arms keep their reach. */}
         <group ref={chest}>
-          <mesh position={[0, 1.08, 0]}>
-            <capsuleGeometry args={[0.34, 0.62, 7, 14]} />
-            <meshStandardMaterial color={visualStyle.heroes.firefighter.jacket} roughness={0.78} />
-          </mesh>
-          <mesh position={[0, 1.08, -0.335]}>
-            <boxGeometry args={[0.58, 0.1, 0.035]} />
-            <meshStandardMaterial
-              color={visualStyle.heroes.firefighter.jacketTrim}
-              roughness={0.68}
-            />
+          <mesh name="firefighter-turnout-body" geometry={bodyGeometry}>
+            <meshStandardMaterial vertexColors roughness={0.78} />
           </mesh>
 
           <FirefighterArm
@@ -362,36 +385,25 @@ export function FirefighterController({
             elbowRef={leftElbow}
             handRef={leftHand}
             shoulderOrigin={LEFT_SHOULDER_ORIGIN}
-            visualStyle={visualStyle}
+            upperArmGeometry={upperArmGeometry}
+            lowerArmGeometry={lowerArmGeometry}
+            gloveGeometry={gloveGeometry}
           />
           <FirefighterArm
             shoulderRef={rightShoulder}
             elbowRef={rightElbow}
             handRef={rightHand}
             shoulderOrigin={RIGHT_SHOULDER_ORIGIN}
-            visualStyle={visualStyle}
+            upperArmGeometry={upperArmGeometry}
+            lowerArmGeometry={lowerArmGeometry}
+            gloveGeometry={gloveGeometry}
           />
 
           {/* Unwinds the bladed stance so the player's own view and the
               firefighter's are still pointed at the same fire. */}
           <group ref={head} position={[0, 1.55, 0]}>
-            <mesh position={[0, 0.1, 0]}>
-              <sphereGeometry args={[0.27, 16, 12]} />
-              <meshStandardMaterial color={visualStyle.heroes.firefighter.skin} roughness={0.74} />
-            </mesh>
-            <mesh position={[0, 0.29, 0]}>
-              <sphereGeometry args={[0.31, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-              <meshStandardMaterial
-                color={visualStyle.heroes.firefighter.helmet}
-                roughness={0.72}
-              />
-            </mesh>
-            <mesh position={[0, 0.24, -0.18]}>
-              <boxGeometry args={[0.72, 0.08, 0.32]} />
-              <meshStandardMaterial
-                color={visualStyle.heroes.firefighter.helmetBrim}
-                roughness={0.72}
-              />
+            <mesh name="firefighter-helmet-and-face" geometry={headGeometry}>
+              <meshStandardMaterial vertexColors roughness={0.74} />
             </mesh>
           </group>
 
@@ -411,7 +423,9 @@ interface FirefighterArmProps {
   readonly elbowRef: RefObject<Group | null>;
   readonly handRef: RefObject<Group | null>;
   readonly shoulderOrigin: Vector3Tuple;
-  readonly visualStyle: Style;
+  readonly upperArmGeometry: ReturnType<typeof createFirefighterUpperArmGeometry>;
+  readonly lowerArmGeometry: ReturnType<typeof createFirefighterLowerArmGeometry>;
+  readonly gloveGeometry: ReturnType<typeof createFirefighterGloveGeometry>;
 }
 
 /**
@@ -424,47 +438,27 @@ function FirefighterArm({
   elbowRef,
   handRef,
   shoulderOrigin,
-  visualStyle,
+  upperArmGeometry,
+  lowerArmGeometry,
+  gloveGeometry,
 }: FirefighterArmProps) {
-  const jacket = visualStyle.heroes.firefighter.jacket;
   return (
     <group ref={shoulderRef} position={shoulderOrigin}>
-      <mesh>
-        <sphereGeometry args={[UPPER_ARM_RADIUS * 1.12, 10, 8]} />
-        <meshStandardMaterial color={jacket} roughness={0.78} />
-      </mesh>
-      <mesh position={[0, -UPPER_ARM_LENGTH / 2, 0]}>
-        <capsuleGeometry
-          args={[UPPER_ARM_RADIUS, UPPER_ARM_LENGTH - UPPER_ARM_RADIUS * 2, 4, 10]}
-        />
-        <meshStandardMaterial color={jacket} roughness={0.78} />
+      <mesh name="firefighter-upper-arm" geometry={upperArmGeometry}>
+        <meshStandardMaterial vertexColors roughness={0.78} />
       </mesh>
 
       <group ref={elbowRef} position={[0, -UPPER_ARM_LENGTH, 0]}>
-        <mesh>
-          <sphereGeometry args={[UPPER_ARM_RADIUS, 10, 8]} />
-          <meshStandardMaterial color={jacket} roughness={0.78} />
-        </mesh>
-        <mesh position={[0, -FOREARM_LENGTH / 2, 0]}>
-          <capsuleGeometry args={[FOREARM_RADIUS, FOREARM_LENGTH - FOREARM_RADIUS * 2, 4, 10]} />
-          <meshStandardMaterial color={jacket} roughness={0.78} />
-        </mesh>
-        {/* Reflective cuff: the joint the eye needs to find at shoulder-camera distance. */}
-        <mesh position={[0, -FOREARM_LENGTH + 0.035, 0]}>
-          <cylinderGeometry args={[FOREARM_RADIUS * 1.2, FOREARM_RADIUS * 1.2, 0.055, 10]} />
-          <meshStandardMaterial
-            color={visualStyle.heroes.firefighter.jacketTrim}
-            roughness={0.68}
-          />
+        <mesh name="firefighter-lower-arm" geometry={lowerArmGeometry}>
+          <meshStandardMaterial vertexColors roughness={0.78} />
         </mesh>
 
         {/* A mitt, not a modelled hand: at shoulder-camera distance the shape
             that has to read is "fist closed around the nozzle", and a rounded
             one reads that way from every angle the wrist can take. */}
         <group ref={handRef} position={[0, -FOREARM_LENGTH, 0]}>
-          <mesh position={[0, -HAND_LENGTH * 0.45, -0.01]} scale={[1, 0.92, 1.15]}>
-            <sphereGeometry args={[HAND_LENGTH * 0.62, 10, 8]} />
-            <meshStandardMaterial color={visualStyle.heroes.firefighter.gloves} roughness={0.86} />
+          <mesh name="firefighter-glove" geometry={gloveGeometry}>
+            <meshStandardMaterial vertexColors roughness={0.86} />
           </mesh>
         </group>
       </group>

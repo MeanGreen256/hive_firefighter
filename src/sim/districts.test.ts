@@ -249,6 +249,34 @@ describe('Harbour Hill', () => {
     expect(propTypes.has('harbour-bollard')).toBe(true);
   });
 
+  it('authors nonblocking ambient beats for the quiet route', () => {
+    const ambient = validHarbourHill().ambient ?? [];
+    const ambientTypes = new Set(ambient.map((placement) => placement.type));
+
+    expect(ambient.length).toBeGreaterThanOrEqual(10);
+    expect(ambientTypes).toEqual(
+      new Set(['flag', 'bird', 'water-ripple', 'rotating-sign', 'foliage']),
+    );
+    expect(ambient.every((placement) => placement.variant !== null)).toBe(true);
+    expect(
+      ambient.every(
+        (placement) =>
+          placement.x >= validHarbourHill().bounds.minX &&
+          placement.x <= validHarbourHill().bounds.maxX &&
+          placement.z >= validHarbourHill().bounds.minZ &&
+          placement.z <= validHarbourHill().bounds.maxZ,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects ambient art that leaves the district bounds', () => {
+    const broken = cloneHarbourHill();
+    broken.ambient = [{ id: 'off-edge', type: 'bird', x: 100, z: 0, variant: 'gull' }];
+    expect(() => validateDistrictDefinition(broken, 'ambient-off-edge')).toThrow(
+      /ambient\[0\] leaves the district bounds/,
+    );
+  });
+
   it('places quest sites at varying drive distances', () => {
     const district = validHarbourHill();
     const distances = district.questSites.map((site) =>
