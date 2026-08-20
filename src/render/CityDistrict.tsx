@@ -6,6 +6,7 @@ import { type DistrictPropType, type DistrictQuestSite } from '@sim/districts';
 import type { Style } from '@styles/styles';
 import type { Vector3Tuple } from './worldUnits';
 import { DistrictArtRenderer } from './DistrictArtRenderer';
+import { shouldRenderIncidentPropPart } from './incidentPropVisibility';
 import {
   HIP_ROOF_CONE_RADIAL_SEGMENTS,
   HIP_ROOF_CONE_RADIUS,
@@ -413,10 +414,12 @@ export function CityDistrict({
   layout,
   visualStyle,
   activeQuestSite,
+  incidentCameraActive,
 }: {
   readonly layout: DistrictLayout;
   readonly visualStyle: Style;
   readonly activeQuestSite: DistrictQuestSite;
+  readonly incidentCameraActive: boolean;
 }) {
   const city = visualStyle.city;
   const buildingBodyLayers = new Map<BuildingBodyShape, DistrictBuildingPlacement[]>();
@@ -457,6 +460,16 @@ export function CityDistrict({
         parts: [],
       };
       for (const placement of placements) {
+        if (
+          !shouldRenderIncidentPropPart({
+            placement,
+            partIndex,
+            activeQuestSite,
+            incidentCameraActive,
+          })
+        ) {
+          continue;
+        }
         layer.parts.push({
           id: `${placement.id}:${String(partIndex)}`,
           placement,

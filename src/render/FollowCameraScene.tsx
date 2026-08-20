@@ -324,6 +324,7 @@ function GameWorld({
           layout={DISTRICT_LAYOUT}
           visualStyle={visualStyle}
           activeQuestSite={activeQuestSite}
+          incidentCameraActive={mode === 'on-foot'}
         />
       </group>
       <AmbientDistrict district={DISTRICT} visualStyle={visualStyle} listenerRef={activeTarget} />
