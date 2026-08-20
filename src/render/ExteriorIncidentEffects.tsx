@@ -19,8 +19,8 @@ import {
 import type { QuestFireHazard } from '@sim/quests';
 import type { QuestFireController } from '../state/questFireController';
 import type { Style } from '@styles/styles';
+import { getPropaneSaveCueFrame } from './incidentVfx';
 
-const SAVE_PULSE_SECONDS = 1.4;
 const BLAST_PULSE_SECONDS = 1.1;
 const COLLAPSE_DUST_SECONDS = 1.2;
 const COUNTDOWN_PIP_COUNT = PROPANE_COUNTDOWN_SECONDS;
@@ -41,6 +41,7 @@ function PropaneCylinder({
   const saveMaterialRef = useRef<MeshBasicMaterial>(null);
   const blastPulseRef = useRef<Mesh>(null);
   const blastMaterialRef = useRef<MeshBasicMaterial>(null);
+  const previousFireRef = useRef<unknown>(null);
   const previousState = useRef<PropaneState | null>(null);
   const saveStartedAt = useRef(Number.NEGATIVE_INFINITY);
   const blastStartedAt = useRef(Number.NEGATIVE_INFINITY);
@@ -49,6 +50,16 @@ function PropaneCylinder({
   const pipScale = useMemo(() => new Vector3(), []);
 
   useFrame(({ clock }) => {
+    const activeFire = controller.getFire();
+    if (activeFire !== previousFireRef.current) {
+      // `setQuest` creates a fresh fire even when retrying the same seed. Clear
+      // transient cues before observing the new hazard state so a new run can
+      // never inherit a saved/blast pulse from the prior run.
+      previousFireRef.current = activeFire;
+      previousState.current = null;
+      saveStartedAt.current = Number.NEGATIVE_INFINITY;
+      blastStartedAt.current = Number.NEGATIVE_INFINITY;
+    }
     const hazard = controller.getHazards().hazards[placement.id];
     const root = rootRef.current;
     if (!hazard || !root) return;
@@ -93,13 +104,13 @@ function PropaneCylinder({
       pips.instanceMatrix.needsUpdate = true;
     }
 
-    const saveProgress = (now - saveStartedAt.current) / SAVE_PULSE_SECONDS;
+    const saveCue = getPropaneSaveCueFrame(now, saveStartedAt.current);
     const savePulse = savePulseRef.current;
     if (savePulse && saveMaterialRef.current) {
-      savePulse.visible = saveProgress >= 0 && saveProgress < 1;
+      savePulse.visible = saveCue.visible;
       if (savePulse.visible) {
-        savePulse.scale.setScalar(0.7 + saveProgress * 1.9);
-        saveMaterialRef.current.opacity = 0.9 * (1 - saveProgress);
+        savePulse.scale.setScalar(saveCue.scale);
+        saveMaterialRef.current.opacity = saveCue.opacity;
       }
     }
 
@@ -294,7 +305,7 @@ export function ExteriorIncidentEffects({
     <group name="exterior-incident-effects">
       {hazards.map((hazard) => (
         <PropaneCylinder
-          key={hazard.id}
+          key={`${questId ?? 'none'}:${hazard.id}`}
           placement={hazard}
           controller={controller}
           visualStyle={visualStyle}

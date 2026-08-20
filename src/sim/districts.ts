@@ -55,6 +55,14 @@ export const PROP_TYPES = [
 ] as const;
 export type DistrictPropType = (typeof PROP_TYPES)[number];
 
+/**
+ * Small, non-interactive motion cues that make a quiet route feel inhabited.
+ * These are deliberately separate from props: ambient placements never enter
+ * collision data and can evolve into richer kits without changing driving.
+ */
+export const AMBIENT_TYPES = ['flag', 'bird', 'water-ripple', 'rotating-sign', 'foliage'] as const;
+export type DistrictAmbientType = (typeof AMBIENT_TYPES)[number];
+
 export interface PropFootprint {
   /** Half extent along the prop's local X axis, in metres. */
   readonly halfWidth: number;
@@ -165,6 +173,16 @@ export interface DistrictProp {
   readonly yawDegrees: number;
 }
 
+export interface DistrictAmbient {
+  readonly id: string;
+  readonly type: DistrictAmbientType;
+  readonly x: number;
+  readonly z: number;
+  readonly yawDegrees: number;
+  /** A route-specific art variant; the renderer owns the vocabulary. */
+  readonly variant: string | null;
+}
+
 export interface DistrictQuestSite {
   readonly id: string;
   readonly name: string;
@@ -185,6 +203,8 @@ export interface DistrictDefinition {
   readonly parks: readonly DistrictPark[];
   readonly waterBodies: readonly DistrictWaterBody[];
   readonly props: readonly DistrictProp[];
+  /** Optional for legacy/inland districts; absent means no ambient kit. */
+  readonly ambient?: readonly DistrictAmbient[];
   readonly questSites: readonly DistrictQuestSite[];
 }
 
@@ -318,7 +338,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   const problems: string[] = [];
   const root = readObject(data, id, problems);
   if (!root) throw new DistrictValidationError(id, problems);
-  checkFields(root, id, ROOT_FIELDS, problems);
+  checkFields(root, id, ROOT_FIELDS, problems, ['ambient']);
 
   const name = readString(root.name, `${id}.name`, problems);
   const bounds = readBounds(root.bounds, `${id}.bounds`, problems);
@@ -436,6 +456,35 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     },
   );
 
+  const ambient =
+    root.ambient === undefined
+      ? []
+      : readPlacementArray(
+          root.ambient,
+          `${id}.ambient`,
+          problems,
+          (object, path, ambientProblems): DistrictAmbient => {
+            checkFields(object, path, ['id', 'type', 'x', 'z'], ambientProblems, [
+              'yawDegrees',
+              'variant',
+            ]);
+            return {
+              id: readString(object.id, `${path}.id`, ambientProblems),
+              type: readEnum(object.type, `${path}.type`, AMBIENT_TYPES, ambientProblems),
+              x: readFiniteNumber(object.x, `${path}.x`, ambientProblems),
+              z: readFiniteNumber(object.z, `${path}.z`, ambientProblems),
+              yawDegrees:
+                object.yawDegrees === undefined
+                  ? 0
+                  : readFiniteNumber(object.yawDegrees, `${path}.yawDegrees`, ambientProblems),
+              variant:
+                object.variant === undefined
+                  ? null
+                  : readString(object.variant, `${path}.variant`, ambientProblems),
+            };
+          },
+        );
+
   const questSites = readPlacementArray(
     root.questSites,
     `${id}.questSites`,
@@ -457,6 +506,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   validateUniqueIds(parks, `${id}.parks`, problems);
   validateUniqueIds(waterBodies, `${id}.waterBodies`, problems);
   validateUniqueIds(props, `${id}.props`, problems);
+  validateUniqueIds(ambient, `${id}.ambient`, problems);
   validateUniqueIds(questSites, `${id}.questSites`, problems);
 
   const roadRects = roads.map(getRoadRect);
@@ -523,6 +573,12 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     }
   });
 
+  ambient.forEach((placement, index) => {
+    if (!isPointInsideRect(placement, bounds)) {
+      problems.push(`${id}.ambient[${index}] leaves the district bounds`);
+    }
+  });
+
   const truckStartRect = rectFromCenter(truckStart, 0.01, 0.01);
   if (!onRoad(truckStartRect)) {
     problems.push(`${id}.truckStart must be on a road`);
@@ -575,6 +631,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     parks,
     waterBodies,
     props,
+    ambient,
     questSites,
   };
 }

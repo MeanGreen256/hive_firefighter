@@ -102,6 +102,20 @@ export interface FireStateFrame {
   readonly yawRadians: number;
 }
 
+export type AftermathLayerKind = 'steam';
+
+export interface AftermathLayerFrame {
+  readonly kind: AftermathLayerKind;
+  readonly scale: Vector3Tuple;
+  readonly offset: Vector3Tuple;
+  readonly yawRadians: number;
+}
+
+export interface FireAftermathFrame {
+  readonly base: FireStateFrame;
+  readonly layer: AftermathLayerFrame | null;
+}
+
 /** Distinct silhouettes for the non-flame states, including the wet handoff. */
 export function getFireStateFrame(
   cellId: string,
@@ -140,4 +154,78 @@ export function getFireStateFrame(
     default:
       return null;
   }
+}
+
+/**
+ * Persistent, cosmetic accents that make a cell's post-fire state read at the
+ * shoulder camera. The base marker carries the char/slump silhouette and state
+ * colour; the optional second layer carries cooling steam. Every value is
+ * derived from the stable cell id, so a retry cannot leave random debris behind.
+ */
+export function getFireAftermathFrame(
+  cellId: string,
+  state: CellStateValue,
+  cellSize: number,
+  elapsedSeconds: number,
+  quality: VfxQuality,
+): FireAftermathFrame | null {
+  const base = getFireStateFrame(cellId, state, cellSize, elapsedSeconds);
+  if (!base) return null;
+
+  const seed = stableUnitInterval(cellId);
+  const phase = seed * Math.PI * 2;
+  const motionScale = quality === 'reduced' ? 0.45 : 1;
+
+  switch (state) {
+    case CellState.Burnt:
+      // Burnt's cylinder marker is the persistent irregular char/scorch shape.
+      return { base, layer: null };
+    case CellState.Collapsed:
+      // Collapsed's low tetrahedron marker is the persistent safe sag/slump.
+      return { base, layer: null };
+    case CellState.Wetted: {
+      const drift = Math.sin(elapsedSeconds * 2.4 + phase) * cellSize * 0.08 * motionScale;
+      const lift = 1 + Math.sin(elapsedSeconds * 3.1 + phase * 1.3) * 0.12 * motionScale;
+      return {
+        base,
+        layer: {
+          kind: 'steam',
+          scale: [cellSize * 0.12, cellSize * 0.34 * lift, cellSize * 0.12],
+          offset: [
+            drift,
+            cellSize * 0.34,
+            Math.cos(elapsedSeconds * 2.1 + phase) * cellSize * 0.05,
+          ],
+          yawRadians: phase,
+        },
+      };
+    }
+    default:
+      return { base, layer: null };
+  }
+}
+
+export const PROPANE_SAVE_CUE_SECONDS = 1.6;
+
+export interface PropaneSaveCueFrame {
+  readonly visible: boolean;
+  readonly scale: number;
+  readonly opacity: number;
+}
+
+/** A deterministic, short celebration for cooling a propane hazard in time. */
+export function getPropaneSaveCueFrame(
+  nowSeconds: number,
+  startedAtSeconds: number,
+): PropaneSaveCueFrame {
+  const progress = (nowSeconds - startedAtSeconds) / PROPANE_SAVE_CUE_SECONDS;
+  if (!Number.isFinite(progress) || progress < 0 || progress >= 1) {
+    return { visible: false, scale: 0, opacity: 0 };
+  }
+  const eased = progress * (2 - progress);
+  return {
+    visible: true,
+    scale: 0.65 + eased * 2.15,
+    opacity: 0.95 * (1 - progress),
+  };
 }

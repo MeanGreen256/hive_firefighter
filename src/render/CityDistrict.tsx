@@ -5,6 +5,7 @@ import { BufferGeometry, ConeGeometry, Float32BufferAttribute, type Group } from
 import { type DistrictPropType, type DistrictQuestSite, type LandmarkShape } from '@sim/districts';
 import type { Style } from '@styles/styles';
 import type { Vector3Tuple } from './worldUnits';
+import { BakeryVerticalSlice } from './BakeryVerticalSlice';
 import {
   HIP_ROOF_CONE_RADIAL_SEGMENTS,
   HIP_ROOF_CONE_RADIUS,
@@ -647,6 +648,13 @@ export function CityDistrict({
         />
       ))}
       <AttachmentLayer placements={layout.attachments} visualStyle={visualStyle} />
+      {layout.buildings.map((building) => (
+        <BakeryVerticalSlice
+          key={`bakery-slice:${building.id}`}
+          building={building}
+          visualStyle={visualStyle}
+        />
+      ))}
       {layout.buildings.map((building) =>
         building.landmark === null ? null : (
           <Landmark

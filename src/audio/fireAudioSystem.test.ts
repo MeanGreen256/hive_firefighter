@@ -99,6 +99,17 @@ describe('fire audio autoplay guard', () => {
     expect(targetGains).toContain(0.018);
   });
 
+  it('caches spatial ambient mix before the explicit audio gate', async () => {
+    const targetGains: number[] = [];
+    const audio = createFireAudioSystem(() => createRunningContextDouble(targetGains));
+
+    audio.syncAmbient({ distanceToWater: 0, distanceToBird: 0 });
+    await expect(audio.enable()).resolves.toBe(true);
+
+    expect(targetGains).toContain(0.052);
+    expect(targetGains).toContain(0.026);
+  });
+
   it('only attempts to create audio when the explicit enable gate is called', async () => {
     let contextCreations = 0;
     const audio = createFireAudioSystem(() => {
