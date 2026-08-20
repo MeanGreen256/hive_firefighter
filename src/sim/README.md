@@ -44,6 +44,12 @@ indoors, out of reach of a road, or crowding another one are all load-time
 errors. Prop footprints and solidity live in `PROP_FOOTPRINTS` rather than in
 content, so gameplay collision cannot drift from what the file says a bench is.
 
+Production art stays semantic too. A building's optional `art` contract selects
+a garden/civic/harbour route, a use-compatible facade variant, and the nearest-
+road facing shared with its fire shell. `streetEdges` select reusable crossings,
+fences, planters, park boundaries, and waterfront rails. The loader validates
+their vocabulary and bounds; they never enter collision or fire state.
+
 Exactly one quest is ever active, so `getActiveQuestSite` returns a single site
 and `getNextQuestIndex` advances the rotation. There is deliberately no API that
 hands a caller every quest site as live objectives.

@@ -2,10 +2,10 @@ import { useRef } from 'react';
 import { Instance, Instances, RoundedBoxGeometry } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { BufferGeometry, ConeGeometry, Float32BufferAttribute, type Group } from 'three';
-import { type DistrictPropType, type DistrictQuestSite, type LandmarkShape } from '@sim/districts';
+import { type DistrictPropType, type DistrictQuestSite } from '@sim/districts';
 import type { Style } from '@styles/styles';
 import type { Vector3Tuple } from './worldUnits';
-import { BakeryVerticalSlice } from './BakeryVerticalSlice';
+import { DistrictArtRenderer } from './DistrictArtRenderer';
 import {
   HIP_ROOF_CONE_RADIAL_SEGMENTS,
   HIP_ROOF_CONE_RADIUS,
@@ -313,125 +313,6 @@ function AttachmentLayer({
   );
 }
 
-function LighthouseLandmark({
-  building,
-  visualStyle,
-  roofTop,
-}: {
-  readonly building: DistrictBuildingPlacement;
-  readonly visualStyle: Style;
-  readonly roofTop: number;
-}) {
-  const beaconRef = useRef<Group>(null);
-  useFrame((_state, delta) => {
-    if (beaconRef.current) beaconRef.current.rotation.y += delta * 0.55;
-  });
-  const paint = visualStyle.city.buildings[building.use];
-
-  return (
-    <group position={[building.position[0], 0, building.position[2]]} name="landmark-lighthouse">
-      <mesh position={[0, roofTop + 0.42, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[building.width * 0.36, building.width * 0.4, 0.84, 12]} />
-        <meshLambertMaterial color={paint.trim} />
-      </mesh>
-      <group ref={beaconRef} position={[0, roofTop + 1.08, 0]}>
-        <mesh castShadow>
-          <boxGeometry args={[building.width * 0.78, 0.18, 0.28]} />
-          <meshLambertMaterial color={visualStyle.city.landmarkAccent} />
-        </mesh>
-      </group>
-      <mesh position={[0, roofTop + 1.78, 0]} castShadow>
-        <coneGeometry args={[building.width * 0.42, 1.4, 12]} />
-        <meshLambertMaterial color={paint.roof} />
-      </mesh>
-    </group>
-  );
-}
-
-/** A silhouette on the skyline a child can steer by without reading a map. */
-function Landmark({
-  shape,
-  building,
-  visualStyle,
-}: {
-  readonly shape: LandmarkShape;
-  readonly building: DistrictBuildingPlacement;
-  readonly visualStyle: Style;
-}) {
-  const { landmarkAccent, buildings } = visualStyle.city;
-  const paint = buildings[building.use];
-  const roofTop = building.height + ROOF_THICKNESS;
-
-  if (shape === 'lighthouse') {
-    return <LighthouseLandmark building={building} visualStyle={visualStyle} roofTop={roofTop} />;
-  }
-
-  if (shape === 'bell-tower') {
-    return (
-      <group position={[building.position[0], 0, building.position[2]]} name="landmark-bell-tower">
-        <mesh position={[0, roofTop + 2, 0]} castShadow receiveShadow>
-          <boxGeometry args={[2.4, 4, 2.4]} />
-          <meshLambertMaterial color={paint.trim} />
-        </mesh>
-        <mesh position={[0, roofTop + 5, 0]} castShadow>
-          <coneGeometry args={[2, 2.2, 4]} />
-          <meshLambertMaterial color={landmarkAccent} />
-        </mesh>
-      </group>
-    );
-  }
-
-  if (shape === 'water-tower') {
-    return (
-      <group position={[building.position[0], 0, building.position[2]]} name="landmark-water-tower">
-        <mesh position={[0, roofTop + 2.2, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[2.4, 2.4, 3.2, 12]} />
-          <meshLambertMaterial color={landmarkAccent} />
-        </mesh>
-        <mesh position={[0, roofTop + 4.3, 0]} castShadow>
-          <coneGeometry args={[2.6, 1.4, 12]} />
-          <meshLambertMaterial color={paint.roof} />
-        </mesh>
-      </group>
-    );
-  }
-
-  if (shape === 'dome') {
-    return (
-      <mesh
-        position={[building.position[0], roofTop, building.position[2]]}
-        castShadow
-        receiveShadow
-        name="landmark-dome"
-      >
-        <sphereGeometry
-          args={[
-            Math.min(building.width, building.depth) * 0.32,
-            16,
-            10,
-            0,
-            Math.PI * 2,
-            0,
-            Math.PI / 2,
-          ]}
-        />
-        <meshLambertMaterial color={landmarkAccent} />
-      </mesh>
-    );
-  }
-
-  return (
-    <mesh
-      position={[building.position[0], roofTop + 1.4, building.position[2]]}
-      castShadow
-      name="landmark-big-sign"
-    >
-      <boxGeometry args={[building.width * 0.7, 2.4, 0.35]} />
-      <meshLambertMaterial color={landmarkAccent} />
-    </mesh>
-  );
-}
-
 type BuildingBodyShape = 'rounded' | 'tower';
 type BuildingRoofShape = 'flat' | 'gable' | 'hip';
 
@@ -648,23 +529,7 @@ export function CityDistrict({
         />
       ))}
       <AttachmentLayer placements={layout.attachments} visualStyle={visualStyle} />
-      {layout.buildings.map((building) => (
-        <BakeryVerticalSlice
-          key={`bakery-slice:${building.id}`}
-          building={building}
-          visualStyle={visualStyle}
-        />
-      ))}
-      {layout.buildings.map((building) =>
-        building.landmark === null ? null : (
-          <Landmark
-            key={building.id}
-            shape={building.landmark}
-            building={building}
-            visualStyle={visualStyle}
-          />
-        ),
-      )}
+      <DistrictArtRenderer layout={layout} visualStyle={visualStyle} />
 
       {[...propPartLayers.entries()].map(([key, layer]) => (
         <PropShapeLayer

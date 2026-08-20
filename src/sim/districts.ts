@@ -40,6 +40,49 @@ export const LANDMARK_SHAPES = [
 ] as const;
 export type LandmarkShape = (typeof LANDMARK_SHAPES)[number];
 
+/** Three landmark-led colour/shape languages used to make routes memorable. */
+export const DISTRICT_ROUTE_IDS = ['garden', 'civic', 'harbour'] as const;
+export type DistrictRouteId = (typeof DISTRICT_ROUTE_IDS)[number];
+
+export const BUILDING_FACINGS = ['north', 'east', 'south', 'west'] as const;
+export type BuildingFacing = (typeof BUILDING_FACINGS)[number];
+
+/**
+ * Reusable facade kits. The prefix is intentionally the owning building use:
+ * validation can reject a workshop front on a cottage before the renderer sees it.
+ */
+export const FACADE_VARIANTS = [
+  'house-garden',
+  'house-bay',
+  'shop-display',
+  'shop-striped',
+  'shop-bakery',
+  'shop-market',
+  'civic-arched',
+  'civic-station',
+  'workshop-barn',
+  'workshop-service',
+] as const;
+export type FacadeVariant = (typeof FACADE_VARIANTS)[number];
+
+export interface DistrictBuildingArt {
+  readonly route: DistrictRouteId;
+  readonly facade: FacadeVariant | null;
+  readonly facing: BuildingFacing;
+}
+
+export const STREET_EDGE_TYPES = [
+  'crossing',
+  'fence',
+  'planter',
+  'park-boundary',
+  'waterfront-rail',
+] as const;
+export type DistrictStreetEdgeType = (typeof STREET_EDGE_TYPES)[number];
+
+export const STREET_EDGE_VARIANTS = ['plain', 'flowered', 'safety'] as const;
+export type DistrictStreetEdgeVariant = (typeof STREET_EDGE_VARIANTS)[number];
+
 export const PROP_TYPES = [
   'tree',
   'hedge',
@@ -139,6 +182,8 @@ export interface DistrictBuilding {
   readonly depth: number;
   readonly height: number;
   readonly landmark: LandmarkShape | null;
+  /** Optional in legacy content; shipped production blocks author one kit. */
+  readonly art: DistrictBuildingArt | null;
 }
 
 export interface DistrictPark {
@@ -183,6 +228,18 @@ export interface DistrictAmbient {
   readonly variant: string | null;
 }
 
+/** Scenic street furniture that never participates in collision or fire. */
+export interface DistrictStreetEdge {
+  readonly id: string;
+  readonly type: DistrictStreetEdgeType;
+  readonly variant: DistrictStreetEdgeVariant;
+  readonly route: DistrictRouteId;
+  readonly x: number;
+  readonly z: number;
+  readonly yawDegrees: number;
+  readonly length: number;
+}
+
 export interface DistrictQuestSite {
   readonly id: string;
   readonly name: string;
@@ -205,6 +262,8 @@ export interface DistrictDefinition {
   readonly props: readonly DistrictProp[];
   /** Optional for legacy/inland districts; absent means no ambient kit. */
   readonly ambient?: readonly DistrictAmbient[];
+  /** Optional, nonblocking production-art kit placements. */
+  readonly streetEdges?: readonly DistrictStreetEdge[];
   readonly questSites: readonly DistrictQuestSite[];
 }
 
@@ -278,6 +337,19 @@ export function getPropRect(prop: DistrictProp): DistrictRect {
   );
 }
 
+export function getStreetEdgeRect(edge: DistrictStreetEdge): DistrictRect {
+  const yaw = (edge.yawDegrees * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(yaw));
+  const sin = Math.abs(Math.sin(yaw));
+  const halfLength = edge.length / 2;
+  const halfDepth = 0.5;
+  return rectFromCenter(
+    edge,
+    halfLength * cos + halfDepth * sin,
+    halfLength * sin + halfDepth * cos,
+  );
+}
+
 export function rectsOverlap(left: DistrictRect, right: DistrictRect): boolean {
   return (
     left.minX < right.maxX &&
@@ -334,11 +406,81 @@ function readPose(value: unknown, path: string, problems: string[]): DistrictPos
   };
 }
 
+const FACADE_USE: Readonly<Record<FacadeVariant, BuildingUse>> = {
+  'house-garden': 'house',
+  'house-bay': 'house',
+  'shop-display': 'shop',
+  'shop-striped': 'shop',
+  'shop-bakery': 'shop',
+  'shop-market': 'shop',
+  'civic-arched': 'civic',
+  'civic-station': 'civic',
+  'workshop-barn': 'workshop',
+  'workshop-service': 'workshop',
+};
+
+export function isFacadeVariantAllowed(use: BuildingUse, facade: FacadeVariant): boolean {
+  return FACADE_USE[facade] === use;
+}
+
+/** Mirrors the fire shell's nearest-street rule without importing renderer data. */
+function getNearestRoadFacing(
+  building: DistrictBuilding,
+  roads: readonly DistrictRoad[],
+): BuildingFacing {
+  let closest = { x: building.x, z: building.z + 1 };
+  let closestDistance = Number.POSITIVE_INFINITY;
+  for (const road of roads) {
+    const rect = getRoadRect(road);
+    const candidate = {
+      x: Math.min(Math.max(building.x, rect.minX), rect.maxX),
+      z: Math.min(Math.max(building.z, rect.minZ), rect.maxZ),
+    };
+    const distance = Math.hypot(candidate.x - building.x, candidate.z - building.z);
+    if (distance < closestDistance) {
+      closest = candidate;
+      closestDistance = distance;
+    }
+  }
+  const deltaX = closest.x - building.x;
+  const deltaZ = closest.z - building.z;
+  if (Math.abs(deltaX) >= Math.abs(deltaZ)) return deltaX >= 0 ? 'east' : 'west';
+  return deltaZ >= 0 ? 'south' : 'north';
+}
+
+function readBuildingArt(
+  value: unknown,
+  path: string,
+  use: BuildingUse,
+  problems: string[],
+): DistrictBuildingArt | null {
+  if (value === undefined) return null;
+  const object = readObject(value, path, problems);
+  if (!object) return null;
+  checkFields(object, path, ['route'], problems, ['facade', 'facing']);
+  const route = readEnum(object.route, `${path}.route`, DISTRICT_ROUTE_IDS, problems);
+  const facade =
+    object.facade === undefined
+      ? null
+      : readEnum(object.facade, `${path}.facade`, FACADE_VARIANTS, problems);
+  const facing =
+    object.facing === undefined
+      ? 'south'
+      : readEnum(object.facing, `${path}.facing`, BUILDING_FACINGS, problems);
+  if (use !== 'tower' && facade === null) {
+    problems.push(`${path}.facade is required for a non-tower production-art kit`);
+  }
+  if (facade !== null && !isFacadeVariantAllowed(use, facade)) {
+    problems.push(`${path}.facade ${facade} is not valid for building use ${use}`);
+  }
+  return { route, facade, facing };
+}
+
 export function validateDistrictDefinition(data: unknown, id: string): DistrictDefinition {
   const problems: string[] = [];
   const root = readObject(data, id, problems);
   if (!root) throw new DistrictValidationError(id, problems);
-  checkFields(root, id, ROOT_FIELDS, problems, ['ambient']);
+  checkFields(root, id, ROOT_FIELDS, problems, ['ambient', 'streetEdges']);
 
   const name = readString(root.name, `${id}.name`, problems);
   const bounds = readBounds(root.bounds, `${id}.bounds`, problems);
@@ -381,12 +523,13 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
         path,
         ['id', 'name', 'use', 'x', 'z', 'width', 'depth', 'height'],
         buildingProblems,
-        ['landmark'],
+        ['landmark', 'art'],
       );
+      const use = readEnum(object.use, `${path}.use`, BUILDING_USES, buildingProblems);
       return {
         id: readString(object.id, `${path}.id`, buildingProblems),
         name: readString(object.name, `${path}.name`, buildingProblems),
-        use: readEnum(object.use, `${path}.use`, BUILDING_USES, buildingProblems),
+        use,
         x: readFiniteNumber(object.x, `${path}.x`, buildingProblems),
         z: readFiniteNumber(object.z, `${path}.z`, buildingProblems),
         width: readPositiveNumber(object.width, `${path}.width`, buildingProblems),
@@ -396,6 +539,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
           object.landmark === undefined
             ? null
             : readEnum(object.landmark, `${path}.landmark`, LANDMARK_SHAPES, buildingProblems),
+        art: readBuildingArt(object.art, `${path}.art`, use, buildingProblems),
       };
     },
   );
@@ -485,6 +629,42 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
           },
         );
 
+  const streetEdges =
+    root.streetEdges === undefined
+      ? []
+      : readPlacementArray(
+          root.streetEdges,
+          `${id}.streetEdges`,
+          problems,
+          (object, path, edgeProblems): DistrictStreetEdge => {
+            checkFields(
+              object,
+              path,
+              ['id', 'type', 'variant', 'route', 'x', 'z', 'length'],
+              edgeProblems,
+              ['yawDegrees'],
+            );
+            return {
+              id: readString(object.id, `${path}.id`, edgeProblems),
+              type: readEnum(object.type, `${path}.type`, STREET_EDGE_TYPES, edgeProblems),
+              variant: readEnum(
+                object.variant,
+                `${path}.variant`,
+                STREET_EDGE_VARIANTS,
+                edgeProblems,
+              ),
+              route: readEnum(object.route, `${path}.route`, DISTRICT_ROUTE_IDS, edgeProblems),
+              x: readFiniteNumber(object.x, `${path}.x`, edgeProblems),
+              z: readFiniteNumber(object.z, `${path}.z`, edgeProblems),
+              yawDegrees:
+                object.yawDegrees === undefined
+                  ? 0
+                  : readFiniteNumber(object.yawDegrees, `${path}.yawDegrees`, edgeProblems),
+              length: readPositiveNumber(object.length, `${path}.length`, edgeProblems),
+            };
+          },
+        );
+
   const questSites = readPlacementArray(
     root.questSites,
     `${id}.questSites`,
@@ -507,6 +687,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   validateUniqueIds(waterBodies, `${id}.waterBodies`, problems);
   validateUniqueIds(props, `${id}.props`, problems);
   validateUniqueIds(ambient, `${id}.ambient`, problems);
+  validateUniqueIds(streetEdges, `${id}.streetEdges`, problems);
   validateUniqueIds(questSites, `${id}.questSites`, problems);
 
   const roadRects = roads.map(getRoadRect);
@@ -526,6 +707,11 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     }
     if (onRoad(rect)) {
       problems.push(`${id}.buildings[${index}] sits on a road and would block driving`);
+    }
+    if (building.art && building.art.facing !== getNearestRoadFacing(building, roads)) {
+      problems.push(
+        `${id}.buildings[${index}].art.facing must face its nearest road so facade art and fire volumes align`,
+      );
     }
   });
 
@@ -576,6 +762,12 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   ambient.forEach((placement, index) => {
     if (!isPointInsideRect(placement, bounds)) {
       problems.push(`${id}.ambient[${index}] leaves the district bounds`);
+    }
+  });
+
+  streetEdges.forEach((edge, index) => {
+    if (!isRectInsideBounds(getStreetEdgeRect(edge), bounds)) {
+      problems.push(`${id}.streetEdges[${index}] leaves the district bounds`);
     }
   });
 
@@ -632,6 +824,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     waterBodies,
     props,
     ambient,
+    streetEdges,
     questSites,
   };
 }

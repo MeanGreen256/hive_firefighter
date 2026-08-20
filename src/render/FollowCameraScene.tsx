@@ -176,6 +176,12 @@ function GameWorld({
   const lastOnboardingStep = useRef<OnboardingStepId | null>(null);
   const lastApproachBand = useRef<ApproachBandId | null>(null);
   const telemetryElapsed = useRef(0);
+  const approachTruckPosition: readonly [number, number, number] = [activeQuestSite.x - 28, 0, 0];
+  const incidentTruckPosition: readonly [number, number, number] = [
+    activeQuestSite.x - 5,
+    0,
+    activeQuestSite.z + 9,
+  ];
 
   // A new quest starts the approach over, so the next sample always publishes.
   useEffect(() => {
@@ -259,11 +265,17 @@ function GameWorld({
         obstacles={DISTRICT_LAYOUT.obstacles}
         movementBounds={DISTRICT_LAYOUT.movementBounds}
         initialPosition={
-          performanceScene?.onFoot
-            ? [activeQuestSite.x - 5, 0, activeQuestSite.z + 9]
-            : DISTRICT_LAYOUT.truckStart.position
+          performanceScene?.cameraStage === 'approach'
+            ? approachTruckPosition
+            : performanceScene?.cameraStage === 'incident'
+              ? incidentTruckPosition
+              : DISTRICT_LAYOUT.truckStart.position
         }
-        initialYaw={DISTRICT_LAYOUT.truckStart.yaw}
+        initialYaw={
+          performanceScene?.cameraStage === 'approach'
+            ? -Math.PI / 2
+            : DISTRICT_LAYOUT.truckStart.yaw
+        }
         speedRatioRef={truckSpeedRatio}
       />
       <FirefighterController
@@ -275,9 +287,11 @@ function GameWorld({
         visible={mode === 'on-foot'}
         obstacles={DISTRICT_LAYOUT.obstacles}
         initialPosition={
-          performanceScene?.onFoot
+          performanceScene?.cameraStage === 'incident'
             ? [activeQuestSite.x, 0, activeQuestSite.z + 10]
-            : DISTRICT_LAYOUT.truckStart.position
+            : performanceScene?.cameraStage === 'approach'
+              ? approachTruckPosition
+              : DISTRICT_LAYOUT.truckStart.position
         }
         movementBounds={DISTRICT_LAYOUT.movementBounds}
       />
@@ -399,6 +413,36 @@ export default function FollowCameraScene() {
         fire.state.activeCellIds.delete(support.id);
         questFireController.advance(0.1);
       }
+    }
+    if (PERFORMANCE_SCENE?.aftermath) {
+      const fire = questFireController.getFire();
+      const subjectCells = Object.keys(fire?.shell.cellSubjectIds ?? {}).sort();
+      subjectCells.forEach((cellId) => {
+        const cell = fire?.state.grid.cells[cellId];
+        if (!cell) return;
+        cell.state = CellState.Clear;
+        cell.fuel = 0.75;
+        cell.heat = 0;
+        cell.wetness = 0;
+        fire?.state.activeCellIds.delete(cellId);
+      });
+      const showcaseStride = Math.max(1, Math.floor(subjectCells.length / 12));
+      subjectCells
+        .filter((_, index) => index % showcaseStride === 0)
+        .slice(0, 12)
+        .forEach((cellId, index) => {
+          const cell = fire?.state.grid.cells[cellId];
+          if (!cell) return;
+          const state = [CellState.Wetted, CellState.Burnt, CellState.Collapsed, CellState.Heating][
+            index % 4
+          ];
+          if (!state) return;
+          cell.state = state;
+          cell.fuel = state === CellState.Wetted || state === CellState.Heating ? 0.55 : 0;
+          cell.heat = state === CellState.Heating ? 45 : 0;
+          cell.wetness = state === CellState.Wetted ? 1 : 0;
+          if (state === CellState.Heating) fire?.state.activeCellIds.add(cellId);
+        });
     }
     if (PERFORMANCE_SCENE?.advanceFireSeconds) {
       const steps = Math.ceil(PERFORMANCE_SCENE.advanceFireSeconds / 0.25);
