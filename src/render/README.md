@@ -81,7 +81,7 @@ fire shell remain the authoritative burnable volumes.
 The `flower-box`, animated `pinwheel`, `bee-sign`, and `harbour-bollard` are
 quiet-world vignette props (#133). They reward looking around without becoming
 objectives. Each is content plus a reusable kit entry — `PROP_PARTS` in
-`CityDistrict.tsx` and `PROP_FOOTPRINTS` in `@sim/districts` — never a one-off
+`propKits.ts` and `PROP_FOOTPRINTS` in `@sim/districts` — never a one-off
 position hand-placed in a component. Landmark accents repeat the route palette
 so the bell tower, school dome, water tower, garage sign, and lighthouse can
 lead three describable routes without a text label. The lighthouse beacon keeps
@@ -214,6 +214,51 @@ Relative aim clamps before turning the body, recentres on release/idle, and
 linearly reduces but never removes target assistance. Move plus spray remains
 sufficient to complete every fire per ADR-007.
 
+## Free-roam reactivity
+
+Free roam is a pillar, not transit, so the hose has to be a toy as well as a
+tool and the siren has to have an audience (#181). `worldReactions.ts` owns both
+halves as pure functions: where the water lands, and what is still fading.
+`WorldReactions` draws the result as two instanced layers — drying wet patches
+and rings on open water — which is the whole draw cost, however long a child
+holds the trigger, because every pool in the field is capped.
+
+Three things about it are load-bearing:
+
+- **Fire always wins.** `AnchoredHoseEffects` only asks for a world contact when
+  the aim assist captured no burning cell. Reactions can never compete with an
+  incident, and no reaction can be a way to finish one.
+- **The stream falls.** The contact is walked as a short polyline under
+  `HOSE_STREAM_DROP_PER_METER_SQUARED`, not cast as a ray. A hose held level
+  puts water on the grass a few metres ahead; a straight test would sail a
+  level aim over the whole district and report that the town had nothing to
+  say — which is exactly the case a five-year-old produces first.
+- **Nothing is consumed.** Patches dry, stirs die away, and no prop, surface, or
+  district state is ever written. There is no counter, no collectible, and no
+  way to ask the field whether the player "did" anything, because there is
+  nothing to have done.
+
+A wet patch is not a decal painted over the town: it is the same paving, grass,
+or dirt drawn darker while it is wet, so it dries by lerping back to the colour
+it started from. That is why the layer needs no per-instance transparency and
+why retuning a ground token never leaves a puddle looking pasted on.
+
+Light props read the same field. `REACTIVE_PROPS` picks the ones water or a
+siren visibly moves; foliage and hedges lean away and rock back, spinning props
+whirl instead, and everything else stays a `StaticPropPartInstance` with no
+frame cost at all. `AmbientDistrict` adds the stir on top of its own idle
+motion: flags gust, signs spin up, ripples widen, and birds break upward and
+away from a passing siren. Reduced detail keeps every reaction and calms all of
+them — `createWorldReactionField` takes the runtime VFX quality and scales pool
+sizes and motion, rather than removing an answer the player is owed.
+
+`scorchRinse.ts` is the aftermath half: a child who has just put a fire out
+wants to keep spraying, and the black marks are the obvious thing to point at.
+`@sim/waterApplication` refuses water on a burnt cell, so the rinse is a
+per-cell presentation number `ExteriorFire` fades scorch by. The simulation is
+never asked, the cell is still burnt, and the marks go with the quest that made
+them.
+
 ## Firefighter-controller contract
 
 `FirefighterController` owns the on-foot subject transform and passes that transform
@@ -318,6 +363,14 @@ floor, and roof geometry for the cutaway.
 ## Budget
 
 < 80 draw calls, < 2000 active particles, 60fps at 1080p on integrated graphics. The harness in #4 makes violations visible.
+
+Free-roam reactivity costs two instanced layers in total — one for wet patches,
+one for water rings — and prop and ambient stir add no draws at all, because
+they move instances that were already being drawn. Measured on the acceptance
+scenes, spraying the town adds exactly one draw (the patch layer; the ripple
+layer stays invisible until water meets water): `spawn` 41, `on-foot` 49 → 50,
+`spray` 53 → 54, against a ceiling of 80. Neither pool scales with how long the
+trigger is held or how large the district is.
 
 The particle count now reads zero: `FireParticles` was the M2 volumetric system
 and went with the cutaway (#100). Exterior fire and the smoke column are

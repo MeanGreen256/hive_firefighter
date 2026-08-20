@@ -196,6 +196,24 @@ export interface HoseAppearance {
   readonly flame: string;
 }
 
+/**
+ * How the town answers the hose and the siren outside an incident (#181).
+ *
+ * These are deliberately their own tokens rather than reused hose colours: a
+ * wet paving stone, a ring on the harbour, and rinsed scorch are surface
+ * treatments the style owns, and each art direction answers them differently —
+ * the diorama darkens and saturates, the ink pass draws a mark. They are
+ * cosmetic only; nothing here participates in an objective or a score.
+ */
+export interface WorldReactionAppearance {
+  /** What a soaked surface tends toward while it dries. */
+  readonly wetSheen: string;
+  /** Rings spreading on open water. */
+  readonly ripple: string;
+  /** What scorch fades toward when a player hoses it clean. */
+  readonly rinsedScorch: string;
+}
+
 /** Semantic incident colours; marker geometry remains the primary state channel. */
 export interface IncidentMarkerAppearance {
   readonly outline: string;
@@ -277,6 +295,7 @@ export interface Style {
   readonly heroes: HeroAppearance;
   readonly particles: ParticleAppearance;
   readonly hose: HoseAppearance;
+  readonly world: WorldReactionAppearance;
   readonly incidentMarkers: IncidentMarkerAppearance;
   readonly hud: HudTheme;
   readonly postProcessing: PostProcessingConfig;
@@ -537,6 +556,11 @@ const diorama: Style = {
     wetCell: '#284d5e',
     flame: '#ff762f',
   },
+  world: {
+    wetSheen: '#2f4a5c',
+    ripple: '#bfe9f4',
+    rinsedScorch: '#8d8375',
+  },
   incidentMarkers: {
     outline: '#fffaf0',
     hazard: { stable: '#435058', countdown: '#8f3027', failed: '#2f3434' },
@@ -720,6 +744,11 @@ const ink: Style = {
     steam: '#fff7df',
     wetCell: '#173f55',
     flame: '#ff4937',
+  },
+  world: {
+    wetSheen: '#101c26',
+    ripple: '#e8f6ff',
+    rinsedScorch: '#6f6a63',
   },
   incidentMarkers: {
     outline: '#16120e',

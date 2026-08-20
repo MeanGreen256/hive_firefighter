@@ -84,6 +84,12 @@ export interface BurningCell {
   readonly position: ShellPoint;
 }
 
+/** A cell the fire has finished with, keyed by the id the renderer draws it under. */
+export interface ScorchedCell {
+  readonly id: string;
+  readonly position: ShellPoint;
+}
+
 export interface SuppressionTarget {
   readonly id: string;
   readonly kind: 'fire' | 'hazard';
@@ -105,6 +111,12 @@ export interface QuestFireController {
   getHazards(): HazardSimulationState;
   getStructures(): StructuralSimulationState;
   getBurningCells(): BurningCell[];
+  /**
+   * Cells the fire has finished with. They are closed to suppression — water on
+   * a burnt cell changes nothing in the simulation — and are published only so
+   * the renderer can let a player hose the scorch marks off afterwards (#181).
+   */
+  getScorchedCells(): ScorchedCell[];
   getSuppressionTargets(): SuppressionTarget[];
   drainSimulationEvents(): QuestSimulationEvent[];
   /** Returns null when the quest is over or the target is not part of this incident. */
@@ -304,6 +316,19 @@ export function createQuestFireController(
         burning.push({ cellId, position: getShellCellWorldPosition(fire.shell, cellId) });
       }
       return burning;
+    },
+
+    getScorchedCells: () => {
+      if (!fire) return [];
+      const scorched: ScorchedCell[] = [];
+      for (const cellId of Object.keys(fire.shell.cellSubjectIds)) {
+        const cell = fire.state.grid.cells[cellId];
+        if (!cell || (cell.state !== CellState.Burnt && cell.state !== CellState.Collapsed)) {
+          continue;
+        }
+        scorched.push({ id: cellId, position: getShellCellWorldPosition(fire.shell, cellId) });
+      }
+      return scorched;
     },
 
     getSuppressionTargets: () => {
