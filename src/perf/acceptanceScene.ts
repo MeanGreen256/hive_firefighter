@@ -1,10 +1,12 @@
 export const PERFORMANCE_SCENE_IDS = [
   'spawn',
+  'approach',
   'on-foot',
   'incident',
   'spray',
   'hazard',
   'collapse',
+  'aftermath',
   'debrief',
 ] as const;
 
@@ -18,6 +20,8 @@ export interface PerformanceAcceptanceScene {
   readonly completeQuest: boolean;
   readonly hazardCountdownSeconds: number | null;
   readonly collapseWarning: boolean;
+  readonly aftermath: boolean;
+  readonly cameraStage: 'spawn' | 'approach' | 'incident';
   readonly freezeClock: boolean;
 }
 
@@ -30,7 +34,21 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     completeQuest: false,
     hazardCountdownSeconds: null,
     collapseWarning: false,
+    aftermath: false,
+    cameraStage: 'spawn',
     freezeClock: false,
+  },
+  approach: {
+    id: 'approach',
+    questIndex: 1,
+    onFoot: false,
+    advanceFireSeconds: 12,
+    completeQuest: false,
+    hazardCountdownSeconds: null,
+    collapseWarning: false,
+    aftermath: false,
+    cameraStage: 'approach',
+    freezeClock: true,
   },
   'on-foot': {
     id: 'on-foot',
@@ -40,6 +58,8 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     completeQuest: false,
     hazardCountdownSeconds: null,
     collapseWarning: false,
+    aftermath: false,
+    cameraStage: 'incident',
     freezeClock: true,
   },
   incident: {
@@ -50,6 +70,8 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     completeQuest: false,
     hazardCountdownSeconds: null,
     collapseWarning: false,
+    aftermath: false,
+    cameraStage: 'incident',
     freezeClock: false,
   },
   spray: {
@@ -60,6 +82,8 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     completeQuest: false,
     hazardCountdownSeconds: null,
     collapseWarning: false,
+    aftermath: false,
+    cameraStage: 'incident',
     freezeClock: true,
   },
   hazard: {
@@ -70,6 +94,8 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     completeQuest: false,
     hazardCountdownSeconds: 6,
     collapseWarning: false,
+    aftermath: false,
+    cameraStage: 'incident',
     freezeClock: true,
   },
   collapse: {
@@ -80,6 +106,20 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     completeQuest: false,
     hazardCountdownSeconds: null,
     collapseWarning: true,
+    aftermath: false,
+    cameraStage: 'incident',
+    freezeClock: true,
+  },
+  aftermath: {
+    id: 'aftermath',
+    questIndex: 1,
+    onFoot: true,
+    advanceFireSeconds: 0,
+    completeQuest: false,
+    hazardCountdownSeconds: null,
+    collapseWarning: false,
+    aftermath: true,
+    cameraStage: 'incident',
     freezeClock: true,
   },
   debrief: {
@@ -90,6 +130,8 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     completeQuest: true,
     hazardCountdownSeconds: null,
     collapseWarning: false,
+    aftermath: false,
+    cameraStage: 'incident',
     freezeClock: false,
   },
 };

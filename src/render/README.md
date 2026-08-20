@@ -68,13 +68,25 @@ by wall colour: `HIP_ROOF_USES` gives cottages four-sided hip roofs while
 round bodies, and all other bodies use a shared softened box. These shapes
 replace the flat equivalents rather than layering on top of them.
 
+`districtArtKits.ts` generalizes the bakery benchmark into the production-art
+contract for the whole town (#160). District data selects a house, shop, civic,
+or workshop facade plus a garden/civic/harbour route; the pure builder places
+doors, windows, awnings, signs, trim, and shallow depth on the authored street
+face. The same builder supplies landmark hero silhouettes and crossing, fence,
+planter, park-boundary, and waterfront-rail kits. `DistrictArtRenderer` batches
+the resulting boxes, cylinders, spheres, and cones across the district. These
+pieces are scenic and non-colliding; porches, awnings, and barn doors from the
+fire shell remain the authoritative burnable volumes.
+
 The `flower-box`, animated `pinwheel`, `bee-sign`, and `harbour-bollard` are
 quiet-world vignette props (#133). They reward looking around without becoming
 objectives. Each is content plus a reusable kit entry — `PROP_PARTS` in
 `CityDistrict.tsx` and `PROP_FOOTPRINTS` in `@sim/districts` — never a one-off
-position hand-placed in a component. The lighthouse beacon turns slowly by the
-same subordinate-motion rule: incident flame, water, and smoke remain faster
-and brighter.
+position hand-placed in a component. Landmark accents repeat the route palette
+so the bell tower, school dome, water tower, garage sign, and lighthouse can
+lead three describable routes without a text label. The lighthouse beacon keeps
+its slow subordinate rotation as an animated instance in the shared landmark
+batch; incident flame, water, and smoke remain faster and brighter.
 
 `AmbientDistrict` is the nonblocking companion layer for flags, birds, water
 ripples, rotating signs, and foliage (#161). District JSON owns the placements;
@@ -87,7 +99,8 @@ Roads render as flat slabs with kerbs, pavement, and dashed lane markings, each
 split around crossing roads by `subtractSpans` so junctions stay open. Repeated
 elements batch by geometry and shadow behavior, with per-instance style colour:
 building bodies and roofs batch by shape, every facade attachment shares one
-box layer, and all prop kits share box/cylinder/sphere layers. Adding a prop
+box layer, district art batches globally by primitive/shadow behavior, and all
+prop kits share box/cylinder/sphere layers. Adding a prop
 type made from an existing primitive therefore adds instance data rather than a
 draw call. The single sun's shadow frustum is widened to the district
 bounds; the five-unit default only shadows one junction, and widening it needs

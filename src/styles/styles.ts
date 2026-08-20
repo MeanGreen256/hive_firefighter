@@ -1,5 +1,5 @@
 import { CellState, type CellState as CellStateValue } from '@sim/cellGrid';
-import type { BuildingUse, DistrictPropType } from '@sim/districts';
+import type { BuildingUse, DistrictPropType, DistrictRouteId } from '@sim/districts';
 import type { MaterialId, SmokeTint } from '@sim/materials';
 
 export const STYLE_IDS = ['diorama', 'ink'] as const;
@@ -91,6 +91,11 @@ export interface CityPropPaint {
   readonly secondary: string;
 }
 
+export interface CityRoutePaint {
+  readonly primary: string;
+  readonly secondary: string;
+}
+
 export interface CityAppearance {
   readonly ground: string;
   readonly road: string;
@@ -112,6 +117,8 @@ export interface CityAppearance {
    * answers for itself rather than a darkened `questMarker`.
    */
   readonly questMarkerOutline: string;
+  /** Landmark/facade/street-edge accents shared along each navigable route. */
+  readonly routes: Readonly<Record<DistrictRouteId, CityRoutePaint>>;
   readonly buildings: Readonly<Record<BuildingUse, CityBuildingPaint>>;
   readonly props: Readonly<Record<DistrictPropType, CityPropPaint>>;
 }
@@ -443,6 +450,11 @@ const diorama: Style = {
     landmarkAccent: '#f2a03d',
     questMarker: '#f2c14e',
     questMarkerOutline: '#4a3524',
+    routes: {
+      garden: { primary: '#6f9d63', secondary: '#f0c65b' },
+      civic: { primary: '#3f6f86', secondary: '#d9463a' },
+      harbour: { primary: '#3f8fa6', secondary: '#f2a03d' },
+    },
     buildings: {
       house: { wall: '#f4d8ad', roof: '#c96a4f', trim: '#fff6e6' },
       shop: { wall: '#efb0a0', roof: '#57908c', trim: '#fff3dc' },
@@ -617,6 +629,11 @@ const ink: Style = {
     landmarkAccent: '#e0912f',
     questMarker: '#fff36a',
     questMarkerOutline: '#16120e',
+    routes: {
+      garden: { primary: '#5c7040', secondary: '#e0b856' },
+      civic: { primary: '#2d69a1', secondary: '#d0362f' },
+      harbour: { primary: '#2d6f85', secondary: '#e0912f' },
+    },
     buildings: {
       house: { wall: '#e0b856', roof: '#b7363d', trim: '#16120e' },
       shop: { wall: '#d97b53', roof: '#315d5b', trim: '#16120e' },

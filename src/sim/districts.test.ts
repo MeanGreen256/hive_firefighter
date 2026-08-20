@@ -14,6 +14,8 @@ import {
   getPropRect,
   getQuestSiteDistanceFromStart,
   getRoadRect,
+  getStreetEdgeRect,
+  isFacadeVariantAllowed,
   isDistrictId,
   loadDistrictDefinitions,
   rectsOverlap,
@@ -247,6 +249,73 @@ describe('Harbour Hill', () => {
     expect(propTypes.has('bee-sign')).toBe(true);
     expect(propTypes.has('pinwheel')).toBe(true);
     expect(propTypes.has('harbour-bollard')).toBe(true);
+  });
+
+  it('authors facade and street-edge kits across all three landmark routes', () => {
+    const district = validHarbourHill();
+    const routes = new Set(district.buildings.flatMap((building) => building.art?.route ?? []));
+    const streetEdges = district.streetEdges ?? [];
+
+    expect(routes).toEqual(new Set(['garden', 'civic', 'harbour']));
+    expect(district.buildings.every((building) => building.art !== null)).toBe(true);
+    expect(streetEdges.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(streetEdges.map((edge) => edge.type))).toEqual(
+      new Set(['crossing', 'fence', 'planter', 'park-boundary', 'waterfront-rail']),
+    );
+    expect(
+      streetEdges.every((edge) => {
+        const rect = getStreetEdgeRect(edge);
+        return (
+          rect.minX >= district.bounds.minX &&
+          rect.maxX <= district.bounds.maxX &&
+          rect.minZ >= district.bounds.minZ &&
+          rect.maxZ <= district.bounds.maxZ
+        );
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps facade vocabulary compatible with building uses and fire-facing geometry', () => {
+    expect(isFacadeVariantAllowed('shop', 'shop-bakery')).toBe(true);
+    expect(isFacadeVariantAllowed('house', 'shop-bakery')).toBe(false);
+
+    const wrongUse = cloneHarbourHill();
+    const buildings = wrongUse.buildings as Record<string, unknown>[];
+    buildings[0] = {
+      ...buildings[0],
+      art: { route: 'garden', facade: 'shop-bakery', facing: 'west' },
+    };
+    expect(() => validateDistrictDefinition(wrongUse, 'wrong-use')).toThrow(
+      /facade shop-bakery is not valid for building use house/,
+    );
+
+    const wrongFacing = cloneHarbourHill();
+    const facingBuildings = wrongFacing.buildings as Record<string, unknown>[];
+    facingBuildings[0] = {
+      ...facingBuildings[0],
+      art: { route: 'garden', facade: 'house-garden', facing: 'east' },
+    };
+    expect(() => validateDistrictDefinition(wrongFacing, 'wrong-facing')).toThrow(
+      /art\.facing must face its nearest road/,
+    );
+  });
+
+  it('rejects a street-edge kit whose full oriented footprint leaves the district', () => {
+    const broken = cloneHarbourHill();
+    broken.streetEdges = [
+      {
+        id: 'off-edge',
+        type: 'waterfront-rail',
+        variant: 'plain',
+        route: 'harbour',
+        x: 63,
+        z: 0,
+        length: 8,
+      },
+    ];
+    expect(() => validateDistrictDefinition(broken, 'street-edge-off-edge')).toThrow(
+      /streetEdges\[0\] leaves the district bounds/,
+    );
   });
 
   it('authors nonblocking ambient beats for the quiet route', () => {

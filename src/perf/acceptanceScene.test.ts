@@ -16,6 +16,8 @@ describe('performance acceptance scenes', () => {
       completeQuest: false,
       hazardCountdownSeconds: null,
       collapseWarning: false,
+      aftermath: false,
+      cameraStage: 'incident',
       freezeClock: false,
     });
   });
@@ -29,6 +31,19 @@ describe('performance acceptance scenes', () => {
       completeQuest: false,
       hazardCountdownSeconds: null,
       collapseWarning: false,
+      aftermath: false,
+      cameraStage: 'incident',
+      freezeClock: true,
+    });
+  });
+
+  it('stages a frozen chase approach before the shoulder-camera scenes', () => {
+    expect(performanceSceneFromSearch('?perfScene=approach')).toMatchObject({
+      id: 'approach',
+      questIndex: 1,
+      onFoot: false,
+      advanceFireSeconds: 12,
+      cameraStage: 'approach',
       freezeClock: true,
     });
   });
@@ -38,6 +53,16 @@ describe('performance acceptance scenes', () => {
       id: 'spray',
       onFoot: true,
       advanceFireSeconds: 20,
+      freezeClock: true,
+    });
+  });
+
+  it('holds mixed persistent fire states for aftermath review', () => {
+    expect(performanceSceneFromSearch('?perfScene=aftermath')).toMatchObject({
+      id: 'aftermath',
+      onFoot: true,
+      aftermath: true,
+      completeQuest: false,
       freezeClock: true,
     });
   });

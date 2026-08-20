@@ -7,8 +7,8 @@ Game data as JSON. **Adding content should not require writing code.**
 - `materials.json` — the fire behaviour table (#5). The highest-leverage data in the game: add a row, and every prop made of that material gets new behaviour everywhere.
 - `scenarios/*.json` — authored incidents: grid dimensions and materials,
   ignition, wind, entity placements, optional street props, and par time.
-- `districts/*.json` — the free-roam city (#90): roads, blocks, parks, street
-  props, and the quest sites a quest can be staged at.
+- `districts/*.json` — the free-roam city (#90, #160): roads, blocks, parks,
+  reusable facade/landmark/street-edge art, street props, and quest sites.
 - `burnables.json` — what exterior fire is allowed to live on (#91), and the
   shape of the shell it occupies.
 - `quests/*.json` — one authored incident per quest site: what may burn, where
@@ -88,7 +88,11 @@ Each district declares:
   the other axis, the `from`/`to` span, and a `width`;
 - `buildings` as footprints with a `use` (`house`, `shop`, `civic`, `workshop`,
   `tower`) and an optional `landmark` silhouette (`bell-tower`, `water-tower`,
-  `dome`, `big-sign`, `lighthouse`);
+  `dome`, `big-sign`, `lighthouse`). A production-art building also authors an
+  `art` object: one of the `garden`, `civic`, or `harbour` routes; its nearest-
+  road `facing`; and, except for towers, a use-compatible `facade` kit. The
+  loader rejects a facade from the wrong building family or a facing that
+  would separate decorative art from the burnable exterior shell;
 - `parks` as green rectangles — first-class areas, not leftovers;
 - `waterBodies` as flat rectangles the same shape a park is — a harbour or a
   river edge, optional per district (an inland district authors none). Water
@@ -105,6 +109,11 @@ Each district declares:
   `foliage`), a world position, optional `yawDegrees`, and an optional
   route-specific `variant`. Ambient placements are visual/audio-only: they
   never enter collision or fire simulation data;
+- optional `streetEdges` built from the shared crossing, fence, planter,
+  park-boundary, and waterfront-rail kits. Each placement authors a route,
+  visual variant, world position, length, and optional yaw. The full oriented
+  footprint must remain inside district bounds, but it never becomes collision
+  or a fire target;
 - `questSites`, at least three, each anchored to a building or park.
 
 Validation enforces that the city stays drivable and the quests stay reachable,

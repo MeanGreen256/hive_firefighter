@@ -67,7 +67,8 @@
       "z": -56,
       "width": 9,
       "depth": 8,
-      "height": 5
+      "height": 5,
+      "art": { "route": "garden", "facade": "house-garden", "facing": "west" }
     },
     {
       "id": "house-maple",
@@ -77,7 +78,8 @@
       "z": -56,
       "width": 9,
       "depth": 8,
-      "height": 5
+      "height": 5,
+      "art": { "route": "garden", "facade": "house-bay", "facing": "east" }
     },
     {
       "id": "house-birch",
@@ -87,7 +89,8 @@
       "z": -44,
       "width": 10,
       "depth": 8,
-      "height": 5.5
+      "height": 5.5,
+      "art": { "route": "garden", "facade": "house-garden", "facing": "south" }
     },
     {
       "id": "shop-toybox",
@@ -97,7 +100,8 @@
       "z": -55,
       "width": 10,
       "depth": 9,
-      "height": 6
+      "height": 6,
+      "art": { "route": "civic", "facade": "shop-display", "facing": "west" }
     },
     {
       "id": "shop-icecream",
@@ -107,7 +111,8 @@
       "z": -55,
       "width": 9,
       "depth": 8,
-      "height": 5.5
+      "height": 5.5,
+      "art": { "route": "civic", "facade": "shop-striped", "facing": "east" }
     },
     {
       "id": "shop-bookshop",
@@ -117,7 +122,8 @@
       "z": -43,
       "width": 12,
       "depth": 7,
-      "height": 6
+      "height": 6,
+      "art": { "route": "civic", "facade": "shop-display", "facing": "south" }
     },
     {
       "id": "water-tower-hill",
@@ -128,7 +134,8 @@
       "width": 8,
       "depth": 8,
       "height": 14,
-      "landmark": "water-tower"
+      "landmark": "water-tower",
+      "art": { "route": "harbour", "facing": "west" }
     },
     {
       "id": "house-cliff",
@@ -138,7 +145,8 @@
       "z": -42,
       "width": 12,
       "depth": 7,
-      "height": 5
+      "height": 5,
+      "art": { "route": "harbour", "facade": "house-bay", "facing": "south" }
     },
     {
       "id": "workshop-boatyard",
@@ -148,7 +156,8 @@
       "z": -22,
       "width": 16,
       "depth": 10,
-      "height": 7
+      "height": 7,
+      "art": { "route": "harbour", "facade": "workshop-barn", "facing": "north" }
     },
     {
       "id": "workshop-store",
@@ -158,7 +167,8 @@
       "z": -9,
       "width": 10,
       "depth": 7,
-      "height": 5
+      "height": 5,
+      "art": { "route": "harbour", "facade": "workshop-service", "facing": "south" }
     },
     {
       "id": "firehouse",
@@ -169,7 +179,8 @@
       "width": 14,
       "depth": 11,
       "height": 8,
-      "landmark": "bell-tower"
+      "landmark": "bell-tower",
+      "art": { "route": "civic", "facade": "civic-station", "facing": "north" }
     },
     {
       "id": "house-station-cottage",
@@ -179,7 +190,8 @@
       "z": -8,
       "width": 8,
       "depth": 6,
-      "height": 4.5
+      "height": 4.5,
+      "art": { "route": "civic", "facade": "house-garden", "facing": "south" }
     },
     {
       "id": "bakery",
@@ -189,7 +201,8 @@
       "z": -12,
       "width": 10,
       "depth": 8,
-      "height": 6
+      "height": 6,
+      "art": { "route": "civic", "facade": "shop-bakery", "facing": "south" }
     },
     {
       "id": "shop-hardware",
@@ -199,7 +212,8 @@
       "z": -12,
       "width": 10,
       "depth": 8,
-      "height": 6
+      "height": 6,
+      "art": { "route": "civic", "facade": "shop-display", "facing": "east" }
     },
     {
       "id": "shop-flowers",
@@ -209,7 +223,8 @@
       "z": -25,
       "width": 14,
       "depth": 8,
-      "height": 5.5
+      "height": 5.5,
+      "art": { "route": "garden", "facade": "shop-market", "facing": "north" }
     },
     {
       "id": "workshop-harbour",
@@ -219,7 +234,8 @@
       "z": -18,
       "width": 16,
       "depth": 12,
-      "height": 8
+      "height": 8,
+      "art": { "route": "harbour", "facade": "workshop-barn", "facing": "north" }
     },
     {
       "id": "house-poppy",
@@ -229,7 +245,8 @@
       "z": 12,
       "width": 9,
       "depth": 8,
-      "height": 5
+      "height": 5,
+      "art": { "route": "garden", "facade": "house-garden", "facing": "west" }
     },
     {
       "id": "house-daisy",
@@ -239,7 +256,8 @@
       "z": 12,
       "width": 9,
       "depth": 8,
-      "height": 5
+      "height": 5,
+      "art": { "route": "garden", "facade": "house-bay", "facing": "east" }
     },
     {
       "id": "house-clover",
@@ -249,7 +267,8 @@
       "z": 24,
       "width": 12,
       "depth": 8,
-      "height": 5.5
+      "height": 5.5,
+      "art": { "route": "garden", "facade": "house-garden", "facing": "south" }
     },
     {
       "id": "school",
@@ -260,7 +279,8 @@
       "width": 18,
       "depth": 12,
       "height": 8,
-      "landmark": "dome"
+      "landmark": "dome",
+      "art": { "route": "garden", "facade": "civic-arched", "facing": "north" }
     },
     {
       "id": "shop-corner",
@@ -270,7 +290,8 @@
       "z": 26,
       "width": 10,
       "depth": 6,
-      "height": 5
+      "height": 5,
+      "art": { "route": "civic", "facade": "shop-striped", "facing": "south" }
     },
     {
       "id": "workshop-garage",
@@ -281,7 +302,8 @@
       "width": 16,
       "depth": 10,
       "height": 7,
-      "landmark": "big-sign"
+      "landmark": "big-sign",
+      "art": { "route": "harbour", "facade": "workshop-service", "facing": "north" }
     },
     {
       "id": "house-hill",
@@ -291,7 +313,8 @@
       "z": 26,
       "width": 12,
       "depth": 6,
-      "height": 5
+      "height": 5,
+      "art": { "route": "harbour", "facade": "house-bay", "facing": "south" }
     },
     {
       "id": "house-anchor",
@@ -301,7 +324,8 @@
       "z": 45,
       "width": 12,
       "depth": 8,
-      "height": 5
+      "height": 5,
+      "art": { "route": "harbour", "facade": "house-garden", "facing": "north" }
     },
     {
       "id": "house-lantern",
@@ -311,7 +335,8 @@
       "z": 57,
       "width": 12,
       "depth": 8,
-      "height": 5
+      "height": 5,
+      "art": { "route": "harbour", "facade": "house-bay", "facing": "east" }
     },
     {
       "id": "shop-market",
@@ -321,7 +346,8 @@
       "z": 45,
       "width": 16,
       "depth": 9,
-      "height": 6
+      "height": 6,
+      "art": { "route": "civic", "facade": "shop-market", "facing": "north" }
     },
     {
       "id": "shop-postoffice",
@@ -331,7 +357,8 @@
       "z": 58,
       "width": 12,
       "depth": 8,
-      "height": 5.5
+      "height": 5.5,
+      "art": { "route": "civic", "facade": "shop-display", "facing": "east" }
     },
     {
       "id": "house-cove",
@@ -341,7 +368,8 @@
       "z": 45,
       "width": 11,
       "depth": 8,
-      "height": 5
+      "height": 5,
+      "art": { "route": "harbour", "facade": "house-garden", "facing": "north" }
     },
     {
       "id": "lighthouse",
@@ -352,7 +380,8 @@
       "width": 8,
       "depth": 8,
       "height": 16,
-      "landmark": "lighthouse"
+      "landmark": "lighthouse",
+      "art": { "route": "harbour", "facing": "west" }
     }
   ],
   "parks": [
@@ -598,6 +627,104 @@
       "z": 42.5,
       "yawDegrees": -20,
       "variant": "reed"
+    }
+  ],
+  "streetEdges": [
+    {
+      "id": "civic-bakery-crossing",
+      "type": "crossing",
+      "variant": "safety",
+      "route": "civic",
+      "x": 12,
+      "z": -5,
+      "length": 7
+    },
+    {
+      "id": "garden-meadow-crossing",
+      "type": "crossing",
+      "variant": "plain",
+      "route": "garden",
+      "x": -40,
+      "z": 0,
+      "yawDegrees": 90,
+      "length": 7
+    },
+    {
+      "id": "harbour-yard-crossing",
+      "type": "crossing",
+      "variant": "safety",
+      "route": "harbour",
+      "x": 34,
+      "z": -18,
+      "yawDegrees": 90,
+      "length": 7
+    },
+    {
+      "id": "meadow-park-boundary",
+      "type": "park-boundary",
+      "variant": "flowered",
+      "route": "garden",
+      "x": -40,
+      "z": 17,
+      "yawDegrees": 90,
+      "length": 18
+    },
+    {
+      "id": "north-green-boundary",
+      "type": "park-boundary",
+      "variant": "plain",
+      "route": "garden",
+      "x": -40,
+      "z": -51,
+      "yawDegrees": 90,
+      "length": 18
+    },
+    {
+      "id": "riverside-green-boundary",
+      "type": "fence",
+      "variant": "flowered",
+      "route": "garden",
+      "x": 17,
+      "z": 40,
+      "length": 18
+    },
+    {
+      "id": "market-hall-planter",
+      "type": "planter",
+      "variant": "flowered",
+      "route": "civic",
+      "x": -17,
+      "z": 39.7,
+      "length": 6
+    },
+    {
+      "id": "firehouse-yard-fence",
+      "type": "fence",
+      "variant": "safety",
+      "route": "civic",
+      "x": -18,
+      "z": -11.8,
+      "length": 10
+    },
+    {
+      "id": "east-harbour-rail",
+      "type": "waterfront-rail",
+      "variant": "safety",
+      "route": "harbour",
+      "x": 58.4,
+      "z": -18,
+      "yawDegrees": 90,
+      "length": 16
+    },
+    {
+      "id": "lighthouse-cove-rail",
+      "type": "waterfront-rail",
+      "variant": "plain",
+      "route": "harbour",
+      "x": 59.2,
+      "z": 51,
+      "yawDegrees": 90,
+      "length": 21
     }
   ],
   "questSites": [

@@ -17,10 +17,12 @@ import {
   getRoadRect,
   getWaterBodyRect,
   type BuildingUse,
+  type DistrictBuildingArt,
   type DistrictDefinition,
   type DistrictProp,
   type DistrictRect,
   type DistrictRoad,
+  type DistrictStreetEdge,
 } from '@sim/districts';
 import { getBuildingAttachments } from '@sim/exteriorShell';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
@@ -117,6 +119,7 @@ export interface DistrictBuildingPlacement {
   readonly id: string;
   readonly use: DistrictDefinition['buildings'][number]['use'];
   readonly landmark: DistrictDefinition['buildings'][number]['landmark'];
+  readonly art: DistrictBuildingArt | null;
   readonly position: Vector3Tuple;
   readonly width: number;
   readonly depth: number;
@@ -145,6 +148,16 @@ export interface DistrictPropPlacement {
   readonly yaw: number;
 }
 
+export interface DistrictStreetEdgePlacement {
+  readonly id: string;
+  readonly type: DistrictStreetEdge['type'];
+  readonly variant: DistrictStreetEdge['variant'];
+  readonly route: DistrictStreetEdge['route'];
+  readonly position: Vector3Tuple;
+  readonly yaw: number;
+  readonly length: number;
+}
+
 export interface DistrictLayout {
   readonly movementBounds: CharacterMovementBounds;
   readonly obstacles: readonly CharacterObstacle[];
@@ -159,6 +172,8 @@ export interface DistrictLayout {
   readonly buildings: readonly DistrictBuildingPlacement[];
   readonly attachments: readonly DistrictAttachmentPlacement[];
   readonly props: readonly DistrictPropPlacement[];
+  /** Scenic route language only; these never enter `obstacles`. */
+  readonly streetEdges: readonly DistrictStreetEdgePlacement[];
   readonly truckStart: { readonly position: Vector3Tuple; readonly yaw: number };
 }
 
@@ -314,6 +329,7 @@ export function buildDistrictLayout(district: DistrictDefinition): DistrictLayou
       id: building.id,
       use: building.use,
       landmark: building.landmark,
+      art: building.art,
       position: [building.x, building.height / 2, building.z] as Vector3Tuple,
       width: building.width,
       depth: building.depth,
@@ -338,6 +354,15 @@ export function buildDistrictLayout(district: DistrictDefinition): DistrictLayou
       type: prop.type,
       position: [prop.x, 0, prop.z] as Vector3Tuple,
       yaw: (prop.yawDegrees * Math.PI) / 180,
+    })),
+    streetEdges: (district.streetEdges ?? []).map((edge) => ({
+      id: edge.id,
+      type: edge.type,
+      variant: edge.variant,
+      route: edge.route,
+      position: [edge.x, 0, edge.z] as Vector3Tuple,
+      yaw: (edge.yawDegrees * Math.PI) / 180,
+      length: edge.length,
     })),
     truckStart: {
       position: [district.truckStart.x, 0, district.truckStart.z] as Vector3Tuple,

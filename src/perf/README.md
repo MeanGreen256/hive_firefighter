@@ -41,27 +41,29 @@ to catch:
 
 ```text
 /?perfScene=spawn&style=diorama
+/?perfScene=approach&style=diorama
 /?perfScene=on-foot&style=diorama
 /?perfScene=incident&style=diorama
 /?perfScene=spray&style=diorama
 /?perfScene=hazard&style=diorama
 /?perfScene=collapse&style=diorama
+/?perfScene=aftermath&style=diorama
 /?perfScene=debrief&style=diorama
 ```
 
 Repeat each with `style=ink`, open the J overlay, and record the stable maximum
 after the one-time shadow bake. `on-foot` freezes the initial incident with the
-firefighter and nozzle ready; `incident` places the shoulder camera at the bakery
-vertical slice after twenty simulated seconds. `spray` freezes that same setup with
-every water-feedback layer visible without consuming the fire. `hazard` holds the six-light propane
-countdown and `collapse` holds its exterior warning so short cues can be reviewed and
-profiled without racing the clock. `debrief` completes that quest and opens the real
-star result. These parameters are development-only and have no effect in production
-builds.
+firefighter and nozzle ready; `approach` freezes a live chase-camera sightline on
+the bakery route; `incident` places the shoulder camera at the bakery after twenty
+simulated seconds. `spray` freezes that setup with every water-feedback layer visible
+without consuming the fire. `hazard` holds the six-light propane countdown,
+`collapse` holds its exterior warning, and `aftermath` holds a deterministic mix of
+wet, heated, burnt, and collapsed consequence art. `debrief` completes that quest
+and opens the real star result. These parameters are development-only and have no
+effect in production builds.
 
-The representative M3 budget is fewer than 80 draws in all ten combinations. Keep
-at least 13 draws uncommitted after the current propane and cosmetic-collapse cues
-for the approved vertical-slice art. Harbour Hill's static directional shadow map is baked once;
+The representative M3 budget is fewer than 80 draws in every scene/style combination.
+Harbour Hill's static directional shadow map is baked once;
 moving hero assets use style-token contact blobs so they do not rerender the whole
 town into the shadow map every frame. The sampler ignores eight startup frames so
 that one-time bake is not mistaken for sustained gameplay cost.
@@ -105,3 +107,12 @@ camera pass and the largest sampled shadow-refresh pass; particles stayed at zer
 The spray-on scene covers the merged nozzle plus the bright arc, fan droplets,
 contact splash, fire, and smoke together. Every sampled draw count remains below
 the hard `<80` limit, including shadow refreshes.
+
+### 2026-08-19 reusable district-art result
+
+The #160/#163 pass expands the harness to all nine required frames, in both
+styles, after replacing the bakery one-off with district-wide facade, landmark,
+and street-edge kits. The 1280×720 DPR-2 matrix ranges from 42 to 56 draws; the
+worst collapse/ink frame retains 24 calls of headroom. The full FPS, draw,
+triangle, console, bundle, and visual checklist is recorded in
+[`docs/art/harbour-hill-production-art-acceptance.md`](../../docs/art/harbour-hill-production-art-acceptance.md).
