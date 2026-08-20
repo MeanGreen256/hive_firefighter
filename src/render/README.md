@@ -99,15 +99,21 @@ is decided by `content/burnables.json`, not by this folder.
 
 ## Exterior fire contract
 
-`ExteriorFire` draws the active quest's fire (#91) as one instanced layer per
-cell state, at the world positions `@sim/exteriorShell` gave those cells. It
-reads the live grid off `questFireController` every frame and writes instance
-matrices directly; the 10 Hz simulation never becomes React state, and a fire
-costs one draw call per visible state however far it spreads. Burning and
-flashover cells are unshaded and stand slightly proud of the surface, so flame
-reads as the brightest thing in the scene from street level. Collapsed cells
-remain as broad, low scorched toy bricks; `ExteriorIncidentEffects` adds the
-wireframe warning wobble and a short dust poof without changing city collision.
+`ExteriorFire` reads the active quest's live grid and writes instance matrices
+directly; the 10 Hz simulation never becomes React state. Burning cells use
+separate edge/core cone silhouettes plus batched sparks, and flashover grows the
+same vocabulary into a distinct hotter cue. Heating, wet, burnt, and collapsed
+states use different geometry and proportions instead of recolouring one block,
+so suppression remains readable without the HUD. Diorama uses soft transparent
+edges; ink adds a scaled backface outline. A whole incident still costs a fixed
+set of instanced draw calls however far it spreads.
+
+`incidentVfx.ts` owns deterministic state and motion plans. `?vfx=reduced`, a
+reduced-motion preference, or a small logical CPU count removes sparks, lowers
+smoke density, and damps motion while preserving both flame layers and the smoke
+landmark. Collapsed cells remain broad, low scorched toy bricks;
+`ExteriorIncidentEffects` adds the warning wobble and dust poof without changing
+city collision.
 
 `ExteriorIncidentEffects` also renders quest-authored propane as a toy cylinder.
 Eight disappearing pips and accelerating audio pulses carry the countdown; a
@@ -125,9 +131,9 @@ The smoke column is the primary signal and is meant to do most of the work: a
 landmark tall enough to read from across the district, thickening with the
 number of burning cells, and tinted by whatever is actually alight (`@sim/fireSignal`
 resolves the semantic tint; the style resolves the colour). It is one instanced
-draw call — puffs shrink to nothing as they rise instead of fading, because
-per-instance transparency would cost a draw call each and a thinning plume reads
-the same.
+draw call. Puffs vary in squash, yaw, radius, and lateral curl to form a drifting
+plume rather than a uniform pillar; they still shrink to nothing at the top
+because per-instance transparency would cost a draw call each.
 
 Width matters more than height, which is not obvious and cost #130 to discover.
 The chase camera sits about five metres up and pitches 22° down, so the top of
@@ -175,6 +181,13 @@ column can stand over a site whose fire is not the live one.
 suppression targets — alight cells plus an active propane countdown — and hands
 water back by target id. Extinguishing and cooling therefore remain real
 simulation behaviour rather than scripted effects.
+
+`HoseNozzle` is the reusable toy tool kit: barrel, front opening, coupling,
+grip, guard, and trigger all resolve through `Style.hose` tokens, then merge
+into one vertex-coloured mesh. One instanced water layer combines the bright arc
+beads, spray fan, and contact splash. `hoseVfx.ts` plans spray-on/off frames and
+the reduced-detail counts deterministically; repeated pieces never become one
+draw call per droplet. Hot contacts retain the short steam pulse.
 
 On foot, right-drag and right stick are optional free aim, not camera orbit.
 Relative aim clamps before turning the body, recentres on release/idle, and

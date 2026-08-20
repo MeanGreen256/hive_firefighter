@@ -1,49 +1,30 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Matrix4, Vector3, type InstancedMesh } from 'three';
+import { BackSide, Matrix4, Vector3, type InstancedMesh } from 'three';
 import { CellState } from '@sim/cellGrid';
 import { getShellCellWorldPosition } from '@sim/exteriorShell';
 import type { QuestFireController } from '../state/questFireController';
 import type { Style } from '@styles/styles';
+import { getFireStateFrame, getFlameCellFrame, getRuntimeVfxQuality } from './incidentVfx';
 
-/**
- * The states worth drawing, in the order they stack. Clear cells are the city
- * itself and are already drawn. Collapsed cells stay as persistent scorched
- * slump geometry; they never alter the district collision shell.
- */
-const DRAWN_STATES = [
+const MARKER_STATES = [
   CellState.Burnt,
   CellState.Wetted,
   CellState.Heating,
-  CellState.Burning,
-  CellState.Flashover,
   CellState.Collapsed,
 ] as const;
-type DrawnState = (typeof DRAWN_STATES)[number];
+type MarkerState = (typeof MARKER_STATES)[number];
 
-/** Flames stand a little proud of the surface so they read from the street. */
-const STATE_SCALE: Readonly<Record<DrawnState, number>> = {
-  [CellState.Burnt]: 0.94,
-  [CellState.Wetted]: 0.98,
-  [CellState.Heating]: 0.96,
-  [CellState.Burning]: 1.08,
-  [CellState.Flashover]: 1.22,
-  [CellState.Collapsed]: 1.04,
-};
-
-/** Burning cells are lit, not shaded: fire is the brightest thing in the scene. */
-const UNSHADED_STATES: ReadonlySet<DrawnState> = new Set([CellState.Burning, CellState.Flashover]);
-
-const FLICKER_HZ = 6.5;
-const FLICKER_DEPTH = 0.07;
+function MarkerGeometry({ state }: { readonly state: MarkerState }) {
+  if (state === CellState.Heating) return <dodecahedronGeometry args={[0.5, 0]} />;
+  if (state === CellState.Wetted) return <sphereGeometry args={[0.5, 10, 6]} />;
+  return <boxGeometry />;
+}
 
 /**
- * Draws the active quest's fire (#91) as one instanced layer per cell state,
- * at the world positions the shell put those cells in.
- *
- * The 10 Hz simulation is read straight off the controller each frame and
- * written into instance matrices — it never becomes React state, and the whole
- * fire costs one draw call per visible state no matter how far it has spread.
+ * Layered toy flame silhouettes plus distinct persistent-state markers.
+ * Repeated geometry is instanced: four state layers, outer/core flame layers,
+ * and one optional spark layer cover the whole incident regardless of spread.
  */
 export function ExteriorFire({
   controller,
@@ -51,16 +32,19 @@ export function ExteriorFire({
   visualStyle,
 }: {
   readonly controller: QuestFireController;
-  /** Rebuilds the instance pools when the player takes a different quest. */
   readonly questId: string | null;
   readonly visualStyle: Style;
 }) {
-  const meshes = useRef(new Map<DrawnState, InstancedMesh>());
+  const markerMeshes = useRef(new Map<MarkerState, InstancedMesh>());
+  const outerFlamesRef = useRef<InstancedMesh>(null);
+  const coreFlamesRef = useRef<InstancedMesh>(null);
+  const outlineFlamesRef = useRef<InstancedMesh>(null);
+  const sparksRef = useRef<InstancedMesh>(null);
+  const quality = useMemo(() => getRuntimeVfxQuality(), []);
   const scratchMatrix = useMemo(() => new Matrix4(), []);
   const scratchPosition = useMemo(() => new Vector3(), []);
   const scratchScale = useMemo(() => new Vector3(), []);
 
-  // One shell can only hold as many cells as it has; that is the instance cap.
   const capacity = useMemo(() => {
     const fire = controller.getFire();
     if (!fire || fire.quest.id !== questId) return 1;
@@ -68,76 +52,207 @@ export function ExteriorFire({
   }, [controller, questId]);
 
   useEffect(() => {
-    const current = meshes.current;
+    const current = markerMeshes.current;
     return () => current.clear();
   }, []);
 
+  const setInstance = (
+    mesh: InstancedMesh | null,
+    index: number,
+    position: Vector3,
+    scale: readonly [number, number, number],
+    yawRadians: number,
+  ) => {
+    if (!mesh || index >= capacity) return;
+    scratchScale.set(...scale);
+    scratchMatrix.makeRotationY(yawRadians).scale(scratchScale).setPosition(position);
+    mesh.setMatrixAt(index, scratchMatrix);
+  };
+
   useFrame(({ clock }) => {
     const fire = controller.getFire();
-    const counts = new Map<DrawnState, number>(DRAWN_STATES.map((state) => [state, 0]));
+    const markerCounts = new Map<MarkerState, number>(MARKER_STATES.map((state) => [state, 0]));
+    let flameCount = 0;
+    let sparkCount = 0;
 
-    if (fire) {
-      const flicker = 1 + Math.sin(clock.elapsedTime * FLICKER_HZ * Math.PI) * FLICKER_DEPTH;
+    if (fire?.quest.id === questId) {
       for (const cellId of Object.keys(fire.shell.cellSubjectIds)) {
         const cell = fire.state.grid.cells[cellId];
         if (!cell || cell.state === CellState.Clear) continue;
-        const state = cell.state as DrawnState;
-        const mesh = meshes.current.get(state);
-        const index = counts.get(state) ?? 0;
-        if (!mesh || index >= capacity) continue;
+        const world = getShellCellWorldPosition(fire.shell, cellId);
+        scratchPosition.set(world.x, world.y, world.z);
 
-        const position = getShellCellWorldPosition(fire.shell, cellId);
-        const scale = fire.shell.cellSize * STATE_SCALE[state];
-        scratchPosition.set(
-          position.x,
-          state === CellState.Collapsed ? position.y - scale * 0.34 : position.y,
-          position.z,
+        const flame = getFlameCellFrame(
+          cellId,
+          cell.state,
+          fire.shell.cellSize,
+          clock.elapsedTime,
+          quality,
         );
-        if (state === CellState.Collapsed) {
-          // A broad, low toy-brick reads as a safe sag rather than a vanished
-          // facade cell or a dangerous physics object.
-          scratchScale.set(scale * 1.12, scale * 0.32, scale * 1.04);
-        } else {
-          scratchScale.setScalar(UNSHADED_STATES.has(state) ? scale * flicker : scale);
+        if (flame) {
+          scratchPosition.set(world.x, world.y + flame.outerYOffset, world.z);
+          setInstance(
+            outerFlamesRef.current,
+            flameCount,
+            scratchPosition,
+            flame.outerScale,
+            flame.yawRadians,
+          );
+
+          const outline = visualStyle.particles.flame.outline;
+          if (outline) {
+            const outlineScale = flame.outerScale.map(
+              (value) => value * outline.scale,
+            ) as unknown as readonly [number, number, number];
+            setInstance(
+              outlineFlamesRef.current,
+              flameCount,
+              scratchPosition,
+              outlineScale,
+              flame.yawRadians,
+            );
+          }
+
+          scratchPosition.set(
+            world.x,
+            world.y + flame.coreYOffset,
+            world.z + fire.shell.cellSize * 0.08,
+          );
+          setInstance(
+            coreFlamesRef.current,
+            flameCount,
+            scratchPosition,
+            flame.coreScale,
+            -flame.yawRadians * 0.7,
+          );
+
+          if (flame.showSpark) {
+            scratchPosition.set(
+              world.x + flame.sparkOffset[0],
+              world.y + flame.sparkOffset[1],
+              world.z + flame.sparkOffset[2],
+            );
+            setInstance(
+              sparksRef.current,
+              sparkCount,
+              scratchPosition,
+              [flame.sparkScale, flame.sparkScale * 1.8, flame.sparkScale],
+              flame.yawRadians,
+            );
+            sparkCount += 1;
+          }
+          flameCount += 1;
+          continue;
         }
-        scratchMatrix.identity().scale(scratchScale).setPosition(scratchPosition);
-        mesh.setMatrixAt(index, scratchMatrix);
-        counts.set(state, index + 1);
+
+        const markerState = cell.state as MarkerState;
+        const markerFrame = getFireStateFrame(
+          cellId,
+          markerState,
+          fire.shell.cellSize,
+          clock.elapsedTime,
+        );
+        const mesh = markerMeshes.current.get(markerState);
+        if (!markerFrame || !mesh) continue;
+        const index = markerCounts.get(markerState) ?? 0;
+        scratchPosition.set(world.x, world.y + markerFrame.yOffset, world.z);
+        setInstance(mesh, index, scratchPosition, markerFrame.scale, markerFrame.yawRadians);
+        markerCounts.set(markerState, index + 1);
       }
     }
 
-    for (const state of DRAWN_STATES) {
-      const mesh = meshes.current.get(state);
+    for (const state of MARKER_STATES) {
+      const mesh = markerMeshes.current.get(state);
       if (!mesh) continue;
-      mesh.count = counts.get(state) ?? 0;
+      mesh.count = markerCounts.get(state) ?? 0;
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+    for (const [mesh, count] of [
+      [outerFlamesRef.current, flameCount],
+      [coreFlamesRef.current, flameCount],
+      [outlineFlamesRef.current, flameCount],
+      [sparksRef.current, sparkCount],
+    ] as const) {
+      if (!mesh) continue;
+      mesh.count = count;
       mesh.instanceMatrix.needsUpdate = true;
     }
   });
 
+  const flame = visualStyle.particles.flame;
   return (
     <group name="exterior-fire">
-      {DRAWN_STATES.map((state) => {
+      {MARKER_STATES.map((state) => {
         const appearance = visualStyle.cellVisuals.byState[state];
         return (
           <instancedMesh
             key={state}
             name={`exterior-fire-${state}`}
             ref={(mesh) => {
-              if (mesh) meshes.current.set(state, mesh);
-              else meshes.current.delete(state);
+              if (mesh) markerMeshes.current.set(state, mesh);
+              else markerMeshes.current.delete(state);
             }}
             args={[undefined, undefined, capacity]}
             frustumCulled={false}
           >
-            <boxGeometry />
-            {UNSHADED_STATES.has(state) ? (
-              <meshBasicMaterial color={appearance.color} toneMapped={false} />
-            ) : (
-              <meshLambertMaterial color={appearance.color} />
-            )}
+            <MarkerGeometry state={state} />
+            <meshLambertMaterial
+              color={appearance.color}
+              transparent={state === CellState.Wetted}
+              opacity={state === CellState.Wetted ? 0.78 : 1}
+            />
           </instancedMesh>
         );
       })}
+
+      {flame.outline ? (
+        <instancedMesh
+          ref={outlineFlamesRef}
+          name="exterior-fire-outline"
+          args={[undefined, undefined, capacity]}
+          frustumCulled={false}
+          renderOrder={3}
+        >
+          <coneGeometry args={[0.5, 1, 7, 1]} />
+          <meshBasicMaterial color={flame.outline.color} side={BackSide} toneMapped={false} />
+        </instancedMesh>
+      ) : null}
+      <instancedMesh
+        ref={outerFlamesRef}
+        name="exterior-fire-outer-flames"
+        args={[undefined, undefined, capacity]}
+        frustumCulled={false}
+        renderOrder={4}
+      >
+        <coneGeometry args={[0.5, 1, 7, 1]} />
+        <meshBasicMaterial
+          color={flame.edge}
+          transparent={flame.opacity < 1}
+          opacity={flame.opacity}
+          depthWrite={flame.opacity >= 1}
+          toneMapped={false}
+        />
+      </instancedMesh>
+      <instancedMesh
+        ref={coreFlamesRef}
+        name="exterior-fire-core-flames"
+        args={[undefined, undefined, capacity]}
+        frustumCulled={false}
+        renderOrder={5}
+      >
+        <coneGeometry args={[0.5, 1, 6, 1]} />
+        <meshBasicMaterial color={flame.core} toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh
+        ref={sparksRef}
+        name="exterior-fire-sparks"
+        args={[undefined, undefined, capacity]}
+        frustumCulled={false}
+        renderOrder={6}
+      >
+        <octahedronGeometry args={[1, 0]} />
+        <meshBasicMaterial color={flame.ember} toneMapped={false} />
+      </instancedMesh>
     </group>
   );
 }

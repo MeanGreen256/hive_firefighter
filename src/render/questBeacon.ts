@@ -32,6 +32,8 @@ export const MAX_COLUMN_RADIUS = 8.5;
 /** Burning cells at which the column reads as "the whole building is going". */
 export const FULL_FIRE_CELL_COUNT = 26;
 export const COLUMN_PUFF_COUNT = 18;
+/** Quieter fallback still keeps a continuous landmark silhouette. */
+export const REDUCED_COLUMN_PUFF_COUNT = 10;
 /** How long one puff takes to travel the column, in seconds. */
 export const COLUMN_RISE_SECONDS = 6.5;
 /** Lean, in metres of drift per metre of climb, so the column is not a pillar. */
@@ -154,6 +156,10 @@ export interface SmokePuff {
   readonly radius: number;
   readonly driftX: number;
   readonly driftZ: number;
+  readonly stretchX: number;
+  readonly stretchY: number;
+  readonly stretchZ: number;
+  readonly yawRadians: number;
 }
 
 export interface SmokeColumnPlan {
@@ -197,9 +203,9 @@ function clamp01(value: number): number {
 }
 
 /**
- * A stack of puffs climbing on a loop. Puffs widen as they rise and shrink to
- * nothing at the top, so the column dissipates without needing per-instance
- * transparency — one instanced draw call however hard it is burning.
+ * A loose plume climbing on a loop. Puffs vary their squash, yaw, and lateral
+ * curl but preserve the broad downwind trunk used by the visibility model.
+ * They shrink to nothing at the top, avoiding per-instance transparency.
  */
 export function getSmokeColumnPlan(
   fireSize: number,
@@ -214,11 +220,18 @@ export function getSmokeColumnPlan(
   for (let index = 0; index < puffCount; index += 1) {
     const climb = (index / puffCount + phase) % 1;
     const y = climb * height;
+    const puffPhase = index * 2.399 + elapsedSeconds * 0.42;
+    const variation = 0.88 + Math.sin(puffPhase * 1.7) * 0.14;
+    const curl = Math.sin(puffPhase) * baseRadius * (0.08 + climb * 0.3);
     puffs.push({
       y,
-      radius: getColumnRadiusAtClimb(baseRadius, climb),
-      driftX: y * COLUMN_DRIFT,
-      driftZ: y * COLUMN_DRIFT * 0.4,
+      radius: getColumnRadiusAtClimb(baseRadius, climb) * variation,
+      driftX: y * COLUMN_DRIFT * (0.82 + Math.cos(puffPhase) * 0.18),
+      driftZ: y * COLUMN_DRIFT * 0.4 + curl,
+      stretchX: 0.86 + Math.sin(puffPhase * 0.7) * 0.18,
+      stretchY: 0.72 + Math.cos(puffPhase * 1.3) * 0.14,
+      stretchZ: 1.02 + Math.cos(puffPhase * 0.9) * 0.2,
+      yawRadians: puffPhase,
     });
   }
 

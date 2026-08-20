@@ -86,7 +86,16 @@ describe('smoke column', () => {
       expect(puff.y).toBeLessThanOrEqual(plan.height);
       expect(puff.radius).toBeGreaterThanOrEqual(0);
       expect(Math.sign(puff.driftX)).toBe(puff.y === 0 ? 0 : 1);
+      expect(puff.stretchX).toBeGreaterThan(0);
+      expect(puff.stretchY).toBeGreaterThan(0);
+      expect(puff.stretchZ).toBeGreaterThan(0);
     }
+  });
+
+  it('varies puff silhouettes and lateral curl instead of drawing a uniform pillar', () => {
+    const plan = getSmokeColumnPlan(0.7, 3.2);
+    expect(new Set(plan.puffs.map((puff) => puff.stretchY.toFixed(3))).size).toBeGreaterThan(4);
+    expect(new Set(plan.puffs.map((puff) => puff.driftZ.toFixed(3))).size).toBeGreaterThan(4);
   });
 
   it('climbs on a loop rather than jumping when the loop restarts', () => {

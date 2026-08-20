@@ -41,15 +41,19 @@ to catch:
 
 ```text
 /?perfScene=spawn&style=diorama
+/?perfScene=on-foot&style=diorama
 /?perfScene=incident&style=diorama
+/?perfScene=spray&style=diorama
 /?perfScene=hazard&style=diorama
 /?perfScene=collapse&style=diorama
 /?perfScene=debrief&style=diorama
 ```
 
 Repeat each with `style=ink`, open the J overlay, and record the stable maximum
-after the one-time shadow bake. `incident` places the shoulder camera at the bakery
-vertical slice after twenty simulated seconds. `hazard` holds the six-light propane
+after the one-time shadow bake. `on-foot` freezes the initial incident with the
+firefighter and nozzle ready; `incident` places the shoulder camera at the bakery
+vertical slice after twenty simulated seconds. `spray` freezes that same setup with
+every water-feedback layer visible without consuming the fire. `hazard` holds the six-light propane
 countdown and `collapse` holds its exterior warning so short cues can be reviewed and
 profiled without racing the clock. `debrief` completes that quest and opens the real
 star result. These parameters are development-only and have no effect in production
@@ -82,3 +86,22 @@ casters became one. City surfaces, buildings, props, hero geometry, fire-state
 layers, smoke, reticle, and UI-adjacent scene work remain independently batched as
 described in `src/render/README.md`. Both styles now have the same measured cost;
 the secondary style adds no always-on pass to the primary style.
+
+### 2026-08-19 stylized incident and hose VFX result
+
+Measured at 1280×720 in the Codex in-app browser after the static-shadow warmup.
+That browser caps `requestAnimationFrame` near 30fps, so its 32.3–33.9ms frame
+times are an environment ceiling rather than a replacement for the 1080p
+integrated-GPU acceptance run above. Draws and triangles include both the steady
+camera pass and the largest sampled shadow-refresh pass; particles stayed at zero.
+
+| Scene           | Diorama draws (steady / max) | Diorama tris (steady / max) | Ink draws (steady / max) | Ink tris (steady / max) |
+| --------------- | ---------------------------: | --------------------------: | -----------------------: | ----------------------: |
+| Spawn           |                      55 / 55 |             86,068 / 86,068 |                  40 / 56 |         49,418 / 86,082 |
+| On foot         |                      58 / 74 |             52,290 / 88,954 |                  59 / 75 |         52,304 / 88,968 |
+| Active incident |                      62 / 78 |             53,174 / 89,838 |                  63 / 79 |         53,188 / 89,852 |
+| Spray on        |                      62 / 78 |             54,590 / 91,254 |                  63 / 79 |         54,604 / 91,268 |
+
+The spray-on scene covers the merged nozzle plus the bright arc, fan droplets,
+contact splash, fire, and smoke together. Every sampled draw count remains below
+the hard `<80` limit, including shadow refreshes.

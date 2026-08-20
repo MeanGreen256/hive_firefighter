@@ -1,12 +1,11 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
-  BufferAttribute,
-  BufferGeometry,
-  Line,
-  LineBasicMaterial,
+  Matrix4,
+  Quaternion,
   Vector3,
   type Group,
+  type InstancedMesh,
   type Mesh,
   type MeshBasicMaterial,
 } from 'three';
@@ -18,6 +17,13 @@ import { fireAudioSystem } from '../audio/fireAudioSystem';
 import type { Vector3Tuple } from './worldUnits';
 import { applyRadialDeadzone } from './followCamera';
 import { getHoseFreeAimDirection, stepHoseFreeAim } from './hoseFreeAim';
+import { getRuntimeVfxQuality } from './incidentVfx';
+import {
+  WATER_PIECE_CAPACITY,
+  getWaterVfxPlan,
+  type WaterVfxPlan,
+  type WaterVfxPiece,
+} from './hoseVfx';
 import {
   getHoseNozzlePosition,
   readHoseMuzzleLocalOffset,
@@ -31,7 +37,6 @@ import {
 /** Litres per second the character can hold-to-spray; water is unlimited (ADR-006). */
 const HOSE_LITRES_PER_SECOND = 3;
 const STEAM_PULSE_SECONDS = 0.45;
-const STREAM_POINT_COUNT = 14;
 const RETICLE_LOCKED_SCALE = 0.34;
 const RETICLE_SEARCHING_SCALE = 0.14;
 const MAX_FRAME_DELTA_SECONDS = 1 / 20;
@@ -54,30 +59,14 @@ function isSprayButtonHeld(spaceHeld: boolean, mouseHeld: boolean): boolean {
   return spaceHeld || mouseHeld || isIntentHeld(firstConnectedGamepad(), 'action');
 }
 
-function updateStreamArc(line: Line, start: Vector3, end: Vector3): void {
-  const positions = line.geometry.getAttribute('position') as BufferAttribute;
-  const control = start.clone().lerp(end, 0.5);
-  control.y += Math.max(0.4, start.distanceTo(end) * 0.18);
-
-  for (let index = 0; index < STREAM_POINT_COUNT; index += 1) {
-    const t = index / (STREAM_POINT_COUNT - 1);
-    const inverseT = 1 - t;
-    positions.setXYZ(
-      index,
-      inverseT * inverseT * start.x + 2 * inverseT * t * control.x + t * t * end.x,
-      inverseT * inverseT * start.y + 2 * inverseT * t * control.y + t * t * end.y,
-      inverseT * inverseT * start.z + 2 * inverseT * t * control.z + t * t * end.z,
-    );
-  }
-  positions.needsUpdate = true;
-}
-
 export interface AnchoredHoseEffectsProps {
   readonly characterRef: RefObject<Group | null>;
   readonly presentationRef: RefObject<HosePresentationState>;
   readonly enabled: boolean;
   readonly visualStyle: Style;
   readonly fire: HoseFireField;
+  /** Development acceptance scene: draw the verb without consuming its target. */
+  readonly forceSpraying?: boolean;
 }
 
 /**
@@ -93,10 +82,19 @@ export function AnchoredHoseEffects({
   enabled,
   visualStyle,
   fire,
+  forceSpraying = false,
 }: AnchoredHoseEffectsProps) {
-  const { scene, gl } = useThree();
+  const { gl } = useThree();
   const steamRemaining = useRef(0);
   const steamRef = useRef<Mesh>(null);
+  const waterPiecesRef = useRef<InstancedMesh>(null);
+  const quality = useMemo(() => getRuntimeVfxQuality(), []);
+  const pieceMatrix = useMemo(() => new Matrix4(), []);
+  const piecePosition = useMemo(() => new Vector3(), []);
+  const pieceDirection = useMemo(() => new Vector3(), []);
+  const pieceScale = useMemo(() => new Vector3(), []);
+  const pieceRotation = useMemo(() => new Quaternion(), []);
+  const forwardAxis = useMemo(() => new Vector3(0, 0, 1), []);
 
   const spaceHeld = useRef(false);
   const mouseHeld = useRef(false);
@@ -109,35 +107,27 @@ export function AnchoredHoseEffects({
   });
   const freeAim = useRef({ yawOffsetRadians: 0, pitchRadians: 0 });
   const previousTargetId = useRef<string | null>(null);
-  const streamRef = useRef<Line | null>(null);
   const reticleRef = useRef<Group>(null);
-  const reticleLockRef = useRef<Mesh>(null);
-  const nozzleWorld = useRef(new Vector3());
-  const aimWorld = useRef(new Vector3());
 
-  useEffect(() => {
-    const geometry = new BufferGeometry();
-    geometry.setAttribute(
-      'position',
-      new BufferAttribute(new Float32Array(STREAM_POINT_COUNT * 3), 3),
-    );
-    const material = new LineBasicMaterial({
-      color: visualStyle.hose.stream,
-      transparent: true,
-      opacity: 0.92,
-    });
-    const line = new Line(geometry, material);
-    line.visible = false;
-    streamRef.current = line;
-    scene.add(line);
-
-    return () => {
-      streamRef.current = null;
-      scene.remove(line);
-      geometry.dispose();
-      material.dispose();
+  const applyPieces = (mesh: InstancedMesh | null, plan: WaterVfxPlan) => {
+    if (!mesh) return;
+    mesh.visible = plan.visible;
+    let index = 0;
+    const writePiece = (piece: WaterVfxPiece) => {
+      piecePosition.set(...piece.position);
+      pieceDirection.set(...piece.direction);
+      pieceScale.set(...piece.scale);
+      pieceRotation.setFromUnitVectors(forwardAxis, pieceDirection.normalize());
+      pieceMatrix.compose(piecePosition, pieceRotation, pieceScale);
+      mesh.setMatrixAt(index, pieceMatrix);
+      index += 1;
     };
-  }, [scene, visualStyle.hose.stream]);
+    plan.streamBeads.forEach(writePiece);
+    plan.sprayDroplets.forEach(writePiece);
+    plan.splashDroplets.forEach(writePiece);
+    mesh.count = index;
+    mesh.instanceMatrix.needsUpdate = true;
+  };
 
   useEffect(() => {
     if (!enabled) {
@@ -249,14 +239,16 @@ export function AnchoredHoseEffects({
     };
   }, [enabled, gl, presentationRef]);
 
-  useFrame(({ camera }, rawDelta) => {
+  useFrame(({ camera, clock }, rawDelta) => {
     const character = characterRef.current;
-    const stream = streamRef.current;
     const reticle = reticleRef.current;
 
     if (!enabled || !character) {
-      if (stream) stream.visible = false;
       if (reticle) reticle.visible = false;
+      if (waterPiecesRef.current) {
+        waterPiecesRef.current.visible = false;
+        waterPiecesRef.current.count = 0;
+      }
       previousTargetId.current = null;
       Object.assign(presentationRef.current, {
         spraying: false,
@@ -320,7 +312,7 @@ export function AnchoredHoseEffects({
     );
     previousTargetId.current = resolution.targetId;
 
-    const spraying = isSprayButtonHeld(spaceHeld.current, mouseHeld.current);
+    const spraying = forceSpraying || isSprayButtonHeld(spaceHeld.current, mouseHeld.current);
     Object.assign(presentationRef.current, {
       spraying,
       freeAimActive: freeAimStep.active,
@@ -334,7 +326,7 @@ export function AnchoredHoseEffects({
     character.userData.aimYawOffsetRadians = freeAimStep.state.yawOffsetRadians;
     character.userData.aimPitchRadians = freeAimStep.state.pitchRadians;
 
-    if (spraying && resolution.targetId !== null) {
+    if (!forceSpraying && spraying && resolution.targetId !== null) {
       const result = fire.applyWater(resolution.targetId, HOSE_LITRES_PER_SECOND * delta);
       if (result && result.contacts.length > 0) {
         fireAudioSystem.handleWaterApplication(result);
@@ -356,27 +348,47 @@ export function AnchoredHoseEffects({
       material.opacity = 0.7 * pulseRatio;
     }
 
-    if (stream) {
-      stream.visible = spraying;
-      if (spraying) {
-        nozzleWorld.current.set(...nozzlePosition);
-        aimWorld.current.set(...resolution.aimPoint);
-        updateStreamArc(stream, nozzleWorld.current, aimWorld.current);
-      }
-    }
+    const waterPlan = getWaterVfxPlan({
+      start: nozzlePosition,
+      end: resolution.aimPoint,
+      elapsedSeconds: clock.elapsedTime,
+      quality,
+      spraying,
+      targetCaptured: resolution.targetId !== null,
+    });
+    applyPieces(waterPiecesRef.current, waterPlan);
 
     if (reticle) {
-      reticle.visible = true;
+      // The contact splash becomes the aim cue while water is visible; keeping
+      // the reticle too would duplicate the signal and spend another draw.
+      reticle.visible = !spraying;
       reticle.position.set(...resolution.aimPoint);
       reticle.quaternion.copy(camera.quaternion);
       const locked = resolution.targetId !== null;
       reticle.scale.setScalar(locked ? RETICLE_LOCKED_SCALE : RETICLE_SEARCHING_SCALE);
-      if (reticleLockRef.current) reticleLockRef.current.visible = locked;
     }
   });
 
   return (
     <group name="anchored-hose-effects">
+      <instancedMesh
+        ref={waterPiecesRef}
+        name="hose-water-pieces"
+        args={[undefined, undefined, WATER_PIECE_CAPACITY]}
+        count={0}
+        visible={false}
+        frustumCulled={false}
+        renderOrder={8}
+      >
+        <sphereGeometry args={[1, 7, 5]} />
+        <meshBasicMaterial
+          color={visualStyle.hose.streamEdge}
+          transparent
+          opacity={0.92}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </instancedMesh>
       <group ref={reticleRef} visible={false}>
         <mesh>
           <ringGeometry args={[0.55, 1, 20]} />
@@ -384,15 +396,6 @@ export function AnchoredHoseEffects({
             color={visualStyle.hose.target}
             transparent
             opacity={0.85}
-            depthTest={false}
-          />
-        </mesh>
-        <mesh ref={reticleLockRef} visible={false} position={[0, 0, 0.002]}>
-          <circleGeometry args={[0.3, 16]} />
-          <meshBasicMaterial
-            color={visualStyle.hose.target}
-            transparent
-            opacity={0.92}
             depthTest={false}
           />
         </mesh>
