@@ -40,3 +40,16 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Content, visual, and performance acceptance
+        run: npm run acceptance
+        env:
+          ACCEPTANCE_ARTIFACT_DIR: artifacts/acceptance
+
+      - name: Upload acceptance evidence when a gate fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-visual-performance-acceptance
+          path: artifacts/acceptance
+          if-no-files-found: ignore

@@ -98,7 +98,11 @@ export function PerfOverlay() {
     };
 
     window.addEventListener('keydown', toggle);
-    window.__hivePerf = { reportParticleCount, reportSimTick };
+    window.__hivePerf = {
+      reportParticleCount,
+      reportSimTick,
+      getMetrics: () => performanceStore.getState().metrics,
+    };
 
     return () => {
       window.removeEventListener('keydown', toggle);
