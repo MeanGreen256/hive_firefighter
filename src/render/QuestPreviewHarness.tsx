@@ -218,6 +218,15 @@ interface SceneCssVariables extends CSSProperties {
   '--scene-vignette': number;
 }
 
+interface HudCssVariables extends CSSProperties {
+  '--hud-panel': string;
+  '--hud-border': string;
+  '--hud-text': string;
+  '--hud-muted': string;
+  '--hud-accent': string;
+  '--hud-control': string;
+}
+
 function QuestPreviewErrorScreen({ message }: { readonly message: string }) {
   return (
     <div className="quest-preview-error">
@@ -291,9 +300,17 @@ function ResolvedQuestPreview({ request, rebuildToken, onRebuild }: ResolvedPrev
     '--scene-saturation': visualStyle.postProcessing.saturation,
     '--scene-vignette': visualStyle.postProcessing.vignette,
   };
+  const hudCssVariables: HudCssVariables = {
+    '--hud-panel': visualStyle.hud.panel,
+    '--hud-border': visualStyle.hud.border,
+    '--hud-text': visualStyle.hud.text,
+    '--hud-muted': visualStyle.hud.mutedText,
+    '--hud-accent': visualStyle.hud.accent,
+    '--hud-control': visualStyle.hud.control,
+  };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={hudCssVariables}>
       <div className="scene" style={sceneCssVariables}>
         <Canvas
           shadows="percentage"
