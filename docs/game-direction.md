@@ -30,6 +30,29 @@ able to complete an incident without reading instructions.
 "Quest location" means the location of the active fire incident. It does not
 mean a quiz or educational-question mechanic.
 
+## Quest outcomes and mastery
+
+Every terminal incident is a completed quest, whether its fire is `contained` or
+its authored objects end up `scorched`. Completion always earns at least one star,
+advances progression exactly once, and makes the next incident the primary action.
+Replaying the same fire or a new seed is always optional; a scorched street never
+forces a retry or becomes a failure screen.
+
+Stars describe visible, countable district buildings and outdoor props saved from
+the fire. One star means the quest is complete; two stars mean at least 65% of
+those authored objects remain; three stars mean at least 85% remain and every
+authored hazard was kept safe. These percentages define implementation thresholds,
+not required child-facing text: the world and a wordless before/after picture show
+what survived. Hazards can gate the third star but never change what the first two
+mean.
+
+Elapsed time, par time, fuel mass, and water use never change stars, progression,
+or rewards. Time is adult/developer telemetry and the last personal-best tie
+breaker only. Stars are mastery feedback, not spendable currency.
+
+See [ADR-008](adr/008-quest-outcomes-and-countable-stars.md) for exact integer
+boundaries, replay and reward semantics, and personal-best migration.
+
 ## What the game is about
 
 **Putting out fires. Nothing else.** There is no one to save and no way to be hurt.
@@ -113,6 +136,7 @@ drive to the single active quest, dismount, aim the hose, extinguish all visible
 exterior fire, receive stars, and want to take the next quest.
 
 The controlling decisions are [ADR-005](adr/005-third-person-apparatus-control.md),
-[ADR-006](adr/006-arcade-tone-for-younger-players.md), and
-[ADR-007](adr/007-ages-5-plus-control-floor.md). The implementation plan is
+[ADR-006](adr/006-arcade-tone-for-younger-players.md),
+[ADR-007](adr/007-ages-5-plus-control-floor.md), and
+[ADR-008](adr/008-quest-outcomes-and-countable-stars.md). The implementation plan is
 [M3 — Drive, Dismount, Douse](m3-pivot-issues.md).

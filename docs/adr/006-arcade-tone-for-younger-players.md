@@ -92,6 +92,11 @@ tone. Specifically:
    no required supply hookup, finite tank, foam selection, reach failure, or
    hydrant-refill step in the core game.
 
+[ADR-008](008-quest-outcomes-and-countable-stars.md) clarifies rule 7 for M4:
+a scorched incident is a completed one-star quest, its primary action continues to
+the next incident, and the immediate retry remains optional. A mandatory retry
+would recreate the failure gate this decision rejects.
+
 ## Consequences
 
 **What gets easier**
