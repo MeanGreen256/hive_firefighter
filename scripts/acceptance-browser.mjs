@@ -90,6 +90,23 @@ async function chromeDebugUrl(chrome) {
   });
 }
 
+async function stopChild(processHandle) {
+  if (!processHandle || processHandle.exitCode !== null) return;
+
+  await new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      processHandle.kill('SIGKILL');
+      resolve();
+    }, 2_000);
+
+    processHandle.once('exit', () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+    processHandle.kill('SIGTERM');
+  });
+}
+
 class ChromeSession {
   nextId = 0;
   pending = new Map();
@@ -372,7 +389,11 @@ try {
   );
 } finally {
   session?.close();
-  chrome?.kill('SIGTERM');
-  vite.kill('SIGTERM');
-  await rm(profileDirectory, { recursive: true, force: true });
+  await Promise.all([stopChild(chrome), stopChild(vite)]);
+  await rm(profileDirectory, {
+    recursive: true,
+    force: true,
+    maxRetries: 5,
+    retryDelay: 200,
+  });
 }
