@@ -106,9 +106,11 @@ the simplified interaction rules.
   ([ADR-006](006-arcade-tone-for-younger-players.md)) there is nothing to retreat
   from, so position rarely changes the outcome. Walking is justified instead by
   exploration and spectacle — being a small figure in a big colourful city is the
-  appeal — with vertical verbs such as ladders as the intended source of positional
-  depth later. The risk is that on-foot firefighting stays shallow; the mitigation is
-  to test the on-foot verb before the surrounding systems are built, not after.
+  appeal. Distinct authored fire situations provide additional depth without adding
+  a traversal input; [ADR-009](009-no-second-required-verb.md) rules out ladders,
+  aerial operation, and required elevated reach on the current roadmap. The risk
+  is that on-foot firefighting stays shallow; the mitigation is to test the fire
+  situations with children before assuming a new control would improve them.
 - Finite water, foam selection, manual supply connection, tether limits, and
   hydrant refilling do not survive as required player mechanics. Hydrants and a
   visible hose line may remain as world dressing.

@@ -110,12 +110,16 @@ new ADR says otherwise.
 On-foot movement is not a tactical system. Exterior fire does not chase the player
 and nothing can hurt them, so where the firefighter stands rarely changes the
 outcome. Walking exists because being a small figure in a big colourful city is
-part of the appeal, and because vertical verbs — ladders first — are the intended
-way to give position real meaning later.
+part of the appeal: the player approaches the incident, sees the street from the
+firefighter's perspective, and chooses which visible flames to spray first.
 
-Build the character to feel good to move, not to solve a problem. This is a known
-risk: if on-foot play stays shallow, ladders and similar verbs are where the depth
-has to come from.
+On-foot depth comes from authored fire situations — different subject layouts,
+wind-driven spread, multiple visible fronts, safe hazards, and clear approach
+choices — not from a new traversal or equipment control. Build the character to
+feel good to move, and keep every objective reachable from ordinary ground with
+the existing assisted hose. Ladders, operated aerials, and required elevated
+traversal are outside the accepted roadmap; see
+[ADR-009](adr/009-no-second-required-verb.md).
 
 ## Scope boundaries
 
@@ -127,7 +131,8 @@ does not mean every file under `src/sim/` must remain untouched.
 
 Interior play, first-person play, civilians and rescue, player damage, lethal
 outcomes, tactical crew command, simulation-style apparatus operation, finite water,
-foam management, and multi-incident dispatch are outside the current direction.
+foam management, required ladders or aerial traversal, and multi-incident dispatch
+are outside the current direction.
 
 ## Milestone acceptance
 
@@ -137,6 +142,7 @@ exterior fire, receive stars, and want to take the next quest.
 
 The controlling decisions are [ADR-005](adr/005-third-person-apparatus-control.md),
 [ADR-006](adr/006-arcade-tone-for-younger-players.md),
-[ADR-007](adr/007-ages-5-plus-control-floor.md), and
-[ADR-008](adr/008-quest-outcomes-and-countable-stars.md). The implementation plan is
+[ADR-007](adr/007-ages-5-plus-control-floor.md),
+[ADR-008](adr/008-quest-outcomes-and-countable-stars.md), and
+[ADR-009](adr/009-no-second-required-verb.md). The implementation plan is
 [M3 — Drive, Dismount, Douse](m3-pivot-issues.md).
