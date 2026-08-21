@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { loadQuestShiftOrder, QUEST_SHIFT_ORDER, QuestOrderValidationError } from './questOrder';
+import { DEFAULT_DISTRICT_ID } from '@sim/districts';
+import { getQuestShiftOrder } from '@sim/questShifts';
+import { QUEST_SHIFT_ORDER } from './questOrder';
 
-describe('authored quest shift order', () => {
-  it('is a validated five-incident pedagogical shift, independent of district site order', () => {
-    expect(QUEST_SHIFT_ORDER.districtId).toBe('harbour-hill');
+describe('runtime shift order', () => {
+  it('is the authored shift of the district the game boots into', () => {
+    expect(QUEST_SHIFT_ORDER).toEqual(getQuestShiftOrder(DEFAULT_DISTRICT_ID));
+    expect(QUEST_SHIFT_ORDER.districtId).toBe(DEFAULT_DISTRICT_ID);
+  });
+
+  it('exposes the five slots the quest director requires', () => {
     expect(QUEST_SHIFT_ORDER.slots.map((slot) => slot.questId)).toEqual([
       'meadow-picnic',
       'bandstand-green',
@@ -11,17 +17,5 @@ describe('authored quest shift order', () => {
       'bakery-awning',
       'firehouse-yard',
     ]);
-  });
-
-  it('rejects missing, duplicate, and non-authored shift entries', () => {
-    expect(() =>
-      loadQuestShiftOrder({
-        district: 'harbour-hill',
-        quests: ['meadow-picnic', 'meadow-picnic', 'harbour-yard', 'bakery-awning', 'ghost'],
-      }),
-    ).toThrow(QuestOrderValidationError);
-    expect(() =>
-      loadQuestShiftOrder({ district: 'harbour-hill', quests: ['meadow-picnic'] }),
-    ).toThrow(/exactly 5 incidents/);
   });
 });
