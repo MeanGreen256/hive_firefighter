@@ -13,6 +13,7 @@ import {
   createFixedTimestepRunner,
   DEFAULT_FIRE_SIMULATION_TUNING,
   FIRE_TICK_SECONDS,
+  forceIgniteCell,
   type FireSimulationEvent,
   type FireSimulationState,
   type FixedTimestepRunner,
@@ -20,6 +21,13 @@ import {
 import { getShellCellWorldPosition, type ShellPoint } from '@sim/exteriorShell';
 import { materials } from '@sim/materials';
 import { createQuestFire, type QuestDefinition, type QuestFire } from '@sim/quests';
+import {
+  advanceResidualHotspots,
+  createResidualHotspotState,
+  extinguishResidualHotspot,
+  type ResidualHotspotState,
+  type ResidualHotspotStatus,
+} from '@sim/residualHotspots';
 import {
   advanceHazards,
   coolHazardsAtCell,
@@ -92,8 +100,16 @@ export interface ScorchedCell {
 
 export interface SuppressionTarget {
   readonly id: string;
-  readonly kind: 'fire' | 'hazard';
+  readonly kind: 'fire' | 'hazard' | 'residual-hotspot';
   readonly position: ShellPoint;
+}
+
+/** Draw-only developer-spike state; it is never a `CellState` or objective. */
+export interface ResidualHotspotSnapshot {
+  readonly id: string;
+  readonly cellId: string;
+  readonly position: ShellPoint;
+  readonly status: ResidualHotspotStatus;
 }
 
 export type QuestSimulationEvent =
@@ -117,6 +133,8 @@ export interface QuestFireController {
    * the renderer can let a player hose the scorch marks off afterwards (#181).
    */
   getScorchedCells(): ScorchedCell[];
+  /** Empty unless the local development-only `?hotspotSpike=1` flag is enabled. */
+  getResidualHotspots(): ResidualHotspotSnapshot[];
   getSuppressionTargets(): SuppressionTarget[];
   drainSimulationEvents(): QuestSimulationEvent[];
   /** Returns null when the quest is over or the target is not part of this incident. */
@@ -170,6 +188,14 @@ function countSavedAuthoredObjects(questFire: QuestFire): number {
 
 export interface QuestFireControllerOptions {
   readonly personalBestStorage?: StorageLike | null;
+  /** Explicit test/dev seam; production defaults never enable the spike. */
+  readonly residualHotspotSpike?: boolean;
+}
+
+export function isResidualHotspotSpikeEnabled(search?: string): boolean {
+  if (!import.meta.env.DEV) return false;
+  const runtimeSearch = search ?? (typeof window === 'undefined' ? '' : window.location.search);
+  return new URLSearchParams(runtimeSearch).get('hotspotSpike') === '1';
 }
 
 export function createQuestFireController(
@@ -183,6 +209,9 @@ export function createQuestFireController(
   let debrief: SessionDebrief | null = null;
   let hazards = createHazardSimulation([]);
   let structures = createStructuralSimulation();
+  let residualHotspots: ResidualHotspotState | null = null;
+  const residualHotspotSpikeEnabled =
+    import.meta.env.DEV && (options.residualHotspotSpike ?? isResidualHotspotSpikeEnabled());
   let pendingSimulationEvents: QuestSimulationEvent[] = [];
   let animationFrameId: number | null = null;
   const personalBests = createPersonalBestStore(
@@ -302,6 +331,19 @@ export function createQuestFireController(
         })),
       );
       structures = createStructuralSimulation();
+      residualHotspots = residualHotspotSpikeEnabled
+        ? createResidualHotspotState(
+            fire.state.seed,
+            Object.keys(fire.shell.cellSubjectIds).filter((cellId) => {
+              const cell = fire!.state.grid.cells[cellId];
+              return (
+                cell !== undefined &&
+                materials[cell.material]?.ignitionPoint !== null &&
+                !isAlight(cell.state)
+              );
+            }),
+          )
+        : null;
       pendingSimulationEvents = [];
       elapsedSeconds = 0;
       waterUsedLitres = 0;
@@ -349,6 +391,21 @@ export function createQuestFireController(
       return scorched;
     },
 
+    getResidualHotspots: () => {
+      if (!fire || !residualHotspots) return [];
+      return residualHotspots.hotspots.flatMap((hotspot) => {
+        const position = getShellCellWorldPosition(fire!.shell, hotspot.cellId);
+        return [
+          {
+            id: hotspot.id,
+            cellId: hotspot.cellId,
+            position,
+            status: hotspot.status,
+          },
+        ];
+      });
+    },
+
     getSuppressionTargets: () => {
       if (!fire) return [];
       const targets: SuppressionTarget[] = controller.getBurningCells().map((cell) => ({
@@ -369,6 +426,14 @@ export function createQuestFireController(
           },
         });
       }
+      for (const hotspot of controller.getResidualHotspots()) {
+        if (hotspot.status !== 'active') continue;
+        targets.push({
+          id: `hotspot:${hotspot.id}`,
+          kind: 'residual-hotspot',
+          position: { ...hotspot.position },
+        });
+      }
       return targets;
     },
 
@@ -381,6 +446,15 @@ export function createQuestFireController(
     applyWater: (targetId, litres) => {
       if (!fire || !runner || litres <= 0 || store.getState().status !== SessionStatus.Active) {
         return null;
+      }
+      const hotspotId = targetId.startsWith('hotspot:') ? targetId.slice('hotspot:'.length) : null;
+      if (hotspotId && residualHotspots) {
+        const cooled = extinguishResidualHotspot(residualHotspots, hotspotId);
+        if (cooled.events.length === 0) return null;
+        residualHotspots = cooled.state;
+        // This is a visual spike only: it does not add water use, a fire cell,
+        // an event that alters scoring, or an extra completion requirement.
+        return { contacts: [] };
       }
       const hazardId = targetId.startsWith('hazard:') ? targetId.slice('hazard:'.length) : null;
       const hazardPlacement = hazardId
@@ -405,6 +479,36 @@ export function createQuestFireController(
       if (ticks > 0) {
         reportSimTick((performance.now() - startedAt) / ticks);
         const simulatedSeconds = ticks * FIRE_TICK_SECONDS;
+        if (residualHotspots) {
+          const result = advanceResidualHotspots(residualHotspots, simulatedSeconds, (hotspot) => {
+            const candidate = fire!.state.grid.cells[hotspot.cellId];
+            if (
+              !candidate ||
+              materials[candidate.material]?.ignitionPoint === null ||
+              candidate.fuel <= DEFAULT_FIRE_SIMULATION_TUNING.burnoutFuelThreshold ||
+              isAlight(candidate.state) ||
+              candidate.state === CellState.Burnt ||
+              candidate.state === CellState.Collapsed
+            ) {
+              return false;
+            }
+            for (const cellId of fire!.state.activeCellIds) {
+              if (cellId === hotspot.cellId) continue;
+              const cell = fire!.state.grid.cells[cellId];
+              if (cell && (isAlight(cell.state) || cell.state === CellState.Heating)) return true;
+            }
+            return false;
+          });
+          residualHotspots = result.state;
+          for (const event of result.events) {
+            if (event.type !== 'ResidualHotspotRekindleDue') continue;
+            const hotspot = residualHotspots.hotspots.find(
+              (candidate) => candidate.id === event.hotspotId,
+            );
+            if (hotspot) forceIgniteCell(fire!.state, hotspot.cellId);
+          }
+          runner.setState(fire!.state);
+        }
         pendingSimulationEvents.push(
           ...runner.drainEvents(),
           ...advanceHazards(hazards, fire!.state, DEFAULT_FIRE_SIMULATION_TUNING, simulatedSeconds),

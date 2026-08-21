@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CellState } from '@sim/cellGrid';
 import { IncidentEventType, PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
+import { materials } from '@sim/materials';
 import { getQuestForSite } from '@sim/quests';
 import { COLLAPSE_WARNING_SECONDS, StructuralEventType } from '@sim/structuralCollapse';
 import { createQuestFireController } from './questFireController';
@@ -36,6 +37,98 @@ describe('quest fire controller', () => {
     expect(burning).toHaveLength(1);
     // The bakery stands south of Main Street, so its fire is out in the city.
     expect(burning[0]?.position.y).toBeGreaterThan(1);
+  });
+
+  it('keeps rekindle-hotspot spike state opt-in and lets ordinary spray prevent ignition', () => {
+    const standard = controllerFor('bandstand-green');
+    expect(standard.getResidualHotspots()).toEqual([]);
+
+    const controller = createQuestFireController({ residualHotspotSpike: true });
+    controller.setQuest(getQuestForSite('harbour-hill', 'bandstand-green'));
+    expect(controller.getResidualHotspots()).toHaveLength(2);
+    expect(
+      controller.getSuppressionTargets().some((target) => target.kind === 'residual-hotspot'),
+    ).toBe(false);
+
+    for (let step = 0; step < 25; step += 1) controller.advance(0.1);
+    const active = controller.getResidualHotspots().find((hotspot) => hotspot.status === 'active');
+    expect(active).toBeDefined();
+    expect(controller.getSuppressionTargets()).toContainEqual(
+      expect.objectContaining({ id: `hotspot:${active?.id}`, kind: 'residual-hotspot' }),
+    );
+    expect(controller.applyWater(`hotspot:${active?.id}`, 3)).toEqual({ contacts: [] });
+    expect(
+      controller.getResidualHotspots().find((hotspot) => hotspot.id === active?.id)?.status,
+    ).toBe('extinguished');
+  });
+
+  it('returns one hotspot cell to CellState.Burning only while another ordinary fire remains', () => {
+    const controller = createQuestFireController({ residualHotspotSpike: true });
+    controller.setQuest(getQuestForSite('harbour-hill', 'bandstand-green'));
+    for (let step = 0; step < 25; step += 1) controller.advance(0.1);
+    const hotspot = controller
+      .getResidualHotspots()
+      .find((candidate) => candidate.status === 'active');
+    expect(hotspot).toBeDefined();
+
+    const fire = controller.getFire()!;
+    const rekindleCell = fire.state.grid.cells[hotspot!.cellId]!;
+    // Keep this candidate wet until the spike's scheduled, force-ignition
+    // moment so any Burning result below came from the hotspot, not spread.
+    rekindleCell.state = CellState.Wetted;
+    rekindleCell.heat = 0;
+    rekindleCell.wetness = 1;
+    rekindleCell.fuel = 1;
+    fire.state.activeCellIds.add(rekindleCell.id);
+
+    const ordinaryCell = Object.values(fire.state.grid.cells).find(
+      (candidate) =>
+        candidate.id !== rekindleCell.id && materials[candidate.material]?.ignitionPoint,
+    )!;
+    ordinaryCell.state = CellState.Burning;
+    ordinaryCell.heat = materials[ordinaryCell.material]!.ignitionPoint!;
+    ordinaryCell.wetness = 0;
+    ordinaryCell.fuel = 1;
+    fire.state.activeCellIds.add(ordinaryCell.id);
+
+    let rekindled = false;
+    for (let step = 0; step < 60; step += 1) {
+      controller.advance(0.1);
+      if (fire.state.grid.cells[rekindleCell.id]?.state === CellState.Burning) {
+        rekindled = true;
+        break;
+      }
+    }
+    expect(rekindled).toBe(true);
+    expect(controller.getSuppressionTargets()).toContainEqual(
+      expect.objectContaining({ id: `cell:${rekindleCell.id}`, kind: 'fire' }),
+    );
+
+    for (let step = 0; step < 20; step += 1) controller.applyWater(rekindleCell.id, 3);
+    expect(rekindleCell.state).not.toBe(CellState.Burning);
+  });
+
+  it('contains normally even when an opt-in hotspot remains active', () => {
+    const controller = createQuestFireController({ residualHotspotSpike: true });
+    controller.setQuest(getQuestForSite('harbour-hill', 'bandstand-green'));
+    for (let step = 0; step < 25; step += 1) controller.advance(0.1);
+    expect(controller.getResidualHotspots().some((hotspot) => hotspot.status === 'active')).toBe(
+      true,
+    );
+
+    const fire = controller.getFire()!;
+    for (const cell of Object.values(fire.state.grid.cells)) {
+      cell.state = CellState.Clear;
+      cell.heat = 0;
+      cell.wetness = 0;
+    }
+    fire.state.activeCellIds.clear();
+    controller.advance(0.1);
+
+    expect(controller.getResidualHotspots().some((hotspot) => hotspot.status === 'active')).toBe(
+      true,
+    );
+    expect(controller.store.getState().status).toBe(SessionStatus.Contained);
   });
 
   it('spreads while it runs', () => {

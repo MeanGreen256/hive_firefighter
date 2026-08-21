@@ -20,6 +20,7 @@ import type { QuestFireHazard } from '@sim/quests';
 import type { QuestFireController } from '../state/questFireController';
 import type { Style } from '@styles/styles';
 import { getPropaneSaveCueFrame } from './incidentVfx';
+import { ResidualHotspots } from './ResidualHotspots';
 
 const BLAST_PULSE_SECONDS = 1.1;
 const COLLAPSE_DUST_SECONDS = 1.2;
@@ -312,6 +313,7 @@ export function ExteriorIncidentEffects({
         />
       ))}
       <CollapseSignals controller={controller} capacity={capacity} visualStyle={visualStyle} />
+      <ResidualHotspots controller={controller} visualStyle={visualStyle} />
     </group>
   );
 }
