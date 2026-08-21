@@ -1,6 +1,7 @@
 import type { SessionBest, SessionDebrief } from './sessionStats';
 
-export const PERSONAL_BESTS_STORAGE_KEY = 'hive-firefighter:personal-bests:v2';
+/** Weighted v2 scores are deliberately incompatible with the ADR-008 contract. */
+export const PERSONAL_BESTS_STORAGE_KEY = 'hive-firefighter:personal-bests:v3';
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -8,7 +9,7 @@ export interface StorageLike {
 }
 
 interface PersistedPersonalBests {
-  readonly version: 2;
+  readonly version: 3;
   readonly records: Record<string, SessionBest>;
 }
 
@@ -27,9 +28,10 @@ function isSessionBest(value: unknown): value is SessionBest {
   const candidate = value as Partial<SessionBest>;
   return (
     [1, 2, 3].includes(candidate.stars ?? 0) &&
-    Number.isInteger(candidate.overallScore) &&
-    (candidate.overallScore ?? -1) >= 0 &&
-    (candidate.overallScore ?? 101) <= 100 &&
+    Number.isSafeInteger(candidate.savedObjects) &&
+    (candidate.savedObjects ?? -1) >= 0 &&
+    Number.isSafeInteger(candidate.hazardsSafe) &&
+    (candidate.hazardsSafe ?? -1) >= 0 &&
     Number.isFinite(candidate.elapsedSeconds) &&
     (candidate.elapsedSeconds ?? -1) >= 0
   );
@@ -41,7 +43,7 @@ function readRecords(storage: StorageLike | null): Record<string, SessionBest> {
     const raw = storage.getItem(PERSONAL_BESTS_STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Partial<PersistedPersonalBests>;
-    if (parsed.version !== 2 || typeof parsed.records !== 'object' || parsed.records === null) {
+    if (parsed.version !== 3 || typeof parsed.records !== 'object' || parsed.records === null) {
       return {};
     }
     return Object.fromEntries(
@@ -54,13 +56,16 @@ function readRecords(storage: StorageLike | null): Record<string, SessionBest> {
   }
 }
 
+/** More stars, saved objects, and safe hazards win; time breaks only that final tie. */
 function isBetter(candidate: SessionBest, incumbent: SessionBest): boolean {
   return (
     candidate.stars > incumbent.stars ||
     (candidate.stars === incumbent.stars &&
-      (candidate.overallScore > incumbent.overallScore ||
-        (candidate.overallScore === incumbent.overallScore &&
-          candidate.elapsedSeconds < incumbent.elapsedSeconds)))
+      (candidate.savedObjects > incumbent.savedObjects ||
+        (candidate.savedObjects === incumbent.savedObjects &&
+          (candidate.hazardsSafe > incumbent.hazardsSafe ||
+            (candidate.hazardsSafe === incumbent.hazardsSafe &&
+              candidate.elapsedSeconds < incumbent.elapsedSeconds)))))
   );
 }
 
@@ -75,7 +80,8 @@ export function createPersonalBestStore(storage: StorageLike | null) {
       const previousBest = records[key] ?? null;
       const candidate: SessionBest = {
         stars: debrief.stars,
-        overallScore: debrief.scores.overall,
+        savedObjects: debrief.objects.saved,
+        hazardsSafe: debrief.hazards.saved,
         elapsedSeconds: debrief.elapsedSeconds,
       };
       const isNewPersonalBest = previousBest === null || isBetter(candidate, previousBest);
@@ -84,7 +90,7 @@ export function createPersonalBestStore(storage: StorageLike | null) {
         try {
           storage.setItem(
             PERSONAL_BESTS_STORAGE_KEY,
-            JSON.stringify({ version: 2, records: { ...records, [key]: best } }),
+            JSON.stringify({ version: 3, records: { ...records, [key]: best } }),
           );
         } catch {
           // Storage can be unavailable or quota-limited. The run still completes.

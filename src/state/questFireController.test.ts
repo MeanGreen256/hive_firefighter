@@ -88,6 +88,36 @@ describe('quest fire controller', () => {
     });
   });
 
+  it('scores each visible quest target once instead of weighting its shell cells', () => {
+    const controller = controllerFor('bakery-awning');
+    const fire = controller.getFire()!;
+    const subjectTargets = new Map(
+      fire.shell.subjects.map((subject) => [subject.id, subject.targetId]),
+    );
+    const savedTarget = fire.quest.subjects[0]!;
+    for (const cell of Object.values(fire.state.grid.cells)) {
+      cell.state = CellState.Burnt;
+      cell.fuel = 0;
+    }
+    const survivorId = Object.entries(fire.shell.cellSubjectIds).find(
+      ([, subjectId]) => subjectTargets.get(subjectId) === savedTarget,
+    )?.[0];
+    expect(survivorId).toBeDefined();
+    const survivor = fire.state.grid.cells[survivorId!]!;
+    survivor.state = CellState.Wetted;
+    survivor.fuel = 1;
+
+    controller.advance(0.1);
+
+    const totalObjects = new Set(fire.quest.subjects).size;
+    expect(controller.store.getState().debrief?.objects).toEqual({
+      total: totalObjects,
+      saved: 1,
+      lost: totalObjects - 1,
+    });
+    expect(controller.store.getState().debrief?.stars).toBe(1);
+  });
+
   it('ignores water aimed at a cell this fire does not have', () => {
     const controller = controllerFor('bakery-awning');
     expect(controller.applyWater('9999,9999,9999', 3)).toBeNull();

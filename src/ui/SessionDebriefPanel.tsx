@@ -49,12 +49,12 @@ export function SessionDebriefPanel({
   onScenarioChange,
 }: SessionDebriefPanelProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const contained = debrief?.outcome === SessionStatus.Contained;
-  /** Carry on with the run: another go at a scorched fire, the next one otherwise. */
+  const scorched = debrief?.outcome === SessionStatus.Scorched;
+  /** Every completed incident carries on to the next quest when one is available. */
   const advance = useCallback(() => {
-    if (contained && onNextQuest) onNextQuest();
+    if (onNextQuest) onNextQuest();
     else onRetry();
-  }, [contained, onNextQuest, onRetry]);
+  }, [onNextQuest, onRetry]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -100,7 +100,7 @@ export function SessionDebriefPanel({
 
   if (!debrief) return null;
 
-  const title = contained ? 'Fire out!' : 'Scorched — try again!';
+  const title = 'Good work!';
 
   return (
     <dialog
@@ -113,28 +113,22 @@ export function SessionDebriefPanel({
       <header>
         <div className="debrief-heading">
           <span aria-hidden="true">
-            {contained ? '💦' : '🌱'} {debrief.scenarioId}
+            {scorched ? '🌱' : '💦'} {debrief.scenarioId}
           </span>
           <h1 id="debrief-title">{title}</h1>
         </div>
         <StarReveal stars={debrief.stars} />
       </header>
 
-      <section className="debrief-picture" aria-label="Property saved">
-        <span className="debrief-picture__icon" aria-hidden="true">
-          🏠
-        </span>
-        <div
-          className="debrief-property-bar"
-          role="progressbar"
-          aria-label={`${debrief.propertySavedPercent}% property saved`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={debrief.propertySavedPercent}
-        >
-          <span style={{ transform: `scaleX(${debrief.propertySavedPercent / 100})` }} />
-        </div>
-        <strong>{debrief.propertySavedPercent}%</strong>
+      <section
+        className="debrief-picture"
+        aria-label={`${debrief.objects.saved} visible objects saved and ${debrief.objects.lost} lost`}
+      >
+        {Array.from({ length: debrief.objects.total }, (_, index) => (
+          <span key={index} className="debrief-picture__icon" aria-hidden="true">
+            {index < debrief.objects.saved ? '🏠' : '🪵'}
+          </span>
+        ))}
       </section>
 
       <dl className="debrief-summary">
@@ -160,7 +154,7 @@ export function SessionDebriefPanel({
         <h2>Personal best</h2>
         {debrief.previousBest ? (
           <p>
-            {'★'.repeat(debrief.previousBest.stars)} · {debrief.previousBest.overallScore} ·{' '}
+            {'★'.repeat(debrief.previousBest.stars)} ·{' '}
             {formatElapsedTime(debrief.previousBest.elapsedSeconds)}
           </p>
         ) : (
@@ -188,7 +182,7 @@ export function SessionDebriefPanel({
       {/* The primary button is whatever the action input does, so a player who
           presses the button and a player who clicks get the same thing. */}
       <footer>
-        {contained && onNextQuest ? (
+        {onNextQuest ? (
           <>
             <button type="button" className="debrief-panel__primary" onClick={onNextQuest}>
               → Next
@@ -202,11 +196,6 @@ export function SessionDebriefPanel({
             <button type="button" className="debrief-panel__primary" onClick={onRetry}>
               ↻ Retry
             </button>
-            {onNextQuest ? (
-              <button type="button" onClick={onNextQuest}>
-                → Next
-              </button>
-            ) : null}
           </>
         )}
         <button type="button" onClick={onNewFire}>
