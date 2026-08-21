@@ -63,7 +63,8 @@ function distanceFromQuestSite(quest: QuestDefinition, targetId: string): number
   const district = getDistrict(quest.districtId);
   const site = district.questSites.find((entry) => entry.id === quest.questSiteId);
   const target = [...district.buildings, ...district.props].find((entry) => entry.id === targetId);
-  if (!site || !target) throw new Error(`Missing authored quest geometry for ${quest.id}/${targetId}`);
+  if (!site || !target)
+    throw new Error(`Missing authored quest geometry for ${quest.id}/${targetId}`);
   return Math.hypot(target.x - site.x, target.z - site.z);
 }
 
@@ -168,7 +169,9 @@ describe('authored quests', () => {
 
   it('uses an unmistakable still spark, wind line, two fronts, propane, and porch climb', () => {
     const tutorial = getQuestForSite('harbour-hill', 'meadow-picnic');
-    expect(tutorial.ignitions).toEqual([{ targetId: 'meadow-bench-1', burnableId: 'picnic-timber' }]);
+    expect(tutorial.ignitions).toEqual([
+      { targetId: 'meadow-bench-1', burnableId: 'picnic-timber' },
+    ]);
     expect(tutorial.wind.strength).toBe(0);
 
     const windLine = getQuestForSite('harbour-hill', 'bandstand-green');
@@ -185,10 +188,7 @@ describe('authored quests', () => {
     expect(workshopFront).toBeDefined();
     expect(yardFront).toBeDefined();
     expect(
-      Math.hypot(
-        workshopFront!.x - yardFront!.x,
-        workshopFront!.z - yardFront!.z,
-      ),
+      Math.hypot(workshopFront!.x - yardFront!.x, workshopFront!.z - yardFront!.z),
     ).toBeGreaterThan(8);
 
     const propane = createQuestFire(getQuestForSite('harbour-hill', 'bakery-awning'));
@@ -196,9 +196,7 @@ describe('authored quests', () => {
     expect(propane.hazards[0]).toMatchObject({ id: 'bakery-propane', type: 'propane' });
 
     const climb = getQuestForSite('harbour-hill', 'firehouse-yard');
-    expect(climb.ignitions).toEqual([
-      { targetId: 'house-station-cottage', burnableId: 'porch' },
-    ]);
+    expect(climb.ignitions).toEqual([{ targetId: 'house-station-cottage', burnableId: 'porch' }]);
   });
 
   it('lights exactly the subject the quest names', () => {
