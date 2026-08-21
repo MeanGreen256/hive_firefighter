@@ -51,6 +51,8 @@ export interface ArcadeTruckProps {
   readonly initialPosition?: readonly [number, number, number];
   readonly initialYaw?: number;
   readonly speedRatioRef?: RefObject<number>;
+  /** A visual-only mastery reward; never changes movement or hose behavior. */
+  readonly bellUnlocked?: boolean;
 }
 
 /** A forgiving, non-physical arcade truck that owns its persistent transform. */
@@ -64,6 +66,7 @@ export function ArcadeTruck({
   initialPosition = [0, 0, 0],
   initialYaw = 0,
   speedRatioRef,
+  bellUnlocked = false,
 }: ArcadeTruckProps) {
   const heldKeys = useRef(new Set<string>());
   const truckState = useRef<TruckState>({
@@ -142,6 +145,22 @@ export function ArcadeTruck({
       <mesh name="truck-hero-apparatus" geometry={heroGeometry}>
         <meshStandardMaterial vertexColors roughness={0.72} metalness={0.04} />
       </mesh>
+      {bellUnlocked ? (
+        <group name="reward-truck-bell" position={[0, 1.88, 0.54]}>
+          <mesh>
+            <cylinderGeometry args={[0.11, 0.19, 0.24, 10]} />
+            <meshStandardMaterial
+              color={visualStyle.city.landmarkAccent}
+              roughness={0.44}
+              metalness={0.16}
+            />
+          </mesh>
+          <mesh position={[0, -0.14, 0]}>
+            <sphereGeometry args={[0.05, 8, 6]} />
+            <meshStandardMaterial color={visualStyle.heroes.truck.roofGear} />
+          </mesh>
+        </group>
+      ) : null}
       <group ref={beaconRef} position={[0, 1.82, -0.88]} visible={sirenOn}>
         <mesh position={[-0.38, 0, 0]}>
           <cylinderGeometry args={[0.13, 0.16, 0.18, 10]} />

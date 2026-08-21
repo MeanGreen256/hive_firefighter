@@ -113,6 +113,8 @@ export interface FirefighterControllerProps {
   readonly initialPosition?: readonly [number, number, number];
   readonly movementBounds?: CharacterMovementBounds;
   readonly getGroundHeight?: (x: number, z: number) => number;
+  /** A cosmetic mastery pin; it never changes the character controller. */
+  readonly helmetBadgeUnlocked?: boolean;
 }
 
 /** One forgiving, camera-relative firefighter subject for the M3 on-foot loop. */
@@ -127,6 +129,7 @@ export function FirefighterController({
   initialPosition = [0, 0, 0],
   movementBounds,
   getGroundHeight = flatGroundHeight,
+  helmetBadgeUnlocked = false,
 }: FirefighterControllerProps) {
   const heldKeys = useRef(new Set<string>());
   const velocity = useRef(new Vector3());
@@ -405,6 +408,12 @@ export function FirefighterController({
             <mesh name="firefighter-helmet-and-face" geometry={headGeometry}>
               <meshStandardMaterial vertexColors roughness={0.74} />
             </mesh>
+            {helmetBadgeUnlocked ? (
+              <mesh name="reward-helmet-badge" position={[0, 0.31, -0.29]}>
+                <circleGeometry args={[0.095, 5]} />
+                <meshBasicMaterial color={visualStyle.city.landmarkAccent} toneMapped={false} />
+              </mesh>
+            ) : null}
           </group>
 
           {/* Origin sits between the grips, so aim turns the nozzle in the hands
