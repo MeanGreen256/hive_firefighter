@@ -1,8 +1,8 @@
 {
-  "name": "Station cottage porch",
+  "name": "Station Cottage porch climb",
   "district": "harbour-hill",
   "questSite": "firehouse-yard",
-  "subjects": ["house-station-cottage", "firehouse"],
+  "subjects": ["house-station-cottage", "firehouse", "main-tree-w3"],
   "ignitions": [
     {
       "target": "house-station-cottage",
@@ -13,11 +13,11 @@
   "seed": 1902,
   "wind": {
     "direction": {
-      "x": 0,
-      "y": 1,
+      "x": -1,
+      "y": 0,
       "z": 0
     },
-    "strength": 0.15
+    "strength": 0.65
   },
-  "parTimeSeconds": 100
+  "parTimeSeconds": 75
 }
