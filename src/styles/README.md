@@ -6,6 +6,15 @@ A `Style` supplies the palette tokens, material factory, particle appearance,
 incident-marker colours, HUD theme, and post-processing config. Switching one
 at runtime changes the entire look with the simulation still running.
 
+`Style.world` is the free-roam reaction group (#181): what a soaked surface
+tends toward while it dries, what rings on open water look like, and what
+scorch fades toward when a player hoses it clean. They are kept apart from
+`hose` on purpose — these are surface treatments the town wears, not the tool's
+own colours, and each art direction answers them differently. `styles.test.ts`
+asserts both styles define them and that a wet patch cannot end up the same
+colour as the dry surface it sits on, because a reaction nobody can see is a
+reaction that failed silently.
+
 Incident states use geometry as the primary channel and colour as reinforcement.
 `colorVision.test.ts` audits marker fill/outline contrast in the supported
 protanopia and deuteranopia simulations alongside the cell-state lightness audit.
