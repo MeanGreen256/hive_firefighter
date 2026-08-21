@@ -26,6 +26,7 @@ import {
 } from './hoseVfx';
 import {
   getHoseNozzlePosition,
+  HOSE_AIM_MAX_RANGE_METERS,
   readHoseMuzzleLocalOffset,
   isHotWaterContact,
   resolveHoseAimTarget,
@@ -33,6 +34,12 @@ import {
   type HoseAimCandidate,
   type HosePresentationState,
 } from './hoseTargeting';
+import { findRinseTarget, type ScorchRinseField } from './scorchRinse';
+import {
+  resolveWorldContact,
+  type WorldReactionField,
+  type WorldSurfaceIndex,
+} from './worldReactions';
 
 /** Litres per second the character can hold-to-spray; water is unlimited (ADR-006). */
 const HOSE_LITRES_PER_SECOND = 3;
@@ -52,6 +59,12 @@ const GAMEPAD_AIM_SPEED_RADIANS_PER_SECOND = 2.4;
 export interface HoseFireField {
   getSuppressionTargets(): readonly { readonly id: string; readonly position: ShellPoint }[];
   applyWater(targetId: string, litres: number): WaterApplicationResult | null;
+  /**
+   * Cells the fire has already finished with. They take no water in the
+   * simulation — `@sim/waterApplication` refuses a burnt cell — so this exists
+   * only so the player can hose the marks off afterwards (#181).
+   */
+  getScorchedCells(): readonly { readonly id: string; readonly position: ShellPoint }[];
 }
 
 /** Held state only, independent of gamepad D-pad/stick position or mouse location. */
@@ -65,6 +78,12 @@ export interface AnchoredHoseEffectsProps {
   readonly enabled: boolean;
   readonly visualStyle: Style;
   readonly fire: HoseFireField;
+  /** Everything solid the water can land on when nothing in front of it is alight. */
+  readonly surfaces: WorldSurfaceIndex;
+  /** Where free-roam reactions are spawned; the field owns their whole lifetime. */
+  readonly reactions: WorldReactionField;
+  /** Per-cell scorch washing, presentation only. */
+  readonly rinse: ScorchRinseField;
   /** Development acceptance scene: draw the verb without consuming its target. */
   readonly forceSpraying?: boolean;
 }
@@ -82,6 +101,9 @@ export function AnchoredHoseEffects({
   enabled,
   visualStyle,
   fire,
+  surfaces,
+  reactions,
+  rinse,
   forceSpraying = false,
 }: AnchoredHoseEffectsProps) {
   const { gl } = useThree();
@@ -313,6 +335,18 @@ export function AnchoredHoseEffects({
     previousTargetId.current = resolution.targetId;
 
     const spraying = forceSpraying || isSprayButtonHeld(spaceHeld.current, mouseHeld.current);
+
+    // Fire always wins. The town only answers the hose when nothing in front of
+    // the player is alight, so free-roam reactions can never compete with an
+    // incident or become a way to finish one.
+    const worldContact =
+      resolution.targetId === null
+        ? resolveWorldContact(nozzlePosition, aimDirection, surfaces, HOSE_AIM_MAX_RANGE_METERS)
+        : null;
+    // Where the water actually stops: a real surface when there is one, and the
+    // aim point's fixed fallback range when the player is pointing at the sky.
+    const streamEnd = worldContact ? worldContact.point : resolution.aimPoint;
+
     Object.assign(presentationRef.current, {
       spraying,
       freeAimActive: freeAimStep.active,
@@ -325,6 +359,13 @@ export function AnchoredHoseEffects({
     character.userData.targetCaptured = resolution.targetId !== null;
     character.userData.aimYawOffsetRadians = freeAimStep.state.yawOffsetRadians;
     character.userData.aimPitchRadians = freeAimStep.state.pitchRadians;
+
+    if (spraying && worldContact) {
+      const sound = reactions.noteHoseContact(worldContact, clock.elapsedTime);
+      if (sound) fireAudioSystem.playWorldReaction(sound);
+      const scorchedId = findRinseTarget(worldContact.point, fire.getScorchedCells());
+      if (scorchedId !== null) rinse.rinse(scorchedId, delta);
+    }
 
     if (!forceSpraying && spraying && resolution.targetId !== null) {
       const result = fire.applyWater(resolution.targetId, HOSE_LITRES_PER_SECOND * delta);
@@ -342,7 +383,7 @@ export function AnchoredHoseEffects({
     if (steam) {
       const pulseRatio = steamRemaining.current / STEAM_PULSE_SECONDS;
       steam.visible = steamRemaining.current > 0;
-      steam.position.set(...resolution.aimPoint);
+      steam.position.set(...streamEnd);
       steam.scale.setScalar(0.6 + (1 - pulseRatio) * 1.1);
       const material = steam.material as MeshBasicMaterial;
       material.opacity = 0.7 * pulseRatio;
@@ -350,11 +391,13 @@ export function AnchoredHoseEffects({
 
     const waterPlan = getWaterVfxPlan({
       start: nozzlePosition,
-      end: resolution.aimPoint,
+      end: streamEnd,
       elapsedSeconds: clock.elapsedTime,
       quality,
       spraying,
-      targetCaptured: resolution.targetId !== null,
+      // Water landing on a hedge or the pavement bursts the same way water
+      // landing on fire does; only water thrown into open sky does not.
+      targetCaptured: resolution.targetId !== null || worldContact !== null,
     });
     applyPieces(waterPiecesRef.current, waterPlan);
 
@@ -362,7 +405,7 @@ export function AnchoredHoseEffects({
       // The contact splash becomes the aim cue while water is visible; keeping
       // the reticle too would duplicate the signal and spend another draw.
       reticle.visible = !spraying;
-      reticle.position.set(...resolution.aimPoint);
+      reticle.position.set(...streamEnd);
       reticle.quaternion.copy(camera.quaternion);
       const locked = resolution.targetId !== null;
       reticle.scale.setScalar(locked ? RETICLE_LOCKED_SCALE : RETICLE_SEARCHING_SCALE);

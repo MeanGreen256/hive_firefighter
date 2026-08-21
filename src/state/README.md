@@ -26,6 +26,12 @@ suppression target and returns the real `@sim/waterApplication` result. Fire
 targets address shell cells; a countdown adds its cylinder as another target,
 and water delivered to either cools a tank sharing that heat cell.
 
+`getScorchedCells` is the one publisher here that exists purely for the look of
+the world: burnt and collapsed cells take no water in the simulation, so they
+are handed to the renderer only so a player can hose the marks off afterwards
+(#181). Nothing about rinsing enters this controller's state, the sim, or the
+debrief — a rinsed cell is still burnt and still scores as burnt.
+
 Propane and structural state advance by the exact number of simulated 10 Hz
 ticks, not frame time. Retry recreates both states from authored content.
 Propane misses and collapsed fuel feed the existing star debrief, while neither

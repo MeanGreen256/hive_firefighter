@@ -31,6 +31,18 @@ describe('runtime styles', () => {
       expect(style.hose.streamEdge).toMatch(/^#/);
       expect(style.hose.droplet).toMatch(/^#/);
       expect(style.hose.splash).toMatch(/^#/);
+      // Both art directions have to answer the free-roam reactions (#181),
+      // or spraying a pond looks like a bug in one of them.
+      expect(style.world.wetSheen).toMatch(/^#/);
+      expect(style.world.ripple).toMatch(/^#/);
+      expect(style.world.rinsedScorch).toMatch(/^#/);
+      // Wet has to read as wet: a patch that matched its own dry surface would
+      // fade to nothing visible, which is the reaction failing silently.
+      expect(style.world.wetSheen).not.toBe(style.city.pavement);
+      expect(style.world.wetSheen).not.toBe(style.city.road);
+      expect(style.world.wetSheen).not.toBe(style.city.parkGrass);
+      expect(style.world.ripple).not.toBe(style.city.water);
+      expect(style.world.rinsedScorch).not.toBe(style.cellVisuals.byState[CellState.Burnt].color);
 
       for (const materialId of Object.keys(materials) as MaterialId[]) {
         expect(style.createMaterial('cell', materialId).color).toBe(

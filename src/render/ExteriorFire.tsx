@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { BackSide, Matrix4, Vector3, type InstancedMesh } from 'three';
+import { BackSide, Color, Matrix4, Vector3, type InstancedMesh } from 'three';
 import { CellState } from '@sim/cellGrid';
 import { getShellCellWorldPosition } from '@sim/exteriorShell';
 import type { QuestFireController } from '../state/questFireController';
 import type { Style } from '@styles/styles';
 import { getFireAftermathFrame, getFlameCellFrame, getRuntimeVfxQuality } from './incidentVfx';
+import type { ScorchRinseField } from './scorchRinse';
 
 const MARKER_STATES = [
   CellState.Burnt,
@@ -14,6 +15,9 @@ const MARKER_STATES = [
   CellState.Collapsed,
 ] as const;
 type MarkerState = (typeof MARKER_STATES)[number];
+
+/** The two aftermath states that leave a mark a player can hose off (#181). */
+const SCORCH_STATES: ReadonlySet<MarkerState> = new Set([CellState.Burnt, CellState.Collapsed]);
 
 function MarkerGeometry({ state }: { readonly state: MarkerState }) {
   if (state === CellState.Heating) return <dodecahedronGeometry args={[0.5, 0]} />;
@@ -36,10 +40,13 @@ export function ExteriorFire({
   controller,
   questId,
   visualStyle,
+  rinse,
 }: {
   readonly controller: QuestFireController;
   readonly questId: string | null;
   readonly visualStyle: Style;
+  /** How far the player has washed each scorch mark; presentation only (#181). */
+  readonly rinse?: ScorchRinseField;
 }) {
   const markerMeshes = useRef(new Map<MarkerState, InstancedMesh>());
   const outerFlamesRef = useRef<InstancedMesh>(null);
@@ -51,6 +58,9 @@ export function ExteriorFire({
   const scratchMatrix = useMemo(() => new Matrix4(), []);
   const scratchPosition = useMemo(() => new Vector3(), []);
   const scratchScale = useMemo(() => new Vector3(), []);
+  const scorchColor = useMemo(() => new Color(), []);
+  const rinsedColor = useMemo(() => new Color(), []);
+  const blendedColor = useMemo(() => new Color(), []);
 
   const capacity = useMemo(() => {
     const fire = controller.getFire();
@@ -62,6 +72,13 @@ export function ExteriorFire({
     const current = markerMeshes.current;
     return () => current.clear();
   }, []);
+
+  // Scorch belongs to the incident that made it: a new quest starts clean, and
+  // nothing a player washed carries into the next fire.
+  useEffect(() => {
+    rinse?.clear();
+    return () => rinse?.clear();
+  }, [questId, rinse]);
 
   const setInstance = (
     mesh: InstancedMesh | null,
@@ -167,6 +184,17 @@ export function ExteriorFire({
         const index = markerCounts.get(markerState) ?? 0;
         scratchPosition.set(world.x, world.y + markerFrame.yOffset, world.z);
         setInstance(mesh, index, scratchPosition, markerFrame.scale, markerFrame.yawRadians);
+        // A scorch mark the player has hosed fades toward the style's rinsed
+        // tone. It is drawn state only: the cell itself is still burnt, still
+        // counts as burnt, and the simulation was never asked.
+        if (rinse && index < capacity && SCORCH_STATES.has(markerState)) {
+          scorchColor.set(visualStyle.cellVisuals.byState[markerState].color);
+          rinsedColor.set(visualStyle.world.rinsedScorch);
+          mesh.setColorAt(
+            index,
+            blendedColor.copy(scorchColor).lerp(rinsedColor, rinse.getRinse(cellId)),
+          );
+        }
         markerCounts.set(markerState, index + 1);
 
         const layer = aftermath.layer;
@@ -188,6 +216,7 @@ export function ExteriorFire({
       if (!mesh) continue;
       mesh.count = markerCounts.get(state) ?? 0;
       mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
     for (const [mesh, count] of [
       [outerFlamesRef.current, flameCount],

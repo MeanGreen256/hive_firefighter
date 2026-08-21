@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -45,6 +46,7 @@ import {
 } from '../perf/acceptanceScene';
 import { AnchoredHoseEffects } from './AnchoredHoseEffects';
 import { AmbientDistrict } from './AmbientDistrict';
+import { WorldReactions } from './WorldReactions';
 import { PerformanceSampler } from './PerformanceSampler';
 import { CityDistrict } from './CityDistrict';
 import { ExteriorFire } from './ExteriorFire';
@@ -57,6 +59,13 @@ import { FollowCameraRig } from './FollowCameraRig';
 import { ArcadeTruck } from './ArcadeTruck';
 import { buildDistrictLayout } from './districtLayout';
 import { createHosePresentationState } from './hoseTargeting';
+import { createScorchRinseField } from './scorchRinse';
+import { getRuntimeVfxQuality } from './incidentVfx';
+import {
+  buildWorldSurfaceIndex,
+  createWorldReactionField,
+  SIREN_DISTURBANCE_RADIUS_METERS,
+} from './worldReactions';
 import type { CharacterPoint } from './characterController';
 import {
   getActionIntent,
@@ -68,6 +77,12 @@ import type { BeaconPoint } from './questBeacon';
 
 const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
 const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
+/** What the hose can land on when nothing in front of the player is alight (#181). */
+const WORLD_SURFACES = buildWorldSurfaceIndex(DISTRICT_LAYOUT);
+/** Where the siren has an audience worth hearing scatter. */
+const AMBIENT_BIRD_POSITIONS = (DISTRICT.ambient ?? [])
+  .filter((placement) => placement.type === 'bird')
+  .map((placement) => ({ x: placement.x, z: placement.z }));
 const PERFORMANCE_SCENE = import.meta.env.DEV
   ? performanceSceneFromSearch(window.location.search)
   : null;
@@ -170,6 +185,14 @@ function GameWorld({
   const collisionRoot = useRef<Group>(null);
   const movementForwardRef = useRef<CharacterPoint>({ x: 0, z: -1 });
   const hosePresentationRef = useRef(createHosePresentationState());
+  // One field per world, written by the hose and the siren and read by the
+  // props, the ambient layer, and the reaction renderer. It lives outside React
+  // because it changes every frame and none of it belongs in a render pass.
+  const worldReactions = useMemo(
+    () => createWorldReactionField({ quality: getRuntimeVfxQuality() }),
+    [],
+  );
+  const scorchRinse = useMemo(() => createScorchRinseField(), []);
   const lastCanBoard = useRef(false);
   const boardingCheckElapsed = useRef(0);
   const hasSprayed = useRef(false);
@@ -190,7 +213,24 @@ function GameWorld({
   const profile = mode === 'driving' ? 'chase' : 'shoulder';
   const activeTarget = mode === 'driving' ? truckRef : firefighterRef;
 
-  useFrame((_state, delta) => {
+  useFrame(({ clock }, delta) => {
+    // The siren gets an audience (#181): each wail stirs the flags, signs, and
+    // foliage it passes, and startles birds off the roofs near it. Cosmetic
+    // only — nothing scatters into a target, a counter, or an objective.
+    const sirenSource = truckRef.current;
+    if (sirenOn && sirenSource) {
+      const pulsed = worldReactions.noteSiren(
+        [sirenSource.position.x, sirenSource.position.y, sirenSource.position.z],
+        clock.elapsedTime,
+      );
+      const hasAudience = AMBIENT_BIRD_POSITIONS.some(
+        (bird) =>
+          Math.hypot(bird.x - sirenSource.position.x, bird.z - sirenSource.position.z) <=
+          SIREN_DISTURBANCE_RADIUS_METERS,
+      );
+      if (pulsed && hasAudience) fireAudioSystem.playWorldReaction('flutter');
+    }
+
     boardingCheckElapsed.current += delta;
     if (boardingCheckElapsed.current < 0.1) return;
     boardingCheckElapsed.current = 0;
@@ -301,12 +341,17 @@ function GameWorld({
         enabled={mode === 'on-foot'}
         visualStyle={visualStyle}
         fire={questFireController}
+        surfaces={WORLD_SURFACES}
+        reactions={worldReactions}
+        rinse={scorchRinse}
         forceSpraying={performanceScene?.id === 'spray'}
       />
+      <WorldReactions field={worldReactions} visualStyle={visualStyle} />
       <ExteriorFire
         controller={questFireController}
         questId={activeQuestSite.id}
         visualStyle={visualStyle}
+        rinse={scorchRinse}
       />
       <ExteriorIncidentEffects
         controller={questFireController}
@@ -325,9 +370,15 @@ function GameWorld({
           visualStyle={visualStyle}
           activeQuestSite={activeQuestSite}
           incidentCameraActive={mode === 'on-foot'}
+          reactions={worldReactions}
         />
       </group>
-      <AmbientDistrict district={DISTRICT} visualStyle={visualStyle} listenerRef={activeTarget} />
+      <AmbientDistrict
+        district={DISTRICT}
+        visualStyle={visualStyle}
+        listenerRef={activeTarget}
+        reactions={worldReactions}
+      />
     </>
   );
 }
