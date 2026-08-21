@@ -72,20 +72,42 @@ replace the flat equivalents rather than layering on top of them.
 contract for the whole town (#160). District data selects a house, shop, civic,
 or workshop facade plus a garden/civic/harbour route; the pure builder places
 doors, windows, awnings, signs, trim, and shallow depth on the authored street
-face. The same builder supplies landmark hero silhouettes and crossing, fence,
-planter, park-boundary, and waterfront-rail kits. `DistrictArtRenderer` batches
-the resulting boxes, cylinders, spheres, and cones across the district. These
-pieces are scenic and non-colliding; porches, awnings, and barn doors from the
-fire shell remain the authoritative burnable volumes.
+face. The same builder supplies landmark hero silhouettes; crossing, fence,
+planter, park-boundary, and waterfront-rail street edges; a park's own
+bandstand, garden-beds, or play-lawn furniture kit; and a water body's own
+boardwalk or pier kit (#174). `DistrictArtRenderer` batches the resulting
+boxes, cylinders, spheres, and cones across the district. These pieces are
+scenic and non-colliding; porches, awnings, and barn doors from the fire shell
+remain the authoritative burnable volumes.
+
+A park or water body opts into a kit the same way a building opts into a
+facade: an `art`-shaped object naming a route and a variant (`kit` on
+`DistrictPark`/`DistrictWaterBody`; a waterfront kit also names the shore-facing
+compass direction, the same vocabulary a building's `art.facing` uses, so the
+boardwalk mounts on the water body's landward edge without a hand-placed
+angle). A park or water body authored without a `kit` draws its bare surface,
+same as always — the kit is additive content, not a requirement. Every piece
+`buildParkKit`/`buildWaterfrontKit` returns stays inside its own park or water
+rectangle and is `castShadow: false`, the same contract `buildStreetEdgeKit`
+already keeps: scenic, never an obstacle, never a second collision authority
+to keep in sync with the movement bounds.
 
 The `flower-box`, animated `pinwheel`, `bee-sign`, and `harbour-bollard` are
 quiet-world vignette props (#133). They reward looking around without becoming
 objectives. Each is content plus a reusable kit entry — `PROP_PARTS` in
 `propKits.ts` and `PROP_FOOTPRINTS` in `@sim/districts` — never a one-off
-position hand-placed in a component. Landmark accents repeat the route palette
-so the bell tower, school dome, water tower, garage sign, and lighthouse can
-lead three describable routes without a text label. The lighthouse beacon keeps
-its slow subordinate rotation as an animated instance in the shared landmark
+position hand-placed in a component. A prop placement may additionally name a
+`variant` (a named alternate part list, e.g. `tree`'s `conifer` silhouette
+beside its round default) and a `scale` (a uniform multiplier on both the
+drawn parts and the collision footprint, bounded by `PROP_SCALE_MIN`/
+`PROP_SCALE_MAX` in `@sim/districts`, #174) — the same silhouette-variant
+contract `DistrictAmbient.variant` already uses, extended with size. An
+unrecognised variant name falls back to the type's default part list rather
+than failing, so content can name a variant this folder does not draw yet
+without breaking the district. Landmark accents repeat the route palette so
+the bell tower, school dome, water tower, garage sign, and lighthouse can lead
+three describable routes without a text label. The lighthouse beacon keeps its
+slow subordinate rotation as an animated instance in the shared landmark
 batch; incident flame, water, and smoke remain faster and brighter.
 
 `AmbientDistrict` is the nonblocking companion layer for flags, birds, water
@@ -100,9 +122,9 @@ split around crossing roads by `subtractSpans` so junctions stay open. Repeated
 elements batch by geometry and shadow behavior, with per-instance style colour:
 building bodies and roofs batch by shape, every facade attachment shares one
 box layer, district art batches globally by primitive/shadow behavior, and all
-prop kits share box/cylinder/sphere layers. Adding a prop
-type made from an existing primitive therefore adds instance data rather than a
-draw call. The single sun's shadow frustum is widened to the district
+prop kits share box/cylinder/sphere/cone layers. Adding a prop
+type or a silhouette variant made from an existing primitive+shadow
+combination therefore adds instance data rather than a draw call. The single sun's shadow frustum is widened to the district
 bounds; the five-unit default only shadows one junction, and widening it needs
 an explicit projection rebuild. Because the town never moves, that shadow map is
 baked once. The truck and firefighter use style-token contact blobs, preserving
@@ -377,3 +399,42 @@ and went with the cutaway (#100). Exterior fire and the smoke column are
 instanced geometry instead, which is why a fire costs draw calls rather than
 particles. The budget line stays because the ceiling still applies to whatever
 fills it next.
+
+### Per-kit render cost (#174)
+
+Every `districtArtKits.ts` family — facade, landmark, street edge, park, and
+waterfront — draws through the same `DistrictArtRenderer` batching pass: all
+of a district's pieces are grouped once by `shape` and `castShadow`, so
+authoring another park or water body only adds instance data to a layer that
+already exists. A district can add any number of park or waterfront kit
+placements at zero extra draw-call cost as long as they reuse the
+box/cylinder/sphere/cone + shadow-on/off combinations other kit families
+already draw with — every waterfront piece and the park kit's garden-beds and
+play-lawn variants do. The one way a _new_ kit or variant costs a real draw
+call is introducing a primitive/shadow combination nothing else uses yet, and
+this pass added exactly two: the park kit's `bandstand` roof is the first
+non-shadow-casting cone `DistrictArtRenderer` draws (street edges never used
+one), and the prop system's `conifer` tree variant is the first
+shadow-casting cone `CityDistrict`'s separate prop-part layers draw (every
+prop before it was box/cylinder/sphere only).
+
+Measured with the M3 acceptance harness (`?perfScene=<scene>&style=<style>`,
+1280×720, after the one-time shadow-bake warmup), adding a park kit to every
+authored Harbour Hill park (one of each variant), a waterfront kit to both
+water bodies, and a `variant`/`scale` to a handful of trees:
+
+| Scene    | Diorama draws (before → after) | Diorama tris (before → after) | Ink draws (before → after) | Ink tris (before → after) |
+| -------- | -----------------------------: | ----------------------------: | -------------------------: | ------------------------: |
+| spawn    |                        41 → 43 |             223,822 → 227,922 |                    42 → 44 |         223,836 → 227,936 |
+| on-foot  |                        62 → 64 |             232,042 → 236,142 |                    63 → 65 |         232,056 → 236,156 |
+| incident |                        54 → 55 |             230,942 → 234,962 |                    54 → 56 |         230,564 → 234,976 |
+| spray    |                        54 → 55 |             231,530 → 235,550 |                    55 → 56 |         231,556 → 235,564 |
+
+Every scene stays at least 15 draws under the 80-call ceiling, spending at
+most both of the two new layers (a scene/style combination that never renders
+a bandstand or a conifer canopy — none of these acceptance cameras look
+directly at either — still paid for both layers existing in the scene graph,
+which is the honest worst case). Authoring more park/waterfront kits, or more
+prop `scale`/non-cone `variant` placements, is free in draw-call terms from
+here on — the cost is triangles only, and every measured scene keeps wide
+headroom before triangle count becomes the binding constraint.

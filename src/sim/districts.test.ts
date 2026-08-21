@@ -6,6 +6,8 @@ import {
   MAXIMUM_QUEST_SITE_ROAD_DISTANCE,
   MINIMUM_QUEST_SITES,
   MINIMUM_QUEST_SITE_SEPARATION,
+  PROP_SCALE_MAX,
+  PROP_SCALE_MIN,
   distanceToRect,
   getActiveQuestSite,
   getBuildingRect,
@@ -215,13 +217,47 @@ describe('prop footprints', () => {
       x: 0,
       z: 0,
       yawDegrees: 0,
+      variant: null,
+      scale: 1,
     });
-    const turned = getPropRect({ id: 'car', type: 'parked-car', x: 0, z: 0, yawDegrees: 90 });
+    const turned = getPropRect({
+      id: 'car',
+      type: 'parked-car',
+      x: 0,
+      z: 0,
+      yawDegrees: 90,
+      variant: null,
+      scale: 1,
+    });
 
     expect(upright.maxX - upright.minX).toBeCloseTo(2.1);
     expect(upright.maxZ - upright.minZ).toBeCloseTo(4.4);
     expect(turned.maxX - turned.minX).toBeCloseTo(4.4);
     expect(turned.maxZ - turned.minZ).toBeCloseTo(2.1);
+  });
+
+  it('widens the collision footprint by the same scale the parts draw at (#174)', () => {
+    const base = getPropRect({
+      id: 'tree',
+      type: 'tree',
+      x: 0,
+      z: 0,
+      yawDegrees: 0,
+      variant: null,
+      scale: 1,
+    });
+    const bigger = getPropRect({
+      id: 'tree',
+      type: 'tree',
+      x: 0,
+      z: 0,
+      yawDegrees: 0,
+      variant: null,
+      scale: 1.5,
+    });
+
+    expect(bigger.maxX - bigger.minX).toBeCloseTo((base.maxX - base.minX) * 1.5);
+    expect(bigger.maxZ - bigger.minZ).toBeCloseTo((base.maxZ - base.minZ) * 1.5);
   });
 });
 
@@ -273,6 +309,58 @@ describe('Harbour Hill', () => {
         );
       }),
     ).toBe(true);
+  });
+
+  it('authors park and waterfront kits across the garden and harbour routes (#174)', () => {
+    const district = validHarbourHill();
+    const parkKits = district.parks.flatMap((park) => park.kit ?? []);
+    const waterfrontKits = district.waterBodies.flatMap((water) => water.kit ?? []);
+
+    expect(parkKits.length).toBe(district.parks.length);
+    expect(new Set(parkKits.map((kit) => kit.variant))).toEqual(
+      new Set(['bandstand', 'play-lawn', 'garden-beds']),
+    );
+    expect(waterfrontKits.length).toBe(district.waterBodies.length);
+    expect(new Set(waterfrontKits.map((kit) => kit.variant))).toEqual(
+      new Set(['pier', 'boardwalk']),
+    );
+    expect(waterfrontKits.every((kit) => kit.route === 'harbour')).toBe(true);
+  });
+
+  it('authors data-selected prop silhouette and scale variants (#174)', () => {
+    const props = validHarbourHill().props;
+    expect(props.some((prop) => prop.variant === 'conifer')).toBe(true);
+    expect(props.some((prop) => prop.scale !== 1)).toBe(true);
+    expect(
+      props.every((prop) => prop.scale >= PROP_SCALE_MIN && prop.scale <= PROP_SCALE_MAX),
+    ).toBe(true);
+  });
+
+  it('rejects a park kit variant outside the closed vocabulary', () => {
+    const broken = cloneHarbourHill();
+    const parks = broken.parks as Record<string, unknown>[];
+    parks[0] = { ...parks[0], kit: { route: 'garden', variant: 'carousel' } };
+    expect(() => validateDistrictDefinition(broken, 'bad-park-kit')).toThrow(
+      /parks\[0\]\.kit\.variant must be one of/,
+    );
+  });
+
+  it('rejects a waterfront kit missing its shore-facing direction', () => {
+    const broken = cloneHarbourHill();
+    const waterBodies = broken.waterBodies as Record<string, unknown>[];
+    waterBodies[0] = { ...waterBodies[0], kit: { route: 'harbour', variant: 'pier' } };
+    expect(() => validateDistrictDefinition(broken, 'bad-waterfront-kit')).toThrow(
+      /waterBodies\[0\]\.kit\.facing is required/,
+    );
+  });
+
+  it('rejects a prop scale outside the authored range', () => {
+    const broken = cloneHarbourHill();
+    const props = broken.props as Record<string, unknown>[];
+    props[0] = { ...props[0], scale: 9 };
+    expect(() => validateDistrictDefinition(broken, 'bad-prop-scale')).toThrow(
+      /props\[0\]\.scale must be between/,
+    );
   });
 
   it('keeps facade vocabulary compatible with building uses and fire-facing geometry', () => {

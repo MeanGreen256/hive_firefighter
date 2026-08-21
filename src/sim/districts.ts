@@ -20,6 +20,7 @@ import {
   readObject,
   readPlacementArray,
   readPositiveNumber,
+  readRangedNumber,
   readString,
   validateUniqueIds,
 } from './contentValidation';
@@ -83,6 +84,34 @@ export type DistrictStreetEdgeType = (typeof STREET_EDGE_TYPES)[number];
 export const STREET_EDGE_VARIANTS = ['plain', 'flowered', 'safety'] as const;
 export type DistrictStreetEdgeVariant = (typeof STREET_EDGE_VARIANTS)[number];
 
+/**
+ * Reusable park furniture kits (#174). Every variant is scenic and stays
+ * outside collision, the same as a street edge: a park is a first-class area
+ * a child can run straight across, never a maze of new obstacles.
+ */
+export const PARK_KIT_VARIANTS = ['garden-beds', 'bandstand', 'play-lawn'] as const;
+export type ParkKitVariant = (typeof PARK_KIT_VARIANTS)[number];
+
+export interface DistrictParkKit {
+  readonly route: DistrictRouteId;
+  readonly variant: ParkKitVariant;
+}
+
+/**
+ * Reusable waterfront kits (#174): a quiet boardwalk lip, or a working pier
+ * with pilings. `facing` names the shore side the same way a building's
+ * `art.facing` names its street side, so the kit builder can orient the
+ * boardwalk along the water body's landward edge without a hand-placed angle.
+ */
+export const WATERFRONT_KIT_VARIANTS = ['boardwalk', 'pier'] as const;
+export type WaterfrontKitVariant = (typeof WATERFRONT_KIT_VARIANTS)[number];
+
+export interface DistrictWaterfrontKit {
+  readonly route: DistrictRouteId;
+  readonly variant: WaterfrontKitVariant;
+  readonly facing: BuildingFacing;
+}
+
 export const PROP_TYPES = [
   'tree',
   'hedge',
@@ -136,6 +165,15 @@ export const PROP_FOOTPRINTS: Readonly<Record<DistrictPropType, PropFootprint>> 
   'harbour-bollard': { halfWidth: 0.3, halfDepth: 0.3, solid: false },
   'bee-sign': { halfWidth: 0.5, halfDepth: 0.3, solid: false },
 });
+
+/**
+ * How far a prop instance may scale away from its part list's authored size
+ * (#174). Bounded so a content author can make one landmark tree loom over a
+ * corner without ever authoring a degenerate sliver or a prop too large for
+ * its own footprint to still feel grounded.
+ */
+export const PROP_SCALE_MIN = 0.5;
+export const PROP_SCALE_MAX = 2;
 
 /** At least this many quest sites, so one district holds a run of quests (#90). */
 export const MINIMUM_QUEST_SITES = 3;
@@ -193,6 +231,8 @@ export interface DistrictPark {
   readonly z: number;
   readonly width: number;
   readonly depth: number;
+  /** Optional reusable park-furniture kit (#174); null draws bare grass. */
+  readonly kit: DistrictParkKit | null;
 }
 
 /**
@@ -208,6 +248,8 @@ export interface DistrictWaterBody {
   readonly z: number;
   readonly width: number;
   readonly depth: number;
+  /** Optional reusable boardwalk/pier kit (#174); null draws a bare edge. */
+  readonly kit: DistrictWaterfrontKit | null;
 }
 
 export interface DistrictProp {
@@ -216,6 +258,15 @@ export interface DistrictProp {
   readonly x: number;
   readonly z: number;
   readonly yawDegrees: number;
+  /**
+   * An optional silhouette variant (#174), e.g. a conifer tree instead of the
+   * type's default canopy. The renderer owns the vocabulary and falls back to
+   * the type's default part list for an absent or unrecognised name — the
+   * same contract `DistrictAmbient.variant` already uses.
+   */
+  readonly variant: string | null;
+  /** Uniform size multiplier on the type's authored parts and footprint. */
+  readonly scale: number;
 }
 
 export interface DistrictAmbient {
@@ -324,17 +375,20 @@ export function getRoadRect(road: DistrictRoad): DistrictRect {
     : { minX: road.offset - halfWidth, maxX: road.offset + halfWidth, minZ: from, maxZ: to };
 }
 
-/** Rotating a rectangle keeps collision axis-aligned by widening it, never tilting it. */
+/**
+ * Rotating a rectangle keeps collision axis-aligned by widening it, never
+ * tilting it. Scale widens or narrows the same footprint the renderer scales
+ * the prop's parts by (#174), so a bigger authored tree can never draw larger
+ * than the space the truck and firefighter are kept out of.
+ */
 export function getPropRect(prop: DistrictProp): DistrictRect {
   const footprint = PROP_FOOTPRINTS[prop.type];
   const yaw = (prop.yawDegrees * Math.PI) / 180;
   const cos = Math.abs(Math.cos(yaw));
   const sin = Math.abs(Math.sin(yaw));
-  return rectFromCenter(
-    prop,
-    footprint.halfWidth * cos + footprint.halfDepth * sin,
-    footprint.halfWidth * sin + footprint.halfDepth * cos,
-  );
+  const halfWidth = footprint.halfWidth * prop.scale;
+  const halfDepth = footprint.halfDepth * prop.scale;
+  return rectFromCenter(prop, halfWidth * cos + halfDepth * sin, halfWidth * sin + halfDepth * cos);
 }
 
 export function getStreetEdgeRect(edge: DistrictStreetEdge): DistrictRect {
@@ -476,6 +530,33 @@ function readBuildingArt(
   return { route, facade, facing };
 }
 
+function readParkKit(value: unknown, path: string, problems: string[]): DistrictParkKit | null {
+  if (value === undefined) return null;
+  const object = readObject(value, path, problems);
+  if (!object) return null;
+  checkFields(object, path, ['route', 'variant'], problems);
+  return {
+    route: readEnum(object.route, `${path}.route`, DISTRICT_ROUTE_IDS, problems),
+    variant: readEnum(object.variant, `${path}.variant`, PARK_KIT_VARIANTS, problems),
+  };
+}
+
+function readWaterfrontKit(
+  value: unknown,
+  path: string,
+  problems: string[],
+): DistrictWaterfrontKit | null {
+  if (value === undefined) return null;
+  const object = readObject(value, path, problems);
+  if (!object) return null;
+  checkFields(object, path, ['route', 'variant', 'facing'], problems);
+  return {
+    route: readEnum(object.route, `${path}.route`, DISTRICT_ROUTE_IDS, problems),
+    variant: readEnum(object.variant, `${path}.variant`, WATERFRONT_KIT_VARIANTS, problems),
+    facing: readEnum(object.facing, `${path}.facing`, BUILDING_FACINGS, problems),
+  };
+}
+
 export function validateDistrictDefinition(data: unknown, id: string): DistrictDefinition {
   const problems: string[] = [];
   const root = readObject(data, id, problems);
@@ -549,7 +630,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     `${id}.parks`,
     problems,
     (object, path, parkProblems): DistrictPark => {
-      checkFields(object, path, ['id', 'name', 'x', 'z', 'width', 'depth'], parkProblems);
+      checkFields(object, path, ['id', 'name', 'x', 'z', 'width', 'depth'], parkProblems, ['kit']);
       return {
         id: readString(object.id, `${path}.id`, parkProblems),
         name: readString(object.name, `${path}.name`, parkProblems),
@@ -557,6 +638,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
         z: readFiniteNumber(object.z, `${path}.z`, parkProblems),
         width: readPositiveNumber(object.width, `${path}.width`, parkProblems),
         depth: readPositiveNumber(object.depth, `${path}.depth`, parkProblems),
+        kit: readParkKit(object.kit, `${path}.kit`, parkProblems),
       };
     },
   );
@@ -569,7 +651,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     `${id}.waterBodies`,
     problems,
     (object, path, waterProblems): DistrictWaterBody => {
-      checkFields(object, path, ['id', 'name', 'x', 'z', 'width', 'depth'], waterProblems);
+      checkFields(object, path, ['id', 'name', 'x', 'z', 'width', 'depth'], waterProblems, ['kit']);
       return {
         id: readString(object.id, `${path}.id`, waterProblems),
         name: readString(object.name, `${path}.name`, waterProblems),
@@ -577,6 +659,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
         z: readFiniteNumber(object.z, `${path}.z`, waterProblems),
         width: readPositiveNumber(object.width, `${path}.width`, waterProblems),
         depth: readPositiveNumber(object.depth, `${path}.depth`, waterProblems),
+        kit: readWaterfrontKit(object.kit, `${path}.kit`, waterProblems),
       };
     },
   );
@@ -586,7 +669,11 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     `${id}.props`,
     problems,
     (object, path, propProblems): DistrictProp => {
-      checkFields(object, path, ['id', 'type', 'x', 'z'], propProblems, ['yawDegrees']);
+      checkFields(object, path, ['id', 'type', 'x', 'z'], propProblems, [
+        'yawDegrees',
+        'variant',
+        'scale',
+      ]);
       return {
         id: readString(object.id, `${path}.id`, propProblems),
         type: readEnum(object.type, `${path}.type`, PROP_TYPES, propProblems),
@@ -596,6 +683,20 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
           object.yawDegrees === undefined
             ? 0
             : readFiniteNumber(object.yawDegrees, `${path}.yawDegrees`, propProblems),
+        variant:
+          object.variant === undefined
+            ? null
+            : readString(object.variant, `${path}.variant`, propProblems),
+        scale:
+          object.scale === undefined
+            ? 1
+            : readRangedNumber(
+                object.scale,
+                `${path}.scale`,
+                PROP_SCALE_MIN,
+                PROP_SCALE_MAX,
+                propProblems,
+              ),
       };
     },
   );

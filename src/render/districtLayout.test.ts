@@ -140,7 +140,9 @@ describe('water bodies as a hard edge', () => {
   const base = getDistrict('harbour-hill');
   const withCove: DistrictDefinition = {
     ...base,
-    waterBodies: [{ id: 'test-cove', name: 'Test Cove', x: 61, z: 10, width: 2, depth: 4 }],
+    waterBodies: [
+      { id: 'test-cove', name: 'Test Cove', x: 61, z: 10, width: 2, depth: 4, kit: null },
+    ],
   };
   const layout = buildDistrictLayout(withCove);
 

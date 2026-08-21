@@ -18,7 +18,9 @@ import type {
 import type {
   DistrictBuildingPlacement,
   DistrictLayout,
+  DistrictParkPlacement,
   DistrictStreetEdgePlacement,
+  DistrictWaterBodyPlacement,
 } from './districtLayout';
 import type { Vector3Tuple } from './worldUnits';
 
@@ -44,6 +46,10 @@ export interface DistrictArtKitLayout {
   readonly facades: readonly DistrictArtPiece[];
   readonly landmarks: readonly DistrictArtPiece[];
   readonly streetEdges: readonly DistrictArtPiece[];
+  /** Park furniture kits (#174); same non-colliding, route-painted contract. */
+  readonly parks: readonly DistrictArtPiece[];
+  /** Boardwalk/pier kits (#174); same non-colliding, route-painted contract. */
+  readonly waterfronts: readonly DistrictArtPiece[];
 }
 
 const FACING_YAW: Readonly<Record<BuildingFacing, number>> = {
@@ -694,10 +700,301 @@ export function buildStreetEdgeKit(edge: DistrictStreetEdgePlacement): DistrictA
   return pieces;
 }
 
+/**
+ * A park's own reusable furniture kit (#174): a raised bandstand, garden beds
+ * along the long edges, or a painted play-lawn mat with marker cones. Every
+ * piece stays inside the park's own footprint and paints only through route
+ * and neutral hardscape roles — a park never borrows a building's wall, trim,
+ * or roof tokens, so its look never drifts with an unrelated palette pass.
+ */
+function parkPiece(
+  park: DistrictParkPlacement,
+  route: DistrictRouteId,
+  id: string,
+  shape: DistrictArtShape,
+  paint: DistrictArtPaintRole,
+  offset: Vector3Tuple,
+  size: Vector3Tuple,
+): DistrictArtPiece {
+  return {
+    id: `${park.id}:park:${id}`,
+    shape,
+    paint,
+    use: null,
+    route,
+    position: [park.position[0] + offset[0], offset[1], park.position[2] + offset[2]],
+    rotation: [0, 0, 0],
+    size,
+    castShadow: false,
+  };
+}
+
+export function buildParkKit(park: DistrictParkPlacement): DistrictArtPiece[] {
+  const kit = park.kit;
+  if (!kit) return [];
+  const minSpan = Math.min(park.width, park.depth);
+
+  if (kit.variant === 'bandstand') {
+    const platform = minSpan * 0.34;
+    const postOffset = platform * 0.42;
+    const pieces: DistrictArtPiece[] = [
+      parkPiece(
+        park,
+        kit.route,
+        'platform',
+        'cylinder',
+        'pavement',
+        [0, 0.15, 0],
+        [platform, 0.3, platform],
+      ),
+      parkPiece(
+        park,
+        kit.route,
+        'roof',
+        'cone',
+        'route-primary',
+        [0, 2.25, 0],
+        [platform * 1.3, 1.1, platform * 1.3],
+      ),
+      parkPiece(park, kit.route, 'finial', 'sphere', 'accent', [0, 2.85, 0], [0.26, 0.26, 0.26]),
+    ];
+    for (const [index, [dx, dz]] of (
+      [
+        [-postOffset, -postOffset],
+        [postOffset, -postOffset],
+        [-postOffset, postOffset],
+        [postOffset, postOffset],
+      ] as const
+    ).entries()) {
+      pieces.push(
+        parkPiece(
+          park,
+          kit.route,
+          `post:${String(index)}`,
+          'cylinder',
+          'route-secondary',
+          [dx, 1.1, dz],
+          [0.12, 2.2, 0.12],
+        ),
+      );
+    }
+    return pieces;
+  }
+
+  if (kit.variant === 'garden-beds') {
+    const alongX = park.width >= park.depth;
+    const bedLength = (alongX ? park.width : park.depth) * 0.42;
+    const inset = (alongX ? park.depth : park.width) * 0.36;
+    const pieces: DistrictArtPiece[] = [];
+    for (const side of [-1, 1] as const) {
+      const bedOffset: Vector3Tuple = alongX ? [0, 0.16, side * inset] : [side * inset, 0.16, 0];
+      const bedSize: Vector3Tuple = alongX ? [bedLength, 0.32, 0.6] : [0.6, 0.32, bedLength];
+      pieces.push(
+        parkPiece(park, kit.route, `bed:${side}`, 'box', 'route-primary', bedOffset, bedSize),
+      );
+      const bloomCount = 3;
+      for (let index = 0; index < bloomCount; index += 1) {
+        const along = -bedLength / 2 + (bedLength * (index + 0.5)) / bloomCount;
+        const bloomOffset: Vector3Tuple = alongX
+          ? [along, 0.42, side * inset]
+          : [side * inset, 0.42, along];
+        pieces.push(
+          parkPiece(
+            park,
+            kit.route,
+            `bloom:${side}:${String(index)}`,
+            'sphere',
+            index % 2 === 0 ? 'accent' : 'route-secondary',
+            bloomOffset,
+            [0.4, 0.32, 0.4],
+          ),
+        );
+      }
+    }
+    return pieces;
+  }
+
+  // 'play-lawn': a painted mat with toy marker cones — a sports corner a
+  // child can read from its shape alone, never a real playing-field rule set.
+  const matRadius = minSpan * 0.3;
+  const pieces: DistrictArtPiece[] = [
+    parkPiece(
+      park,
+      kit.route,
+      'mat',
+      'cylinder',
+      'route-secondary',
+      [0, 0.03, 0],
+      [matRadius * 2, 0.06, matRadius * 2],
+    ),
+  ];
+  const markerCount = 3;
+  for (let index = 0; index < markerCount; index += 1) {
+    const angle = (index / markerCount) * Math.PI * 2;
+    pieces.push(
+      parkPiece(
+        park,
+        kit.route,
+        `marker:${String(index)}`,
+        'cone',
+        'accent',
+        [Math.cos(angle) * matRadius * 0.85, 0.18, Math.sin(angle) * matRadius * 0.85],
+        [0.32, 0.36, 0.32],
+      ),
+    );
+  }
+  return pieces;
+}
+
+interface WaterfrontFrame {
+  readonly water: DistrictWaterBodyPlacement;
+  readonly route: DistrictRouteId;
+  readonly yaw: number;
+  /** Length of the shoreline the boardwalk runs along, in metres. */
+  readonly span: number;
+  /** Half the water rect's extent perpendicular to the shoreline. */
+  readonly shoreDistance: number;
+}
+
+function waterfrontFrame(water: DistrictWaterBodyPlacement): WaterfrontFrame | null {
+  const kit = water.kit;
+  if (!kit) return null;
+  const northSouth = kit.facing === 'north' || kit.facing === 'south';
+  return {
+    water,
+    route: kit.route,
+    yaw: FACING_YAW[kit.facing],
+    span: northSouth ? water.width : water.depth,
+    shoreDistance: (northSouth ? water.depth : water.width) / 2,
+  };
+}
+
+/**
+ * `z` is measured from the shoreline outward into the water, mirroring
+ * `transformLocal`'s building convention: positive is the direction the kit's
+ * `facing` names, so a boardwalk sits right at `shoreDistance` and a pier
+ * platform reaches inward from there toward the open water.
+ */
+function waterfrontPiece(
+  frame: WaterfrontFrame,
+  id: string,
+  shape: DistrictArtShape,
+  paint: DistrictArtPaintRole,
+  x: number,
+  y: number,
+  z: number,
+  size: Vector3Tuple,
+): DistrictArtPiece {
+  const cos = Math.cos(frame.yaw);
+  const sin = Math.sin(frame.yaw);
+  const localZ = frame.shoreDistance + z;
+  return {
+    id: `${frame.water.id}:waterfront:${id}`,
+    shape,
+    paint,
+    use: null,
+    route: frame.route,
+    position: [
+      frame.water.position[0] + x * cos + localZ * sin,
+      y,
+      frame.water.position[2] - x * sin + localZ * cos,
+    ],
+    rotation: [0, frame.yaw, 0],
+    size,
+    castShadow: false,
+  };
+}
+
+/**
+ * A quiet boardwalk lip, or a working pier reaching into the water (#174).
+ * Every piece stays within the water body's own rectangle — the boardwalk sits
+ * flush with the authored shoreline and a pier never reaches past the far edge
+ * of the water it floats on — so waterfront art can never claim district space
+ * a road, building, or quest site validation did not already grant it.
+ */
+export function buildWaterfrontKit(water: DistrictWaterBodyPlacement): DistrictArtPiece[] {
+  const frame = waterfrontFrame(water);
+  if (!frame) return [];
+  const kit = water.kit;
+  if (!kit) return [];
+
+  const deckThickness = 0.12;
+  const pieces: DistrictArtPiece[] = [
+    waterfrontPiece(frame, 'deck', 'box', 'pavement', 0, deckThickness / 2, -0.55, [
+      frame.span,
+      deckThickness,
+      1.1,
+    ]),
+    waterfrontPiece(
+      frame,
+      'rail',
+      'box',
+      kit.variant === 'pier' ? 'route-primary' : 'route-secondary',
+      0,
+      0.55,
+      -1.05,
+      [frame.span, 0.1, 0.1],
+    ),
+  ];
+
+  if (kit.variant === 'pier') {
+    const pierLength = Math.min(frame.shoreDistance * 1.3, 4.5);
+    const pierWidth = 2.4;
+    const pierCenterZ = -0.55 - pierLength / 2;
+    pieces.push(
+      waterfrontPiece(frame, 'platform', 'box', 'pavement', 0, deckThickness / 2, pierCenterZ, [
+        pierWidth,
+        deckThickness,
+        pierLength,
+      ]),
+    );
+    for (const [index, side] of [-1, 1].entries()) {
+      pieces.push(
+        waterfrontPiece(
+          frame,
+          `piling:${String(index)}`,
+          'cylinder',
+          'route-secondary',
+          (side * pierWidth) / 2,
+          -0.6,
+          -0.55 - pierLength * 0.85,
+          [0.2, 1.6, 0.2],
+        ),
+        waterfrontPiece(
+          frame,
+          `post:${String(index)}`,
+          'cylinder',
+          'route-primary',
+          (side * pierWidth) / 2,
+          0.85,
+          -0.55 - pierLength * 0.9,
+          [0.14, 1.5, 0.14],
+        ),
+      );
+    }
+    pieces.push(
+      waterfrontPiece(
+        frame,
+        'bollard',
+        'sphere',
+        'accent',
+        0,
+        0.5,
+        pierCenterZ - pierLength / 2,
+        [0.42, 0.28, 0.42],
+      ),
+    );
+  }
+
+  return pieces;
+}
+
 export function buildDistrictArtKitLayout(layout: DistrictLayout): DistrictArtKitLayout {
   return {
     facades: layout.buildings.flatMap(buildFacadeKit),
     landmarks: layout.buildings.flatMap(buildLandmarkKit),
     streetEdges: layout.streetEdges.flatMap(buildStreetEdgeKit),
+    parks: layout.parks.flatMap(buildParkKit),
+    waterfronts: layout.waterBodies.flatMap(buildWaterfrontKit),
   };
 }
