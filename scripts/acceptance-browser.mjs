@@ -158,7 +158,12 @@ class ChromeSession {
       }
     }
     if (message.method === 'Log.entryAdded' && message.params.entry.level === 'error') {
-      this.errors.push(message.params.entry.text);
+      const { text, url } = message.params.entry;
+      this.errors.push(url ? `${text} (${url})` : text);
+    }
+    if (message.method === 'Network.responseReceived' && message.params.response.status >= 400) {
+      const { status, url } = message.params.response;
+      this.errors.push(`Missing asset or HTTP ${status}: ${url}`);
     }
     if (
       message.method === 'Network.loadingFailed' &&
