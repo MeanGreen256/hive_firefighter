@@ -15,6 +15,10 @@ export interface DevTelemetryProps {
   readonly elapsedSeconds: number;
   readonly mode: string;
   readonly status: string;
+  readonly completedShiftCount: number;
+  readonly unlockedRewardCount: number;
+  /** The scene supplies this only in development, where the overlay is mounted. */
+  readonly onResetProgress?: () => void;
 }
 
 /**
@@ -52,6 +56,7 @@ export function DevTelemetry(props: DevTelemetryProps) {
     ['FIRE', `${props.burningCellCount} alight · ${props.heatingCellCount} catching`],
     ['CLOCK', `${props.elapsedSeconds.toFixed(0)} s · ${props.status}`],
     ['PLAYER', props.mode],
+    ['PROGRESS', `${props.completedShiftCount} shifts · ${props.unlockedRewardCount} rewards`],
   ];
 
   return (
@@ -71,6 +76,11 @@ export function DevTelemetry(props: DevTelemetryProps) {
               </div>
             ))}
           </dl>
+          {props.onResetProgress ? (
+            <button className="dev-telemetry-reset" type="button" onClick={props.onResetProgress}>
+              RESET PROGRESS
+            </button>
+          ) : null}
         </aside>
       ) : (
         <div className="dev-telemetry-hint">{devOverlayKeyLabel('telemetry')} · QUEST</div>

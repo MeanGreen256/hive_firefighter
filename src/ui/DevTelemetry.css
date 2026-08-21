@@ -60,3 +60,22 @@
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
+
+.dev-telemetry-reset {
+  width: 100%;
+  margin-top: 10px;
+  padding: 7px;
+  border: 1px solid #824146;
+  background: #351f24;
+  color: #ffb9bd;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  cursor: pointer;
+}
+
+.dev-telemetry-reset:hover,
+.dev-telemetry-reset:focus-visible {
+  border-color: #ffb9bd;
+  background: #522b32;
+}
