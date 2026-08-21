@@ -1,11 +1,11 @@
 {
-  "name": "Riverside Green hedgerow",
+  "name": "Riverside Green wind line",
   "district": "harbour-hill",
   "questSite": "bandstand-green",
   "subjects": ["riverside-hedge-1", "riverside-hedge-2", "riverside-hedge-3", "riverside-bench-1"],
   "ignitions": [
     {
-      "target": "riverside-hedge-1",
+      "target": "riverside-hedge-3",
       "burnable": "hedge-row"
     }
   ],
@@ -13,11 +13,11 @@
   "seed": 1905,
   "wind": {
     "direction": {
-      "x": 1,
-      "y": 1,
+      "x": -1,
+      "y": 0,
       "z": 0
     },
-    "strength": 0.25
+    "strength": 1.5
   },
-  "parTimeSeconds": 85
+  "parTimeSeconds": 90
 }

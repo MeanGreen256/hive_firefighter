@@ -11,17 +11,13 @@ import { Canvas, useFrame, type RootState } from '@react-three/fiber';
 import { useStore } from 'zustand';
 import type { DirectionalLight, Group } from 'three';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
-import {
-  DEFAULT_DISTRICT_ID,
-  getActiveQuestSite,
-  getDistrict,
-  getNextQuestIndex,
-  type DistrictQuestSite,
-} from '@sim/districts';
+import { DEFAULT_DISTRICT_ID, getDistrict, type DistrictQuestSite } from '@sim/districts';
 import { getQuestForSite } from '@sim/quests';
 import { CellState } from '@sim/cellGrid';
 import { PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { questFireController } from '../state/questFireController';
+import { createQuestDirector, type QuestDirector } from '../state/questDirector';
+import { getQuestShiftSlotIndex, QUEST_SHIFT_ORDER } from '../state/questOrder';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import { createPressLatch, firstConnectedGamepad, isIntentHeld, readPress } from '@ui/gamepad';
@@ -86,6 +82,15 @@ const AMBIENT_BIRD_POSITIONS = (DISTRICT.ambient ?? [])
 const PERFORMANCE_SCENE = import.meta.env.DEV
   ? performanceSceneFromSearch(window.location.search)
   : null;
+function initialDirectorSlot(): number {
+  if (!PERFORMANCE_SCENE) return 0;
+  // Render-budget URLs predate authored shift order. Translate their stable
+  // district index (notably index 1's propane bakery fixture) into this new
+  // order without letting those benchmarks choose a child's progression.
+  const questId = DISTRICT.questSites[PERFORMANCE_SCENE.questIndex]?.id;
+  if (!questId) throw new Error(`Unknown performance quest index ${PERFORMANCE_SCENE.questIndex}`);
+  return getQuestShiftSlotIndex(QUEST_SHIFT_ORDER, questId);
+}
 
 /** Bake the static district shadow map once; moving heroes use contact blobs. */
 function configureStaticShadows({ gl }: RootState) {
@@ -388,17 +393,77 @@ export default function FollowCameraScene() {
   const [mode, setMode] = useState<PlayerMode>(PERFORMANCE_SCENE?.onFoot ? 'on-foot' : 'driving');
   const [sirenOn, setSirenOn] = useState(true);
   const [canBoard, setCanBoard] = useState(false);
-  const [questIndex, setQuestIndex] = useState(PERFORMANCE_SCENE?.questIndex ?? 0);
+  const [questDirector, setQuestDirector] = useState<QuestDirector>(() =>
+    createQuestDirector(QUEST_SHIFT_ORDER).start(initialDirectorSlot()),
+  );
   const truckRef = useRef<Group>(null);
   const firefighterRef = useRef<Group>(null);
   const truckSpeedRatio = useRef(0);
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
   const visualStyle = STYLES[activeStyleId];
-  const activeQuestSite = getActiveQuestSite(DISTRICT, questIndex);
+  // QuestDirector is the one product owner of authored order, retries, and
+  // shift wrap. The scene only translates its single directed incident into
+  // the existing district and fire-controller APIs.
+  const directedIncident = questDirector.state.incident;
+  if (!directedIncident) throw new Error('FollowCameraScene requires a directed incident');
+  const activeQuestSite = DISTRICT.questSites.find((site) => site.id === directedIncident.questId);
+  if (!activeQuestSite) {
+    throw new Error(
+      `Directed quest ${JSON.stringify(directedIncident.questId)} has no district site`,
+    );
+  }
   const takeNextQuest = useCallback(() => {
-    setQuestIndex((current) => getNextQuestIndex(DISTRICT, current));
+    setQuestDirector((current) =>
+      current.state.phase === 'celebrating' ? current.next() : current,
+    );
   }, []);
+  const retrySameQuest = useCallback(() => {
+    // A same-seed retry keeps the directed identity unchanged, so it needs the
+    // controller's explicit reset before the director returns to active.
+    if (questDirector.state.phase !== 'celebrating') return;
+    questFireController.restart();
+    setQuestDirector((current) =>
+      current.state.phase === 'celebrating' ? current.retrySameSeed() : current,
+    );
+  }, [questDirector]);
+  const retryNewFire = useCallback(() => {
+    if (questDirector.state.phase !== 'celebrating') return;
+    // The new directed seed changes the bridge dependency and initializes the
+    // controller with the director's deterministic seed in the effect below.
+    setQuestDirector((current) =>
+      current.state.phase === 'celebrating' ? current.retryNewSeed() : current,
+    );
+  }, [questDirector]);
   const fireSnapshot = useStore(questFireController.store);
+
+  // The controller supplies simulation outcomes; the director turns each one
+  // into the completed → celebration lifecycle exactly once. Both contained
+  // and scorched are terminal completions under ADR-008.
+  useEffect(() => {
+    if (
+      fireSnapshot.debrief === null ||
+      questDirector.state.phase !== 'active' ||
+      fireSnapshot.debrief.seed !== directedIncident.seed ||
+      fireSnapshot.debrief.scenarioId !== directedIncident.questId
+    ) {
+      return;
+    }
+    setQuestDirector((current) =>
+      current.state.phase === 'active' ? current.resolve(fireSnapshot.debrief!.outcome) : current,
+    );
+  }, [directedIncident.questId, directedIncident.seed, fireSnapshot.debrief, questDirector]);
+  useEffect(() => {
+    if (questDirector.state.phase !== 'resolved') return;
+    setQuestDirector((current) =>
+      current.state.phase === 'resolved' ? current.beginCelebration() : current,
+    );
+  }, [questDirector]);
+  useEffect(() => {
+    if (questDirector.state.phase !== 'next') return;
+    setQuestDirector((current) =>
+      current.state.phase === 'next' ? current.activateNext() : current,
+    );
+  }, [questDirector]);
 
   /**
    * How close the player is, sampled in the world rather than measured once
@@ -437,7 +502,10 @@ export default function FollowCameraScene() {
   );
 
   useEffect(() => {
-    questFireController.setQuest(getQuestForSite(DISTRICT.id, activeQuestSite.id));
+    questFireController.setQuest({
+      ...getQuestForSite(DISTRICT.id, directedIncident.questId),
+      seed: directedIncident.seed,
+    });
     if (PERFORMANCE_SCENE && PERFORMANCE_SCENE.hazardCountdownSeconds !== null) {
       const hazard = Object.values(questFireController.getHazards().hazards)[0];
       if (hazard) {
@@ -513,7 +581,7 @@ export default function FollowCameraScene() {
     }
     fireAudioSystem.playIncidentChirp();
     return () => questFireController.stop();
-  }, [activeQuestSite.id]);
+  }, [directedIncident.questId, directedIncident.seed]);
 
   const transitionPlayer = useCallback(() => {
     const truck = truckRef.current;
@@ -664,14 +732,18 @@ export default function FollowCameraScene() {
       />
       {/* Hidden behind the star screen: one thing to look at at a time. */}
       {debriefOpen ? null : <OnboardingCoach step={onboardingStep} onSkip={finishOnboarding} />}
-      <QuestDebriefPanel onNextQuest={takeNextQuest} />
+      <QuestDebriefPanel
+        onNextQuest={takeNextQuest}
+        onRetry={retrySameQuest}
+        onNewFire={retryNewFire}
+      />
       {import.meta.env.DEV ? (
         <>
           <PerfOverlay />
           <DevTelemetry
             districtName={DISTRICT.name}
-            questIndex={questIndex}
-            questCount={DISTRICT.questSites.length}
+            questIndex={directedIncident.slot}
+            questCount={QUEST_SHIFT_ORDER.slots.length}
             questName={activeQuestSite.name}
             distanceMeters={approach?.distanceMeters ?? null}
             approach={approachBand}
