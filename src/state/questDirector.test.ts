@@ -43,12 +43,14 @@ describe('QuestDirector', () => {
     const originalSeed = first.activeIncident?.seed;
     const replay = celebrating(first).retrySameSeed();
     expect(replay.activeIncident?.seed).toBe(originalSeed);
+    expect(replay.activeIncident?.attempt).toBe(1);
 
     const newFireA = celebrating(first).retryNewSeed();
     const newFireB = celebrating(first).retryNewSeed();
     expect(newFireA.activeIncident?.seed).toBe(newFireB.activeIncident?.seed);
     expect(newFireA.activeIncident?.seed).not.toBe(originalSeed);
     expect(newFireA.activeIncident?.retry).toBe(1);
+    expect(newFireA.activeIncident?.attempt).toBe(1);
   });
 
   it('wraps after the fifth authored quest and remixes later-shift seeds', () => {
@@ -85,5 +87,10 @@ describe('QuestDirector', () => {
     expect(() => resumeQuestDirector(ORDER, { ...snapshot, incident: null })).toThrow(
       /missing its incident/,
     );
+    const legacySnapshot = structuredClone(snapshot) as unknown as {
+      incident: Record<string, unknown>;
+    };
+    delete legacySnapshot.incident.attempt;
+    expect(resumeQuestDirector(ORDER, legacySnapshot).activeIncident?.attempt).toBe(0);
   });
 });
