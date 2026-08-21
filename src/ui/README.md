@@ -21,6 +21,8 @@ See `docs/game-direction.md`, ADR-006, and ADR-007 for the control floor.
 - Star debrief, retry, and personal bests (#96, #99)
 - Performance overlay (#4) — `J` in development
 - Quest telemetry (#130) — `K` in development
+- Quest preview telemetry (#173) — `QuestPreviewTelemetry.tsx`, mounted only by
+  `@render/QuestPreviewHarness`; see `docs/quest-preview-harness.md`
 
 ## Note
 

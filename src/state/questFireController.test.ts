@@ -22,8 +22,27 @@ describe('quest fire controller', () => {
       debrief: null,
     });
     expect(controller.getBurningCells()).toEqual([]);
+    expect(controller.getLiveCellCounts()).toEqual({ burning: 0, heating: 0 });
     expect(controller.applyWater('0,0,0', 1)).toBeNull();
     expect(controller.advance(1)).toBe(0);
+  });
+
+  it('recounts the live grid directly, independent of the published snapshot', () => {
+    const controller = controllerFor('bakery-awning');
+    // Mutating the grid without going through `advance()`/`applyWater()` is
+    // exactly what the quest preview harness does for its crafted states
+    // (#173); `getLiveCellCounts()` exists so a caller can still trust a
+    // count without forcing a publish that might do more than they wanted.
+    const fire = controller.getFire()!;
+    for (const cellId of fire.shell.ignitionCellIds) {
+      const cell = fire.state.grid.cells[cellId];
+      if (!cell) continue;
+      cell.state = CellState.Clear;
+      cell.heat = 0;
+      fire.state.activeCellIds.delete(cellId);
+    }
+    expect(controller.getLiveCellCounts()).toEqual({ burning: 0, heating: 0 });
+    expect(controller.store.getState().burningCellCount).toBe(1);
   });
 
   it('lights the quest and reports what is alight, in world space', () => {
