@@ -1,16 +1,13 @@
 import type { DistrictDefinition } from '@sim/districts';
+import { getQuestPresentation, type QuestBadgeShape } from '@sim/quests';
 import type { RewardId } from '../state/progressProfile';
 
-/** Stable silhouette families, not words, identify the five Harbour Hill calls. */
-export const QUEST_BADGE_SHAPES = Object.freeze({
-  'meadow-picnic': 'spark',
-  'bandstand-green': 'wind',
-  'harbour-yard': 'fronts',
-  'bakery-awning': 'shield',
-  'firehouse-yard': 'roof',
-} as const);
-
-export type QuestBadgeShape = (typeof QUEST_BADGE_SHAPES)[keyof typeof QUEST_BADGE_SHAPES];
+/**
+ * Which silhouette stands for which incident is authored presentation content
+ * now (#171), not a table here: adding a sixth call is a quest file, not an
+ * edit to the board or to the scene that mounts it.
+ */
+export type { QuestBadgeShape } from '@sim/quests';
 
 /** These ids are earned by the progression ledger; they never grant player power. */
 export const FIREHOUSE_COSMETIC_REWARDS = Object.freeze({
@@ -50,10 +47,11 @@ export interface FirehouseStarBoardModel {
 }
 
 function badgeShape(questId: string): QuestBadgeShape {
-  if (!(questId in QUEST_BADGE_SHAPES)) {
+  try {
+    return getQuestPresentation(questId).badge;
+  } catch {
     throw new Error(`The firehouse board has no illustrated badge for ${JSON.stringify(questId)}`);
   }
-  return QUEST_BADGE_SHAPES[questId as keyof typeof QUEST_BADGE_SHAPES];
 }
 
 /**

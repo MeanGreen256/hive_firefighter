@@ -35,3 +35,11 @@ owner should import `MeanGreen256/hive_firefighter` into the intended Vercel
 team, accept the inferred `npm run build` / `dist` settings, and verify the
 resulting URL. Once the Git integration posts a successful deployment, add the
 URL here and close #22.
+
+**Reverified 2026-08-21:** the repository still has no `vercel.json`, no
+deploy step in `.github/workflows/ci.yml`, and no other in-repo evidence of a
+connected Vercel project. Whether a hosted preview now exists depends on
+Vercel's dashboard state, which is not visible from git history — that check
+requires the owner. Nothing in the repo has changed since the row above was
+written, so #22 should stay open pending that owner check rather than close
+on the strength of this reverification alone.

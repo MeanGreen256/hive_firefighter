@@ -1,11 +1,32 @@
 /**
- * Quests (#91): one authored exterior incident per district quest site.
+ * Quests (#91, #171): one authored exterior incident per district quest site.
  *
  * A quest says almost nothing about fire. It names the things in the city that
  * are allowed to burn and the one place the fire starts; `content/burnables.json`
  * decides what those things are made of and what shape their flames take, and
  * `exteriorShell.ts` turns that into cells the existing propagation tick drives.
  * Adding a burning tree to a quest is one string.
+ *
+ * ## Four contracts, four owners
+ *
+ * `content/quests/<id>.json` is one file per incident with four named blocks,
+ * because an author edits one incident at a time — but each block has its own
+ * type, its own validator, and its own owner:
+ *
+ * | Block          | Owner                   | Answers                                  |
+ * | -------------- | ----------------------- | ---------------------------------------- |
+ * | `simulation`   | this module             | where the fire lives and how it behaves  |
+ * | `presentation` | `questPresentation.ts`  | what the incident is, as semantic tokens |
+ * | `pacing`       | `questPacing.ts`        | cadence and telemetry, never score       |
+ * | rewards        | `questRewards.ts`       | stable reward ids, profile-wide          |
+ *
+ * `QuestDefinition` is deliberately still exactly the simulation contract: it
+ * gained no icon, tier, treatment, or reward field, and it is not supposed to.
+ * Presentation and pacing are looked up beside it by quest id, so adding a
+ * metadata field touches one validator and no simulation or scene code.
+ *
+ * Rewards are profile-wide rather than per incident (see `questRewards.ts`), so
+ * a quest file has no rewards block to fill in wrongly.
  */
 
 import {
@@ -15,7 +36,6 @@ import {
   readInteger,
   readObject,
   readPlacementArray,
-  readPositiveNumber,
   readString,
   validateUniqueIds,
 } from './contentValidation';
@@ -42,9 +62,20 @@ import {
   type FireSimulationState,
   type Wind,
 } from './fireSimulation';
+import {
+  checkQuestSituation,
+  validateQuestPresentation,
+  type QuestPresentation,
+} from './questPresentation';
+import { checkQuestTempo, validateQuestPacing, type QuestPacing } from './questPacing';
 
+/**
+ * The simulation contract. Site, subjects, ignitions, hazards, seed and wind —
+ * everything the deterministic tick needs and nothing else.
+ */
 export interface QuestDefinition {
   readonly id: string;
+  /** Author and telemetry label. Never required reading for a player (ADR-007). */
   readonly name: string;
   readonly districtId: string;
   readonly questSiteId: string;
@@ -54,7 +85,13 @@ export interface QuestDefinition {
   readonly hazards: readonly QuestHazardDefinition[];
   readonly seed: number;
   readonly wind: Wind;
-  readonly parTimeSeconds: number;
+}
+
+/** One incident file, split into the contracts that own its parts. */
+export interface QuestContent {
+  readonly definition: QuestDefinition;
+  readonly presentation: QuestPresentation;
+  readonly pacing: QuestPacing;
 }
 
 /** A ground-level, world-space cylinder placement visible from the quest staging point. */
@@ -71,8 +108,9 @@ export class QuestValidationError extends ContentValidationError {
   }
 }
 
-const ROOT_FIELDS = [
-  'name',
+const ROOT_FIELDS = ['name', 'simulation', 'presentation', 'pacing'] as const;
+
+const SIMULATION_FIELDS = [
   'district',
   'questSite',
   'subjects',
@@ -80,11 +118,15 @@ const ROOT_FIELDS = [
   'hazards',
   'seed',
   'wind',
-  'parTimeSeconds',
 ] as const;
 
 /** Keeps a cylinder inside the same readable hose-scale scene as its quest marker. */
 export const MAX_QUEST_HAZARD_SITE_DISTANCE = 9;
+
+/** The source path a validation problem should send an author to. */
+export function questSourcePath(id: string): string {
+  return `content/quests/${id}.json`;
+}
 
 function readWind(value: unknown, path: string, problems: string[]): Wind {
   const object = readObject(value, path, problems);
@@ -119,19 +161,32 @@ function readSubjects(value: unknown, path: string, problems: string[]): string[
   return subjects;
 }
 
-export function validateQuestDefinition(data: unknown, id: string): QuestDefinition {
-  const problems: string[] = [];
-  const root = readObject(data, id, problems);
-  if (!root) throw new QuestValidationError(id, problems);
-  checkFields(root, id, ROOT_FIELDS, problems);
+/** A porch, awning, or barn door: low, street-facing, and able to climb. */
+function isLowAttachment(burnableId: BurnableId): boolean {
+  return burnables[burnableId].shell.anchor === 'front-attachment';
+}
 
-  const name = readString(root.name, `${id}.name`, problems);
-  const districtId = readString(root.district, `${id}.district`, problems);
-  const questSiteId = readString(root.questSite, `${id}.questSite`, problems);
-  const subjects = readSubjects(root.subjects, `${id}.subjects`, problems);
+/** Validates one incident file and returns all four of its contracts. */
+export function validateQuestContent(
+  data: unknown,
+  id: string,
+  source: string = questSourcePath(id),
+): QuestContent {
+  const problems: string[] = [];
+  const root = readObject(data, 'root', problems);
+  if (!root) throw new QuestValidationError(source, problems);
+  checkFields(root, 'root', ROOT_FIELDS, problems);
+
+  const name = readString(root.name, 'name', problems);
+  const simulation = readObject(root.simulation, 'simulation', problems) ?? {};
+  checkFields(simulation, 'simulation', SIMULATION_FIELDS, problems);
+
+  const districtId = readString(simulation.district, 'simulation.district', problems);
+  const questSiteId = readString(simulation.questSite, 'simulation.questSite', problems);
+  const subjects = readSubjects(simulation.subjects, 'simulation.subjects', problems);
   const ignitions = readPlacementArray(
-    root.ignitions,
-    `${id}.ignitions`,
+    simulation.ignitions,
+    'simulation.ignitions',
     problems,
     (object, path, ignitionProblems): ShellIgnition => {
       checkFields(object, path, ['target', 'burnable'], ignitionProblems);
@@ -147,12 +202,12 @@ export function validateQuestDefinition(data: unknown, id: string): QuestDefinit
       };
     },
   );
-  if (Array.isArray(root.ignitions) && ignitions.length === 0) {
-    problems.push(`${id}.ignitions must start the fire somewhere`);
+  if (Array.isArray(simulation.ignitions) && ignitions.length === 0) {
+    problems.push('simulation.ignitions must start the fire somewhere');
   }
   const hazards = readPlacementArray(
-    root.hazards,
-    `${id}.hazards`,
+    simulation.hazards,
+    'simulation.hazards',
     problems,
     (object, path, hazardProblems): QuestHazardDefinition => {
       checkFields(object, path, ['id', 'type', 'position'], hazardProblems);
@@ -171,25 +226,41 @@ export function validateQuestDefinition(data: unknown, id: string): QuestDefinit
       };
     },
   );
-  validateUniqueIds(hazards, `${id}.hazards`, problems);
-  const seed = readInteger(root.seed, `${id}.seed`, problems);
-  const wind = readWind(root.wind, `${id}.wind`, problems);
-  const parTimeSeconds = readPositiveNumber(root.parTimeSeconds, `${id}.parTimeSeconds`, problems);
+  validateUniqueIds(hazards, 'simulation.hazards', problems);
+  const seed = readInteger(simulation.seed, 'simulation.seed', problems);
+  const wind = readWind(simulation.wind, 'simulation.wind', problems);
+
+  const presentation = validateQuestPresentation(root.presentation, 'presentation', problems);
+  const pacing = validateQuestPacing(root.pacing, 'pacing', problems);
+  checkQuestSituation(
+    presentation,
+    {
+      ignitionCount: ignitions.length,
+      hazardCount: hazards.length,
+      windStrength: wind.strength,
+      lowAttachmentIgnition: ignitions.some(
+        (ignition) => isBurnableId(ignition.burnableId) && isLowAttachment(ignition.burnableId),
+      ),
+    },
+    'presentation',
+    problems,
+  );
+  checkQuestTempo(pacing, hazards.length, 'pacing', problems);
 
   let district: DistrictDefinition | null = null;
   if (!isDistrictId(districtId)) {
-    problems.push(`${id}.district ${JSON.stringify(districtId)} is not an authored district`);
+    problems.push(`simulation.district ${JSON.stringify(districtId)} is not an authored district`);
   } else {
     const activeDistrict = getDistrict(districtId);
     district = activeDistrict;
     const questSite = activeDistrict.questSites.find((site) => site.id === questSiteId);
     if (!questSite) {
       problems.push(
-        `${id}.questSite ${JSON.stringify(questSiteId)} is not a quest site in ${districtId}`,
+        `simulation.questSite ${JSON.stringify(questSiteId)} is not a quest site in ${districtId}`,
       );
     } else {
       hazards.forEach((hazard, index) => {
-        const path = `${id}.hazards[${index}].position`;
+        const path = `simulation.hazards[${index}].position`;
         if (!isPointInsideRect(hazard.position, activeDistrict.bounds)) {
           problems.push(`${path} must stay inside district ${JSON.stringify(activeDistrict.id)}`);
         }
@@ -226,7 +297,7 @@ export function validateQuestDefinition(data: unknown, id: string): QuestDefinit
     subjects.forEach((subject, index) => {
       if (!targets.has(subject)) {
         problems.push(
-          `${id}.subjects[${index}] ${JSON.stringify(subject)} is not a building or prop in ${districtId}`,
+          `simulation.subjects[${index}] ${JSON.stringify(subject)} is not a building or prop in ${districtId}`,
         );
       }
     });
@@ -235,7 +306,7 @@ export function validateQuestDefinition(data: unknown, id: string): QuestDefinit
   ignitions.forEach((ignition, index) => {
     if (!subjects.includes(ignition.targetId)) {
       problems.push(
-        `${id}.ignitions[${index}].target ${JSON.stringify(ignition.targetId)} is not one of this quest's subjects`,
+        `simulation.ignitions[${index}].target ${JSON.stringify(ignition.targetId)} is not one of this quest's subjects`,
       );
     }
     if (district === null || !isBurnableId(ignition.burnableId)) return;
@@ -249,50 +320,73 @@ export function validateQuestDefinition(data: unknown, id: string): QuestDefinit
         : false;
     if (!applies) {
       problems.push(
-        `${id}.ignitions[${index}] cannot start a ${JSON.stringify(ignition.burnableId)} fire on ${JSON.stringify(ignition.targetId)}`,
+        `simulation.ignitions[${index}] cannot start a ${JSON.stringify(ignition.burnableId)} fire on ${JSON.stringify(ignition.targetId)}`,
       );
     }
   });
 
-  if (problems.length > 0) throw new QuestValidationError(id, problems);
+  if (problems.length > 0) throw new QuestValidationError(source, problems);
 
   return {
-    id,
-    name,
-    districtId,
-    questSiteId,
-    subjects,
-    ignitions,
-    hazards,
-    seed,
-    wind,
-    parTimeSeconds,
+    definition: {
+      id,
+      name,
+      districtId,
+      questSiteId,
+      subjects,
+      ignitions,
+      hazards,
+      seed,
+      wind,
+    },
+    presentation,
+    pacing,
   };
 }
 
-export function loadQuestDefinitions(
-  modules: Record<string, { default: unknown }>,
-): QuestDefinition[] {
+/** Convenience for callers that only care about the simulation contract. */
+export function validateQuestDefinition(
+  data: unknown,
+  id: string,
+  source: string = questSourcePath(id),
+): QuestDefinition {
+  return validateQuestContent(data, id, source).definition;
+}
+
+export function loadQuestContent(modules: Record<string, { default: unknown }>): QuestContent[] {
   const quests = Object.entries(modules)
     .map(([path, module]) => {
       const fileName = path.split('/').at(-1);
       if (!fileName?.endsWith('.json')) {
         throw new QuestValidationError(path, ['quest filename must end in .json']);
       }
-      return validateQuestDefinition(module.default, fileName.slice(0, -'.json'.length));
+      return validateQuestContent(module.default, fileName.slice(0, -'.json'.length));
     })
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .sort((left, right) => left.definition.id.localeCompare(right.definition.id));
 
   const bySite = new Map<string, string>();
+  const byBadge = new Map<string, string>();
   for (const quest of quests) {
-    const key = `${quest.districtId}/${quest.questSiteId}`;
-    const existing = bySite.get(key);
-    if (existing !== undefined) {
-      throw new QuestValidationError(quest.id, [
-        `quest site ${key} already has quest ${JSON.stringify(existing)}; one quest is active at a time`,
+    const { definition, presentation } = quest;
+    const siteKey = `${definition.districtId}/${definition.questSiteId}`;
+    const existingSite = bySite.get(siteKey);
+    if (existingSite !== undefined) {
+      throw new QuestValidationError(questSourcePath(definition.id), [
+        `quest site ${siteKey} already has quest ${JSON.stringify(existingSite)}; one quest is active at a time`,
       ]);
     }
-    bySite.set(key, quest.id);
+    bySite.set(siteKey, definition.id);
+
+    // A star board badge is how a non-reader tells two incidents apart, so two
+    // incidents in one district may not wear the same silhouette.
+    const badgeKey = `${definition.districtId}/${presentation.badge}`;
+    const existingBadge = byBadge.get(badgeKey);
+    if (existingBadge !== undefined) {
+      throw new QuestValidationError(questSourcePath(definition.id), [
+        `presentation.badge ${JSON.stringify(presentation.badge)} is already worn by quest ${JSON.stringify(existingBadge)} in ${definition.districtId}`,
+      ]);
+    }
+    byBadge.set(badgeKey, definition.id);
   }
   return quests;
 }
@@ -301,10 +395,17 @@ const questModules = import.meta.glob<{ default: unknown }>('../../content/quest
   eager: true,
 });
 
-export const QUESTS = loadQuestDefinitions(questModules);
+const QUEST_CONTENT = loadQuestContent(questModules);
+
+export const QUESTS: readonly QuestDefinition[] = QUEST_CONTENT.map((quest) => quest.definition);
+
+const CONTENT_BY_ID = new Map(QUEST_CONTENT.map((quest) => [quest.definition.id, quest]));
 
 const QUEST_BY_SITE = new Map(
-  QUESTS.map((quest) => [`${quest.districtId}/${quest.questSiteId}`, quest]),
+  QUEST_CONTENT.map((quest) => [
+    `${quest.definition.districtId}/${quest.definition.questSiteId}`,
+    quest.definition,
+  ]),
 );
 
 export function getQuestForSite(districtId: string, questSiteId: string): QuestDefinition {
@@ -317,6 +418,30 @@ export function getQuestForSite(districtId: string, questSiteId: string): QuestD
 
 export function hasQuestForSite(districtId: string, questSiteId: string): boolean {
   return QUEST_BY_SITE.has(`${districtId}/${questSiteId}`);
+}
+
+export function hasQuest(questId: string): boolean {
+  return CONTENT_BY_ID.has(questId);
+}
+
+export function getQuestContent(questId: string): QuestContent {
+  const content = CONTENT_BY_ID.get(questId);
+  if (!content) throw new Error(`No quest is authored as ${JSON.stringify(questId)}`);
+  return content;
+}
+
+export function getQuest(questId: string): QuestDefinition {
+  return getQuestContent(questId).definition;
+}
+
+/** Semantic presentation tokens for one incident; the active style resolves them. */
+export function getQuestPresentation(questId: string): QuestPresentation {
+  return getQuestContent(questId).presentation;
+}
+
+/** Cadence and telemetry for one incident. Never an input to stars (ADR-008). */
+export function getQuestPacing(questId: string): QuestPacing {
+  return getQuestContent(questId).pacing;
 }
 
 export interface QuestFire {
@@ -370,3 +495,14 @@ export function createQuestFire(quest: QuestDefinition): QuestFire {
 
   return { quest, shell, state, hazards };
 }
+
+export type {
+  QuestApproach,
+  QuestBadgeShape,
+  QuestCelebrationTreatment,
+  QuestIntroTreatment,
+  QuestPresentation,
+  QuestSituation,
+  QuestSpectacleTier,
+} from './questPresentation';
+export type { QuestPacing, QuestTempo } from './questPacing';

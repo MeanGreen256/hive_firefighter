@@ -1,23 +1,36 @@
 {
   "name": "Meadow Park picnic spark",
-  "district": "harbour-hill",
-  "questSite": "meadow-picnic",
-  "subjects": ["meadow-bench-1", "meadow-tree-5", "meadow-tree-4", "meadow-hedge-4"],
-  "ignitions": [
-    {
-      "target": "meadow-bench-1",
-      "burnable": "picnic-timber"
+  "simulation": {
+    "district": "harbour-hill",
+    "questSite": "meadow-picnic",
+    "subjects": ["meadow-bench-1", "meadow-tree-5", "meadow-tree-4", "meadow-hedge-4"],
+    "ignitions": [
+      {
+        "target": "meadow-bench-1",
+        "burnable": "picnic-timber"
+      }
+    ],
+    "hazards": [],
+    "seed": 1904,
+    "wind": {
+      "direction": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "strength": 0
     }
-  ],
-  "hazards": [],
-  "seed": 1904,
-  "wind": {
-    "direction": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "strength": 0
   },
-  "parTimeSeconds": 100
+  "presentation": {
+    "situation": "quiet-spark",
+    "badge": "spark",
+    "spectacle": "gentle",
+    "intro": "quiet-arrival",
+    "celebration": "cheer",
+    "approach": "street-side"
+  },
+  "pacing": {
+    "tempo": "calm",
+    "parTimeSeconds": 100
+  }
 }

@@ -1,29 +1,42 @@
 {
   "name": "Bakery propane awning",
-  "district": "harbour-hill",
-  "questSite": "bakery-awning",
-  "subjects": ["bakery", "main-tree-e1", "main-tree-e2"],
-  "ignitions": [
-    {
-      "target": "bakery",
-      "burnable": "awning"
+  "simulation": {
+    "district": "harbour-hill",
+    "questSite": "bakery-awning",
+    "subjects": ["bakery", "main-tree-e1", "main-tree-e2"],
+    "ignitions": [
+      {
+        "target": "bakery",
+        "burnable": "awning"
+      }
+    ],
+    "hazards": [
+      {
+        "id": "bakery-propane",
+        "type": "propane",
+        "position": { "x": 8.5, "z": -7 }
+      }
+    ],
+    "seed": 1901,
+    "wind": {
+      "direction": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "strength": 0.45
     }
-  ],
-  "hazards": [
-    {
-      "id": "bakery-propane",
-      "type": "propane",
-      "position": { "x": 8.5, "z": -7 }
-    }
-  ],
-  "seed": 1901,
-  "wind": {
-    "direction": {
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "strength": 0.45
   },
-  "parTimeSeconds": 80
+  "presentation": {
+    "situation": "propane-urgency",
+    "badge": "shield",
+    "spectacle": "dramatic",
+    "intro": "alarm-flare",
+    "celebration": "fanfare",
+    "approach": "street-side"
+  },
+  "pacing": {
+    "tempo": "hazard",
+    "parTimeSeconds": 80
+  }
 }
