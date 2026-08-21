@@ -26,6 +26,7 @@ currently lives in `src/sim/`.
 - Scenario loading, validation, and grid construction (#67)
 - District loading, drivability validation, and quest-site rotation (#90)
 - Burnable subjects, exterior shells, and quest loading (#91)
+- Quest simulation/presentation/pacing/reward contracts and shifts (#171)
 - Fire signal: how big a fire reads and what colour its smoke is (#92)
 - Propane heating, cooling, countdown, and blast effects (#71)
 - Foam suppression and per-agent material responses (#72)
@@ -87,6 +88,41 @@ naming the district features that may burn and the single place the fire starts.
 Adding a burning tree to a quest is one string; adding a new _kind_ of burnable
 is a row in `content/burnables.json`. Only a new shell _anchor_ — a new geometry
 for turning a feature into cells — is a code change.
+
+## Quest contracts
+
+An incident is four contracts, not one growing record (#171). `QuestDefinition`
+is still exactly the simulation contract — site, subjects, ignitions, hazards,
+seed, wind — and it gained no icon, tier, treatment, or reward field. The rest
+live beside it, looked up by quest id:
+
+| Module                 | Owns                                                                                                  |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `quests.ts`            | the simulation contract, plus discovery of `content/quests/*.json` and the registries                 |
+| `questPresentation.ts` | semantic presentation tokens: situation, badge, spectacle tier, intro, celebration, optional approach |
+| `questPacing.ts`       | per-incident cadence: `tempo`, and `parTimeSeconds` as telemetry only                                 |
+| `questShifts.ts`       | the shift sequence, one `content/shifts/<district>.json` per district                                 |
+| `questRewards.ts`      | the stable reward id catalogue in `content/rewards.json`                                              |
+
+The file is one per incident because an author edits one incident at a time; the
+_types_ are separate because ownership is what the split is for. Each contract
+module holds its own vocabulary and validator and imports nothing from the quest
+registry, so a cross-block rule — a `two-fronts` label with one ignition, a
+`hazard` tempo with no cylinder — is checked where the vocabulary is defined and
+there is no import cycle to unpick. `questShifts.ts` is a separate module for the
+same reason: the shift sequence has to resolve real quests, so it depends on the
+registry rather than the other way round.
+
+Presentation is semantic all the way down. Content names what an incident _is_;
+`src/styles/` decides what that looks like, because a literal colour or asset
+path would be meaningful in at most one of the two live art directions (ADR-002).
+Nothing in these contracts may become required reading (ADR-007) and nothing in
+them may reach stars: par time and tempo are cadence and telemetry, and ADR-008
+keeps time out of scoring entirely.
+
+Validation failures name the source file and the field path — `simulation.subjects[1]`
+in `content/quests/bakery-awning.json` — so an author can fix the JSON without
+opening a loader.
 
 ## Timing
 

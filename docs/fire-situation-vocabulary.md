@@ -24,14 +24,20 @@ an authored world meaning.
 | **Visible propane urgency** | A brightly marked cylinder stands outside beside the fire; its countdown cue is visible once it heats. | Cool the cylinder with the same hose, then return to the fire. | A quest `hazards` propane placement near a real shell cell; the existing hazard simulation and cue. | Bakery propane awning. |
 | **Porch climb / awkward approach** | A low porch fire can climb the cottage, while the obvious yard side is not the porch side. | Move around the cottage to see and spray the low fire before it reaches the roofline. | A house's `porch` and `roof` shell topology, street-facing building art, and a low porch ignition. | Station Cottage porch climb. |
 
+Each card has a validated id authored as `presentation.situation` in the quest
+file: `quiet-spark`, `wind-line`, `two-fronts`, `propane-urgency`, and
+`porch-climb`. The loader checks the label against the authored fire, so a card
+cannot be claimed by an incident that does not stage it.
+
 These labels describe what the player perceives. They do not alter the completion
 contract: a scorched incident is still a completed one-star incident, and time or
 par time never removes a star.
 
 ## Five-slot Harbour Hill curve
 
-`content/quest-order.json` is the authoritative shift order supplied by the quest
-director. `harbour-hill.json` deliberately keeps its stable site order because
+`content/shifts/harbour-hill.json` is the authoritative shift order supplied by
+the quest director. `content/districts/harbour-hill.json` deliberately keeps its
+stable site order because
 development performance scenes address those legacy indexes. The order below is
 therefore gameplay data, not a document-only sequence.
 
@@ -70,16 +76,16 @@ adult/developer telemetry.
 ## Inputs to #171
 
 The present JSON and simulation can author this initial vocabulary. The following
-missing levers should be explicit requirements for #171 rather than silently
-invented by individual quests:
+missing levers were explicit requirements for #171 rather than something an
+individual quest may silently invent:
 
-| Needed lever | Why the current proof exposes it | Requirement for #171 |
-| --- | --- | --- |
-| **Situation identity and slot order** | The author-facing situation label currently lives in this document while validated shift order lives separately in `content/quest-order.json`. | Give quests a validated `situation` id from a small vocabulary and preserve explicit shift ordering as first-class content, rather than relying on filename or district array position. |
-| **Readable target/approach annotations** | “Awkward approach” is inferred from building geometry and child observation. | Allow an optional presentation-safe approach/sightline annotation that can drive testing and authoring previews, never a required player instruction. |
-| **Spread/urgency preview** | Authors can set seed, wind, topology, and a propane placement but cannot inspect a predicted first-spread path or countdown exposure in content validation. | Provide deterministic authoring diagnostics/preview for ignition-to-neighbour spread, vertical climb, hazard heat reach, and staging-point visibility. |
-| **Reachability/visibility validation** | Loader validation proves a quest site and propane placement are legal, not that all scoreable targets read together from the staging area. | Validate or report score-target distance, obstruction/sightline, and on-foot reachable area from a quest site; keep it advisory until child observations establish thresholds. |
-| **Pacing intent without score pressure** | `parTimeSeconds` is telemetry and cannot describe the intended cadence of a two-front or propane situation. | Separate non-scoring pacing/cue intent from star calculation, with no timer that can fail an incident or reduce completion. |
+| Needed lever | Why the current proof exposes it | Requirement for #171 | Status |
+| --- | --- | --- | --- |
+| **Situation identity and slot order** | The author-facing situation label currently lives in this document while validated shift order lives separately. | Give quests a validated `situation` id from a small vocabulary and preserve explicit shift ordering as first-class content, rather than relying on filename or district array position. | Shipped: `presentation.situation` per quest, and `content/shifts/<district>.json` for the order. |
+| **Readable target/approach annotations** | “Awkward approach” is inferred from building geometry and child observation. | Allow an optional presentation-safe approach/sightline annotation that can drive testing and authoring previews, never a required player instruction. | Shipped as the optional `presentation.approach` token. |
+| **Spread/urgency preview** | Authors can set seed, wind, topology, and a propane placement but cannot inspect a predicted first-spread path or countdown exposure in content validation. | Provide deterministic authoring diagnostics/preview for ignition-to-neighbour spread, vertical climb, hazard heat reach, and staging-point visibility. | Not addressed by #171; still open. |
+| **Reachability/visibility validation** | Loader validation proves a quest site and propane placement are legal, not that all scoreable targets read together from the staging area. | Validate or report score-target distance, obstruction/sightline, and on-foot reachable area from a quest site; keep it advisory until child observations establish thresholds. | Not addressed by #171; still open. |
+| **Pacing intent without score pressure** | `parTimeSeconds` is telemetry and cannot describe the intended cadence of a two-front or propane situation. | Separate non-scoring pacing/cue intent from star calculation, with no timer that can fail an incident or reduce completion. | Shipped: `pacing.tempo` alongside `pacing.parTimeSeconds`, both outside star calculation. |
 
 Do not add a second objective type to solve these gaps. Any future ladder, automatic
 elevation aid, or other second-verb decision belongs to #178's separate product

@@ -11,8 +11,11 @@ Game data as JSON. **Adding content should not require writing code.**
   reusable facade/landmark/street-edge art, street props, and quest sites.
 - `burnables.json` — what exterior fire is allowed to live on (#91), and the
   shape of the shell it occupies.
-- `quests/*.json` — one authored incident per quest site: what may burn, where
-  the fire starts, and any exterior propane cylinder.
+- `quests/*.json` — one authored incident per quest site (#91, #171), in three
+  named blocks: `simulation`, `presentation`, and `pacing`.
+- `shifts/*.json` — the order a district's incidents are played in (#171). One
+  file per district; the filename is the district id.
+- `rewards.json` — the catalogue of stable cosmetic reward ids (#171).
 - Later: building prefabs.
 
 ## Rules
@@ -149,22 +152,127 @@ rather than data — `src/sim/exteriorShell.ts` owns those five shapes.
 ## `quests/*.json`
 
 One authored incident per district quest site, discovered automatically and
-validated by `src/sim/quests.ts`. Exactly one quest may exist per quest site,
-which is how "one active quest at a time" is enforced in content rather than
-hoped for at runtime.
+validated by `src/sim/quests.ts`. The filename is the stable quest id. Exactly
+one quest may exist per quest site, which is how "one active quest at a time" is
+enforced in content rather than hoped for at runtime.
 
-A quest names:
+One file per incident, because an author works on one incident at a time — but
+the file has **four separate contracts** with four separate owners (#171), so
+adding a badge or a tempo can never turn into a new simulation field:
+
+| Block          | Owner                          | Answers                                         |
+| -------------- | ------------------------------ | ----------------------------------------------- |
+| `simulation`   | `src/sim/quests.ts`            | where the fire lives and how it behaves         |
+| `presentation` | `src/sim/questPresentation.ts` | what the incident _is_, as semantic tokens      |
+| `pacing`       | `src/sim/questPacing.ts`       | cadence and telemetry, never score              |
+| rewards        | `src/sim/questRewards.ts`      | stable reward ids — profile-wide, not per quest |
+
+Rewards deliberately have **no** block in a quest file: no shipped reward is
+earned by finishing one particular incident, so there is no per-quest field to
+fill in wrongly. See `rewards.json` below.
+
+### `simulation`
+
+The deterministic contract. Nothing here is about how the incident looks.
 
 - the `district` and `questSite` it belongs to;
 - `subjects`: the district building and prop ids fire is allowed to live on.
-  Each one contributes every burnable its use or type grows;
-- `ignitions`: the one place the fire starts, as a subject plus a burnable id.
-  Both must be legal for that target — you cannot light a `canopy` on a bakery;
+  Each one contributes every burnable its use or type grows. These are also the
+  equal-value star objects of [ADR-008](../docs/adr/008-quest-outcomes-and-countable-stars.md);
+- `ignitions`: where the fire starts, as a subject plus a burnable id. Both must
+  be legal for that target — you cannot light a `canopy` on a bakery;
 - `hazards`: zero or more world-space propane cylinders. They must remain
   outside every building and within nine metres of the quest site, which keeps
   them visible and reachable with the normal hose action;
-- a deterministic `seed`, `wind`, and `parTimeSeconds`.
+- a deterministic integer `seed` and `wind`.
 
 Fire spreads between subjects only where their shells actually touch. Two trees
 three metres apart catch each other; two trees twelve metres apart do not. That
 is authored in the district's geometry, not tuned here.
+
+### `presentation`
+
+Semantic tokens only. A field here names what a thing _is_; `src/styles/`
+decides what it looks like, because a hex value, a pixel size, or an asset path
+is meaningful in at most one of the two live art directions (ADR-002). None of
+it may become required reading (ADR-007).
+
+| Field         | Vocabulary                                                                 | Required |
+| ------------- | -------------------------------------------------------------------------- | -------- |
+| `situation`   | `quiet-spark`, `wind-line`, `two-fronts`, `propane-urgency`, `porch-climb` | yes      |
+| `badge`       | `spark`, `wind`, `fronts`, `shield`, `roof`                                | yes      |
+| `spectacle`   | `gentle`, `lively`, `dramatic`                                             | yes      |
+| `intro`       | `quiet-arrival`, `smoke-column`, `alarm-flare`                             | yes      |
+| `celebration` | `cheer`, `fanfare`, `parade`                                               | yes      |
+| `approach`    | `street-side`, `along-the-row`, `around-the-back`                          | no       |
+
+`situation` is checked against the authored fire, so a label cannot lie: a
+`two-fronts` incident needs two ignitions, `propane-urgency` needs a cylinder,
+`quiet-spark` needs one ignition and still air, and `porch-climb` needs an
+ignition on a low street-facing attachment. `badge` must be unique within a
+district — a silhouette is how a non-reader tells two calls apart on the
+Firehouse Star Board. `approach` is an advisory authoring and preview
+annotation; it is never shown as an instruction and never gates completion.
+
+### `pacing`
+
+- `tempo` — the shift-curve classification: `calm`, `standard`, `hazard`, or
+  `spectacle`. `hazard` and "this incident authors a propane cylinder" must
+  agree in both directions.
+- `parTimeSeconds` — adult and developer telemetry only. ADR-008 keeps it out of
+  stars, progression, rewards, and failure; there is deliberately no authored
+  field that can end an incident on a clock.
+
+### Who owns what
+
+| Kind           | Examples                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| Author-owned   | every field in all three blocks, plus `name`                                                           |
+| System-derived | the quest id (the filename), shell cells, star counts, seeds a shift remixes                           |
+| Optional       | `presentation.approach`; `simulation.hazards` may be empty                                             |
+| Style-specific | nothing in content. `badge`, `spectacle`, `intro`, `celebration` are the semantic ids a style resolves |
+
+`name` is an author and telemetry label. It is not a child-facing instruction:
+a five-year-old reads the street, not the quest title.
+
+## `shifts/*.json`
+
+The order a child meets one district's incidents in, discovered automatically and
+validated by `src/sim/questShifts.ts`. The filename is the district id, so a
+shift cannot claim a district it is not filed under, and a second district ships
+a second file with no code change and no shared list to keep in sync.
+
+```json
+{
+  "quests": ["meadow-picnic", "bandstand-green", "harbour-yard", "bakery-awning", "firehouse-yard"]
+}
+```
+
+Exactly five ids, each an authored incident of that district, each named once.
+The first slot is the teaching slot and must be a `calm` incident — a child
+meets the game through one still, unmistakable fire before the curve adds
+anything. See [`docs/fire-situation-vocabulary.md`](../docs/fire-situation-vocabulary.md).
+
+Order lives here rather than in the incident files because it is a property of
+the shift, not of any one fire; the quest director reads it and remixes each
+slot's authored seed per shift and retry.
+
+## `rewards.json`
+
+The catalogue of stable cosmetic reward ids, keyed by id and validated by
+`src/sim/questRewards.ts`. It is the vocabulary that star calculation
+(`sessionStats.ts`) and unlock evaluation (`progressProfile.ts`) both use; it
+computes nothing itself.
+
+| Field              | What                                                            |
+| ------------------ | --------------------------------------------------------------- |
+| `kind`             | `station-dressing`, `truck-dressing`, or `firefighter-dressing` |
+| `icon`             | semantic token — `flag`, `bell`, `banner`, `helmet`             |
+| `requires.metric`  | `completed-shifts`, `total-best-stars`, or `mastery-quests`     |
+| `requires.atLeast` | positive integer count of that metric                           |
+
+Every kind is dressing. There is no kind that grants an ability, a resource, or
+a shortcut: stars are mastery feedback, not currency (ADR-008), and a reward
+that changed play would be a product decision rather than a content edit.
+Requirements may only read durable counts of completed work — elapsed time,
+water, and fuel are absent by construction.

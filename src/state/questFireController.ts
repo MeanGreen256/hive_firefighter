@@ -20,7 +20,7 @@ import {
 } from '@sim/fireSimulation';
 import { getShellCellWorldPosition, type ShellPoint } from '@sim/exteriorShell';
 import { materials } from '@sim/materials';
-import { createQuestFire, type QuestDefinition, type QuestFire } from '@sim/quests';
+import { createQuestFire, getQuestPacing, type QuestDefinition, type QuestFire } from '@sim/quests';
 import {
   advanceResidualHotspots,
   createResidualHotspotState,
@@ -262,7 +262,9 @@ export function createQuestFireController(
         totalAuthoredObjects: new Set(fire.quest.subjects).size,
         savedAuthoredObjects: countSavedAuthoredObjects(fire),
         elapsedSeconds,
-        parTimeSeconds: fire.quest.parTimeSeconds,
+        // Pacing owns par time; it is adult/developer telemetry and never a
+        // star, gate, or failure input (ADR-008).
+        parTimeSeconds: getQuestPacing(fire.quest.id).parTimeSeconds,
         waterUsedLitres,
         foamUsedLitres: 0,
         hazardTotal,

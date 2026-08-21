@@ -13,14 +13,23 @@ import {
   QUESTS,
   QuestValidationError,
   createQuestFire,
+  getQuest,
   getQuestForSite,
+  getQuestPacing,
   hasQuestForSite,
   type QuestDefinition,
   validateQuestDefinition,
 } from './quests';
 
 function cloneBakeryQuest(): Record<string, unknown> {
-  return structuredClone(bakeryQuest) as Record<string, unknown>;
+  return structuredClone(bakeryQuest) as unknown as Record<string, unknown>;
+}
+
+/** Overrides one field of the bakery incident's simulation block. */
+function bakeryWithSimulation(overrides: Record<string, unknown>): Record<string, unknown> {
+  const quest = cloneBakeryQuest();
+  quest.simulation = { ...(quest.simulation as Record<string, unknown>), ...overrides };
+  return quest;
 }
 
 const BURNING_STATES = new Set<string>([CellState.Burning, CellState.Flashover, CellState.Burnt]);
@@ -94,50 +103,51 @@ describe('quest loading', () => {
   });
 
   it('rejects a quest whose subject is not in the district', () => {
-    const quest = cloneBakeryQuest();
-    quest.subjects = ['bakery', 'ghost-shed'];
+    const quest = bakeryWithSimulation({ subjects: ['bakery', 'ghost-shed'] });
     expect(() => validateQuestDefinition(quest, 'broken')).toThrow(
       /subjects\[1\] "ghost-shed" is not a building or prop/,
     );
   });
 
   it('rejects an ignition on something the quest never said could burn', () => {
-    const quest = cloneBakeryQuest();
-    quest.ignitions = [{ target: 'firehouse', burnable: 'facade' }];
+    const quest = bakeryWithSimulation({
+      ignitions: [{ target: 'firehouse', burnable: 'facade' }],
+    });
     expect(() => validateQuestDefinition(quest, 'broken')).toThrow(
       /is not one of this quest's subjects/,
     );
   });
 
   it('rejects an ignition the target cannot grow', () => {
-    const quest = cloneBakeryQuest();
-    quest.ignitions = [{ target: 'bakery', burnable: 'canopy' }];
+    const quest = bakeryWithSimulation({ ignitions: [{ target: 'bakery', burnable: 'canopy' }] });
     expect(() => validateQuestDefinition(quest, 'broken')).toThrow(
       /cannot start a "canopy" fire on "bakery"/,
     );
   });
 
   it('rejects a quest site that belongs to another district', () => {
-    const quest = cloneBakeryQuest();
-    quest.questSite = 'nowhere-at-all';
+    const quest = bakeryWithSimulation({ questSite: 'nowhere-at-all' });
     expect(() => validateQuestDefinition(quest, 'broken')).toThrow(QuestValidationError);
   });
 
   it('keeps propane outside buildings and close enough to read from the quest site', () => {
-    const inside = cloneBakeryQuest();
-    inside.hazards = [{ id: 'tank', type: 'propane', position: { x: 12, z: -12 } }];
+    const inside = bakeryWithSimulation({
+      hazards: [{ id: 'tank', type: 'propane', position: { x: 12, z: -12 } }],
+    });
     expect(() => validateQuestDefinition(inside, 'inside')).toThrow(
       /propane must stay visible and reachable outside/,
     );
 
-    const overlapsTree = cloneBakeryQuest();
-    overlapsTree.hazards = [{ id: 'tank', type: 'propane', position: { x: 10, z: -6.5 } }];
+    const overlapsTree = bakeryWithSimulation({
+      hazards: [{ id: 'tank', type: 'propane', position: { x: 10, z: -6.5 } }],
+    });
     expect(() => validateQuestDefinition(overlapsTree, 'overlap')).toThrow(
       /overlaps prop "main-tree-e1"/,
     );
 
-    const tooFar = cloneBakeryQuest();
-    tooFar.hazards = [{ id: 'tank', type: 'propane', position: { x: 0, z: 0 } }];
+    const tooFar = bakeryWithSimulation({
+      hazards: [{ id: 'tank', type: 'propane', position: { x: 0, z: 0 } }],
+    });
     expect(() => validateQuestDefinition(tooFar, 'far-away')).toThrow(
       /must be within 9m of the exterior quest site/,
     );
@@ -273,5 +283,124 @@ describe('exterior fire behaviour', () => {
     for (const cellId of farTree) {
       expect(BURNING_STATES.has(state.grid.cells[cellId]?.state ?? '')).toBe(false);
     }
+  });
+});
+
+/**
+ * #171 split one quest file into four contracts. These values were captured
+ * from the pre-migration loader and are pinned here so a future change to the
+ * contract shape cannot quietly move a fire.
+ */
+const MIGRATION_BASELINE = [
+  {
+    id: 'bakery-awning',
+    seed: 1901,
+    parTimeSeconds: 80,
+    cellCount: 1539,
+    ignitionCellIds: ['2,2,5'],
+    samples: [
+      [1, 0, 159049],
+      [6, 1, 155904],
+      [9, 3, 151406],
+      [20, 5, 144114],
+    ],
+  },
+  {
+    id: 'bandstand-green',
+    seed: 1905,
+    parTimeSeconds: 90,
+    cellCount: 110,
+    ignitionCellIds: ['7,0,1'],
+    samples: [
+      [3, 0, 7041],
+      [3, 2, 4818],
+      [3, 4, 2648],
+      [1, 6, 2024],
+    ],
+  },
+  {
+    id: 'firehouse-yard',
+    seed: 1902,
+    parTimeSeconds: 75,
+    cellCount: 5819,
+    ignitionCellIds: ['3,0,20'],
+    samples: [
+      [1, 0, 265300],
+      [6, 0, 263544],
+      [11, 0, 258822],
+      [16, 1, 253697],
+    ],
+  },
+  {
+    id: 'harbour-yard',
+    seed: 1903,
+    parTimeSeconds: 85,
+    cellCount: 4598,
+    ignitionCellIds: ['8,0,1', '1,1,14'],
+    samples: [
+      [2, 0, 229601],
+      [12, 0, 224881],
+      [34, 0, 211428],
+      [52, 2, 193842],
+    ],
+  },
+  {
+    id: 'meadow-picnic',
+    seed: 1904,
+    parTimeSeconds: 100,
+    cellCount: 360,
+    ignitionCellIds: ['4,0,5'],
+    samples: [
+      [1, 0, 70300],
+      [6, 0, 68539],
+      [13, 0, 63812],
+      [39, 1, 48079],
+    ],
+  },
+] as const;
+
+/** Burning cells, burnt cells, and total remaining fuel every 300 ticks. */
+function burnSamples(quest: QuestDefinition): number[][] {
+  const fire = createQuestFire(quest);
+  const samples: number[][] = [];
+  for (let tick = 0; tick < 1200; tick += 1) {
+    stepFireSimulation(fire.state);
+    if (tick % 300 !== 299) continue;
+    let burning = 0;
+    let burnt = 0;
+    let fuel = 0;
+    for (const cell of Object.values(fire.state.grid.cells)) {
+      if (cell.state === CellState.Burning || cell.state === CellState.Flashover) burning += 1;
+      if (cell.state === CellState.Burnt) burnt += 1;
+      fuel += cell.fuel;
+    }
+    samples.push([burning, burnt, Math.round(fuel * 1000)]);
+  }
+  return samples;
+}
+
+describe('four-contract migration (#171)', () => {
+  it('loads the same five incidents the flat quest files did', () => {
+    expect(QUESTS.map((quest) => quest.id)).toEqual(MIGRATION_BASELINE.map((entry) => entry.id));
+  });
+
+  it('burns identically to the pre-migration loader, tick for tick', () => {
+    for (const expected of MIGRATION_BASELINE) {
+      const quest = getQuest(expected.id);
+      const fire = createQuestFire(quest);
+
+      expect(quest.seed).toBe(expected.seed);
+      expect(Object.keys(fire.shell.grid.cells)).toHaveLength(expected.cellCount);
+      expect(fire.shell.ignitionCellIds).toEqual(expected.ignitionCellIds);
+      expect(burnSamples(quest)).toEqual(expected.samples.map((sample) => [...sample]));
+    }
+  });
+
+  it('keeps par time reachable, as pacing telemetry rather than a simulation field', () => {
+    for (const expected of MIGRATION_BASELINE) {
+      expect(getQuestPacing(expected.id).parTimeSeconds).toBe(expected.parTimeSeconds);
+    }
+    // Par time is no longer a field of the simulation contract at all.
+    expect('parTimeSeconds' in getQuest('bakery-awning')).toBe(false);
   });
 });
