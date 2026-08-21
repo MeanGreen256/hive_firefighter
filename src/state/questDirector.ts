@@ -21,6 +21,8 @@ export interface DirectedIncident {
   readonly slot: number;
   /** Number of deterministic new-fire retries for this slot. */
   readonly retry: number;
+  /** Monotonic run identity; same-seed replays are still distinct attempts. */
+  readonly attempt: number;
   readonly seed: number;
 }
 
@@ -67,6 +69,7 @@ function createIncident(
   shift: number,
   slotIndex: number,
   retry = 0,
+  attempt = 0,
 ): DirectedIncident {
   const slot = order.slots[slotIndex];
   if (!slot) throw new RangeError(`No authored quest exists at shift slot ${slotIndex}`);
@@ -76,6 +79,7 @@ function createIncident(
     shift,
     slot: slotIndex,
     retry,
+    attempt,
     seed: authoredSeed(slot, shift, retry),
   });
 }
@@ -151,13 +155,20 @@ function readSerializedState(order: QuestShiftOrder, value: unknown): QuestDirec
     typeof parsed.retry !== 'number' ||
     !Number.isInteger(parsed.retry) ||
     parsed.retry < 0 ||
+    (parsed.attempt !== undefined &&
+      (typeof parsed.attempt !== 'number' ||
+        !Number.isInteger(parsed.attempt) ||
+        parsed.attempt < 0)) ||
     typeof parsed.seed !== 'number' ||
     !Number.isSafeInteger(parsed.seed) ||
     parsed.districtId !== order.districtId
   ) {
     throw new Error('Quest director resume data has an invalid incident');
   }
-  const expected = createIncident(order, parsed.shift, parsed.slot, parsed.retry);
+  // Attempt was added with progression persistence. Old valid director
+  // snapshots represent their first run and remain resumable as attempt zero.
+  const attempt = typeof parsed.attempt === 'number' ? parsed.attempt : 0;
+  const expected = createIncident(order, parsed.shift, parsed.slot, parsed.retry, attempt);
   if (parsed.questId !== expected.questId || parsed.seed >>> 0 !== expected.seed) {
     throw new Error('Quest director resume data does not match authored quest order');
   }
@@ -215,7 +226,20 @@ export class QuestDirector {
   retrySameSeed(): QuestDirector {
     const canRetry = this.state.phase === 'resolved' || this.state.phase === 'celebrating';
     assertTransition(canRetry, 'retry an incident', this.state.phase);
-    return new QuestDirector(this.order, { ...this.state, phase: 'active', outcome: null });
+    const incident = this.state.incident;
+    if (!incident) throw new Error('Terminal incident is missing');
+    return new QuestDirector(this.order, {
+      ...this.state,
+      phase: 'active',
+      incident: createIncident(
+        this.order,
+        incident.shift,
+        incident.slot,
+        incident.retry,
+        incident.attempt + 1,
+      ),
+      outcome: null,
+    });
   }
 
   retryNewSeed(): QuestDirector {
@@ -226,7 +250,13 @@ export class QuestDirector {
     return new QuestDirector(this.order, {
       ...this.state,
       phase: 'active',
-      incident: createIncident(this.order, incident.shift, incident.slot, incident.retry + 1),
+      incident: createIncident(
+        this.order,
+        incident.shift,
+        incident.slot,
+        incident.retry + 1,
+        incident.attempt + 1,
+      ),
       outcome: null,
     });
   }

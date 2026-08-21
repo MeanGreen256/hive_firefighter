@@ -16,8 +16,13 @@ import { getQuestForSite } from '@sim/quests';
 import { CellState } from '@sim/cellGrid';
 import { PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { questFireController } from '../state/questFireController';
-import { createQuestDirector, type QuestDirector } from '../state/questDirector';
+import {
+  createQuestDirector,
+  resumeQuestDirector,
+  type QuestDirector,
+} from '../state/questDirector';
 import { getQuestShiftSlotIndex, QUEST_SHIFT_ORDER } from '../state/questOrder';
+import { progressProfileStore } from '../state/progressProfile';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import { createPressLatch, firstConnectedGamepad, isIntentHeld, readPress } from '@ui/gamepad';
@@ -90,6 +95,24 @@ function initialDirectorSlot(): number {
   const questId = DISTRICT.questSites[PERFORMANCE_SCENE.questIndex]?.id;
   if (!questId) throw new Error(`Unknown performance quest index ${PERFORMANCE_SCENE.questIndex}`);
   return getQuestShiftSlotIndex(QUEST_SHIFT_ORDER, questId);
+}
+
+/** Resume an in-progress fire safely; a completed debrief resumes at the next fire. */
+function initialQuestDirector(): QuestDirector {
+  const fresh = createQuestDirector(QUEST_SHIFT_ORDER);
+  if (PERFORMANCE_SCENE) return fresh.start(initialDirectorSlot());
+  const serialized = progressProfileStore.getState().profile.director;
+  if (serialized === null) return fresh.start();
+  try {
+    const resumed = resumeQuestDirector(QUEST_SHIFT_ORDER, serialized);
+    if (resumed.state.phase === 'active') return resumed;
+    if (resumed.state.phase === 'next') return resumed.activateNext();
+    if (resumed.state.phase === 'resolved') return resumed.beginCelebration().next().activateNext();
+    if (resumed.state.phase === 'celebrating') return resumed.next().activateNext();
+  } catch {
+    // An old or mismatched authored order must never block a child from playing.
+  }
+  return fresh.start();
 }
 
 /** Bake the static district shadow map once; moving heroes use contact blobs. */
@@ -393,13 +416,12 @@ export default function FollowCameraScene() {
   const [mode, setMode] = useState<PlayerMode>(PERFORMANCE_SCENE?.onFoot ? 'on-foot' : 'driving');
   const [sirenOn, setSirenOn] = useState(true);
   const [canBoard, setCanBoard] = useState(false);
-  const [questDirector, setQuestDirector] = useState<QuestDirector>(() =>
-    createQuestDirector(QUEST_SHIFT_ORDER).start(initialDirectorSlot()),
-  );
+  const [questDirector, setQuestDirector] = useState<QuestDirector>(initialQuestDirector);
   const truckRef = useRef<Group>(null);
   const firefighterRef = useRef<Group>(null);
   const truckSpeedRatio = useRef(0);
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
+  const progressProfile = useStore(progressProfileStore, (state) => state.profile);
   const visualStyle = STYLES[activeStyleId];
   // QuestDirector is the one product owner of authored order, retries, and
   // shift wrap. The scene only translates its single directed incident into
@@ -448,10 +470,19 @@ export default function FollowCameraScene() {
     ) {
       return;
     }
+    if (!PERFORMANCE_SCENE) {
+      progressProfileStore.getState().recordQuestResult(directedIncident, fireSnapshot.debrief);
+    }
     setQuestDirector((current) =>
       current.state.phase === 'active' ? current.resolve(fireSnapshot.debrief!.outcome) : current,
     );
-  }, [directedIncident.questId, directedIncident.seed, fireSnapshot.debrief, questDirector]);
+  }, [directedIncident, fireSnapshot.debrief, questDirector]);
+  // Save the precise lifecycle boundary. In particular, `next` retains
+  // wrappedShift before activation, so the end of a five-fire shift is never
+  // ambiguous to a reload or development investigation.
+  useEffect(() => {
+    if (!PERFORMANCE_SCENE) progressProfileStore.getState().saveDirector(questDirector.serialize());
+  }, [questDirector]);
   useEffect(() => {
     if (questDirector.state.phase !== 'resolved') return;
     setQuestDirector((current) =>
@@ -608,6 +639,12 @@ export default function FollowCameraScene() {
   }, [mode]);
 
   const toggleSiren = useCallback(() => setSirenOn((current) => !current), []);
+  const resetProgress = useCallback(() => {
+    if (!window.confirm('Reset all quest progress and cosmetic rewards?')) return;
+    progressProfileStore.getState().reset();
+    questFireController.restart();
+    setQuestDirector(createQuestDirector(QUEST_SHIFT_ORDER).start());
+  }, []);
 
   useEffect(() => {
     fireAudioSystem.setSirenActive(sirenOn);
@@ -752,6 +789,9 @@ export default function FollowCameraScene() {
             elapsedSeconds={fireSnapshot.elapsedSeconds}
             mode={mode}
             status={fireSnapshot.extinguished ? 'extinguished' : fireSnapshot.status}
+            completedShiftCount={progressProfile.completedShiftCount}
+            unlockedRewardCount={progressProfile.unlockedRewardIds.length}
+            {...(PERFORMANCE_SCENE ? {} : { onResetProgress: resetProgress })}
           />
         </>
       ) : null}
