@@ -12,7 +12,7 @@ import { useStore } from 'zustand';
 import type { DirectionalLight, Group } from 'three';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
 import { DEFAULT_DISTRICT_ID, getDistrict, type DistrictQuestSite } from '@sim/districts';
-import { getQuestForSite } from '@sim/quests';
+import { getQuest, getQuestForSite } from '@sim/quests';
 import { CellState } from '@sim/cellGrid';
 import { PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { questFireController } from '../state/questFireController';
@@ -101,9 +101,9 @@ function initialDirectorSlot(): number {
   // Render-budget URLs predate authored shift order. Translate their stable
   // district index (notably index 1's propane bakery fixture) into this new
   // order without letting those benchmarks choose a child's progression.
-  const questId = DISTRICT.questSites[PERFORMANCE_SCENE.questIndex]?.id;
-  if (!questId) throw new Error(`Unknown performance quest index ${PERFORMANCE_SCENE.questIndex}`);
-  return getQuestShiftSlotIndex(QUEST_SHIFT_ORDER, questId);
+  const siteId = DISTRICT.questSites[PERFORMANCE_SCENE.questIndex]?.id;
+  if (!siteId) throw new Error(`Unknown performance quest index ${PERFORMANCE_SCENE.questIndex}`);
+  return getQuestShiftSlotIndex(QUEST_SHIFT_ORDER, getQuestForSite(DISTRICT.id, siteId).id);
 }
 
 /** Resume an in-progress fire safely; a completed debrief resumes at the next fire. */
@@ -467,7 +467,8 @@ export default function FollowCameraScene() {
   // the existing district and fire-controller APIs.
   const directedIncident = questDirector.state.incident;
   if (!directedIncident) throw new Error('FollowCameraScene requires a directed incident');
-  const activeQuestSite = DISTRICT.questSites.find((site) => site.id === directedIncident.questId);
+  const directedQuest = getQuest(directedIncident.questId);
+  const activeQuestSite = DISTRICT.questSites.find((site) => site.id === directedQuest.questSiteId);
   if (!activeQuestSite) {
     throw new Error(
       `Directed quest ${JSON.stringify(directedIncident.questId)} has no district site`,
@@ -598,7 +599,7 @@ export default function FollowCameraScene() {
 
   useEffect(() => {
     questFireController.setQuest({
-      ...getQuestForSite(DISTRICT.id, directedIncident.questId),
+      ...getQuest(directedIncident.questId),
       seed: directedIncident.seed,
     });
     if (PERFORMANCE_SCENE && PERFORMANCE_SCENE.hazardCountdownSeconds !== null) {

@@ -365,9 +365,8 @@ export function loadQuestContent(modules: Record<string, { default: unknown }>):
     .sort((left, right) => left.definition.id.localeCompare(right.definition.id));
 
   const bySite = new Map<string, string>();
-  const byBadge = new Map<string, string>();
   for (const quest of quests) {
-    const { definition, presentation } = quest;
+    const { definition } = quest;
     const siteKey = `${definition.districtId}/${definition.questSiteId}`;
     const existingSite = bySite.get(siteKey);
     if (existingSite !== undefined) {
@@ -377,16 +376,10 @@ export function loadQuestContent(modules: Record<string, { default: unknown }>):
     }
     bySite.set(siteKey, definition.id);
 
-    // A star board badge is how a non-reader tells two incidents apart, so two
-    // incidents in one district may not wear the same silhouette.
-    const badgeKey = `${definition.districtId}/${presentation.badge}`;
-    const existingBadge = byBadge.get(badgeKey);
-    if (existingBadge !== undefined) {
-      throw new QuestValidationError(questSourcePath(definition.id), [
-        `presentation.badge ${JSON.stringify(presentation.badge)} is already worn by quest ${JSON.stringify(existingBadge)} in ${definition.districtId}`,
-      ]);
-    }
-    byBadge.set(badgeKey, definition.id);
+    // Badge silhouettes must be unique on the *active shift*, not across an
+    // entire district catalogue: five silhouettes can still describe a sixth
+    // authored quest when it rotates into a five-incident shift (#172).
+    // The cross-file graph owns that check because this loader cannot see shifts.
   }
   return quests;
 }
