@@ -48,6 +48,23 @@ would have been numbers describing a scene nobody can see. If cell-level
 inspection is wanted again, it belongs against the exterior shell and the quest
 controller, not resurrected against a building the game no longer draws.
 
+## Quest preview setup
+
+`questPreviewSetup.ts` builds a second, standalone `QuestFireController` for
+the development-only quest-state preview harness (#173,
+`@render/QuestPreviewHarness`) and drives it to one of nine authored
+presentation states by a fixed number of `advance()` ticks plus, for states
+the simulation would not otherwise reach on its own, a direct grid mutation —
+the same technique the render-budget acceptance scenes in
+`src/perf/acceptanceScene.ts` already use. It never touches the shared
+`questFireController` singleton above, and it never calls `start()`, so a
+preview session cannot leak into real play or drift with wall-clock time.
+`QuestPreviewSetupError` is thrown when a quest cannot actually reach the
+requested state — no authored hazard for `propane-countdown`, no multi-level
+subject for `collapse-warning`, or a quest that never reaches a completed
+state for `debrief` — so the harness fails with a clear message instead of
+rendering the wrong thing. See `docs/quest-preview-harness.md`.
+
 `sessionStats.ts` keeps fuel-mass, hazard, and par-time scoring pure so the UI
 only formats and presents store data. Property leads the first-pass star weights,
 every completed quest earns at least one star, and a scorched run always gets one

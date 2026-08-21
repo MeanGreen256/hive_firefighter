@@ -346,6 +346,29 @@ that the contact-blob approach keeps hero geometry out of the moving shadow
 pass. The focused geometry test also bounds the silhouette and keeps every
 merged buffer below its local triangle ceiling.
 
+## Quest-state content preview harness
+
+`QuestPreviewHarness.tsx` is a second, development-only scene `App.tsx`
+mounts in place of `FollowCameraScene` when `?previewQuest=` or
+`?previewState=` is present (#173). It opens any authored quest — not a fixed
+benchmark fixture, any quest in `content/quests/*` — in any of nine
+presentation states (a quiet unlit site, initial ignition, spreading fire,
+active spray, a propane countdown, a collapse warning, aftermath, and the
+real debrief panel, plus the chase-camera approach) in either style, without
+playing the game. It composes the same render components
+`FollowCameraScene` does — `ExteriorFire`, `CityDistrict`,
+`AnchoredHoseEffects`, `FollowCameraRig`, and so on — directly, and drives its
+own standalone fire controller deterministically
+(`src/state/questPreviewSetup.ts`) rather than the shared
+`questFireController` singleton, so a preview session can never touch real
+play state. `docs/quest-preview-harness.md` is the full URL and determinism
+contract; `src/perf/questPreviewScene.ts` is where the nine states and the
+"fail clearly" validation live. Like `PerfOverlay` and `DevTelemetry`, it is
+gated on `import.meta.env.DEV` and tree-shaken out of the shipped build
+entirely — it is not the `acceptanceScene.ts` render-budget harness, which
+stays pinned to fixed fixtures for release-to-release comparison; see that
+doc for how the two differ.
+
 ## What lives here
 
 - Follow camera, firefighter, truck, and mount/dismount (#86–#89)
@@ -353,6 +376,7 @@ merged buffer below its local triangle ceiling.
 - Anchored hose, assisted aim, and optional free aim (#93, #114)
 - Smoke column beacon and waypoint arrow (#92)
 - Firefighter arm animation and spray pose (#115)
+- The quest-state content preview harness (#173)
 
 ## Shared units
 

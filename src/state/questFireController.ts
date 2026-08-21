@@ -128,6 +128,15 @@ export interface QuestFireController {
   getStructures(): StructuralSimulationState;
   getBurningCells(): BurningCell[];
   /**
+   * Recount the live grid directly, independent of the published snapshot.
+   * `store`'s `burningCellCount`/`heatingCellCount` only change on the next
+   * `publish()` (inside `advance()`/`applyWater()`); a caller that mutates the
+   * grid directly without ticking the sim — the development-only quest
+   * preview harness's crafted states (#173) — needs a way to read what is
+   * actually alight right now instead of whatever was last published.
+   */
+  getLiveCellCounts(): { readonly burning: number; readonly heating: number };
+  /**
    * Cells the fire has finished with. They are closed to suppression — water on
    * a burnt cell changes nothing in the simulation — and are published only so
    * the renderer can let a player hose the scorch marks off afterwards (#181).
@@ -377,6 +386,8 @@ export function createQuestFireController(
       }
       return burning;
     },
+
+    getLiveCellCounts: () => (fire ? countCells(fire.state) : { burning: 0, heating: 0 }),
 
     getScorchedCells: () => {
       if (!fire) return [];

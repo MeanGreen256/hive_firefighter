@@ -51,6 +51,19 @@ to catch:
 /?perfScene=debrief&style=diorama
 ```
 
+These stay pinned to specific, hand-picked district/quest fixtures on
+purpose, so a draw-call number measured today is still comparable to one
+measured after a later content change — see the dated results below. They
+are not how to review an arbitrary authored quest; for that,
+`questPreviewScene.ts` in this folder defines a second, open-ended URL
+contract (`?previewQuest=<quest id>&previewState=<state id>`) that the
+development-only `QuestPreviewHarness` (`src/render/QuestPreviewHarness.tsx`,
+#173) uses to open _any_ quest in `content/quests/*` at any of nine
+presentation states, in either style, without touching code. Reach for
+`?perfScene=` when the question is "did this change the render budget";
+reach for `?previewQuest=` when the question is "does this quest look right."
+Full contract: [`docs/quest-preview-harness.md`](../../docs/quest-preview-harness.md).
+
 Repeat each with `style=ink`, open the J overlay, and record the stable maximum
 after the one-time shadow bake. `on-foot` freezes the initial incident with the
 firefighter and nozzle ready; `approach` freezes a live chase-camera sightline on
