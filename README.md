@@ -4,8 +4,11 @@ A browser-based third-person firefighting game for ages 5 and up,
 built on a cell-based fire simulation where every burnable thing in the world
 runs the same system.
 
-> **Status:** pre-alpha. M1 and M2 proved the fire simulation and incident loop;
-> M3 pivots the game from an isometric prototype to the target third-person game.
+> **Status:** pre-alpha. M1 and M2 proved the fire simulation and incident loop.
+> M3's third-person drive-dismount-douse pivot has shipped and its follow-on
+> loop work (quest progression, rewards, town reactivity) is already landing;
+> the child-observation acceptance evidence for M3 is still outstanding. See
+> [Roadmap](#roadmap) and GitHub milestones/issues for current status.
 
 ## The idea
 

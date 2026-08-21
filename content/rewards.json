@@ -1,0 +1,17 @@
+{
+  "shift-1": {
+    "kind": "station-dressing",
+    "icon": "flag",
+    "requires": { "metric": "completed-shifts", "atLeast": 1 }
+  },
+  "stars-10": {
+    "kind": "truck-dressing",
+    "icon": "bell",
+    "requires": { "metric": "total-best-stars", "atLeast": 10 }
+  },
+  "mastery-5": {
+    "kind": "station-dressing",
+    "icon": "banner",
+    "requires": { "metric": "mastery-quests", "atLeast": 5 }
+  }
+}

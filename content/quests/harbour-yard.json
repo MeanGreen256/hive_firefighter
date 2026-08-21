@@ -1,27 +1,39 @@
 {
   "name": "Harbour workshop two fronts",
-  "district": "harbour-hill",
-  "questSite": "harbour-yard",
-  "subjects": ["workshop-harbour", "harbour-yard-tree", "harbour-yard-hedge"],
-  "ignitions": [
-    {
-      "target": "workshop-harbour",
-      "burnable": "barn-door"
-    },
-    {
-      "target": "harbour-yard-tree",
-      "burnable": "canopy"
+  "simulation": {
+    "district": "harbour-hill",
+    "questSite": "harbour-yard",
+    "subjects": ["workshop-harbour", "harbour-yard-tree", "harbour-yard-hedge"],
+    "ignitions": [
+      {
+        "target": "workshop-harbour",
+        "burnable": "barn-door"
+      },
+      {
+        "target": "harbour-yard-tree",
+        "burnable": "canopy"
+      }
+    ],
+    "hazards": [],
+    "seed": 1903,
+    "wind": {
+      "direction": {
+        "x": 1,
+        "y": 0,
+        "z": 0
+      },
+      "strength": 0.35
     }
-  ],
-  "hazards": [],
-  "seed": 1903,
-  "wind": {
-    "direction": {
-      "x": 1,
-      "y": 0,
-      "z": 0
-    },
-    "strength": 0.35
   },
-  "parTimeSeconds": 85
+  "presentation": {
+    "situation": "two-fronts",
+    "badge": "fronts",
+    "spectacle": "lively",
+    "intro": "smoke-column",
+    "celebration": "fanfare"
+  },
+  "pacing": {
+    "tempo": "standard",
+    "parTimeSeconds": 85
+  }
 }

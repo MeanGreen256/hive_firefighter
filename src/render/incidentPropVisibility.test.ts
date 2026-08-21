@@ -24,6 +24,8 @@ function placement(
     type,
     position: [x, 0, z],
     yaw: 0,
+    variant: null,
+    scale: 1,
   };
 }
 

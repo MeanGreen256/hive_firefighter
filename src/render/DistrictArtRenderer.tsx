@@ -125,7 +125,13 @@ export function DistrictArtRenderer({
       string,
       { readonly shape: DistrictArtShape; readonly castShadow: boolean; pieces: DistrictArtPiece[] }
     >();
-    for (const piece of [...kit.facades, ...kit.landmarks, ...kit.streetEdges]) {
+    for (const piece of [
+      ...kit.facades,
+      ...kit.landmarks,
+      ...kit.streetEdges,
+      ...kit.parks,
+      ...kit.waterfronts,
+    ]) {
       const key = `${piece.shape}:${piece.castShadow ? 'shadow' : 'plain'}`;
       const layer = next.get(key) ?? {
         shape: piece.shape,

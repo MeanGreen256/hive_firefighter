@@ -19,10 +19,12 @@ import {
   type BuildingUse,
   type DistrictBuildingArt,
   type DistrictDefinition,
+  type DistrictParkKit,
   type DistrictProp,
   type DistrictRect,
   type DistrictRoad,
   type DistrictStreetEdge,
+  type DistrictWaterfrontKit,
 } from '@sim/districts';
 import { getBuildingAttachments } from '@sim/exteriorShell';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
@@ -146,6 +148,10 @@ export interface DistrictPropPlacement {
   readonly type: DistrictProp['type'];
   readonly position: Vector3Tuple;
   readonly yaw: number;
+  /** Optional silhouette variant (#174); the renderer owns the vocabulary. */
+  readonly variant: string | null;
+  /** Uniform size multiplier already reflected in this prop's obstacle rect. */
+  readonly scale: number;
 }
 
 export interface DistrictStreetEdgePlacement {
@@ -156,6 +162,24 @@ export interface DistrictStreetEdgePlacement {
   readonly position: Vector3Tuple;
   readonly yaw: number;
   readonly length: number;
+}
+
+/** A park's own reusable furniture kit (#174); pieces stay outside `obstacles`. */
+export interface DistrictParkPlacement {
+  readonly id: string;
+  readonly kit: DistrictParkKit | null;
+  readonly position: Vector3Tuple;
+  readonly width: number;
+  readonly depth: number;
+}
+
+/** A water body's own reusable boardwalk/pier kit (#174); scenic, never solid on its own. */
+export interface DistrictWaterBodyPlacement {
+  readonly id: string;
+  readonly kit: DistrictWaterfrontKit | null;
+  readonly position: Vector3Tuple;
+  readonly width: number;
+  readonly depth: number;
 }
 
 export interface DistrictLayout {
@@ -174,6 +198,10 @@ export interface DistrictLayout {
   readonly props: readonly DistrictPropPlacement[];
   /** Scenic route language only; these never enter `obstacles`. */
   readonly streetEdges: readonly DistrictStreetEdgePlacement[];
+  /** Park furniture kits (#174); scenic route language only, like `streetEdges`. */
+  readonly parks: readonly DistrictParkPlacement[];
+  /** Waterfront kits (#174); scenic route language only, like `streetEdges`. */
+  readonly waterBodies: readonly DistrictWaterBodyPlacement[];
   readonly truckStart: { readonly position: Vector3Tuple; readonly yaw: number };
 }
 
@@ -354,6 +382,8 @@ export function buildDistrictLayout(district: DistrictDefinition): DistrictLayou
       type: prop.type,
       position: [prop.x, 0, prop.z] as Vector3Tuple,
       yaw: (prop.yawDegrees * Math.PI) / 180,
+      variant: prop.variant,
+      scale: prop.scale,
     })),
     streetEdges: (district.streetEdges ?? []).map((edge) => ({
       id: edge.id,
@@ -363,6 +393,20 @@ export function buildDistrictLayout(district: DistrictDefinition): DistrictLayou
       position: [edge.x, 0, edge.z] as Vector3Tuple,
       yaw: (edge.yawDegrees * Math.PI) / 180,
       length: edge.length,
+    })),
+    parks: district.parks.map((park) => ({
+      id: park.id,
+      kit: park.kit,
+      position: [park.x, 0, park.z] as Vector3Tuple,
+      width: park.width,
+      depth: park.depth,
+    })),
+    waterBodies: district.waterBodies.map((water) => ({
+      id: water.id,
+      kit: water.kit,
+      position: [water.x, 0, water.z] as Vector3Tuple,
+      width: water.width,
+      depth: water.depth,
     })),
     truckStart: {
       position: [district.truckStart.x, 0, district.truckStart.z] as Vector3Tuple,

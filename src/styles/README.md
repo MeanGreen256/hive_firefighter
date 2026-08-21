@@ -69,3 +69,12 @@ truck and firefighter are always-on player subjects, not district content that
 a style paints by building `use` or prop `type`. Keeping their paint apart
 means a HUD accent retune or a building-palette pass can never accidentally
 recolour the player's own truck.
+
+The reusable park and waterfront kits (#174) needed no new top-level block.
+Their pieces resolve through the same `city.routes[route]`, `city.pavement`,
+and `city.landmarkAccent` tokens the street-edge kit already reads, and a
+prop's silhouette or scale variant still resolves through `city.props[type]`
+— a variant changes which parts draw, never what a part's own colour role
+means. A future kit family only needs a new token here if it needs a colour
+role none of `route-primary`/`route-secondary`/`accent`/`pavement` already
+name.

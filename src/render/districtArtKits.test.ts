@@ -5,7 +5,9 @@ import {
   buildDistrictArtKitLayout,
   buildFacadeKit,
   buildLandmarkKit,
+  buildParkKit,
   buildStreetEdgeKit,
+  buildWaterfrontKit,
 } from './districtArtKits';
 import { buildDistrictLayout } from './districtLayout';
 
@@ -85,8 +87,68 @@ describe('reusable district art kits', () => {
 
   it('emits stable, unique piece ids for one batched district render', () => {
     const kit = buildDistrictArtKitLayout(layout);
-    const pieces = [...kit.facades, ...kit.landmarks, ...kit.streetEdges];
+    const pieces = [
+      ...kit.facades,
+      ...kit.landmarks,
+      ...kit.streetEdges,
+      ...kit.parks,
+      ...kit.waterfronts,
+    ];
     expect(new Set(pieces.map((piece) => piece.id)).size).toBe(pieces.length);
     expect(kit.facades.length).toBeGreaterThan(200);
+  });
+
+  it('dresses every authored park kit within its own footprint, never as an obstacle', () => {
+    expect(layout.parks.every((park) => park.kit !== null)).toBe(true);
+    const pieces = layout.parks.flatMap(buildParkKit);
+    expect(new Set(pieces.map((piece) => piece.route))).toEqual(new Set(['garden']));
+    expect(pieces.every((piece) => piece.castShadow === false)).toBe(true);
+
+    for (const park of layout.parks) {
+      const parkPieces = buildParkKit(park);
+      const halfWidth = park.width / 2;
+      const halfDepth = park.depth / 2;
+      expect(
+        parkPieces.every(
+          (piece) =>
+            piece.position[0] >= park.position[0] - halfWidth &&
+            piece.position[0] <= park.position[0] + halfWidth &&
+            piece.position[2] >= park.position[2] - halfDepth &&
+            piece.position[2] <= park.position[2] + halfDepth,
+        ),
+        park.id,
+      ).toBe(true);
+    }
+  });
+
+  it('dresses every authored waterfront kit within its own water body, never as an obstacle', () => {
+    expect(layout.waterBodies.every((water) => water.kit !== null)).toBe(true);
+    const pieces = layout.waterBodies.flatMap(buildWaterfrontKit);
+    expect(pieces.length).toBeGreaterThan(0);
+    expect(new Set(pieces.map((piece) => piece.route))).toEqual(new Set(['harbour']));
+    expect(pieces.every((piece) => piece.castShadow === false)).toBe(true);
+
+    for (const water of layout.waterBodies) {
+      const waterPieces = buildWaterfrontKit(water);
+      const halfWidth = water.width / 2 + 0.01;
+      const halfDepth = water.depth / 2 + 0.01;
+      expect(
+        waterPieces.every(
+          (piece) =>
+            piece.position[0] >= water.position[0] - halfWidth &&
+            piece.position[0] <= water.position[0] + halfWidth &&
+            piece.position[2] >= water.position[2] - halfDepth &&
+            piece.position[2] <= water.position[2] + halfDepth,
+        ),
+        water.id,
+      ).toBe(true);
+    }
+  });
+
+  it('returns nothing for a park or water body authored without a kit', () => {
+    const barePark = { ...layout.parks[0]!, kit: null };
+    const bareWater = { ...layout.waterBodies[0]!, kit: null };
+    expect(buildParkKit(barePark)).toEqual([]);
+    expect(buildWaterfrontKit(bareWater)).toEqual([]);
   });
 });

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { getDistrict } from '@sim/districts';
+import { getQuestPresentation } from '@sim/quests';
 import { QUEST_SHIFT_ORDER } from '../state/questOrder';
 import {
   buildFirehouseStarBoard,
   FIREHOUSE_COSMETIC_REWARDS,
   getFirehouseStarBoardPosition,
-  QUEST_BADGE_SHAPES,
   type FirehouseProgressView,
 } from './firehouseStarBoard';
 
@@ -27,7 +27,11 @@ describe('Firehouse Star Board', () => {
     expect(board.badges.map((badge) => badge.questId)).toEqual(QUEST_IDS);
     expect(new Set(board.badges.map((badge) => badge.shape)).size).toBe(5);
     expect(board.badges.every((badge) => !badge.completed && badge.stars === 0)).toBe(true);
-    expect(Object.keys(QUEST_BADGE_SHAPES).sort()).toEqual([...QUEST_IDS].sort());
+    // The silhouette is authored presentation content, so the board never
+    // needs its own per-quest table to stay in step with the shift.
+    expect(board.badges.map((badge) => badge.shape)).toEqual(
+      QUEST_IDS.map((questId) => getQuestPresentation(questId).badge),
+    );
   });
 
   it('shows a quest best once, independent of retries, and marks the latest badge', () => {

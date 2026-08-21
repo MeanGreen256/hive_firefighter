@@ -75,6 +75,23 @@ export function readPositiveNumber(value: unknown, path: string, problems: strin
   return number;
 }
 
+/** Reads a finite number and reports it if it falls outside `[minimum, maximum]`. */
+export function readRangedNumber(
+  value: unknown,
+  path: string,
+  minimum: number,
+  maximum: number,
+  problems: string[],
+): number {
+  const number = readFiniteNumber(value, path, problems);
+  if (number < minimum || number > maximum) {
+    problems.push(
+      `${path} must be between ${String(minimum)} and ${String(maximum)}, got ${String(number)}`,
+    );
+  }
+  return number;
+}
+
 export function readInteger(value: unknown, path: string, problems: string[]): number {
   if (typeof value !== 'number' || !Number.isInteger(value)) {
     problems.push(`${path} must be an integer, got ${describe(value)}`);

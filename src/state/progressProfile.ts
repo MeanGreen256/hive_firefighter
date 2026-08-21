@@ -9,20 +9,31 @@ import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { DirectedIncident, QuestDirectorSerialized } from './questDirector';
 import type { SessionDebrief, StarRating } from './sessionStats';
 import type { StorageLike } from './personalBests';
+import {
+  isRewardId,
+  REWARD_IDS,
+  rewards,
+  type RewardId,
+  type RewardMetric,
+} from '@sim/questRewards';
 
 export const PROGRESS_PROFILE_VERSION = 1 as const;
 export const PROGRESS_PROFILE_STORAGE_KEY = 'hive-firefighter:progress-profile:v1';
 export const QUESTS_PER_SHIFT = 5;
 
-export const REWARD_IDS = ['shift-1', 'stars-10', 'mastery-5'] as const;
-export type RewardId = (typeof REWARD_IDS)[number];
+/**
+ * Reward ids, kinds, icons, and thresholds are content (#171):
+ * `content/rewards.json`, loaded by `@sim/questRewards`. This module keeps the
+ * unlock *logic* — which countable progression facts a requirement reads — so
+ * adding or retuning a cosmetic reward is a content edit, not a code edit.
+ */
+export { REWARD_IDS, isRewardId, rewards } from '@sim/questRewards';
+export type { RewardId } from '@sim/questRewards';
 
-/** Stable reward identifiers; presentation deliberately belongs to the Firehouse. */
-export const REWARD_THRESHOLDS: Readonly<Record<RewardId, number>> = Object.freeze({
-  'shift-1': 1,
-  'stars-10': 10,
-  'mastery-5': 5,
-});
+/** Authored requirement counts, restated as a lookup for callers and tests. */
+export const REWARD_THRESHOLDS: Readonly<Record<RewardId, number>> = Object.freeze(
+  Object.fromEntries(REWARD_IDS.map((rewardId) => [rewardId, rewards[rewardId].requires.atLeast])),
+) as Readonly<Record<RewardId, number>>;
 
 export interface QuestProgressRecord {
   /** Highest ADR-008 star result ever earned for this authored quest. */
@@ -229,9 +240,7 @@ export function parseProgressProfile(value: unknown): ProgressProfileV1 {
   const unlockedRewardIds = Array.isArray(candidate.unlockedRewardIds)
     ? [
         ...new Set(
-          candidate.unlockedRewardIds.filter((value): value is RewardId =>
-            REWARD_IDS.includes(value as RewardId),
-          ),
+          candidate.unlockedRewardIds.filter((value): value is RewardId => isRewardId(value)),
         ),
       ]
     : [];
@@ -291,18 +300,31 @@ function emptyQuestRecord(): QuestProgressRecord {
   });
 }
 
+/**
+ * The only progression facts a reward requirement may read. Every one is a
+ * durable count of completed work; time, water, and fuel are deliberately
+ * absent, because ADR-008 keeps them out of stars and rewards alike.
+ */
+const REWARD_METRIC_READERS: Readonly<
+  Record<
+    RewardMetric,
+    (profile: Pick<ProgressProfileV1, 'quests' | 'completedShiftCount'>) => number
+  >
+> = Object.freeze({
+  'completed-shifts': (profile) => profile.completedShiftCount,
+  'total-best-stars': (profile) =>
+    Object.values(profile.quests).reduce((total, record) => total + (record.bestStars ?? 0), 0),
+  'mastery-quests': (profile) =>
+    Object.values(profile.quests).filter((record) => record.bestStars === 3).length,
+});
+
 function rewardIdsFor(
   profile: Pick<ProgressProfileV1, 'quests' | 'completedShiftCount'>,
 ): RewardId[] {
-  const records = Object.values(profile.quests);
-  const totalBestStars = records.reduce((total, record) => total + (record.bestStars ?? 0), 0);
-  const masteryCount = records.filter((record) => record.bestStars === 3).length;
-  return REWARD_IDS.filter(
-    (rewardId) =>
-      (rewardId === 'shift-1' && profile.completedShiftCount >= REWARD_THRESHOLDS['shift-1']) ||
-      (rewardId === 'stars-10' && totalBestStars >= REWARD_THRESHOLDS['stars-10']) ||
-      (rewardId === 'mastery-5' && masteryCount >= REWARD_THRESHOLDS['mastery-5']),
-  );
+  return REWARD_IDS.filter((rewardId) => {
+    const { metric, atLeast } = rewards[rewardId].requires;
+    return REWARD_METRIC_READERS[metric](profile) >= atLeast;
+  });
 }
 
 /**
