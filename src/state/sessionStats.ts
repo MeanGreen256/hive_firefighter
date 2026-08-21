@@ -11,19 +11,17 @@ export type SessionStatus = (typeof SessionStatus)[keyof typeof SessionStatus];
 export type SessionOutcome = Exclude<SessionStatus, typeof SessionStatus.Active>;
 export type StarRating = 1 | 2 | 3;
 
-export interface SessionScores {
-  /** Remaining share of the initial combustible fuel mass. */
-  readonly property: number;
-  /** Share of hazards kept safe. */
-  readonly hazards: number;
-  /** Full credit at par, falling to zero at twice par. */
-  readonly time: number;
-  readonly overall: number;
+/** The facts used to make a star result; useful for deterministic developer telemetry. */
+export interface AuthoredObjectScore {
+  readonly total: number;
+  readonly saved: number;
+  readonly lost: number;
 }
 
 export interface SessionBest {
   readonly stars: StarRating;
-  readonly overallScore: number;
+  readonly savedObjects: number;
+  readonly hazardsSafe: number;
   readonly elapsedSeconds: number;
 }
 
@@ -31,8 +29,9 @@ export interface SessionDebrief {
   readonly scenarioId: string;
   readonly seed: number;
   readonly outcome: SessionOutcome;
-  readonly propertySavedPercent: number;
-  readonly initialPropertyFuelMass: number;
+  /** Visible authored buildings/props, never shell-cell or fuel-mass weights. */
+  readonly objects: AuthoredObjectScore;
+  /** Adult/developer telemetry only; it never changes stars. */
   readonly elapsedSeconds: number;
   readonly parTimeSeconds: number;
   readonly waterUsedLitres: number;
@@ -42,30 +41,9 @@ export interface SessionDebrief {
     readonly saved: number;
     readonly missed: number;
   };
-  readonly scores: SessionScores;
   readonly stars: StarRating;
   readonly previousBest: SessionBest | null;
   readonly isNewPersonalBest: boolean;
-}
-
-// Property is the main stake; time supplies urgency and hazards are a smaller
-// bonus when a scenario actually contains them. These are first-pass values for
-// #108 to tune against play rather than report-card percentages to preserve.
-const STAR_WEIGHTS = Object.freeze({ property: 60, time: 25, hazards: 15 });
-
-function clampPercent(value: number): number {
-  return Math.min(100, Math.max(0, value));
-}
-
-function roundScore(value: number): number {
-  return Math.round(clampPercent(value));
-}
-
-function starsForPerformance(outcome: SessionOutcome, overall: number): StarRating {
-  if (outcome === SessionStatus.Scorched) return 1;
-  if (overall >= 85) return 3;
-  if (overall >= 60) return 2;
-  return 1;
 }
 
 /** A scenario ends contained, or scorched once no combustible property remains. */
@@ -97,12 +75,18 @@ function validateCount(value: number, name: string): void {
   }
 }
 
+/**
+ * Apply ADR-008's exact, countable-world-object star contract.
+ *
+ * This deliberately does not accept fuel mass, elapsed time, par time, water,
+ * or rounded percentages. Those remain telemetry, not hidden score weights.
+ */
 export function createSessionDebrief({
   scenarioId,
   seed,
   outcome,
-  propertySaved,
-  initialPropertyFuelMass,
+  totalAuthoredObjects,
+  savedAuthoredObjects,
   elapsedSeconds,
   parTimeSeconds,
   waterUsedLitres,
@@ -113,8 +97,8 @@ export function createSessionDebrief({
   readonly scenarioId: string;
   readonly seed: number;
   readonly outcome: SessionOutcome;
-  readonly propertySaved: number;
-  readonly initialPropertyFuelMass: number;
+  readonly totalAuthoredObjects: number;
+  readonly savedAuthoredObjects: number;
   readonly elapsedSeconds: number;
   readonly parTimeSeconds: number;
   readonly waterUsedLitres: number;
@@ -125,15 +109,10 @@ export function createSessionDebrief({
   if (
     scenarioId.trim() === '' ||
     !Number.isSafeInteger(seed) ||
-    !Number.isFinite(propertySaved) ||
-    !Number.isFinite(initialPropertyFuelMass) ||
     !Number.isFinite(elapsedSeconds) ||
     !Number.isFinite(parTimeSeconds) ||
     !Number.isFinite(waterUsedLitres) ||
     !Number.isFinite(foamUsedLitres) ||
-    propertySaved < 0 ||
-    propertySaved > 1 ||
-    initialPropertyFuelMass < 0 ||
     elapsedSeconds < 0 ||
     parTimeSeconds <= 0 ||
     waterUsedLitres < 0 ||
@@ -141,36 +120,39 @@ export function createSessionDebrief({
   ) {
     throw new Error('Session debrief values must be finite and within their valid ranges');
   }
+  validateCount(totalAuthoredObjects, 'Authored object total');
+  validateCount(savedAuthoredObjects, 'Saved authored objects');
   validateCount(hazardTotal, 'Hazard total');
   validateCount(hazardsMissed, 'Hazards missed');
+  if (totalAuthoredObjects === 0 || savedAuthoredObjects > totalAuthoredObjects) {
+    throw new Error('Session outcome counts must include at least one authored object');
+  }
   if (hazardsMissed > hazardTotal) {
     throw new Error('Session outcome counts cannot exceed their totals');
   }
 
-  const property = roundScore(propertySaved * 100);
-  const hazards =
-    hazardTotal === 0 ? 0 : roundScore(((hazardTotal - hazardsMissed) / hazardTotal) * 100);
-  const time = roundScore(100 - ((elapsedSeconds - parTimeSeconds) / parTimeSeconds) * 100);
-
-  const activeComponents: Array<[number, number]> = [];
-  if (initialPropertyFuelMass > 0) activeComponents.push([property, STAR_WEIGHTS.property]);
-  if (hazardTotal > 0) activeComponents.push([hazards, STAR_WEIGHTS.hazards]);
-  if (activeComponents.length > 0) activeComponents.push([time, STAR_WEIGHTS.time]);
-  const activeWeight = activeComponents.reduce((total, [, weight]) => total + weight, 0);
-  const overall =
-    activeWeight === 0
-      ? 0
-      : roundScore(
-          activeComponents.reduce((total, [score, weight]) => total + score * weight, 0) /
-            activeWeight,
-        );
+  // Exact integer comparisons are intentional: do not turn these into rounded
+  // displayed percentages, because 13/20 must include the 65% boundary.
+  const propertyAtTwoStars = savedAuthoredObjects * 100 >= totalAuthoredObjects * 65;
+  const propertyAtThreeStars = savedAuthoredObjects * 100 >= totalAuthoredObjects * 85;
+  const stars: StarRating =
+    outcome === SessionStatus.Scorched
+      ? 1
+      : propertyAtThreeStars && hazardsMissed === 0
+        ? 3
+        : propertyAtTwoStars
+          ? 2
+          : 1;
 
   return {
     scenarioId,
     seed: seed >>> 0,
     outcome,
-    propertySavedPercent: property,
-    initialPropertyFuelMass,
+    objects: {
+      total: totalAuthoredObjects,
+      saved: savedAuthoredObjects,
+      lost: totalAuthoredObjects - savedAuthoredObjects,
+    },
     elapsedSeconds,
     parTimeSeconds,
     waterUsedLitres,
@@ -180,8 +162,7 @@ export function createSessionDebrief({
       saved: hazardTotal - hazardsMissed,
       missed: hazardsMissed,
     },
-    scores: { property, hazards, time, overall },
-    stars: starsForPerformance(outcome, overall),
+    stars,
     previousBest: null,
     isNewPersonalBest: false,
   };

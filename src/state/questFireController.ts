@@ -10,7 +10,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { CellState } from '@sim/cellGrid';
 import {
-  calculatePropertySaved,
   createFixedTimestepRunner,
   DEFAULT_FIRE_SIMULATION_TUNING,
   FIRE_TICK_SECONDS,
@@ -19,6 +18,7 @@ import {
   type FixedTimestepRunner,
 } from '@sim/fireSimulation';
 import { getShellCellWorldPosition, type ShellPoint } from '@sim/exteriorShell';
+import { materials } from '@sim/materials';
 import { createQuestFire, type QuestDefinition, type QuestFire } from '@sim/quests';
 import {
   advanceHazards,
@@ -147,6 +147,27 @@ function isAlight(state: CellState): boolean {
   return state === CellState.Burning || state === CellState.Flashover;
 }
 
+/**
+ * Score one visible quest target once, even if its shell has multiple burnable
+ * parts. A target survives when any originally combustible shell cell still
+ * has fuel and was not burnt or collapsed at the end of the incident.
+ */
+function countSavedAuthoredObjects(questFire: QuestFire): number {
+  const subjectTargets = new Map(
+    questFire.shell.subjects.map((subject) => [subject.id, subject.targetId]),
+  );
+  const savedTargets = new Set<string>();
+  for (const [cellId, subjectId] of Object.entries(questFire.shell.cellSubjectIds)) {
+    const targetId = subjectTargets.get(subjectId);
+    const cell = questFire.state.grid.cells[cellId];
+    if (!targetId || !cell || materials[cell.material]?.ignitionPoint === null) continue;
+    if (cell.fuel > 0 && cell.state !== CellState.Burnt && cell.state !== CellState.Collapsed) {
+      savedTargets.add(targetId);
+    }
+  }
+  return savedTargets.size;
+}
+
 export interface QuestFireControllerOptions {
   readonly personalBestStorage?: StorageLike | null;
 }
@@ -209,11 +230,8 @@ export function createQuestFireController(
         scenarioId: fire.quest.id,
         seed: fire.state.seed,
         outcome: status,
-        propertySaved: calculatePropertySaved(
-          fire.state.grid,
-          fire.state.initialCombustibleFuelMass,
-        ),
-        initialPropertyFuelMass: fire.state.initialCombustibleFuelMass,
+        totalAuthoredObjects: new Set(fire.quest.subjects).size,
+        savedAuthoredObjects: countSavedAuthoredObjects(fire),
         elapsedSeconds,
         parTimeSeconds: fire.quest.parTimeSeconds,
         waterUsedLitres,
