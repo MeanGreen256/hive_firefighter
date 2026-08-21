@@ -15,6 +15,7 @@ import {
   createQuestFire,
   getQuestForSite,
   hasQuestForSite,
+  type QuestDefinition,
   validateQuestDefinition,
 } from './quests';
 
@@ -23,6 +24,49 @@ function cloneBakeryQuest(): Record<string, unknown> {
 }
 
 const BURNING_STATES = new Set<string>([CellState.Burning, CellState.Flashover, CellState.Burnt]);
+
+const HARBOUR_HILL_SHIFT = [
+  {
+    site: 'meadow-picnic',
+    subjects: ['meadow-bench-1', 'meadow-tree-5', 'meadow-tree-4', 'meadow-hedge-4'],
+    ignitions: 1,
+    hazards: 0,
+  },
+  {
+    site: 'bandstand-green',
+    subjects: ['riverside-hedge-1', 'riverside-hedge-2', 'riverside-hedge-3', 'riverside-bench-1'],
+    ignitions: 1,
+    hazards: 0,
+  },
+  {
+    site: 'harbour-yard',
+    subjects: ['workshop-harbour', 'harbour-yard-tree', 'harbour-yard-hedge'],
+    ignitions: 2,
+    hazards: 0,
+  },
+  {
+    site: 'bakery-awning',
+    subjects: ['bakery', 'main-tree-e1', 'main-tree-e2'],
+    ignitions: 1,
+    hazards: 1,
+  },
+  {
+    site: 'firehouse-yard',
+    subjects: ['house-station-cottage', 'firehouse', 'main-tree-w3'],
+    ignitions: 1,
+    hazards: 0,
+  },
+] as const;
+
+/** A score target must be in the same readable on-foot scene as its staging point. */
+function distanceFromQuestSite(quest: QuestDefinition, targetId: string): number {
+  const district = getDistrict(quest.districtId);
+  const site = district.questSites.find((entry) => entry.id === quest.questSiteId);
+  const target = [...district.buildings, ...district.props].find((entry) => entry.id === targetId);
+  if (!site || !target)
+    throw new Error(`Missing authored quest geometry for ${quest.id}/${targetId}`);
+  return Math.hypot(target.x - site.x, target.z - site.z);
+}
 
 /** Runs the real 10 Hz tick and reports when a subject first catches. */
 function secondsUntilAlight(questSiteId: string, subjectId: string, limitSeconds: number) {
@@ -105,6 +149,56 @@ describe('quest loading', () => {
 });
 
 describe('authored quests', () => {
+  it('authors a five-slot curve of reachable, countable fire situations', () => {
+    const district = getDistrict('harbour-hill');
+
+    for (const expected of HARBOUR_HILL_SHIFT) {
+      const quest = getQuestForSite(district.id, expected.site);
+      expect(quest.subjects).toEqual(expected.subjects);
+      expect(new Set(quest.subjects).size).toBe(quest.subjects.length);
+      expect(quest.subjects.length).toBeGreaterThanOrEqual(3);
+      expect(quest.ignitions).toHaveLength(expected.ignitions);
+      expect(quest.hazards).toHaveLength(expected.hazards);
+      expect(Number.isInteger(quest.seed)).toBe(true);
+
+      for (const targetId of quest.subjects) {
+        expect(distanceFromQuestSite(quest, targetId)).toBeLessThanOrEqual(16);
+      }
+    }
+  });
+
+  it('uses an unmistakable still spark, wind line, two fronts, propane, and porch climb', () => {
+    const tutorial = getQuestForSite('harbour-hill', 'meadow-picnic');
+    expect(tutorial.ignitions).toEqual([
+      { targetId: 'meadow-bench-1', burnableId: 'picnic-timber' },
+    ]);
+    expect(tutorial.wind.strength).toBe(0);
+
+    const windLine = getQuestForSite('harbour-hill', 'bandstand-green');
+    expect(windLine.ignitions).toEqual([
+      { targetId: 'riverside-hedge-3', burnableId: 'hedge-row' },
+    ]);
+    expect(windLine.wind).toEqual({ direction: { x: -1, y: 0, z: 0 }, strength: 1.5 });
+
+    const twoFronts = createQuestFire(getQuestForSite('harbour-hill', 'harbour-yard'));
+    expect(twoFronts.shell.ignitionCellIds).toHaveLength(2);
+    const [workshopFront, yardFront] = twoFronts.shell.ignitionCellIds.map((cellId) =>
+      getShellCellWorldPosition(twoFronts.shell, cellId),
+    );
+    expect(workshopFront).toBeDefined();
+    expect(yardFront).toBeDefined();
+    expect(
+      Math.hypot(workshopFront!.x - yardFront!.x, workshopFront!.z - yardFront!.z),
+    ).toBeGreaterThan(8);
+
+    const propane = createQuestFire(getQuestForSite('harbour-hill', 'bakery-awning'));
+    expect(propane.hazards).toHaveLength(1);
+    expect(propane.hazards[0]).toMatchObject({ id: 'bakery-propane', type: 'propane' });
+
+    const climb = getQuestForSite('harbour-hill', 'firehouse-yard');
+    expect(climb.ignitions).toEqual([{ targetId: 'house-station-cottage', burnableId: 'porch' }]);
+  });
+
   it('lights exactly the subject the quest names', () => {
     const fire = createQuestFire(getQuestForSite('harbour-hill', 'bakery-awning'));
     const burning = Object.values(fire.state.grid.cells).filter((cell) =>

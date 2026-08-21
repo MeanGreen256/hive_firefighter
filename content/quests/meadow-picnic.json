@@ -1,5 +1,5 @@
 {
-  "name": "Meadow Park picnic bench",
+  "name": "Meadow Park picnic spark",
   "district": "harbour-hill",
   "questSite": "meadow-picnic",
   "subjects": ["meadow-bench-1", "meadow-tree-5", "meadow-tree-4", "meadow-hedge-4"],
@@ -13,11 +13,11 @@
   "seed": 1904,
   "wind": {
     "direction": {
-      "x": -1,
-      "y": 1,
+      "x": 0,
+      "y": 0,
       "z": 0
     },
-    "strength": 0.3
+    "strength": 0
   },
-  "parTimeSeconds": 80
+  "parTimeSeconds": 100
 }
