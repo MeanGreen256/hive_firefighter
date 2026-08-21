@@ -25,6 +25,11 @@
 >
 > If you're deciding what to build next, check the GitHub issue, not the box
 > below it.
+>
+> Historical references below to ladders as a future traversal verb are not a
+> current roadmap commitment. [ADR-009](adr/009-no-second-required-verb.md)
+> records the accepted decision: no second firefighting verb or required
+> elevated traversal.
 
 Issue set for the pivot decided in [ADR-005](adr/005-third-person-apparatus-control.md),
 [ADR-006](adr/006-arcade-tone-for-younger-players.md), and
