@@ -7,7 +7,7 @@ import type { Vector3Tuple } from './worldUnits';
  * per part instead of one draw call per tree.
  */
 export interface PropPart {
-  readonly shape: 'box' | 'cylinder' | 'sphere';
+  readonly shape: 'box' | 'cone' | 'cylinder' | 'sphere';
   readonly offset: Vector3Tuple;
   readonly size: Vector3Tuple;
   readonly paint: 'primary' | 'secondary';
@@ -84,6 +84,47 @@ export const PROP_PARTS: Readonly<Record<DistrictPropType, readonly PropPart[]>>
 };
 
 /**
+ * Optional silhouette variants for a subset of prop types (#174). A district
+ * author selects one by name on a `DistrictProp`; the renderer owns the
+ * vocabulary and swaps the whole part list, the same way `DistrictAmbient`
+ * variants already work. Every variant part list still costs one instanced
+ * draw call per shape across the district, never one per prop — see
+ * `getPropParts` below.
+ */
+export const PROP_PART_VARIANTS: Readonly<
+  Partial<Record<DistrictPropType, Readonly<Record<string, readonly PropPart[]>>>>
+> = {
+  tree: {
+    // A narrow evergreen silhouette next to the default round canopy (#174):
+    // one taller trunk and two stacked cones instead of two spheres, so a
+    // conifer route reads differently at a glance without a new component.
+    conifer: [
+      { shape: 'cylinder', offset: [0, 0.7, 0], size: [0.3, 1.4, 0.3], paint: 'secondary' },
+      { shape: 'cone', offset: [0, 2.35, 0], size: [1.7, 2.3, 1.7], paint: 'primary' },
+      { shape: 'cone', offset: [0, 3.55, 0], size: [1.15, 1.7, 1.15], paint: 'primary' },
+    ],
+  },
+};
+
+/**
+ * Resolves the part list a placement should draw: its named variant if the
+ * type defines one, otherwise the type's default. An unrecognised or absent
+ * variant name always falls back rather than failing, matching the ambient
+ * kit contract — content can name a variant the renderer does not know yet
+ * without breaking the district.
+ */
+export function getPropParts(
+  type: DistrictPropType,
+  variant: string | null = null,
+): readonly PropPart[] {
+  if (variant) {
+    const parts = PROP_PART_VARIANTS[type]?.[variant];
+    if (parts) return parts;
+  }
+  return PROP_PARTS[type];
+}
+
+/**
  * How far a prop's own parts reach above the ground it stands on.
  *
  * The hose has to know how tall a hedge is to know whether the water hit it,
@@ -91,9 +132,9 @@ export const PROP_PARTS: Readonly<Record<DistrictPropType, readonly PropPart[]>>
  * Deriving it from the same part list the geometry is built from is what keeps
  * "what the water hits" and "what is drawn" from being two facts that drift.
  */
-export function getPropPartsHeight(type: DistrictPropType): number {
+export function getPropPartsHeight(type: DistrictPropType, variant: string | null = null): number {
   let height = 0;
-  for (const part of PROP_PARTS[type]) {
+  for (const part of getPropParts(type, variant)) {
     height = Math.max(height, part.offset[1] + part.size[1] / 2);
   }
   return height;

@@ -7,8 +7,9 @@ Game data as JSON. **Adding content should not require writing code.**
 - `materials.json` — the fire behaviour table (#5). The highest-leverage data in the game: add a row, and every prop made of that material gets new behaviour everywhere.
 - `scenarios/*.json` — authored incidents: grid dimensions and materials,
   ignition, wind, entity placements, optional street props, and par time.
-- `districts/*.json` — the free-roam city (#90, #160): roads, blocks, parks,
-  reusable facade/landmark/street-edge art, street props, and quest sites.
+- `districts/*.json` — the free-roam city (#90, #160, #174): roads, blocks,
+  parks, reusable facade/landmark/street-edge/park/waterfront art kits, street
+  props with optional silhouette and scale variants, and quest sites.
 - `burnables.json` — what exterior fire is allowed to live on (#91), and the
   shape of the shell it occupies.
 - `quests/*.json` — one authored incident per quest site: what may burn, where
@@ -93,17 +94,29 @@ Each district declares:
   road `facing`; and, except for towers, a use-compatible `facade` kit. The
   loader rejects a facade from the wrong building family or a facing that
   would separate decorative art from the burnable exterior shell;
-- `parks` as green rectangles — first-class areas, not leftovers;
+- `parks` as green rectangles — first-class areas, not leftovers. An optional
+  `kit` (#174) names a `route` and a `variant` — `bandstand`, `garden-beds`, or
+  `play-lawn` — for a reusable furniture kit built from the park's own
+  footprint. A park authored without a `kit` still draws its bare grass;
 - `waterBodies` as flat rectangles the same shape a park is — a harbour or a
   river edge, optional per district (an inland district authors none). Water
   is a hard edge, the same as a building: nothing may be authored on top of
-  one, and neither the truck nor the firefighter can walk into it;
+  one, and neither the truck nor the firefighter can walk into it. An optional
+  `kit` (#174) names a `route`, a `variant` (`boardwalk` or `pier`), and a
+  `facing` — the compass direction of the shore side, the same vocabulary a
+  building's `art.facing` uses — for a reusable boardwalk or pier that always
+  stays inside the water body's own rectangle;
 - `props`, each a `type` from a fixed list (`tree`, `hedge`, `bench`,
   `parked-car`, `hydrant`, `lamp-post`, `play-structure`, `flower-box`,
   `pinwheel`, `harbour-bollard`, `bee-sign`) with a position and optional
   `yawDegrees`. Footprint and whether it blocks movement come from the type,
   not the file, so no authored prop can trap a player the renderer thinks is
-  walkable;
+  walkable. A prop may also author an optional `variant` (#174) — a named
+  silhouette alternate, e.g. `tree`'s `conifer`; the renderer owns the
+  vocabulary and falls back to the type's default look for a name it does not
+  recognise — and an optional `scale` (`0.5`–`2`, default `1`), a uniform size
+  multiplier applied to both the drawn parts and the collision footprint so a
+  bigger prop can never draw larger than the space it blocks;
 - optional `ambient` placements for quiet-world motion and sound. Each has a
   reusable `type` (`flag`, `bird`, `water-ripple`, `rotating-sign`, or
   `foliage`), a world position, optional `yawDegrees`, and an optional

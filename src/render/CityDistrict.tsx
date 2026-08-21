@@ -7,7 +7,7 @@ import type { Style } from '@styles/styles';
 import type { Vector3Tuple } from './worldUnits';
 import { DistrictArtRenderer } from './DistrictArtRenderer';
 import { shouldRenderIncidentPropPart } from './incidentPropVisibility';
-import { PROP_PARTS, type PropPart } from './propKits';
+import { getPropParts, type PropPart } from './propKits';
 import { REACTIVE_PROPS, type WorldReactionField } from './worldReactions';
 import {
   HIP_ROOF_CONE_RADIAL_SEGMENTS,
@@ -84,6 +84,7 @@ const SHADOW_CASTING_PROPS: ReadonlySet<DistrictPropType> = new Set([
 function PartGeometry({ shape }: { readonly shape: PropPart['shape'] }) {
   if (shape === 'cylinder') return <cylinderGeometry args={[0.5, 0.5, 1, 10]} />;
   if (shape === 'sphere') return <sphereGeometry args={[0.5, 12, 8]} />;
+  if (shape === 'cone') return <coneGeometry args={[0.5, 1, 10]} />;
   return <boxGeometry />;
 }
 
@@ -123,16 +124,29 @@ function SurfaceLayer({
   );
 }
 
-/** A part's offset is authored in the prop's own frame, so yaw has to turn it too. */
+/**
+ * A part's offset is authored in the prop's own frame, so yaw has to turn it
+ * too, and an authored `scale` (#174) has to widen the same offset the size
+ * is widened by — otherwise a bigger tree would draw with its canopy still
+ * centred on the unscaled trunk position.
+ */
 function partPosition(placement: DistrictPropPlacement, part: PropPart): [number, number, number] {
   const cos = Math.cos(placement.yaw);
   const sin = Math.sin(placement.yaw);
   const [offsetX, offsetY, offsetZ] = part.offset;
+  const scale = placement.scale;
   return [
-    placement.position[0] + offsetX * cos + offsetZ * sin,
-    placement.position[1] + offsetY,
-    placement.position[2] - offsetX * sin + offsetZ * cos,
+    placement.position[0] + offsetX * scale * cos + offsetZ * scale * sin,
+    placement.position[1] + offsetY * scale,
+    placement.position[2] - offsetX * scale * sin + offsetZ * scale * cos,
   ];
+}
+
+/** The instance scale a part draws at once its placement's uniform size multiplier applies. */
+function partScale(placement: DistrictPropPlacement, part: PropPart): Vector3Tuple {
+  const [width, height, depth] = part.size;
+  const scale = placement.scale;
+  return [width * scale, height * scale, depth * scale];
 }
 
 /** How far a light prop tips away from water or a siren at full intensity. */
@@ -176,7 +190,7 @@ function SpinningPropPartInstance({
       ref={instanceRef}
       position={position}
       rotation={baseRotation(renderPart)}
-      scale={[...part.size]}
+      scale={partScale(placement, part)}
       color={renderPart.color}
     />
   );
@@ -215,7 +229,7 @@ function ReactivePropPartInstance({
       ref={instanceRef}
       position={position}
       rotation={rotation}
-      scale={[...part.size]}
+      scale={partScale(placement, part)}
       color={renderPart.color}
     />
   );
@@ -229,7 +243,7 @@ function StaticPropPartInstance({ renderPart }: { readonly renderPart: PropRende
     <Instance
       position={partPosition(placement, part)}
       rotation={baseRotation(renderPart)}
-      scale={[...part.size]}
+      scale={partScale(placement, part)}
       color={renderPart.color}
     />
   );
@@ -444,20 +458,32 @@ export function CityDistrict({
     roofLayer.push(building);
     buildingRoofLayers.set(roofShape, roofLayer);
   }
-  const propsByType = new Map<DistrictPropType, DistrictPropPlacement[]>();
+  // Grouped by type *and* variant (#174): two placements of the same type can
+  // draw a different part list (a conifer beside a round tree), but every
+  // group still only contributes instances to the shared per-shape layers
+  // below, so a new silhouette variant never costs a new draw call.
+  const propsByTypeVariant = new Map<
+    string,
+    { type: DistrictPropType; variant: string | null; placements: DistrictPropPlacement[] }
+  >();
   for (const prop of layout.props) {
-    const group = propsByType.get(prop.type) ?? [];
-    group.push(prop);
-    propsByType.set(prop.type, group);
+    const key = `${prop.type}:${prop.variant ?? ''}`;
+    const group = propsByTypeVariant.get(key) ?? {
+      type: prop.type,
+      variant: prop.variant,
+      placements: [],
+    };
+    group.placements.push(prop);
+    propsByTypeVariant.set(key, group);
   }
   const propPartLayers = new Map<
     string,
     { shape: PropPart['shape']; castShadow: boolean; parts: PropRenderPart[] }
   >();
-  for (const [type, placements] of propsByType) {
+  for (const { type, variant, placements } of propsByTypeVariant.values()) {
     const paint = visualStyle.city.props[type];
     const castShadow = SHADOW_CASTING_PROPS.has(type);
-    for (const [partIndex, part] of PROP_PARTS[type].entries()) {
+    for (const [partIndex, part] of getPropParts(type, variant).entries()) {
       const layerKey = `${part.shape}:${castShadow ? 'shadow' : 'plain'}`;
       const layer = propPartLayers.get(layerKey) ?? {
         shape: part.shape,
