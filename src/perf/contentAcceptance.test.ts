@@ -134,8 +134,8 @@ describe('browser visual and render-budget gate', () => {
         distinctFrameColors: 1,
         shadowAutoUpdate: true,
         metrics: {
-          fps: 5,
-          frameTimeMs: 120,
+          fps: ACCEPTANCE_BUDGETS.minHostedFps / 2,
+          frameTimeMs: ACCEPTANCE_BUDGETS.maxHostedFrameTimeMs + 1,
           drawCalls: ACCEPTANCE_BUDGETS.maxDrawCalls,
           triangles: ACCEPTANCE_BUDGETS.maxTriangles + 1,
           particleCount: ACCEPTANCE_BUDGETS.maxParticleCount,
