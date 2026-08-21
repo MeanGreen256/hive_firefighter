@@ -1,6 +1,7 @@
 # M3 issues — Drive, Dismount, Douse
 
-> **Historical planning snapshot — written 2026-08-11, frozen 2026-08-15.** This
+> **Historical planning snapshot — written 2026-08-11, frozen 2026-08-15,
+> reverified 2026-08-21.** This
 > document was the implementation plan for the M3 pivot at the moment it was
 > filed to GitHub. It is **not a live tracker.** GitHub issue
 > [#101](https://github.com/MeanGreen256/hive_firefighter/issues/101) is the
@@ -22,6 +23,29 @@
 > issues (#128, #130–#135) were filed after this plan, from playing and
 > reviewing the merged result rather than from this document; they are not
 > reflected in the checklists below and are tracked directly on GitHub.
+>
+> **Reverified 2026-08-21:** `git log origin/main` now shows all 22 issues
+> filed from this plan merged, including #108 — per
+> [`docs/design-assessment-2026-08.md`](design-assessment-2026-08.md), "#177
+> exists precisely because #108 was closed without evidence." That is: #108's
+> own child-observation task never ran before the issue closed, so #101's
+> "Done when" (a five-year-old completing a quest, confirmed by observation
+> rather than assertion) is still unconfirmed by anything in this repo —
+> `docs/playtests/` holds only the record template, no completed session.
+> Whether #101 should stay open for that reason alone, close, or be replaced
+> by a dedicated acceptance-observation issue is a live GitHub decision, not
+> something this document can settle. A second, larger wave of work has since
+> merged that this plan never anticipated: quest outcomes and countable-object stars
+> ([ADR-008](adr/008-quest-outcomes-and-countable-stars.md)), the quest
+> director shift lifecycle, quest scoring by visible authored targets, quest
+> progression persistence, the Firehouse Star Board and cosmetic rewards
+> (#168), a wordless mastery celebration (#169), the hose and siren reacting
+> to the whole town (#181), a repeatable child-observation protocol (#182),
+> and a bounded rekindle-hotspots spike (#180/#197). None of it was filed from
+> this document — it came from playing the shipped M3 loop and from
+> [`docs/design-assessment-2026-08.md`](design-assessment-2026-08.md), which
+> is the current record of open design gaps and is not reflected in the
+> checklists below either.
 >
 > If you're deciding what to build next, check the GitHub issue, not the box
 > below it.
