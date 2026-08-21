@@ -1,23 +1,27 @@
 {
-  "name": "Workshop barn door",
+  "name": "Harbour workshop two fronts",
   "district": "harbour-hill",
   "questSite": "harbour-yard",
-  "subjects": ["workshop-harbour"],
+  "subjects": ["workshop-harbour", "harbour-yard-tree", "harbour-yard-hedge"],
   "ignitions": [
     {
       "target": "workshop-harbour",
       "burnable": "barn-door"
+    },
+    {
+      "target": "harbour-yard-tree",
+      "burnable": "canopy"
     }
   ],
   "hazards": [],
   "seed": 1903,
   "wind": {
     "direction": {
-      "x": 0,
-      "y": 1,
+      "x": 1,
+      "y": 0,
       "z": 0
     },
-    "strength": 0.25
+    "strength": 0.35
   },
-  "parTimeSeconds": 110
+  "parTimeSeconds": 85
 }

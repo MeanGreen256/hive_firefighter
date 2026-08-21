@@ -505,7 +505,9 @@
     { "id": "meadow-pinwheel", "type": "pinwheel", "x": -40, "z": 18 },
     { "id": "harbour-bollard-north", "type": "harbour-bollard", "x": 58.6, "z": -10.5 },
     { "id": "harbour-bollard-centre", "type": "harbour-bollard", "x": 58.6, "z": -18 },
-    { "id": "harbour-bollard-south", "type": "harbour-bollard", "x": 58.6, "z": -25.5 }
+    { "id": "harbour-bollard-south", "type": "harbour-bollard", "x": 58.6, "z": -25.5 },
+    { "id": "harbour-yard-tree", "type": "tree", "x": 40, "z": -10 },
+    { "id": "harbour-yard-hedge", "type": "hedge", "x": 42, "z": -9 }
   ],
   "ambient": [
     {

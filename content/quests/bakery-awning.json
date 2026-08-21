@@ -1,8 +1,8 @@
 {
-  "name": "Bakery awning",
+  "name": "Bakery propane awning",
   "district": "harbour-hill",
   "questSite": "bakery-awning",
-  "subjects": ["bakery", "main-tree-e1"],
+  "subjects": ["bakery", "main-tree-e1", "main-tree-e2"],
   "ignitions": [
     {
       "target": "bakery",
@@ -20,10 +20,10 @@
   "wind": {
     "direction": {
       "x": 0,
-      "y": 1,
+      "y": 0,
       "z": 0
     },
-    "strength": 0.2
+    "strength": 0.45
   },
-  "parTimeSeconds": 90
+  "parTimeSeconds": 80
 }
