@@ -11,7 +11,12 @@ import type { FireSimulationState } from '@sim/fireSimulation';
 import type { WaterApplicationResult } from '@sim/waterApplication';
 import { getMostUrgentHazard, PropaneHazardState, type HazardSimulationState } from '@sim/hazards';
 import type { StructuralSimulationState } from '@sim/structuralCollapse';
-import { getAmbientAudioMix, type AmbientAudioInput } from './ambientAudioMix';
+import {
+  getAmbientAudioMix,
+  getWorldReactionBurst,
+  type AmbientAudioInput,
+  type WorldReactionSound,
+} from './ambientAudioMix';
 
 export interface FireAudioSnapshot {
   enabled: boolean;
@@ -82,6 +87,7 @@ export function createFireAudioSystem(
   };
   let sirenActive = false;
   let nextWaterHissTime = 0;
+  const nextWorldReactionTime = new Map<WorldReactionSound, number>();
   let nextPropanePulseTime = 0;
   let nextCollapseCreakTime = 0;
 
@@ -289,6 +295,20 @@ export function createFireAudioSystem(
     handleSimulationEvents: (events: readonly AudioSimulationEvent[]): void => {
       if (!context) return;
       for (const event of getFireAudioEvents(events)) playEvent(event);
+    },
+    /**
+     * The town answering the hose or the siren with nothing on fire (#181):
+     * a splash on the harbour, water pattering off a pavement, leaves in a
+     * hedge, birds startled off a roof. Throttled per sound and ducked under
+     * the incident, so holding the trigger stays a toy rather than a drone.
+     */
+    playWorldReaction: (sound: WorldReactionSound): void => {
+      if (!context) return;
+      const burst = getWorldReactionBurst(sound, latestMix.intensity);
+      if (burst.level <= 0.001) return;
+      if (context.currentTime < (nextWorldReactionTime.get(sound) ?? 0)) return;
+      nextWorldReactionTime.set(sound, context.currentTime + burst.throttleSeconds);
+      playNoiseBurst(burst.frequency, burst.durationSeconds, burst.level);
     },
     /**
      * Two rising chirps when a new incident comes in (#92) — the radio call

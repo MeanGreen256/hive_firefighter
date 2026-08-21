@@ -6,6 +6,7 @@ import type { DistrictAmbient, DistrictDefinition } from '@sim/districts';
 import type { Style } from '@styles/styles';
 import type { Vector3Tuple } from './worldUnits';
 import { AmbientAudioBridge } from '../audio/AmbientAudioBridge';
+import type { WorldReactionField } from './worldReactions';
 
 type AmbientShape = 'box' | 'cylinder' | 'sphere' | 'torus';
 type AmbientMotion = 'none' | 'wave' | 'bob' | 'ripple' | 'spin';
@@ -143,7 +144,13 @@ function AmbientPartGeometry({ shape }: { readonly shape: AmbientShape }) {
   return <boxGeometry />;
 }
 
-function AmbientPartInstance({ part }: { readonly part: AmbientPart }) {
+function AmbientPartInstance({
+  part,
+  reactions,
+}: {
+  readonly part: AmbientPart;
+  readonly reactions: WorldReactionField;
+}) {
   const ref = useRef<Group>(null);
   const baseRotation = part.rotation;
   const basePosition = part.position;
@@ -153,15 +160,30 @@ function AmbientPartInstance({ part }: { readonly part: AmbientPart }) {
     const object = ref.current;
     if (!object) return;
     const time = clock.elapsedTime + part.phase;
+    // Ambient life is the town's own idle motion; a stir from the hose or the
+    // siren rides on top of it and dies away with the disturbance that caused
+    // it (#181). Nothing here is a state change — the flag ends where it began.
+    const stir = reactions.sampleDisturbance(basePosition[0], basePosition[2]);
     if (part.motion === 'wave') {
-      object.rotation.z = baseRotation[2] + Math.sin(time * 1.25) * 0.055;
+      const gust = 1 + stir.intensity * 3.2;
+      object.rotation.z =
+        baseRotation[2] + Math.sin(time * (1.25 + stir.intensity * 5)) * 0.055 * gust;
     } else if (part.motion === 'spin') {
-      object.rotation.y = baseRotation[1] + time * 0.45;
+      object.rotation.y = baseRotation[1] + time * (0.45 + stir.intensity * 2.4);
     } else if (part.motion === 'bob') {
-      object.position.y = basePosition[1] + Math.sin(time * 0.9) * 0.16;
-      object.rotation.z = Math.sin(time * 1.1) * 0.16;
+      // Startled: birds break upward and away rather than just flapping harder.
+      const startle = stir.intensity;
+      object.position.set(
+        basePosition[0] + stir.awayX * startle * 1.6,
+        basePosition[1] +
+          Math.sin(time * (0.9 + startle * 9)) * (0.16 + startle * 0.5) +
+          startle * 1.1,
+        basePosition[2] + stir.awayZ * startle * 1.6,
+      );
+      object.rotation.z = Math.sin(time * (1.1 + startle * 10)) * (0.16 + startle * 0.45);
     } else if (part.motion === 'ripple') {
-      const pulse = 1 + Math.sin(time * 0.85) * 0.09;
+      const pulse =
+        1 + Math.sin(time * (0.85 + stir.intensity * 3)) * (0.09 + stir.intensity * 0.2);
       object.scale.set(baseSize[0] * pulse, baseSize[1], baseSize[2] * pulse);
     }
   });
@@ -180,9 +202,11 @@ function AmbientPartInstance({ part }: { readonly part: AmbientPart }) {
 function AmbientLayer({
   shape,
   parts,
+  reactions,
 }: {
   readonly shape: AmbientShape;
   readonly parts: readonly AmbientPart[];
+  readonly reactions: WorldReactionField;
 }) {
   if (parts.length === 0) return null;
   return (
@@ -190,7 +214,7 @@ function AmbientLayer({
       <AmbientPartGeometry shape={shape} />
       <meshLambertMaterial />
       {parts.map((part) => (
-        <AmbientPartInstance key={part.id} part={part} />
+        <AmbientPartInstance key={part.id} part={part} reactions={reactions} />
       ))}
     </Instances>
   );
@@ -205,10 +229,13 @@ export function AmbientDistrict({
   district,
   visualStyle,
   listenerRef,
+  reactions,
 }: {
   readonly district: DistrictDefinition;
   readonly visualStyle: Style;
   readonly listenerRef: RefObject<Object3D | null>;
+  /** Read-only stir from the hose and the siren (#181). */
+  readonly reactions: WorldReactionField;
 }) {
   const parts = useMemo(
     () => buildAmbientParts(district.ambient ?? [], visualStyle),
@@ -224,7 +251,7 @@ export function AmbientDistrict({
   return (
     <group name="ambient-district" userData={{ nonBlocking: true }}>
       {[...partsByShape.entries()].map(([shape, layer]) => (
-        <AmbientLayer key={shape} shape={shape} parts={layer} />
+        <AmbientLayer key={shape} shape={shape} parts={layer} reactions={reactions} />
       ))}
       <AmbientAudioBridge district={district} listenerRef={listenerRef} />
     </group>

@@ -7,6 +7,8 @@ import type { Style } from '@styles/styles';
 import type { Vector3Tuple } from './worldUnits';
 import { DistrictArtRenderer } from './DistrictArtRenderer';
 import { shouldRenderIncidentPropPart } from './incidentPropVisibility';
+import { PROP_PARTS, type PropPart } from './propKits';
+import { REACTIVE_PROPS, type WorldReactionField } from './worldReactions';
 import {
   HIP_ROOF_CONE_RADIAL_SEGMENTS,
   HIP_ROOF_CONE_RADIUS,
@@ -67,88 +69,6 @@ GABLE_ROOF_GEOMETRY.setIndex([
   0, 2, 3, 0, 3, 1, 0, 1, 5, 0, 5, 4, 2, 4, 5, 2, 5, 3, 0, 4, 2, 1, 3, 5,
 ]);
 GABLE_ROOF_GEOMETRY.computeVertexNormals();
-
-/**
- * One prop's shape, as unit primitives scaled into place. Keeping props to a
- * fixed part list means every tree in the district is one instanced draw call
- * per part instead of one draw call per tree.
- */
-interface PropPart {
-  readonly shape: 'box' | 'cylinder' | 'sphere';
-  readonly offset: Vector3Tuple;
-  readonly size: Vector3Tuple;
-  readonly paint: 'primary' | 'secondary';
-  readonly rotation?: Vector3Tuple;
-  /** Radians per second around the prop's local Z axis. */
-  readonly spinSpeed?: number;
-}
-
-const PROP_PARTS: Readonly<Record<DistrictPropType, readonly PropPart[]>> = {
-  tree: [
-    { shape: 'cylinder', offset: [0, 0.9, 0], size: [0.34, 1.8, 0.34], paint: 'secondary' },
-    { shape: 'sphere', offset: [0, 2.35, 0], size: [2.2, 2.1, 2.2], paint: 'primary' },
-    { shape: 'sphere', offset: [0.45, 1.85, 0.2], size: [1.3, 1.2, 1.3], paint: 'primary' },
-  ],
-  hedge: [{ shape: 'box', offset: [0, 0.5, 0], size: [2.8, 1, 0.9], paint: 'primary' }],
-  bench: [
-    { shape: 'box', offset: [0, 0.48, 0], size: [1.7, 0.14, 0.6], paint: 'primary' },
-    { shape: 'box', offset: [0, 0.78, -0.24], size: [1.7, 0.5, 0.12], paint: 'primary' },
-    { shape: 'box', offset: [0, 0.22, 0], size: [1.5, 0.44, 0.16], paint: 'secondary' },
-  ],
-  'parked-car': [
-    { shape: 'box', offset: [0, 0.55, 0], size: [1.9, 0.8, 4.2], paint: 'primary' },
-    { shape: 'box', offset: [0, 1.15, -0.2], size: [1.6, 0.6, 1.9], paint: 'secondary' },
-  ],
-  hydrant: [
-    { shape: 'cylinder', offset: [0, 0.42, 0], size: [0.34, 0.84, 0.34], paint: 'primary' },
-    { shape: 'sphere', offset: [0, 0.9, 0], size: [0.42, 0.42, 0.42], paint: 'secondary' },
-  ],
-  'lamp-post': [
-    { shape: 'cylinder', offset: [0, 2, 0], size: [0.16, 4, 0.16], paint: 'primary' },
-    { shape: 'sphere', offset: [0, 4.15, 0], size: [0.52, 0.52, 0.52], paint: 'secondary' },
-  ],
-  'play-structure': [
-    { shape: 'box', offset: [0, 0.3, 0], size: [4.2, 0.6, 4.2], paint: 'primary' },
-    { shape: 'box', offset: [0, 1.6, 0], size: [2.2, 2.6, 2.2], paint: 'secondary' },
-    { shape: 'box', offset: [0, 3.05, 0], size: [2.9, 0.4, 2.9], paint: 'primary' },
-  ],
-  // A quiet-world vignette (#133): a street-corner planter, never an
-  // objective. Two parts keep it cheap however many are authored — the
-  // planter box and one bloom cluster, the same trick every other prop uses.
-  'flower-box': [
-    { shape: 'box', offset: [0, 0.2, 0], size: [0.72, 0.32, 0.34], paint: 'secondary' },
-    { shape: 'sphere', offset: [0, 0.44, 0], size: [0.62, 0.32, 0.32], paint: 'primary' },
-  ],
-  pinwheel: [
-    { shape: 'cylinder', offset: [0, 1.05, 0], size: [0.1, 2.1, 0.1], paint: 'secondary' },
-    { shape: 'sphere', offset: [0, 2.08, -0.04], size: [0.24, 0.24, 0.16], paint: 'secondary' },
-    {
-      shape: 'box',
-      offset: [0, 2.08, 0],
-      size: [1.15, 0.16, 0.08],
-      paint: 'primary',
-      spinSpeed: 1.25,
-    },
-    {
-      shape: 'box',
-      offset: [0, 2.08, 0],
-      size: [1.15, 0.16, 0.08],
-      paint: 'primary',
-      rotation: [0, 0, Math.PI / 2],
-      spinSpeed: 1.25,
-    },
-  ],
-  'harbour-bollard': [
-    { shape: 'cylinder', offset: [0, 0.34, 0], size: [0.34, 0.68, 0.34], paint: 'primary' },
-    { shape: 'sphere', offset: [0, 0.7, 0], size: [0.42, 0.24, 0.42], paint: 'secondary' },
-  ],
-  'bee-sign': [
-    { shape: 'cylinder', offset: [0, 0.85, 0], size: [0.12, 1.7, 0.12], paint: 'secondary' },
-    { shape: 'sphere', offset: [0, 1.82, 0], size: [0.7, 0.52, 0.28], paint: 'primary' },
-    { shape: 'sphere', offset: [-0.38, 1.94, 0], size: [0.48, 0.3, 0.18], paint: 'secondary' },
-    { shape: 'sphere', offset: [0.38, 1.94, 0], size: [0.48, 0.3, 0.18], paint: 'secondary' },
-  ],
-};
 
 /**
  * Every casting layer costs a second draw in the shadow pass, so only the props
@@ -215,33 +135,100 @@ function partPosition(placement: DistrictPropPlacement, part: PropPart): [number
   ];
 }
 
-function AnimatedPropPartInstance({ renderPart }: { readonly renderPart: PropRenderPart }) {
+/** How far a light prop tips away from water or a siren at full intensity. */
+const PROP_SWAY_RADIANS = 0.1;
+/** Spinning props answer by whirling instead of leaning. */
+const PROP_SPIN_BOOST = 2.5;
+
+/** Where a prop part's own idle motion starts, so neighbours never move in step. */
+function propPartPhase(position: Vector3Tuple): number {
+  return position[0] * 0.31 + position[2] * 0.17;
+}
+
+function baseRotation(renderPart: PropRenderPart): Vector3Tuple {
+  const rotation = renderPart.part.rotation ?? [0, 0, 0];
+  return [rotation[0], renderPart.placement.yaw + rotation[1], rotation[2]];
+}
+
+/**
+ * A prop that spins. Water or a siren makes it spin faster while the stir
+ * lasts, which is the whole reaction — a pinwheel has no lean to give (#181).
+ */
+function SpinningPropPartInstance({
+  renderPart,
+  reactions,
+}: {
+  readonly renderPart: PropRenderPart;
+  readonly reactions: WorldReactionField;
+}) {
   const instanceRef = useRef<Group>(null);
   const { part, placement } = renderPart;
+  const position = partPosition(placement, part);
   useFrame((_state, delta) => {
-    if (instanceRef.current) instanceRef.current.rotation.z += delta * (part.spinSpeed ?? 0);
+    if (!instanceRef.current) return;
+    const stir = reactions.sampleDisturbance(position[0], position[2]);
+    instanceRef.current.rotation.z +=
+      delta * (part.spinSpeed ?? 0) * (1 + stir.intensity * PROP_SPIN_BOOST);
   });
-  const rotation = part.rotation ?? [0, 0, 0];
 
   return (
     <Instance
       ref={instanceRef}
-      position={partPosition(placement, part)}
-      rotation={[rotation[0], placement.yaw + rotation[1], rotation[2]]}
+      position={position}
+      rotation={baseRotation(renderPart)}
       scale={[...part.size]}
       color={renderPart.color}
     />
   );
 }
 
+/**
+ * Leaves, hedges, blooms, and light signs (#181). They stand perfectly still
+ * until water or a siren reaches them, lean away from it, and rock back as the
+ * stir fades. Nothing is consumed, moved, or scored: the prop ends exactly
+ * where it began, which is what keeps free-roam play from becoming a task.
+ */
+function ReactivePropPartInstance({
+  renderPart,
+  reactions,
+}: {
+  readonly renderPart: PropRenderPart;
+  readonly reactions: WorldReactionField;
+}) {
+  const instanceRef = useRef<Group>(null);
+  const { part, placement } = renderPart;
+  const position = partPosition(placement, part);
+  const rotation = baseRotation(renderPart);
+  const phase = propPartPhase(position);
+
+  useFrame(({ clock }) => {
+    const object = instanceRef.current;
+    if (!object) return;
+    const stir = reactions.sampleDisturbance(position[0], position[2]);
+    const wobble = Math.sin(clock.elapsedTime * 9 + phase) * PROP_SWAY_RADIANS * stir.intensity;
+    object.rotation.x = rotation[0] + stir.awayZ * wobble;
+    object.rotation.z = rotation[2] - stir.awayX * wobble;
+  });
+
+  return (
+    <Instance
+      ref={instanceRef}
+      position={position}
+      rotation={rotation}
+      scale={[...part.size]}
+      color={renderPart.color}
+    />
+  );
+}
+
+/** Everything else: a bench, a kerbside car, a lamp post. No frame cost at all. */
 function StaticPropPartInstance({ renderPart }: { readonly renderPart: PropRenderPart }) {
   const { part, placement } = renderPart;
-  const rotation = part.rotation ?? [0, 0, 0];
 
   return (
     <Instance
       position={partPosition(placement, part)}
-      rotation={[rotation[0], placement.yaw + rotation[1], rotation[2]]}
+      rotation={baseRotation(renderPart)}
       scale={[...part.size]}
       color={renderPart.color}
     />
@@ -252,10 +239,12 @@ function PropShapeLayer({
   shape,
   castShadow,
   parts,
+  reactions,
 }: {
   readonly shape: PropPart['shape'];
   readonly castShadow: boolean;
   readonly parts: readonly PropRenderPart[];
+  readonly reactions: WorldReactionField;
 }) {
   return (
     <Instances
@@ -267,13 +256,26 @@ function PropShapeLayer({
     >
       <PartGeometry shape={shape} />
       <meshLambertMaterial />
-      {parts.map((renderPart) =>
-        renderPart.part.spinSpeed === undefined ? (
-          <StaticPropPartInstance key={renderPart.id} renderPart={renderPart} />
+      {parts.map((renderPart) => {
+        if (renderPart.part.spinSpeed !== undefined) {
+          return (
+            <SpinningPropPartInstance
+              key={renderPart.id}
+              renderPart={renderPart}
+              reactions={reactions}
+            />
+          );
+        }
+        return REACTIVE_PROPS.has(renderPart.placement.type) ? (
+          <ReactivePropPartInstance
+            key={renderPart.id}
+            renderPart={renderPart}
+            reactions={reactions}
+          />
         ) : (
-          <AnimatedPropPartInstance key={renderPart.id} renderPart={renderPart} />
-        ),
-      )}
+          <StaticPropPartInstance key={renderPart.id} renderPart={renderPart} />
+        );
+      })}
     </Instances>
   );
 }
@@ -415,11 +417,14 @@ export function CityDistrict({
   visualStyle,
   activeQuestSite,
   incidentCameraActive,
+  reactions,
 }: {
   readonly layout: DistrictLayout;
   readonly visualStyle: Style;
   readonly activeQuestSite: DistrictQuestSite;
   readonly incidentCameraActive: boolean;
+  /** Free-roam stir the light props read; they never write to it (#181). */
+  readonly reactions: WorldReactionField;
 }) {
   const city = visualStyle.city;
   const buildingBodyLayers = new Map<BuildingBodyShape, DistrictBuildingPlacement[]>();
@@ -550,6 +555,7 @@ export function CityDistrict({
           shape={layer.shape}
           castShadow={layer.castShadow}
           parts={layer.parts}
+          reactions={reactions}
         />
       ))}
 
