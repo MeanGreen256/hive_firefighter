@@ -24,7 +24,8 @@ on exteriors — facades, roofs, porches, trees, park features, outdoor props �
 player never enters a building. There is nobody to rescue and nothing can hurt the
 player. Hose
 play is intentionally simple: point and hold to spray unlimited water, put out
-the visible flames, earn 1–3 stars, and take the next quest.
+the visible flames, earn 1–3 stars, free-roam with nothing burning, and ring the
+Firehouse Star Board bell when ready for the already-determined next call.
 
 The authoritative product constraints live in
 [`docs/game-direction.md`](docs/game-direction.md).

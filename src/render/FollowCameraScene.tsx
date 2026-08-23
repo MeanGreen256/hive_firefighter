@@ -64,6 +64,7 @@ import { buildDistrictLayout } from './districtLayout';
 import {
   buildFirehouseStarBoard,
   getFirehouseStarBoardPosition,
+  isWithinFirehouseNextCallRange,
   type FirehouseStarBoardModel,
 } from './firehouseStarBoard';
 import { createHosePresentationState } from './hoseTargeting';
@@ -105,7 +106,7 @@ function initialDirectorSlot(): number {
   return getQuestShiftSlotIndex(QUEST_SHIFT_ORDER, getQuestForSite(DISTRICT.id, siteId).id);
 }
 
-/** Resume an in-progress fire safely; a completed debrief resumes at the next fire. */
+/** Resume an in-progress fire safely; a completed debrief resumes in quiet town. */
 function initialQuestDirector(): QuestDirector {
   const fresh = createQuestDirector(QUEST_SHIFT_ORDER);
   if (PERFORMANCE_SCENE) return fresh.start(initialDirectorSlot());
@@ -114,9 +115,9 @@ function initialQuestDirector(): QuestDirector {
   try {
     const resumed = resumeQuestDirector(QUEST_SHIFT_ORDER, serialized);
     if (resumed.state.phase === 'active') return resumed;
-    if (resumed.state.phase === 'next') return resumed.activateNext();
-    if (resumed.state.phase === 'resolved') return resumed.beginCelebration().next().activateNext();
-    if (resumed.state.phase === 'celebrating') return resumed.next().activateNext();
+    if (resumed.isQuietTown) return resumed;
+    if (resumed.state.phase === 'resolved') return resumed.beginCelebration().enterQuietTown();
+    if (resumed.state.phase === 'celebrating') return resumed.enterQuietTown();
   } catch {
     // An old or mismatched authored order must never block a child from playing.
   }
@@ -217,6 +218,8 @@ interface GameWorldProps {
   readonly onOnboardingStep: ((step: OnboardingStepId) => void) | null;
   readonly onApproachChange: (approach: ApproachSample) => void;
   readonly performanceScene: PerformanceAcceptanceScene | null;
+  readonly quietTown: boolean;
+  readonly onNextCallRangeChange: (available: boolean) => void;
 }
 
 export interface ApproachSample {
@@ -238,6 +241,8 @@ function GameWorld({
   onOnboardingStep,
   onApproachChange,
   performanceScene,
+  quietTown,
+  onNextCallRangeChange,
 }: GameWorldProps) {
   const collisionRoot = useRef<Group>(null);
   const movementForwardRef = useRef<CharacterPoint>({ x: 0, z: -1 });
@@ -251,6 +256,7 @@ function GameWorld({
   );
   const scorchRinse = useMemo(() => createScorchRinseField(), []);
   const lastCanBoard = useRef(false);
+  const lastCanStartNextCall = useRef(false);
   const boardingCheckElapsed = useRef(0);
   const hasSprayed = useRef(false);
   const lastOnboardingStep = useRef<OnboardingStepId | null>(null);
@@ -301,6 +307,16 @@ function GameWorld({
     if (canBoard !== lastCanBoard.current) {
       lastCanBoard.current = canBoard;
       onBoardingRangeChange(canBoard);
+    }
+
+    const canStartNextCall =
+      quietTown &&
+      mode === 'on-foot' &&
+      firefighter !== null &&
+      isWithinFirehouseNextCallRange(firefighter.position, FIREHOUSE_BOARD_POSITION);
+    if (canStartNextCall !== lastCanStartNextCall.current) {
+      lastCanStartNextCall.current = canStartNextCall;
+      onNextCallRangeChange(canStartNextCall);
     }
 
     // The HUD and the coach both read the world at the same 10 Hz the boarding
@@ -442,6 +458,7 @@ function GameWorld({
         model={starBoard}
         position={FIREHOUSE_BOARD_POSITION}
         visualStyle={visualStyle}
+        nextCallAvailable={quietTown}
       />
     </>
   );
@@ -452,6 +469,7 @@ export default function FollowCameraScene() {
   const [mode, setMode] = useState<PlayerMode>(PERFORMANCE_SCENE?.onFoot ? 'on-foot' : 'driving');
   const [sirenOn, setSirenOn] = useState(true);
   const [canBoard, setCanBoard] = useState(false);
+  const [canStartNextCall, setCanStartNextCall] = useState(false);
   const [questDirector, setQuestDirector] = useState<QuestDirector>(initialQuestDirector);
   const [latestBadgeId, setLatestBadgeId] = useState<string | null>(initialLatestQuestBadge);
   const [stationCelebration, setStationCelebration] = useState<StationCelebrationNotice | null>(
@@ -471,11 +489,19 @@ export default function FollowCameraScene() {
   const directedIncident = questDirector.state.incident;
   if (!directedIncident) throw new Error('FollowCameraScene requires a directed incident');
   const directedQuest = getQuest(directedIncident.questId);
-  const activeQuestSite = DISTRICT.questSites.find((site) => site.id === directedQuest.questSiteId);
-  if (!activeQuestSite) {
+  const directedQuestSite = DISTRICT.questSites.find(
+    (site) => site.id === directedQuest.questSiteId,
+  );
+  if (!directedQuestSite) {
     throw new Error(
       `Directed quest ${JSON.stringify(directedIncident.questId)} has no district site`,
     );
+  }
+  const quietTown = questDirector.isQuietTown;
+  const aftermathQuest = quietTown && latestBadgeId ? getQuest(latestBadgeId) : directedQuest;
+  const worldQuestSite = DISTRICT.questSites.find((site) => site.id === aftermathQuest.questSiteId);
+  if (!worldQuestSite) {
+    throw new Error(`Quest ${JSON.stringify(aftermathQuest.id)} has no district site`);
   }
   const takeNextQuest = useCallback(() => {
     if (questDirector.state.phase !== 'celebrating') return;
@@ -495,7 +521,7 @@ export default function FollowCameraScene() {
       rewardUnlocked,
     });
     setQuestDirector((current) =>
-      current.state.phase === 'celebrating' ? current.next() : current,
+      current.state.phase === 'celebrating' ? current.enterQuietTown() : current,
     );
   }, [directedIncident, progressProfile, questDirector]);
   const retrySameQuest = useCallback(() => {
@@ -561,13 +587,6 @@ export default function FollowCameraScene() {
       current.state.phase === 'resolved' ? current.beginCelebration() : current,
     );
   }, [questDirector]);
-  useEffect(() => {
-    if (questDirector.state.phase !== 'next') return;
-    setQuestDirector((current) =>
-      current.state.phase === 'next' ? current.activateNext() : current,
-    );
-  }, [questDirector]);
-
   /**
    * How close the player is, sampled in the world rather than measured once
    * from the truck's parking space. The old placard's "74 m away" was computed
@@ -576,9 +595,9 @@ export default function FollowCameraScene() {
   const [approach, setApproach] = useState<ApproachSample | null>(null);
   // A new quest is a new distance; carrying "arrived" into it would light every
   // pip over a fire on the other side of town.
-  useEffect(() => setApproach(null), [activeQuestSite.id]);
+  useEffect(() => setApproach(null), [worldQuestSite.id]);
 
-  const beaconTarget = getBeaconTarget(activeQuestSite, fireSnapshot);
+  const beaconTarget = quietTown ? null : getBeaconTarget(directedQuestSite, fireSnapshot);
 
   /**
    * The guided first quest (#107). It starts on the first prompt rather than
@@ -605,6 +624,12 @@ export default function FollowCameraScene() {
   );
 
   useEffect(() => {
+    if (quietTown) {
+      // The completed fire remains as rinseable aftermath, but its fixed-step
+      // runner is dormant and no queued incident has been handed to the sim.
+      questFireController.stop();
+      return;
+    }
     questFireController.setQuest({
       ...getQuest(directedIncident.questId),
       seed: directedIncident.seed,
@@ -684,7 +709,7 @@ export default function FollowCameraScene() {
     }
     fireAudioSystem.playIncidentChirp();
     return () => questFireController.stop();
-  }, [directedIncident.questId, directedIncident.seed]);
+  }, [directedIncident.questId, directedIncident.seed, quietTown]);
 
   const transitionPlayer = useCallback(() => {
     const truck = truckRef.current;
@@ -727,6 +752,13 @@ export default function FollowCameraScene() {
     return () => fireAudioSystem.setSirenActive(false);
   }, [sirenOn]);
 
+  const beginNextCall = useCallback(() => {
+    if (!questDirector.isQuietTown) return;
+    setCanStartNextCall(false);
+    setStationCelebration(null);
+    setQuestDirector((current) => (current.isQuietTown ? current.activateNext() : current));
+  }, [questDirector]);
+
   /**
    * The whole game on one button (ADR-007 rule 1).
    *
@@ -740,16 +772,21 @@ export default function FollowCameraScene() {
    * which reads it itself — otherwise one press both dismisses the debrief and
    * moves the player.
    */
-  const debriefOpen = fireSnapshot.debrief !== null;
+  const debriefOpen = fireSnapshot.debrief !== null && questDirector.state.phase === 'celebrating';
   const pressAction = useCallback(() => {
     if (debriefOpen) return;
+    const targetCaptured = firefighterRef.current?.userData.targetCaptured === true;
+    if (quietTown && mode === 'on-foot' && canStartNextCall && !targetCaptured) {
+      beginNextCall();
+      return;
+    }
     const intent = getActionIntent({
       mode,
       canBoard,
-      targetCaptured: firefighterRef.current?.userData.targetCaptured === true,
+      targetCaptured,
     });
     if (intent === 'transition') transitionPlayer();
-  }, [canBoard, debriefOpen, mode, transitionPlayer]);
+  }, [beginNextCall, canBoard, canStartNextCall, debriefOpen, mode, quietTown, transitionPlayer]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -819,15 +856,17 @@ export default function FollowCameraScene() {
             starBoard={starBoard}
             mode={mode}
             sirenOn={sirenOn}
-            activeQuestSite={activeQuestSite}
+            activeQuestSite={worldQuestSite}
             beaconTarget={beaconTarget}
             truckRef={truckRef}
             firefighterRef={firefighterRef}
             truckSpeedRatio={truckSpeedRatio}
             onBoardingRangeChange={setCanBoard}
-            onOnboardingStep={teaching ? advanceOnboarding : null}
+            onOnboardingStep={teaching && !quietTown ? advanceOnboarding : null}
             onApproachChange={setApproach}
             performanceScene={PERFORMANCE_SCENE}
+            quietTown={quietTown}
+            onNextCallRangeChange={setCanStartNextCall}
           />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
@@ -835,7 +874,7 @@ export default function FollowCameraScene() {
       <QuestFireAudioBridge />
       <WorldHud
         districtName={DISTRICT.name}
-        questName={activeQuestSite.name}
+        questName={directedQuestSite.name}
         onFoot={mode === 'on-foot'}
         approach={approachBand}
         fire={getFireBand(fireSnapshot)}
@@ -843,14 +882,19 @@ export default function FollowCameraScene() {
         onBoard={transitionPlayer}
         sirenOn={sirenOn}
         onToggleSiren={toggleSiren}
+        quietTown={quietTown}
+        nextCallAvailable={canStartNextCall}
+        onNextCall={beginNextCall}
       />
       {/* Hidden behind the star screen: one thing to look at at a time. */}
       {debriefOpen ? null : <OnboardingCoach step={onboardingStep} onSkip={finishOnboarding} />}
-      <QuestDebriefPanel
-        onNextQuest={takeNextQuest}
-        onRetry={retrySameQuest}
-        onNewFire={retryNewFire}
-      />
+      {debriefOpen ? (
+        <QuestDebriefPanel
+          onNextQuest={takeNextQuest}
+          onRetry={retrySameQuest}
+          onNewFire={retryNewFire}
+        />
+      ) : null}
       {stationCelebration && !debriefOpen ? (
         <StationCelebration key={stationCelebration.id} notice={stationCelebration} />
       ) : null}
@@ -861,7 +905,7 @@ export default function FollowCameraScene() {
             districtName={DISTRICT.name}
             questIndex={directedIncident.slot}
             questCount={QUEST_SHIFT_ORDER.slots.length}
-            questName={activeQuestSite.name}
+            questName={quietTown ? 'Quiet town' : directedQuestSite.name}
             distanceMeters={approach?.distanceMeters ?? null}
             approach={approachBand}
             burningCellCount={fireSnapshot.burningCellCount}

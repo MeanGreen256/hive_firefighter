@@ -15,6 +15,11 @@ import {
 
 export const QUEST_DIRECTOR_SERIAL_VERSION = 1 as const;
 
+/**
+ * `next` is the durable wire name for the quiet-town state. It predates the
+ * free-roam interval, so keeping it preserves every saved V1 profile while the
+ * public director API names the child-facing state explicitly.
+ */
 export type QuestLifecycle = 'inactive' | 'active' | 'resolved' | 'celebrating' | 'next';
 
 export interface DirectedIncident {
@@ -209,6 +214,16 @@ export class QuestDirector {
     return this.state.phase === 'active' ? this.state.incident : null;
   }
 
+  /** True between calls, while the already-determined next incident is dormant. */
+  get isQuietTown(): boolean {
+    return this.state.phase === 'next';
+  }
+
+  /** The next call's identity, retained for save/resume but not yet simulated. */
+  get queuedIncident(): DirectedIncident | null {
+    return this.isQuietTown ? this.state.incident : null;
+  }
+
   start(slotIndex = 0): QuestDirector {
     assertTransition(this.state.phase === 'inactive', 'start a shift', this.state.phase);
     return new QuestDirector(this.order, {
@@ -268,8 +283,8 @@ export class QuestDirector {
     });
   }
 
-  /** Queues the next authored incident; activation is a separate, explicit bridge step. */
-  next(): QuestDirector {
+  /** Dismisses the debrief into quiet free roam without lighting another fire. */
+  enterQuietTown(): QuestDirector {
     assertTransition(
       this.state.phase === 'celebrating',
       'advance to the next incident',
@@ -287,6 +302,11 @@ export class QuestDirector {
       outcome: null,
       wrappedShift: wraps,
     });
+  }
+
+  /** Backwards-compatible lifecycle spelling used by older callers and tests. */
+  next(): QuestDirector {
+    return this.enterQuietTown();
   }
 
   activateNext(): QuestDirector {

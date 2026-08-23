@@ -72,6 +72,14 @@
   line-height: 1;
 }
 
+.world-hud__quiet {
+  min-width: 136px;
+  color: var(--hud-accent);
+  font-size: 24px;
+  letter-spacing: 0.35em;
+  text-align: center;
+}
+
 /* The two meters answer different questions, so they must not read as one row. */
 .world-hud__divider {
   width: 1px;
@@ -107,6 +115,17 @@
 
 .world-hud__action--enable {
   border-color: var(--hud-accent);
+}
+
+.world-hud__action--next-call:not(:disabled) {
+  border-color: var(--hud-accent);
+  animation: world-hud-next-call 1.8s ease-in-out infinite;
+}
+
+@keyframes world-hud-next-call {
+  50% {
+    transform: scale(1.08);
+  }
 }
 
 .world-hud__adults {
@@ -184,5 +203,11 @@
   .world-hud__actions {
     padding: 6px 9px;
     gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .world-hud__action--next-call:not(:disabled) {
+    animation: none;
   }
 }

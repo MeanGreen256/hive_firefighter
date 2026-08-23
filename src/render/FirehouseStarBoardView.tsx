@@ -165,6 +165,32 @@ function MasteryBanner({ visualStyle }: { readonly visualStyle: Style }) {
   );
 }
 
+/** A pulsing, wordless station bell marks where the next authored call begins. */
+function NextCallBell({ visualStyle }: { readonly visualStyle: Style }) {
+  const cueRef = useRef<Group>(null);
+  const reducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+
+  useFrame(({ clock }) => {
+    if (!cueRef.current || reducedMotion) return;
+    cueRef.current.scale.setScalar(1 + Math.sin(clock.elapsedTime * 3.2) * 0.1);
+  });
+
+  return (
+    <group ref={cueRef} name="station-next-call" position={[0, 1.25, 0.28]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.42, 0.075, 8, 24]} />
+        <meshBasicMaterial color={visualStyle.city.questMarker} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 0, 0.04]}>
+        <sphereGeometry args={[0.2, 12, 8]} />
+        <meshBasicMaterial color={visualStyle.hud.accent} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
 /**
  * One persistent, exterior station plaque. Badges and stars are instanced, so
  * fifteen mastery marks do not become fifteen extra city draw calls.
@@ -173,10 +199,12 @@ export function FirehouseStarBoard({
   model,
   position,
   visualStyle,
+  nextCallAvailable = false,
 }: {
   readonly model: FirehouseStarBoardModel;
   readonly position: readonly [number, number, number];
   readonly visualStyle: Style;
+  readonly nextCallAvailable?: boolean;
 }) {
   const civic = visualStyle.city.buildings.civic;
   const stars = useMemo(
@@ -257,6 +285,7 @@ export function FirehouseStarBoard({
 
       {model.rewards.stationFlag ? <StationFlag visualStyle={visualStyle} /> : null}
       {model.rewards.masteryBanner ? <MasteryBanner visualStyle={visualStyle} /> : null}
+      {nextCallAvailable ? <NextCallBell visualStyle={visualStyle} /> : null}
     </group>
   );
 }
