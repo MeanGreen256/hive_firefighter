@@ -100,7 +100,13 @@ Content is data validated at load time, not code. The material table is the simp
 2. `src/sim/materials.ts` validates every row against the `Material` type on import and throws `MaterialValidationError` naming the offending row/field if it doesn't match — getting past the import is itself proof the data is valid.
 3. Field-level units and ranges are documented in that file's doc comments, summarized in a table in `content/README.md`.
 
-Authored incidents follow the same shape: `content/scenarios/*.json` is auto-discovered and validated by `src/sim/scenarios.ts`, then exposed to the development scenario picker. Use that pattern for future building prefabs and district layouts too.
+Production incidents live in `content/quests/*.json` and are auto-discovered by
+`src/sim/quests.ts`; `content/shifts/<district>.json` supplies the first five-call
+roster plus optional `successiveShifts`. Every roster must keep five unique
+district quests, a calm opener, and unique wordless badge silhouettes, while the
+bounded cycle must reach the whole authored catalogue. `src/content/contentGraph.ts`
+is the cross-file authority. The older `content/scenarios/*.json` pipeline is a
+simulation fixture/development predecessor, not the production quest scheduler.
 
 ## Naming
 

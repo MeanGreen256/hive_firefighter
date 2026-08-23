@@ -128,6 +128,15 @@ describe('cross-file authored content graph', () => {
       slots: shift.slots.map((slot) =>
         slot.questId === original.definition.id ? { ...slot, questId: renamed } : slot,
       ),
+      ...(shift.successiveShifts
+        ? {
+            successiveShifts: shift.successiveShifts.map((roster) =>
+              roster.map((slot) =>
+                slot.questId === original.definition.id ? { ...slot, questId: renamed } : slot,
+              ),
+            ),
+          }
+        : {}),
     }));
 
     expect(
@@ -209,10 +218,10 @@ describe('cross-file authored content graph', () => {
           })),
         }),
       ),
-    ).toThrow(/presentation\.badge .* already used by active shift quest/);
+    ).toThrow(/presentation\.badge .* already used by shift-cycle quest/);
   });
 
-  it('allows a sixth, unscheduled quest to reuse an active badge silhouette', () => {
+  it('rejects an authored district incident that no bounded shift can reach', () => {
     const current = createAuthoredContentGraph();
     const original = current.quests[0]!;
     const reserveSite = { ...current.districts[0]!.questSites[0]!, id: 'reserve-site' };
@@ -221,15 +230,14 @@ describe('cross-file authored content graph', () => {
       definition: { ...original.definition, id: 'sixth-call', questSiteId: reserveSite.id },
     };
 
-    const accepted = assertContentGraph(
-      graph({
-        districts: [district({ questSites: [...current.districts[0]!.questSites, reserveSite] })],
-        quests: [...current.quests, reserveQuest],
-      }),
-    );
-
-    expect(accepted.quests).toHaveLength(7);
-    expect(accepted.shifts[0]?.slots).toHaveLength(5);
+    expect(() =>
+      assertContentGraph(
+        graph({
+          districts: [district({ questSites: [...current.districts[0]!.questSites, reserveSite] })],
+          quests: [...current.quests, reserveQuest],
+        }),
+      ),
+    ).toThrow(/sixth-call\.json: incident is not reachable in the bounded shift cycle/);
   });
 
   it('rejects unreachable reward thresholds against active shift mastery', () => {
@@ -239,13 +247,13 @@ describe('cross-file authored content graph', () => {
           rewards: rewardsWith((current) =>
             current.map((reward) =>
               reward.requires.metric === 'mastery-quests'
-                ? { ...reward, requires: { ...reward.requires, atLeast: 6 } }
+                ? { ...reward, requires: { ...reward.requires, atLeast: 7 } }
                 : reward,
             ),
           ),
         }),
       ),
-    ).toThrow(/mastery-5\.requires\.atLeast 6 cannot be reached.*tops out at 5/);
+    ).toThrow(/mastery-5\.requires\.atLeast 7 cannot be reached.*tops out at 6/);
 
     expect(() =>
       assertContentGraph(
@@ -253,13 +261,13 @@ describe('cross-file authored content graph', () => {
           rewards: rewardsWith((current) =>
             current.map((reward) =>
               reward.requires.metric === 'total-best-stars'
-                ? { ...reward, requires: { ...reward.requires, atLeast: 16 } }
+                ? { ...reward, requires: { ...reward.requires, atLeast: 19 } }
                 : reward,
             ),
           ),
         }),
       ),
-    ).toThrow(/total-best-stars tops out at 15/);
+    ).toThrow(/total-best-stars tops out at 18/);
   });
 
   it('rejects duplicate ids, duplicated cosmetics, and unordered progression thresholds', () => {

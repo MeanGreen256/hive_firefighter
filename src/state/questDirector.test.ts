@@ -18,6 +18,19 @@ const ORDER: QuestShiftOrder = {
   ],
 };
 
+const ROTATING_ORDER: QuestShiftOrder = {
+  ...ORDER,
+  successiveShifts: [
+    [
+      { questId: 'one', seed: 11 },
+      { questId: 'two', seed: 22 },
+      { questId: 'three', seed: 33 },
+      { questId: 'six', seed: 66 },
+      { questId: 'five', seed: 55 },
+    ],
+  ],
+};
+
 function celebrating(director: QuestDirector): QuestDirector {
   return director.resolve('contained').beginCelebration();
 }
@@ -64,6 +77,44 @@ describe('QuestDirector', () => {
     expect(shifted.activeIncident).toMatchObject({ questId: 'one', shift: 1, slot: 0, retry: 0 });
     expect(shifted.activeIncident?.seed).toBe(remixQuestSeed(11, 1, 0));
     expect(shifted.activeIncident?.seed).not.toBe(11);
+  });
+
+  it('selects the next authored roster at the shift boundary and resumes it exactly', () => {
+    let director = createQuestDirector(ROTATING_ORDER).start();
+    for (let index = 0; index < 5; index += 1) {
+      director = celebrating(director).next();
+      if (index < 4) director = director.activateNext();
+    }
+
+    const shifted = director.activateNext();
+    let fourth = shifted;
+    for (let index = 0; index < 3; index += 1) {
+      fourth = celebrating(fourth).next().activateNext();
+    }
+    expect(fourth.activeIncident).toMatchObject({ questId: 'six', shift: 1, slot: 3 });
+    expect(resumeQuestDirector(ROTATING_ORDER, fourth.serialize()).activeIncident).toEqual(
+      fourth.activeIncident,
+    );
+  });
+
+  it('rejects a stale repeat-shift snapshot instead of activating the wrong rotated quest', () => {
+    expect(() =>
+      resumeQuestDirector(ROTATING_ORDER, {
+        version: 1,
+        phase: 'active',
+        incident: {
+          districtId: ROTATING_ORDER.districtId,
+          questId: 'four',
+          shift: 1,
+          slot: 3,
+          retry: 0,
+          attempt: 0,
+          seed: remixQuestSeed(44, 1, 0),
+        },
+        outcome: null,
+        wrappedShift: false,
+      }),
+    ).toThrow(/does not match authored quest order/);
   });
 
   it('rejects invalid transitions instead of silently selecting another incident', () => {

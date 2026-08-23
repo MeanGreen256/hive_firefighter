@@ -6,7 +6,12 @@
  * shifts, so a scene cannot accidentally start two fires or advance twice.
  */
 import type { SessionOutcome } from './sessionStats';
-import type { QuestShiftOrder, QuestShiftSlot } from './questOrder';
+import {
+  getQuestShiftCycle,
+  getQuestShiftSlots,
+  type QuestShiftOrder,
+  type QuestShiftSlot,
+} from './questOrder';
 
 export const QUEST_DIRECTOR_SERIAL_VERSION = 1 as const;
 
@@ -71,7 +76,7 @@ function createIncident(
   retry = 0,
   attempt = 0,
 ): DirectedIncident {
-  const slot = order.slots[slotIndex];
+  const slot = getQuestShiftSlots(order, shift)[slotIndex];
   if (!slot) throw new RangeError(`No authored quest exists at shift slot ${slotIndex}`);
   return Object.freeze({
     districtId: order.districtId,
@@ -95,16 +100,18 @@ function inactiveState(): QuestDirectorState {
 }
 
 function validateOrder(order: QuestShiftOrder): void {
-  if (order.slots.length !== 5)
-    throw new Error('Quest director requires exactly five authored shift slots');
-  const seen = new Set<string>();
-  for (const slot of order.slots) {
-    if (slot.questId.trim() === '' || !Number.isSafeInteger(slot.seed)) {
-      throw new Error('Quest director received an invalid authored shift slot');
+  for (const roster of getQuestShiftCycle(order)) {
+    if (roster.length !== 5)
+      throw new Error('Quest director requires exactly five authored shift slots');
+    const seen = new Set<string>();
+    for (const slot of roster) {
+      if (slot.questId.trim() === '' || !Number.isSafeInteger(slot.seed)) {
+        throw new Error('Quest director received an invalid authored shift slot');
+      }
+      if (seen.has(slot.questId))
+        throw new Error(`Quest director received duplicate quest ${slot.questId}`);
+      seen.add(slot.questId);
     }
-    if (seen.has(slot.questId))
-      throw new Error(`Quest director received duplicate quest ${slot.questId}`);
-    seen.add(slot.questId);
   }
 }
 
@@ -151,7 +158,7 @@ function readSerializedState(order: QuestShiftOrder, value: unknown): QuestDirec
     typeof parsed.slot !== 'number' ||
     !Number.isInteger(parsed.slot) ||
     parsed.slot < 0 ||
-    parsed.slot >= order.slots.length ||
+    parsed.slot >= getQuestShiftSlots(order, parsed.shift).length ||
     typeof parsed.retry !== 'number' ||
     !Number.isInteger(parsed.retry) ||
     parsed.retry < 0 ||
@@ -270,7 +277,7 @@ export class QuestDirector {
     );
     const incident = this.state.incident;
     if (!incident) throw new Error('Celebrating incident is missing');
-    const wraps = incident.slot === this.order.slots.length - 1;
+    const wraps = incident.slot === getQuestShiftSlots(this.order, incident.shift).length - 1;
     const nextShift = wraps ? incident.shift + 1 : incident.shift;
     const nextSlot = wraps ? 0 : incident.slot + 1;
     return new QuestDirector(this.order, {

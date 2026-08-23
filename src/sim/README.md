@@ -101,7 +101,7 @@ live beside it, looked up by quest id:
 | `quests.ts`            | the simulation contract, plus discovery of `content/quests/*.json` and the registries                 |
 | `questPresentation.ts` | semantic presentation tokens: situation, badge, spectacle tier, intro, celebration, optional approach |
 | `questPacing.ts`       | per-incident cadence: `tempo`, and `parTimeSeconds` as telemetry only                                 |
-| `questShifts.ts`       | the shift sequence, one `content/shifts/<district>.json` per district                                 |
+| `questShifts.ts`       | the bounded cycle of five-call shifts, one `content/shifts/<district>.json` per district              |
 | `questRewards.ts`      | the stable reward id catalogue in `content/rewards.json`                                              |
 
 The file is one per incident because an author edits one incident at a time; the
@@ -110,8 +110,10 @@ module holds its own vocabulary and validator and imports nothing from the quest
 registry, so a cross-block rule — a `two-fronts` label with one ignition, a
 `hazard` tempo with no cylinder — is checked where the vocabulary is defined and
 there is no import cycle to unpick. `questShifts.ts` is a separate module for the
-same reason: the shift sequence has to resolve real quests, so it depends on the
-registry rather than the other way round.
+same reason: every base and successive roster has to resolve real quests, so it
+depends on the registry rather than the other way round. `getQuestShiftSlots`
+selects a roster solely from the durable shift number; every roster stays five
+calls and the cycle has no random or UI-selected branch.
 
 Presentation is semantic all the way down. Content names what an incident _is_;
 `src/styles/` decides what that looks like, because a literal colour or asset

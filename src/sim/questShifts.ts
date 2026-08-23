@@ -27,7 +27,10 @@ export interface QuestShiftSlot {
 
 export interface QuestShiftOrder {
   readonly districtId: string;
+  /** The first five-call shift, retained as the stable authoring entry point. */
   readonly slots: readonly QuestShiftSlot[];
+  /** Additional five-call rosters, visited in order before cycling to `slots`. */
+  readonly successiveShifts?: readonly (readonly QuestShiftSlot[])[];
 }
 
 export class QuestShiftValidationError extends ContentValidationError {
@@ -42,10 +45,28 @@ export function shiftSourcePath(districtId: string): string {
 }
 
 /** Returns the authored shift slot for a quest id, without exposing site order. */
-export function getQuestShiftSlotIndex(order: QuestShiftOrder, questId: string): number {
-  const index = order.slots.findIndex((slot) => slot.questId === questId);
+export function getQuestShiftCycle(order: QuestShiftOrder): readonly (readonly QuestShiftSlot[])[] {
+  return [order.slots, ...(order.successiveShifts ?? [])];
+}
+
+/** Selects one deterministic five-call roster without mutating catalogue data. */
+export function getQuestShiftSlots(
+  order: QuestShiftOrder,
+  shift: number,
+): readonly QuestShiftSlot[] {
+  if (!Number.isSafeInteger(shift) || shift < 0) {
+    throw new RangeError(`Shift index must be a non-negative safe integer, got ${String(shift)}`);
+  }
+  const cycle = getQuestShiftCycle(order);
+  const slots = cycle[shift % cycle.length];
+  if (!slots) throw new Error('Quest shift cycle must contain at least one roster');
+  return slots;
+}
+
+export function getQuestShiftSlotIndex(order: QuestShiftOrder, questId: string, shift = 0): number {
+  const index = getQuestShiftSlots(order, shift).findIndex((slot) => slot.questId === questId);
   if (index < 0)
-    throw new Error(`Quest ${JSON.stringify(questId)} is not in the authored shift order`);
+    throw new Error(`Quest ${JSON.stringify(questId)} is not in authored shift ${String(shift)}`);
   return index;
 }
 
@@ -70,66 +91,90 @@ export function loadQuestShiftOrder(
   }
   const root = data as Record<string, unknown>;
   for (const key of Object.keys(root)) {
-    if (key !== 'quests') problems.push(`root has unknown field ${JSON.stringify(key)}`);
+    if (key !== 'quests' && key !== 'successiveShifts') {
+      problems.push(`root has unknown field ${JSON.stringify(key)}`);
+    }
   }
-  if (!Array.isArray(root.quests)) {
-    problems.push(`quests must be an array, got ${describeValue(root.quests)}`);
+
+  const parseRoster = (value: unknown, path: string): QuestShiftSlot[] => {
+    if (!Array.isArray(value)) {
+      problems.push(`${path} must be an array, got ${describeValue(value)}`);
+      return [];
+    }
+    if (value.length !== QUESTS_PER_SHIFT) {
+      problems.push(
+        `${path} must contain exactly ${QUESTS_PER_SHIFT} incidents, got ${String(value.length)}`,
+      );
+    }
+    const seen = new Set<string>();
+    const slots: QuestShiftSlot[] = [];
+    value.forEach((authored, index) => {
+      const slotPath = `${path}[${index}]`;
+      if (typeof authored !== 'string' || authored.trim() === '') {
+        problems.push(`${slotPath} must be a non-empty quest id`);
+        return;
+      }
+      if (seen.has(authored)) {
+        problems.push(`${slotPath} names ${JSON.stringify(authored)} more than once`);
+        return;
+      }
+      seen.add(authored);
+      if (!hasQuest(authored)) {
+        problems.push(
+          `${slotPath} ${JSON.stringify(authored)} is not an authored incident; expected ${questSourcePath(authored)}`,
+        );
+        return;
+      }
+      const quest = getQuest(authored);
+      if (quest.districtId !== districtId) {
+        problems.push(
+          `${slotPath} ${JSON.stringify(authored)} belongs to district ${JSON.stringify(quest.districtId)}`,
+        );
+        return;
+      }
+      slots.push({ questId: quest.id, seed: quest.seed });
+    });
+
+    // Every successive shift keeps the same readable teaching entrance.
+    const first = slots[0];
+    if (first && getQuestPacing(first.questId).tempo !== 'calm') {
+      problems.push(
+        `${path}[0] ${JSON.stringify(first.questId)} opens the shift, so its pacing.tempo must be "calm"`,
+      );
+    }
+    return slots;
+  };
+
+  const slots = parseRoster(root.quests, 'quests');
+  if (root.successiveShifts !== undefined && !Array.isArray(root.successiveShifts)) {
+    problems.push(`successiveShifts must be an array, got ${describeValue(root.successiveShifts)}`);
   }
-  const authoredIds = Array.isArray(root.quests)
-    ? root.quests.map((value, index) => {
-        if (typeof value !== 'string' || value.trim() === '') {
-          problems.push(`quests[${index}] must be a non-empty quest id`);
-          return '';
-        }
-        return value;
-      })
+  const successiveShifts = Array.isArray(root.successiveShifts)
+    ? root.successiveShifts.map((roster, index) =>
+        parseRoster(roster, `successiveShifts[${index}]`),
+      )
     : [];
-  if (authoredIds.length !== QUESTS_PER_SHIFT) {
-    problems.push(
-      `quests must contain exactly ${QUESTS_PER_SHIFT} incidents, got ${String(authoredIds.length)}`,
-    );
-  }
 
-  const seen = new Set<string>();
-  const slots: QuestShiftSlot[] = [];
-  authoredIds.forEach((questId, index) => {
-    if (questId === '') return;
-    if (seen.has(questId)) {
-      problems.push(`quests[${index}] names ${JSON.stringify(questId)} more than once`);
-      return;
-    }
-    seen.add(questId);
-    if (!hasQuest(questId)) {
+  const rosterKeys = new Set<string>();
+  [slots, ...successiveShifts].forEach((roster, index) => {
+    const key = roster.map((slot) => slot.questId).join('\0');
+    if (key !== '' && rosterKeys.has(key)) {
       problems.push(
-        `quests[${index}] ${JSON.stringify(questId)} is not an authored incident; expected ${questSourcePath(questId)}`,
+        `${index === 0 ? 'quests' : `successiveShifts[${index - 1}]`} duplicates an earlier shift roster`,
       );
-      return;
     }
-    const quest = getQuest(questId);
-    if (quest.districtId !== districtId) {
-      problems.push(
-        `quests[${index}] ${JSON.stringify(questId)} belongs to district ${JSON.stringify(quest.districtId)}`,
-      );
-      return;
-    }
-    slots.push({ questId: quest.id, seed: quest.seed });
+    rosterKeys.add(key);
   });
-
-  // The first slot is the teaching slot: a child meets the game through one
-  // still, unmistakable fire before the curve adds anything (see
-  // docs/fire-situation-vocabulary.md). Ordering that guarantee here, rather
-  // than trusting the author to remember it, is the whole point of the file.
-  const first = slots[0];
-  if (first && getQuestPacing(first.questId).tempo !== 'calm') {
-    problems.push(
-      `quests[0] ${JSON.stringify(first.questId)} opens the shift, so its pacing.tempo must be "calm"`,
-    );
-  }
 
   if (problems.length > 0) throw new QuestShiftValidationError(source, problems);
   return Object.freeze({
     districtId,
     slots: Object.freeze(slots.map((slot) => Object.freeze({ ...slot }))),
+    successiveShifts: Object.freeze(
+      successiveShifts.map((roster) =>
+        Object.freeze(roster.map((slot) => Object.freeze({ ...slot }))),
+      ),
+    ),
   });
 }
 

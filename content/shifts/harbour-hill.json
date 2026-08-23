@@ -5,5 +5,8 @@
     "harbour-yard",
     "school-yard-frame",
     "firehouse-yard"
+  ],
+  "successiveShifts": [
+    ["meadow-picnic", "bandstand-green", "harbour-yard", "bakery-awning", "firehouse-yard"]
   ]
 }

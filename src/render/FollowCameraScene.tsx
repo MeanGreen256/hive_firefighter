@@ -21,7 +21,7 @@ import {
   resumeQuestDirector,
   type QuestDirector,
 } from '../state/questDirector';
-import { getQuestShiftSlotIndex, QUEST_SHIFT_ORDER } from '../state/questOrder';
+import { getQuestShiftSlotIndex, getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
 import { progressProfileStore } from '../state/progressProfile';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
@@ -86,7 +86,6 @@ import type { BeaconPoint } from './questBeacon';
 const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
 const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
 const FIREHOUSE_BOARD_POSITION = getFirehouseStarBoardPosition(DISTRICT);
-const FIREHOUSE_BADGE_QUEST_IDS = QUEST_SHIFT_ORDER.slots.map((slot) => slot.questId);
 /** What the hose can land on when nothing in front of the player is alight (#181). */
 const WORLD_SURFACES = buildWorldSurfaceIndex(DISTRICT_LAYOUT);
 /** Where the siren has an audience worth hearing scatter. */
@@ -130,12 +129,16 @@ function initialLatestQuestBadge(): string | null {
   const saved = profile.director;
   if (!saved?.incident) return null;
 
-  const finishedSlot =
-    saved.phase === 'resolved' || saved.phase === 'celebrating'
-      ? saved.incident.slot
-      : (saved.incident.slot + FIREHOUSE_BADGE_QUEST_IDS.length - 1) %
-        FIREHOUSE_BADGE_QUEST_IDS.length;
-  const questId = FIREHOUSE_BADGE_QUEST_IDS[finishedSlot];
+  let finishedShift = saved.incident.shift;
+  let finishedSlot = saved.incident.slot;
+  if (saved.phase !== 'resolved' && saved.phase !== 'celebrating') {
+    if (finishedSlot > 0) finishedSlot -= 1;
+    else if (finishedShift > 0) {
+      finishedShift -= 1;
+      finishedSlot = getQuestShiftSlots(QUEST_SHIFT_ORDER, finishedShift).length - 1;
+    } else return null;
+  }
+  const questId = getQuestShiftSlots(QUEST_SHIFT_ORDER, finishedShift)[finishedSlot]?.questId;
   return questId && (profile.quests[questId]?.completedCount ?? 0) > 0 ? questId : null;
 }
 
@@ -513,14 +516,18 @@ export default function FollowCameraScene() {
     );
   }, [questDirector]);
   const fireSnapshot = useStore(questFireController.store);
+  const shiftBadgeQuestIds = useMemo(
+    () => getQuestShiftSlots(QUEST_SHIFT_ORDER, directedIncident.shift).map((slot) => slot.questId),
+    [directedIncident.shift],
+  );
   const starBoard = useMemo(
     () =>
       buildFirehouseStarBoard(
-        FIREHOUSE_BADGE_QUEST_IDS,
+        shiftBadgeQuestIds,
         progressProfile,
         fireSnapshot.debrief?.scenarioId ?? latestBadgeId,
       ),
-    [fireSnapshot.debrief?.scenarioId, latestBadgeId, progressProfile],
+    [fireSnapshot.debrief?.scenarioId, latestBadgeId, progressProfile, shiftBadgeQuestIds],
   );
 
   // The controller supplies simulation outcomes; the director turns each one

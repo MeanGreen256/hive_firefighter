@@ -22,7 +22,7 @@ Six files, five owners. You will touch two or three of them.
 | `content/districts/<id>.json`     | the city: buildings, props, art kits, **quest sites**     | `src/sim/districts.ts`   |
 | `content/burnables.json`          | what fire is allowed to live on, and the shell it fills   | `src/sim/burnables.ts`   |
 | `content/quests/<id>.json`        | one incident: `simulation`, `presentation`, `pacing`      | `src/sim/quests.ts`      |
-| `content/shifts/<district>.json`  | the five-incident order a child plays                     | `src/sim/questShifts.ts` |
+| `content/shifts/<district>.json`  | the bounded cycle of five-incident shifts                 | `src/sim/questShifts.ts` |
 | `content/rewards.json`            | profile-wide cosmetic rewards — **not** per incident      | `src/sim/questRewards.ts` |
 | `content/materials.json`          | how a material burns                                      | `src/sim/materials.ts`   |
 
@@ -225,9 +225,9 @@ A `situation` cannot lie about the fire underneath it:
 | `porch-climb`      | an ignition on a low street-facing attachment                |
 
 `badge` is the wordless silhouette on the Firehouse Star Board and must be
-unique **within the active five-incident shift** — that is how a non-reader
-tells two calls apart. A quest sitting in the catalogue outside the shift may
-reuse a silhouette. `approach` is advisory: it annotates the sightline for
+unique **within every five-incident roster** — that is how a non-reader tells
+two calls apart. Two catalogue quests may reuse a silhouette only when no
+roster schedules them together. `approach` is advisory: it annotates the sightline for
 authoring and previews, and never gates completion.
 
 ## 6. Pacing and the shift
@@ -241,18 +241,22 @@ authoring and previews, and never gates completion.
 a star, unlock anything, or fail an incident. Nothing in this file can end an
 incident on a clock.
 
-The order a child meets incidents in lives in the shift file, and it holds
-**exactly five** slots:
+The order a child meets incidents in lives in the shift file. Each roster holds
+**exactly five** slots, while `successiveShifts` makes a bounded catalogue cycle:
 
 ```json
-{ "quests": ["meadow-picnic", "bandstand-green", "harbour-yard", "school-yard-frame", "firehouse-yard"] }
+{
+  "quests": ["meadow-picnic", "bandstand-green", "harbour-yard", "school-yard-frame", "firehouse-yard"],
+  "successiveShifts": [
+    ["meadow-picnic", "bandstand-green", "harbour-yard", "bakery-awning", "firehouse-yard"]
+  ]
+}
 ```
 
-Slot 0 is the teaching slot and its tempo must be `calm`. A district may author
-more quests than fit — rotating one in is a one-line edit to this file, and the
-quest that rotates out stays authored, previewable, and ready to come back. If
-your new incident wears a badge the shift already uses, the incident wearing it
-now is the one to rotate out.
+`quests` runs first, followed by each `successiveShifts` roster, then the cycle
+repeats. Slot 0 of every roster is the teaching slot and must be `calm`. Every
+authored incident in the district must appear in at least one roster. If a new
+incident reuses a badge, put it in a roster where the other owner rotates out.
 
 ## 7. Rewards
 
@@ -262,10 +266,10 @@ one particular incident, so there is no field to fill in wrongly.
 
 What a new quest *does* change is reachability arithmetic. Requirements read
 durable counts — `completed-shifts`, `total-best-stars`, `mastery-quests` — and
-the last two top out against the **active shift**: five incidents means 15 best
-stars and 5 mastered quests. Rotating a quest in and out never moves those
-ceilings; growing the shift would, and the graph rejects a threshold above the
-ceiling with the arithmetic in the message.
+the last two top out against the **reachable cycle catalogue**. Harbour Hill's
+two five-call rosters cover six distinct incidents, so its ceilings are 18 best
+stars and 6 mastered quests. The graph rejects a threshold above the ceiling
+with the arithmetic in the message.
 
 Adding a reward *row* is content. Wiring a new reward id to a visible cosmetic
 is code (`FIREHOUSE_COSMETIC_REWARDS` in `src/render/firehouseStarBoard.ts`),
@@ -400,8 +404,9 @@ built the pipeline, and everything below is what that cost.
 wooden climbing frame, with a propane cylinder by the yard fence. New exterior
 subject (`play-frame`, the first burnable that grows on a `play-structure`),
 new topology (a fire that starts in the open and crosses to a big prop, rather
-than climbing a building), and it rotates into the shift's hazard slot in place
-of `bakery-awning`, which stays in the catalogue.
+than climbing a building). It shares the shift's hazard slot with
+`bakery-awning`; successive shifts alternate the two complete rosters, so both
+incidents remain playable.
 
 **The files it touched** — all content, plus tests that enumerate the shipped
 catalogue:
@@ -410,7 +415,7 @@ catalogue:
 - `content/districts/harbour-hill.json` — one quest site, four burnable props
   (frame, hedge, bench, conifer), two scenic props, a flowered fence, a gull.
 - `content/quests/school-yard-frame.json` — the incident.
-- `content/shifts/harbour-hill.json` — one id swapped in slot 3.
+- `content/shifts/harbour-hill.json` — one successive roster with Bakery in slot 3.
 - `src/perf/previewVisualBaselines.json` — 18 recorded frames.
 
 No change to `FollowCameraScene`, fire propagation, the quest director, or

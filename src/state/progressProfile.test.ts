@@ -138,6 +138,40 @@ describe('progress profile', () => {
     ).toBe(profile);
   });
 
+  it('credits rotated catalogue incidents by durable shift identity without double-counting', () => {
+    const schoolFirst = {
+      ...INCIDENT,
+      questId: 'school-yard-frame',
+      shift: 0,
+      slot: 3,
+      seed: 1906,
+    };
+    const bakeryNext = { ...INCIDENT, questId: 'bakery-awning', shift: 1, slot: 3, seed: 2901 };
+    const schoolAgain = { ...schoolFirst, shift: 2, seed: 3906 };
+    let profile = createEmptyProgressProfile();
+
+    for (const incident of [schoolFirst, bakeryNext, schoolAgain]) {
+      const result = createSessionDebrief({
+        scenarioId: incident.questId,
+        seed: incident.seed,
+        outcome: SessionStatus.Contained,
+        totalAuthoredObjects: 3,
+        savedAuthoredObjects: 3,
+        elapsedSeconds: 10,
+        parTimeSeconds: 60,
+        waterUsedLitres: 0,
+        foamUsedLitres: 0,
+        hazardTotal: 0,
+        hazardsMissed: 0,
+      });
+      profile = recordQuestResult(profile, incident, result);
+      expect(recordQuestResult(profile, incident, result)).toBe(profile);
+    }
+
+    expect(profile.quests['school-yard-frame']?.completedCount).toBe(2);
+    expect(profile.quests['bakery-awning']?.completedCount).toBe(1);
+  });
+
   it('defensively starts fresh for corrupt, partial, legacy, or unavailable storage', () => {
     expect(parseProgressProfile({ version: 0 })).toEqual(createEmptyProgressProfile());
     expect(parseProgressProfile({ version: 1, quests: { ok: {} } }).quests).toEqual({});

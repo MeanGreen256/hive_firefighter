@@ -26,6 +26,7 @@ import {
 } from '@sim/questRewards';
 import {
   QUESTS_PER_SHIFT,
+  getQuestShiftCycle,
   getQuestShiftOrder,
   hasQuestShiftOrder,
   shiftSourcePath,
@@ -160,6 +161,7 @@ function validateShifts(
   const districts = new Set(graph.districts.map((district) => district.id));
   const shifts = new Set<string>();
   const activeQuestIds = new Set<string>();
+  const scheduledByDistrict = new Map<string, Set<string>>();
 
   for (const shift of graph.shifts) {
     const source = shiftSourcePath(shift.districtId);
@@ -175,48 +177,58 @@ function validateShifts(
     }
     shifts.add(shift.districtId);
 
-    if (shift.slots.length !== QUESTS_PER_SHIFT) {
-      problems.push(`${source}: quests must contain exactly ${QUESTS_PER_SHIFT} incident slots`);
-    }
+    const districtSchedule = scheduledByDistrict.get(shift.districtId) ?? new Set<string>();
+    scheduledByDistrict.set(shift.districtId, districtSchedule);
 
-    const slotIds = new Set<string>();
-    const activeBadges = new Map<string, string>();
-    shift.slots.forEach((slot, index) => {
-      const slotPath = `${source}: quests[${index}]`;
-      if (slotIds.has(slot.questId)) {
-        problems.push(`${slotPath} repeats quest ${JSON.stringify(slot.questId)}`);
-      }
-      slotIds.add(slot.questId);
-      activeQuestIds.add(slot.questId);
-
-      const content = quests.get(slot.questId);
-      if (!content) {
-        problems.push(`${slotPath} has no authored quest at ${questSourcePath(slot.questId)}`);
-        return;
-      }
-      const quest = content.definition;
-      if (quest.districtId !== shift.districtId) {
-        problems.push(
-          `${slotPath} belongs to district ${JSON.stringify(quest.districtId)}, not ${JSON.stringify(shift.districtId)}`,
-        );
-      }
-      if (slot.seed !== quest.seed) {
-        problems.push(
-          `${slotPath}.seed ${slot.seed} does not match authored simulation.seed ${quest.seed}`,
-        );
+    getQuestShiftCycle(shift).forEach((roster, rosterIndex) => {
+      const rosterPath =
+        rosterIndex === 0 ? `${source}: quests` : `${source}: successiveShifts[${rosterIndex - 1}]`;
+      if (roster.length !== QUESTS_PER_SHIFT) {
+        problems.push(`${rosterPath} must contain exactly ${QUESTS_PER_SHIFT} incident slots`);
       }
 
-      const existingQuest = activeBadges.get(content.presentation.badge);
-      if (existingQuest && existingQuest !== quest.id) {
-        problems.push(
-          `${questSourcePath(quest.id)}: presentation.badge ${JSON.stringify(content.presentation.badge)} is already used by active shift quest ${JSON.stringify(existingQuest)}`,
-        );
-      }
-      activeBadges.set(content.presentation.badge, quest.id);
+      const slotIds = new Set<string>();
+      const activeBadges = new Map<string, string>();
+      roster.forEach((slot, index) => {
+        const slotPath = `${rosterPath}[${index}]`;
+        if (slotIds.has(slot.questId)) {
+          problems.push(`${slotPath} repeats quest ${JSON.stringify(slot.questId)}`);
+        }
+        slotIds.add(slot.questId);
+        activeQuestIds.add(slot.questId);
+        districtSchedule.add(slot.questId);
 
-      if (index === 0 && content.pacing.tempo !== 'calm') {
-        problems.push(`${slotPath}.pacing.tempo must be "calm" for the opening teaching incident`);
-      }
+        const content = quests.get(slot.questId);
+        if (!content) {
+          problems.push(`${slotPath} has no authored quest at ${questSourcePath(slot.questId)}`);
+          return;
+        }
+        const quest = content.definition;
+        if (quest.districtId !== shift.districtId) {
+          problems.push(
+            `${slotPath} belongs to district ${JSON.stringify(quest.districtId)}, not ${JSON.stringify(shift.districtId)}`,
+          );
+        }
+        if (slot.seed !== quest.seed) {
+          problems.push(
+            `${slotPath}.seed ${slot.seed} does not match authored simulation.seed ${quest.seed}`,
+          );
+        }
+
+        const existingQuest = activeBadges.get(content.presentation.badge);
+        if (existingQuest && existingQuest !== quest.id) {
+          problems.push(
+            `${questSourcePath(quest.id)}: presentation.badge ${JSON.stringify(content.presentation.badge)} is already used by shift-cycle quest ${JSON.stringify(existingQuest)} in ${rosterPath}`,
+          );
+        }
+        activeBadges.set(content.presentation.badge, quest.id);
+
+        if (index === 0 && content.pacing.tempo !== 'calm') {
+          problems.push(
+            `${slotPath}.pacing.tempo must be "calm" for the opening teaching incident`,
+          );
+        }
+      });
     });
   }
 
@@ -225,6 +237,15 @@ function validateShifts(
       problems.push(
         `${sourceForDistrict(district.id)}: no shift exists at ${shiftSourcePath(district.id)}`,
       );
+    }
+    const scheduled = scheduledByDistrict.get(district.id) ?? new Set<string>();
+    for (const content of graph.quests) {
+      if (content.definition.districtId !== district.id) continue;
+      if (!scheduled.has(content.definition.id)) {
+        problems.push(
+          `${questSourcePath(content.definition.id)}: incident is not reachable in the bounded shift cycle at ${shiftSourcePath(district.id)}`,
+        );
+      }
     }
   }
 
@@ -270,7 +291,7 @@ function validateRewards(
     }
     if (reward.requires.atLeast > reachable[reward.requires.metric]) {
       problems.push(
-        `${source}.requires.atLeast ${reward.requires.atLeast} cannot be reached: ${reward.requires.metric} tops out at ${reachable[reward.requires.metric]} across active shift quests`,
+        `${source}.requires.atLeast ${reward.requires.atLeast} cannot be reached: ${reward.requires.metric} tops out at ${reachable[reward.requires.metric]} across shift-cycle quests`,
       );
     }
 
