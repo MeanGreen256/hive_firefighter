@@ -11,6 +11,13 @@ consent outside the repository, use one reproducible Git build, and begin a
 fresh target-age session immediately after an incident with no fire active. Do
 not suggest driving, landmarks, the siren, the hose, or another quest.
 
+On the tested build, dismiss the star debrief with its primary continue action.
+The HUD should change to the quiet-town houses, the smoke/beacon and fire meters
+should be absent, and no new incident should begin. The pulsing bell above the
+Firehouse Star Board is the only next-call affordance: an on-foot player within
+the generous board range can press the same primary action, or click the
+matching bell button. Do not point it out during the uninterrupted observation.
+
 ## Private observer record
 
 Keep raw records in an approved private JSON array outside the repository. Each
@@ -54,6 +61,10 @@ Record `free-roam-started` and `free-roam-ended` using elapsed milliseconds.
 An ongoing interval may end at `session-ended`. Capture delight, frustration,
 confusion, and a `voluntary-next-incident` only if observed. Do not count
 multiple disconnected short drives as one continuous minute.
+
+Before observing a child, leave the game in quiet town for at least 60 seconds
+and confirm that no smoke, beacon, flame, heating cell, or new debrief appears.
+This is a build check, not child evidence, and must not be entered as a session.
 
 ## Generate the actual free-roam decision
 

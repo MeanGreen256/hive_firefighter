@@ -44,6 +44,13 @@ previous best for that exact scenario and seed, then offers same-fire retry, a
 deterministic new fire, and the next quest. Its primary button
 is whatever the action input does, so pressing a button and clicking agree.
 
+Continuing now dismisses the debrief into quiet town (#212), not directly into
+another fire. The permanent HUD replaces both incident meters with a wordless
+town-at-rest cue. A bell button mirrors the pulsing Firehouse Star Board cue and
+only enables within its forgiving interaction range; at the board, the same
+primary action starts the already-determined next call. There is no mission
+picker, timer, or automatic ignition.
+
 `gamepad.ts` is the one place that knows a pad exists. It names the intents
 (`action`, `board`, `siren`) rather than the buttons, so no caller decides for
 itself what button 0 means, and it holds the press latch every non-movement

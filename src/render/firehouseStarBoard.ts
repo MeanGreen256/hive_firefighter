@@ -16,6 +16,19 @@ export const FIREHOUSE_COSMETIC_REWARDS = Object.freeze({
   masteryBanner: 'mastery-5',
 } as const satisfies Readonly<Record<string, RewardId>>);
 
+/** Generous enough for a child to use the board without precise positioning. */
+export const FIREHOUSE_NEXT_CALL_RANGE_METERS = 6;
+
+export function isWithinFirehouseNextCallRange(
+  subject: { readonly x: number; readonly z: number },
+  boardPosition: readonly [number, number, number],
+): boolean {
+  return (
+    Math.hypot(subject.x - boardPosition[0], subject.z - boardPosition[2]) <=
+    FIREHOUSE_NEXT_CALL_RANGE_METERS
+  );
+}
+
 interface QuestProgressView {
   readonly bestStars: number | null;
   readonly completedCount: number;

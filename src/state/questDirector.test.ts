@@ -32,10 +32,28 @@ describe('QuestDirector', () => {
     const resolved = active.resolve('scorched');
     expect(resolved.activeIncident).toBeNull();
     const celebration = resolved.beginCelebration();
-    const pending = celebration.next();
+    const pending = celebration.enterQuietTown();
     expect(pending.state).toMatchObject({ phase: 'next', outcome: null, wrappedShift: false });
     expect(pending.activeIncident).toBeNull();
+    expect(pending.isQuietTown).toBe(true);
+    expect(pending.queuedIncident).toMatchObject({ questId: 'two', slot: 1 });
     expect(pending.activateNext().activeIncident).toMatchObject({ questId: 'two', slot: 1 });
+  });
+
+  it('stays fire-free for an unbounded quiet interval until activation is explicit', () => {
+    const quiet = celebrating(createQuestDirector(ORDER).start()).enterQuietTown();
+    const serialized = quiet.serialize();
+
+    // Time is deliberately not an input to the director. Sixty seconds of
+    // browser frames therefore cannot activate the queued call.
+    let resumed = quiet;
+    for (let tenth = 0; tenth < 600; tenth += 1) {
+      resumed = resumeQuestDirector(ORDER, resumed.serialize());
+    }
+
+    expect(resumed.serialize()).toEqual(serialized);
+    expect(resumed.activeIncident).toBeNull();
+    expect(resumed.queuedIncident?.questId).toBe('two');
   });
 
   it('keeps same-seed retries exact and makes new-fire retries deterministic', () => {

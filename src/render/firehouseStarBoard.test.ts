@@ -5,7 +5,9 @@ import { QUEST_SHIFT_ORDER } from '../state/questOrder';
 import {
   buildFirehouseStarBoard,
   FIREHOUSE_COSMETIC_REWARDS,
+  FIREHOUSE_NEXT_CALL_RANGE_METERS,
   getFirehouseStarBoardPosition,
+  isWithinFirehouseNextCallRange,
   type FirehouseProgressView,
 } from './firehouseStarBoard';
 
@@ -102,6 +104,20 @@ describe('Firehouse Star Board', () => {
     expect(height).toBeGreaterThan(2);
     expect(z).toBeGreaterThan(firehouse.z + firehouse.depth / 2);
     expect(z).toBeLessThan(firehouse.z + firehouse.depth / 2 + 0.5);
+  });
+
+  it('offers the next call from a forgiving, horizontal station-board range', () => {
+    const board = [10, 3.1, -5] as const;
+    expect(isWithinFirehouseNextCallRange({ x: 10, z: -5 }, board)).toBe(true);
+    expect(
+      isWithinFirehouseNextCallRange({ x: 10 + FIREHOUSE_NEXT_CALL_RANGE_METERS, z: -5 }, board),
+    ).toBe(true);
+    expect(
+      isWithinFirehouseNextCallRange(
+        { x: 10 + FIREHOUSE_NEXT_CALL_RANGE_METERS + 0.01, z: -5 },
+        board,
+      ),
+    ).toBe(false);
   });
 
   it('rejects duplicate or unillustrated authored quest entries', () => {

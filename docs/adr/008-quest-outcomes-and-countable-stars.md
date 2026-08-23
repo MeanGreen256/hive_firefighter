@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-21
+**Amended:** 2026-08-23 by #212 (quiet-town activation boundary)
 
 ## Context
 
@@ -34,13 +35,17 @@ the same authored cosmetic rewards.
 | Incident state | Stars | Completed | Primary action | Optional replay | Progression |
 | -------------- | ----- | --------- | -------------- | --------------- | ----------- |
 | `active`       | none  | no        | continue play  | not applicable  | unchanged   |
-| `contained`    | 1–3   | yes       | next incident  | same/new seed   | once        |
-| `scorched`     | 1     | yes       | next incident  | same/new seed   | once        |
+| `contained`    | 1–3   | yes       | enter quiet town | same/new seed | once        |
+| `scorched`     | 1     | yes       | enter quiet town | same/new seed | once        |
 
 `scorched` remains an internal simulation outcome and may affect safe, reassuring
 aftermath art. It is never a failure label, a progression gate, or a forced retry.
-The primary action means "next incident" for both terminal outcomes; replay is a
-clearly optional secondary action.
+The primary debrief action means "continue" for both terminal outcomes and
+enters quiet town; replay is a clearly optional secondary action. The next
+incident identity is still advanced deterministically at that boundary, but its
+simulation does not activate until the player explicitly starts the call from
+the station with the existing primary action. This activation pause changes no
+completion, star, retry, reward, or idempotency semantics.
 
 ### Stars count authored things the player can see
 
@@ -110,7 +115,8 @@ implementation or adult/developer telemetry only.
 
 Run each contained property case with a short and a long elapsed time. The star
 result must be identical. Verify that both terminal outcomes persist completion,
-offer the next incident as the primary action, and expose optional replay.
+offer quiet-town continuation as the primary action, keep the next incident
+queued but inactive, and expose optional replay.
 
 ### Authoring and small-object migration
 
@@ -141,9 +147,10 @@ An exact tie keeps the existing best. A same-seed retry replays the completed
 quest without advancing the shift a second time. A new-fire retry changes its seed
 deterministically while keeping the same quest and shift slot. Either replay can
 improve that quest's best stars or reveal an authored cosmetic reward once; neither
-duplicates completion, badges, rewards, or shift progress. "Next incident" always
-advances to the next authored quest, or ends the five-incident shift when the
-current quest was its last slot.
+duplicates completion, badges, rewards, or shift progress. Continuing always
+queues the next authored quest, or ends the five-incident shift when the current
+quest was its last slot. Time in quiet town never changes that identity or starts
+its simulation.
 
 The existing `hive-firefighter:personal-bests:v2` records contain weighted
 `overallScore` values and no saved-object or hazard counts. Their stars cannot be

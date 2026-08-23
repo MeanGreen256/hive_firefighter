@@ -5,16 +5,17 @@ Orientation for a fresh session working on `hive_firefighter`. This file states 
 ## The game, in one paragraph
 
 A browser-based, third-person arcade firefighting game for ages 5 and up, designed
-around what a five- to seven-year-old can do. One quest incident is active at a time: follow the smoke, drive the
+around what a five- to seven-year-old can do. At most one quest incident is active at a time: follow the smoke, drive the
 firetruck to the location, dismount as one firefighter, point and hold the hose
-at visible exterior flames, earn 1–3 stars, and take the next quest. Players
+at visible exterior flames, earn 1–3 stars, then free-roam in a fire-free town
+until the player starts the already-determined next call at the station. Players
 never enter buildings. Read `docs/game-direction.md` before planning gameplay,
 controls, content, UI, or milestones; it is the product-direction authority.
 
 ## Product constraints — do not drift
 
-- One active quest incident at a time; no incident-selection or simultaneous-fire
-  strategy in the core loop.
+- At most one active quest incident; between calls there must be none. No
+  incident-selection or simultaneous-fire strategy in the core loop.
 - Exterior fires only. Do not build interiors, interior navigation, cutaways, or
   interior search for the target game.
 - One directly controlled firefighter. Crew command and AI firefighters are
@@ -29,7 +30,9 @@ controls, content, UI, or milestones; it is the product-direction authority.
   completable with _move_ and _spray_ alone, on a gamepad, by a non-reader — see
   ADR-007 for the full control floor.
 - Free roam is a pillar, not transit. The city is worth driving around with nothing
-  on fire; never shorten or skip the drive to reach the fire faster.
+  on fire; completing a call must leave an unlimited quiet-town interval until
+  the player explicitly starts the queued next call. Never shorten or skip the
+  drive to reach the fire faster.
 - The cell-based propagation model remains the technical core. Supporting code,
   including code under `src/sim/`, may change for exterior authoring and the new
   age-appropriate rules.

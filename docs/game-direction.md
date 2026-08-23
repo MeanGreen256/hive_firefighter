@@ -25,7 +25,10 @@ able to complete an incident without reading instructions.
 4. The player parks, dismounts, and controls one firefighter in third person.
 5. The player points the hose at fire and holds one input to spray water.
 6. The fire goes out, the player receives 1–3 stars and positive feedback, and the
-   next quest can begin.
+   already-determined next quest is queued.
+7. The player can dismiss the result into an unlimited quiet-town interval with
+   no active fire, then use the same simple action at the Firehouse Star Board to
+   begin that queued quest.
 
 "Quest location" means the location of the active fire incident. It does not
 mean a quiz or educational-question mechanic.
@@ -34,9 +37,11 @@ mean a quiz or educational-question mechanic.
 
 Every terminal incident is a completed quest, whether its fire is `contained` or
 its authored objects end up `scorched`. Completion always earns at least one star,
-advances progression exactly once, and makes the next incident the primary action.
-Replaying the same fire or a new seed is always optional; a scorched street never
-forces a retry or becomes a failure screen.
+advances progression exactly once, and makes continuing into quiet town the
+primary action. Replaying the same fire or a new seed is always optional; a
+scorched street never forces a retry or becomes a failure screen. Quiet town does
+not choose or randomize the next incident: it separates debrief dismissal from
+explicit activation of the already-authored next call.
 
 Stars describe visible, countable district buildings and outdoor props saved from
 the fire. One star means the quest is complete; two stars mean at least 65% of
@@ -77,8 +82,9 @@ new ADR says otherwise.
 - **One firefighter.** The player directly controls one character. Crew command,
   AI firefighters, and multi-unit tactics are not part of the current roadmap;
   they are distant stretch ideas that require a new explicit design decision.
-- **One incident at a time.** Do not add simultaneous incidents, incident choice,
-  or dispatch strategy to the core loop.
+- **At most one incident at a time.** Between calls there is no active fire,
+  smoke beacon, or incident timer. Do not add simultaneous incidents, incident
+  choice, or dispatch strategy to the core loop.
 - **Simple hose play.** On foot, the hose is ready to use. Aim and hold to spray.
   Water is unlimited for the core game. There is no manual hose hookup, finite
   tank, hose-reach cutoff, foam selection, or required hydrant-refill loop.
