@@ -9,9 +9,9 @@ import { AmbientAudioBridge } from '../audio/AmbientAudioBridge';
 import type { WorldReactionField } from './worldReactions';
 
 type AmbientShape = 'box' | 'cylinder' | 'sphere' | 'torus';
-type AmbientMotion = 'none' | 'wave' | 'bob' | 'ripple' | 'spin';
+type AmbientMotion = 'none' | 'wave' | 'bob' | 'ripple' | 'spin' | 'drift' | 'flutter';
 
-interface AmbientPart {
+export interface AmbientPart {
   readonly id: string;
   readonly shape: AmbientShape;
   readonly position: Vector3Tuple;
@@ -57,7 +57,7 @@ function addPart(
   });
 }
 
-function buildAmbientParts(
+export function buildAmbientParts(
   placements: readonly DistrictAmbient[],
   visualStyle: Style,
 ): readonly AmbientPart[] {
@@ -124,6 +124,53 @@ function buildAmbientParts(
           'wave',
         );
         break;
+      case 'sailboat':
+        addPart(
+          parts,
+          placement,
+          0,
+          'box',
+          [0, 0.24, 0],
+          [1.55, 0.28, 0.7],
+          city.props['harbour-bollard'].primary,
+          'drift',
+        );
+        addPart(parts, placement, 1, 'cylinder', [0, 1.12, 0], [0.1, 1.8, 0.1], pole, 'drift');
+        addPart(
+          parts,
+          placement,
+          2,
+          'box',
+          [0.39, 1.34, 0],
+          [0.78, 0.92, 0.07],
+          city.routes.harbour.primary,
+          'drift',
+        );
+        addPart(parts, placement, 3, 'sphere', [0, 2.02, 0], [0.18, 0.18, 0.18], detail, 'drift');
+        break;
+      case 'butterfly':
+        addPart(parts, placement, 0, 'sphere', [0, 1.48, 0], [0.18, 0.22, 0.18], detail, 'flutter');
+        addPart(
+          parts,
+          placement,
+          1,
+          'box',
+          [-0.2, 1.5, 0],
+          [0.38, 0.32, 0.08],
+          city.routes.garden.primary,
+          'flutter',
+        );
+        addPart(
+          parts,
+          placement,
+          2,
+          'box',
+          [0.2, 1.5, 0],
+          [0.38, 0.32, 0.08],
+          city.routes.garden.secondary,
+          'flutter',
+        );
+        break;
       default:
         // Exhaustiveness keeps content vocabulary and art kits in lockstep.
         assertNever(placement.type);
@@ -185,6 +232,20 @@ function AmbientPartInstance({
       const pulse =
         1 + Math.sin(time * (0.85 + stir.intensity * 3)) * (0.09 + stir.intensity * 0.2);
       object.scale.set(baseSize[0] * pulse, baseSize[1], baseSize[2] * pulse);
+    } else if (part.motion === 'drift') {
+      object.position.set(
+        basePosition[0] + Math.sin(time * 0.48) * 0.12,
+        basePosition[1] + Math.sin(time * 0.85) * 0.045,
+        basePosition[2],
+      );
+      object.rotation.z = baseRotation[2] + Math.sin(time * 0.72) * 0.035;
+    } else if (part.motion === 'flutter') {
+      object.position.set(
+        basePosition[0] + Math.sin(time * 1.1) * 0.11,
+        basePosition[1] + Math.sin(time * 1.8) * 0.09,
+        basePosition[2] + Math.cos(time * 0.75) * 0.08,
+      );
+      object.rotation.z = baseRotation[2] + Math.sin(time * 2.2) * 0.16;
     }
   });
 

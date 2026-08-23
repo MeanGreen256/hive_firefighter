@@ -412,7 +412,15 @@ describe('Harbour Hill', () => {
 
     expect(ambient.length).toBeGreaterThanOrEqual(10);
     expect(ambientTypes).toEqual(
-      new Set(['flag', 'bird', 'water-ripple', 'rotating-sign', 'foliage']),
+      new Set([
+        'flag',
+        'bird',
+        'water-ripple',
+        'rotating-sign',
+        'foliage',
+        'sailboat',
+        'butterfly',
+      ]),
     );
     expect(ambient.every((placement) => placement.variant !== null)).toBe(true);
     expect(

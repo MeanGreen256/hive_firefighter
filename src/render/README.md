@@ -111,7 +111,10 @@ slow subordinate rotation as an animated instance in the shared landmark
 batch; incident flame, water, and smoke remain faster and brighter.
 
 `AmbientDistrict` is the nonblocking companion layer for flags, birds, water
-ripples, rotating signs, and foliage (#161). District JSON owns the placements;
+ripples, rotating signs, foliage, toy sailboats, and garden butterflies (#161,
+#133). The boats drift below incident-smoke motion, and the butterflies flutter
+over route-coloured flower beds. Both reuse existing instanced primitive layers,
+so richer quiet-town silhouettes add no new draw-call category. District JSON owns the placements;
 the renderer batches their toy primitives by shape and applies restrained
 motion without creating obstacles. `AmbientAudioBridge` samples the active
 hero slowly and feeds route distance into the shared audio mix, where water and

@@ -129,8 +129,8 @@ Each district declares:
   multiplier applied to both the drawn parts and the collision footprint so a
   bigger prop can never draw larger than the space it blocks;
 - optional `ambient` placements for quiet-world motion and sound. Each has a
-  reusable `type` (`flag`, `bird`, `water-ripple`, `rotating-sign`, or
-  `foliage`), a world position, optional `yawDegrees`, and an optional
+  reusable `type` (`flag`, `bird`, `water-ripple`, `rotating-sign`, `foliage`,
+  `sailboat`, or `butterfly`), a world position, optional `yawDegrees`, and an optional
   route-specific `variant`. Ambient placements are visual/audio-only: they
   never enter collision or fire simulation data;
 - optional `streetEdges` built from the shared crossing, fence, planter,
@@ -138,6 +138,12 @@ Each district declares:
   visual variant, world position, length, and optional yaw. The full oriented
   footprint must remain inside district bounds, but it never becomes collision
   or a fire target;
+- optional `explorationRoutes` (#133), one each for `garden`, `civic`, and
+  `harbour` when present. Every route points at a landmark on its own route and
+  at least three distinct building or park stops. Each stop names existing
+  scenic props and quiet-world ambient cues; the loader rejects missing,
+  cross-route, or duplicate references. These are author-facing free-roam
+  itineraries, never quest objectives, collision, progression, or player text;
 - `questSites`, at least three, each anchored to a building or park.
 
 Validation enforces that the city stays drivable and the quests stay reachable,
