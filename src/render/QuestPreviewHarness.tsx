@@ -18,7 +18,7 @@ import {
 import { buildQuestPreviewController, QuestPreviewSetupError } from '../state/questPreviewSetup';
 import { createQuestFireController, type QuestFireController } from '../state/questFireController';
 import { AnchoredHoseEffects } from './AnchoredHoseEffects';
-import { WorldReactions } from './WorldReactions';
+import { WorldReactions } from './WorldReactionsLayer';
 import { PerformanceSampler } from './PerformanceSampler';
 import { CityDistrict } from './CityDistrict';
 import { ExteriorFire } from './ExteriorFire';

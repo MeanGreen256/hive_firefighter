@@ -48,7 +48,7 @@ import {
 } from '../perf/acceptanceScene';
 import { AnchoredHoseEffects } from './AnchoredHoseEffects';
 import { AmbientDistrict } from './AmbientDistrict';
-import { WorldReactions } from './WorldReactions';
+import { WorldReactions } from './WorldReactionsLayer';
 import { PerformanceSampler } from './PerformanceSampler';
 import { CityDistrict } from './CityDistrict';
 import { ExteriorFire } from './ExteriorFire';
@@ -57,7 +57,7 @@ import { SmokeBeacon } from './SmokeBeacon';
 import { WaypointArrow } from './WaypointArrow';
 import { getBeaconTarget } from './questBeacon';
 import { FirefighterController } from './FirefighterController';
-import { FirehouseStarBoard } from './FirehouseStarBoard';
+import { FirehouseStarBoard } from './FirehouseStarBoardView';
 import { FollowCameraRig } from './FollowCameraRig';
 import { ArcadeTruck } from './ArcadeTruck';
 import { buildDistrictLayout } from './districtLayout';
