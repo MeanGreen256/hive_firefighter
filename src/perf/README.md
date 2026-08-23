@@ -1,8 +1,15 @@
 # src/perf
 
-Shared performance instrumentation for the renderer, simulation, particles, and
-development UI. This folder is infrastructure: it imports no React or Three.js
-code, so future systems can report measurements without depending on a view.
+Shared performance instrumentation for the renderer, simulation, particles,
+development UI, and automated content acceptance. This folder is infrastructure:
+it imports no React or Three.js code, so future systems can report measurements
+without depending on a view.
+
+Run `npm run acceptance:content` for the full deterministic quest/state/style
+matrix or `npm run acceptance` to add real headless-browser screenshots, console
+checks, and budget gates. The commands, reserved headroom, and visual-baseline
+review process are documented in
+[`docs/content-acceptance.md`](../../docs/content-acceptance.md).
 
 ## Producers
 

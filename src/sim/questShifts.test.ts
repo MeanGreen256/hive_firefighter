@@ -12,7 +12,7 @@ const HARBOUR_HILL_SHIFT = [
   'meadow-picnic',
   'bandstand-green',
   'harbour-yard',
-  'bakery-awning',
+  'school-yard-frame',
   'firehouse-yard',
 ];
 
@@ -27,13 +27,13 @@ describe('authored quest shift order', () => {
     expect(order.districtId).toBe('harbour-hill');
     expect(order.slots).toHaveLength(QUESTS_PER_SHIFT);
     expect(order.slots.map((slot) => slot.questId)).toEqual(HARBOUR_HILL_SHIFT);
-    expect(getQuestShiftSlotIndex(order, 'bakery-awning')).toBe(3);
+    expect(getQuestShiftSlotIndex(order, 'school-yard-frame')).toBe(3);
   });
 
   it("carries each incident's authored seed, so the director never invents one", () => {
     const order = getQuestShiftOrder('harbour-hill');
 
-    expect(order.slots.map((slot) => slot.seed)).toEqual([1904, 1905, 1903, 1901, 1902]);
+    expect(order.slots.map((slot) => slot.seed)).toEqual([1904, 1905, 1903, 1906, 1902]);
   });
 
   it('opens the shift on a calm incident', () => {

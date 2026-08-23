@@ -380,8 +380,13 @@ function burnSamples(quest: QuestDefinition): number[][] {
 }
 
 describe('four-contract migration (#171)', () => {
-  it('loads the same five incidents the flat quest files did', () => {
-    expect(QUESTS.map((quest) => quest.id)).toEqual(MIGRATION_BASELINE.map((entry) => entry.id));
+  // The baseline is the five incidents that existed at migration, not the whole
+  // catalogue: #176 added a sixth quest as content, and every quest authored
+  // after the migration is proof the pipeline works rather than a reason to
+  // re-record what the migration froze.
+  it('still loads every migrated incident, as the catalogue grows past them', () => {
+    const authored = QUESTS.map((quest) => quest.id);
+    expect(authored).toEqual(expect.arrayContaining(MIGRATION_BASELINE.map((entry) => entry.id)));
   });
 
   it('burns identically to the pre-migration loader, tick for tick', () => {

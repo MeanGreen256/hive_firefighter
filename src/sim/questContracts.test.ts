@@ -83,6 +83,7 @@ describe('quest pacing contract', () => {
       'spectacle',
       'standard',
       'calm',
+      'hazard',
     ]);
   });
 

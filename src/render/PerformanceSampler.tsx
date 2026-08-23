@@ -11,6 +11,9 @@ export function PerformanceSampler() {
   const gl = useThree((state) => state.gl);
 
   useEffect(() => {
+    window.__hiveRenderDiagnostics = {
+      getShadowAutoUpdate: () => gl.shadowMap.autoUpdate,
+    };
     let previousTimestamp: number | null = null;
     let windowStartedAt: number | null = null;
     let frameCount = 0;
@@ -19,7 +22,7 @@ export function PerformanceSampler() {
     let maxTriangles = 0;
     let warmupFramesRemaining = WARMUP_FRAME_COUNT;
 
-    return addAfterEffect((timestamp) => {
+    const unsubscribe = addAfterEffect((timestamp) => {
       if (warmupFramesRemaining > 0) {
         warmupFramesRemaining -= 1;
         previousTimestamp = timestamp;
@@ -59,6 +62,10 @@ export function PerformanceSampler() {
       maxDrawCalls = 0;
       maxTriangles = 0;
     });
+    return () => {
+      unsubscribe();
+      delete window.__hiveRenderDiagnostics;
+    };
   }, [gl]);
 
   return null;

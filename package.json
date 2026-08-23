@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "check": "npm run typecheck && npm run lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "acceptance:content": "vitest run src/perf/contentAcceptance.test.ts",
+    "acceptance:update": "node scripts/update-preview-baselines.mjs",
+    "acceptance": "npm run acceptance:content && node scripts/acceptance-browser.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",

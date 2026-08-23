@@ -19,6 +19,14 @@ Game data as JSON. **Adding content should not require writing code.**
 - `rewards.json` — the catalogue of stable cosmetic reward ids (#171).
 - Later: building prefabs.
 
+## Adding an incident
+
+[`docs/quest-authoring-guide.md`](../docs/quest-authoring-guide.md) is the
+copy-and-modify walkthrough: which file to start from, the site, subject,
+hazard, presentation and shift rules in the order they bite, how to preview
+every state in both art directions, and what each validation failure means.
+This file stays the field-by-field reference behind it.
+
 ## Rules
 
 Every file is validated on load, with errors that name the offending row. TypeScript types are derived from or checked against the JSON — never a hand-maintained duplicate that silently drifts.
@@ -151,8 +159,10 @@ Each row has three parts:
   ignite; a burnable made of concrete is rejected at load.
 - `attachesTo` — the district `buildingUses` and `propTypes` that grow this
   subject. This is where the building archetypes live: a `house` grows a
-  `porch`, a `shop` an `awning`, a `workshop` a `barn-door`. Masonry `tower`
-  buildings appear in no row, so they never burn.
+  `porch`, a `shop` an `awning`, a `workshop` a `barn-door`, and a
+  `play-structure` a `play-frame`. Masonry `tower` buildings appear in no row,
+  so they never burn — and a 14 m landmark is out of reach of a 9 m hose
+  anyway.
 - `shell` — the space it occupies, in metres, as an `anchor` plus that anchor's
   dimensions. `wrap` skins a facade, `roof-band` caps a roofline,
   `front-attachment` projects from the street-facing face, `canopy` floats above
@@ -222,9 +232,10 @@ it may become required reading (ADR-007).
 `situation` is checked against the authored fire, so a label cannot lie: a
 `two-fronts` incident needs two ignitions, `propane-urgency` needs a cylinder,
 `quiet-spark` needs one ignition and still air, and `porch-climb` needs an
-ignition on a low street-facing attachment. `badge` must be unique within a
-district — a silhouette is how a non-reader tells two calls apart on the
-Firehouse Star Board. `approach` is an advisory authoring and preview
+ignition on a low street-facing attachment. `badge` must be unique within the
+district's active five-incident shift — a silhouette is how a non-reader tells
+two calls apart on the Firehouse Star Board. A larger quest catalogue may reuse
+a silhouette for an incident that is not in the same shift. `approach` is an advisory authoring and preview
 annotation; it is never shown as an instruction and never gates completion.
 
 ### `pacing`
@@ -289,3 +300,17 @@ a shortcut: stars are mastery feedback, not currency (ADR-008), and a reward
 that changed play would be a product decision rather than a content edit.
 Requirements may only read durable counts of completed work — elapsed time,
 water, and fuel are absent by construction.
+
+## Cross-file acceptance
+
+`src/content/contentGraph.ts` joins all decoded district, quest, shift, reward,
+art-kit, and style contracts before React boots. It rejects unassigned or
+multiply assigned quest sites, invalid shift references or duplicate active
+badges, unreachable or out-of-order cosmetic rewards, unknown prop variants,
+and assets that do not have both diorama and ink appearances. All detected
+problems are returned in one report with their source file and field path.
+
+Quest ids come from their filenames; quest-site ids come from
+`simulation.questSite`. They do not have to match. A district may author more
+quests than fit in one five-incident shift: change the shift file to rotate an
+additional quest in without changing simulation, progression, or scene code.

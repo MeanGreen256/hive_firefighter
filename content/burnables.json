@@ -57,6 +57,11 @@
     "attachesTo": { "buildingUses": [], "propTypes": ["hedge"] },
     "shell": { "anchor": "body", "height": 1 }
   },
+  "play-frame": {
+    "material": "wood",
+    "attachesTo": { "buildingUses": [], "propTypes": ["play-structure"] },
+    "shell": { "anchor": "body", "height": 2.6 }
+  },
   "picnic-timber": {
     "material": "wood",
     "attachesTo": { "buildingUses": [], "propTypes": ["bench"] },

@@ -40,10 +40,10 @@ describe('Firehouse Star Board', () => {
       profile({
         quests: {
           'meadow-picnic': { bestStars: 3, completedCount: 8 },
-          'bakery-awning': { bestStars: 1, completedCount: 1 },
+          'school-yard-frame': { bestStars: 1, completedCount: 1 },
         },
       }),
-      'bakery-awning',
+      'school-yard-frame',
     );
 
     expect(board.badges[0]).toMatchObject({
@@ -53,7 +53,7 @@ describe('Firehouse Star Board', () => {
       newest: false,
     });
     expect(board.badges[3]).toMatchObject({
-      questId: 'bakery-awning',
+      questId: 'school-yard-frame',
       completed: true,
       stars: 1,
       newest: true,
