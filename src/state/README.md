@@ -70,3 +70,15 @@ only formats and presents store data. Property leads the first-pass star weights
 every completed quest earns at least one star, and a scorched run always gets one
 encouraging star. `personalBests.ts` owns defensive v2 local-storage records keyed
 by scenario and seed; the old letter-grade records are intentionally not migrated.
+
+## Child-playtest observation toolkit
+
+`playtestObservation.ts` validates privacy-safe, observer-written M4 study
+records and reduces them to an aggregate-only four-of-five / three-of-five
+acceptance report (#170). It is a pure offline developer tool: no runtime
+telemetry, browser persistence, network calls, game-state mutation, identifying
+data, or automatic session collection. The accompanying `npm run
+playtest:report` command reads only an explicitly supplied private observation
+file and writes anonymous cohort totals to stdout. Real child sessions,
+guardian consent, findings review, tuning, and follow-up issues remain human
+responsibilities; synthetic unit-test fixtures are not acceptance evidence.

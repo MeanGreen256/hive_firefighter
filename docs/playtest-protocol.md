@@ -104,6 +104,12 @@ loop is available.
 Record whether stars, rewards, the next incident, and persisted progress are
 understood from behaviour or unprompted narration. Do not explain what unlocked.
 
+For a reproducible build, privacy-enforced observer event vocabulary, and
+aggregate-only calculation of the actual four-of-five / three-of-five M4 gate,
+follow [`playtests/m4-observation-toolkit.md`](playtests/m4-observation-toolkit.md).
+Keep raw session data outside the repository and publish only reviewed aggregate
+findings. The toolkit prepares observation; it does not generate child evidence.
+
 ## Scenario: free roam
 
 This is the evidence run for issue #133.
