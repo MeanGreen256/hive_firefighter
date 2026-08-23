@@ -14,7 +14,7 @@ describe('runtime shift order', () => {
       'meadow-picnic',
       'bandstand-green',
       'harbour-yard',
-      'bakery-awning',
+      'school-yard-frame',
       'firehouse-yard',
     ]);
   });

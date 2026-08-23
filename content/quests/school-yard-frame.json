@@ -1,0 +1,45 @@
+{
+  "name": "School yard climbing frame",
+  "simulation": {
+    "district": "harbour-hill",
+    "questSite": "school-yard",
+    "subjects": ["school-play", "school-yard-hedge", "school-yard-bench", "school-yard-tree"],
+    "ignitions": [
+      {
+        "target": "school-yard-hedge",
+        "burnable": "hedge-row"
+      }
+    ],
+    "hazards": [
+      {
+        "id": "school-yard-propane",
+        "type": "propane",
+        "position": {
+          "x": 25.5,
+          "z": 26.5
+        }
+      }
+    ],
+    "seed": 1906,
+    "wind": {
+      "direction": {
+        "x": 1,
+        "y": 0,
+        "z": 0
+      },
+      "strength": 0.5
+    }
+  },
+  "presentation": {
+    "situation": "propane-urgency",
+    "badge": "shield",
+    "spectacle": "dramatic",
+    "intro": "alarm-flare",
+    "celebration": "parade",
+    "approach": "around-the-back"
+  },
+  "pacing": {
+    "tempo": "hazard",
+    "parTimeSeconds": 90
+  }
+}

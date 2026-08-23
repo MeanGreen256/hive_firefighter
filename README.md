@@ -47,6 +47,9 @@ proposing anything visual, and read the second pair as history.
 
 **Current — these are the requirements**
 
+- [`docs/quest-authoring-guide.md`](docs/quest-authoring-guide.md) — how to add
+  an incident as content: sites, subjects, hazards, presentation, previews, and
+  the checks that have to pass before it ships.
 - [`docs/game-direction.md`](docs/game-direction.md) — authoritative audience,
   gameplay loop, scope, and anti-drift constraints.
 - [`docs/art/m3-visual-benchmark.md`](docs/art/m3-visual-benchmark.md) — authoritative

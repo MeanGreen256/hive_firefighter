@@ -39,7 +39,7 @@ function rewardsWith(
 describe('cross-file authored content graph', () => {
   it('accepts every shipped district, quest, shift, reward, and visual style', () => {
     expect(collectContentGraphProblems(createAuthoredContentGraph())).toEqual([]);
-    expect(assertContentGraph().quests).toHaveLength(5);
+    expect(assertContentGraph().quests).toHaveLength(6);
   });
 
   it('reports independent source-qualified failures together', () => {
@@ -228,7 +228,7 @@ describe('cross-file authored content graph', () => {
       }),
     );
 
-    expect(accepted.quests).toHaveLength(6);
+    expect(accepted.quests).toHaveLength(7);
     expect(accepted.shifts[0]?.slots).toHaveLength(5);
   });
 

@@ -532,7 +532,13 @@
     { "id": "harbour-bollard-centre", "type": "harbour-bollard", "x": 58.6, "z": -18 },
     { "id": "harbour-bollard-south", "type": "harbour-bollard", "x": 58.6, "z": -25.5 },
     { "id": "harbour-yard-tree", "type": "tree", "x": 40, "z": -10 },
-    { "id": "harbour-yard-hedge", "type": "hedge", "x": 42, "z": -9 }
+    { "id": "harbour-yard-hedge", "type": "hedge", "x": 42, "z": -9 },
+    { "id": "school-play", "type": "play-structure", "x": 22, "z": 25.5 },
+    { "id": "school-yard-hedge", "type": "hedge", "x": 19.2, "z": 25.4, "yawDegrees": 90 },
+    { "id": "school-yard-bench", "type": "bench", "x": 22, "z": 22.7 },
+    { "id": "school-yard-tree", "type": "tree", "x": 25.8, "z": 22.5, "variant": "conifer" },
+    { "id": "school-yard-flowers", "type": "flower-box", "x": 27.5, "z": 28.5 },
+    { "id": "lamp-school-yard", "type": "lamp-post", "x": 28.5, "z": 26.5 }
   ],
   "ambient": [
     {
@@ -654,6 +660,14 @@
       "z": 42.5,
       "yawDegrees": -20,
       "variant": "reed"
+    },
+    {
+      "id": "bird-school-yard",
+      "type": "bird",
+      "x": 22,
+      "z": 21,
+      "yawDegrees": -40,
+      "variant": "garden"
     }
   ],
   "streetEdges": [
@@ -752,6 +766,15 @@
       "z": 51,
       "yawDegrees": 90,
       "length": 21
+    },
+    {
+      "id": "garden-school-yard-fence",
+      "type": "fence",
+      "variant": "flowered",
+      "route": "garden",
+      "x": 22,
+      "z": 29,
+      "length": 12
     }
   ],
   "questSites": [
@@ -783,6 +806,13 @@
       "x": 39,
       "z": -18,
       "anchorId": "workshop-harbour"
+    },
+    {
+      "id": "school-yard",
+      "name": "School yard climbing frame",
+      "x": 22.5,
+      "z": 30,
+      "anchorId": "school"
     }
   ]
 }

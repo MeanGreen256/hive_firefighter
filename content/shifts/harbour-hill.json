@@ -1,3 +1,9 @@
 {
-  "quests": ["meadow-picnic", "bandstand-green", "harbour-yard", "bakery-awning", "firehouse-yard"]
+  "quests": [
+    "meadow-picnic",
+    "bandstand-green",
+    "harbour-yard",
+    "school-yard-frame",
+    "firehouse-yard"
+  ]
 }

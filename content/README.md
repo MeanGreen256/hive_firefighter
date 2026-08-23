@@ -19,6 +19,14 @@ Game data as JSON. **Adding content should not require writing code.**
 - `rewards.json` — the catalogue of stable cosmetic reward ids (#171).
 - Later: building prefabs.
 
+## Adding an incident
+
+[`docs/quest-authoring-guide.md`](../docs/quest-authoring-guide.md) is the
+copy-and-modify walkthrough: which file to start from, the site, subject,
+hazard, presentation and shift rules in the order they bite, how to preview
+every state in both art directions, and what each validation failure means.
+This file stays the field-by-field reference behind it.
+
 ## Rules
 
 Every file is validated on load, with errors that name the offending row. TypeScript types are derived from or checked against the JSON — never a hand-maintained duplicate that silently drifts.
@@ -151,8 +159,10 @@ Each row has three parts:
   ignite; a burnable made of concrete is rejected at load.
 - `attachesTo` — the district `buildingUses` and `propTypes` that grow this
   subject. This is where the building archetypes live: a `house` grows a
-  `porch`, a `shop` an `awning`, a `workshop` a `barn-door`. Masonry `tower`
-  buildings appear in no row, so they never burn.
+  `porch`, a `shop` an `awning`, a `workshop` a `barn-door`, and a
+  `play-structure` a `play-frame`. Masonry `tower` buildings appear in no row,
+  so they never burn — and a 14 m landmark is out of reach of a 9 m hose
+  anyway.
 - `shell` — the space it occupies, in metres, as an `anchor` plus that anchor's
   dimensions. `wrap` skins a facade, `roof-band` caps a roofline,
   `front-attachment` projects from the street-facing face, `canopy` floats above
