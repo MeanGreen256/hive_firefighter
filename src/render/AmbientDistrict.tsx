@@ -9,9 +9,9 @@ import { AmbientAudioBridge } from '../audio/AmbientAudioBridge';
 import type { WorldReactionField } from './worldReactions';
 
 type AmbientShape = 'box' | 'cylinder' | 'sphere' | 'torus';
-type AmbientMotion = 'none' | 'wave' | 'bob' | 'ripple' | 'spin';
+type AmbientMotion = 'none' | 'wave' | 'bob' | 'ripple' | 'spin' | 'drift' | 'flutter';
 
-interface AmbientPart {
+export interface AmbientPart {
   readonly id: string;
   readonly shape: AmbientShape;
   readonly position: Vector3Tuple;
@@ -57,7 +57,7 @@ function addPart(
   });
 }
 
-function buildAmbientParts(
+export function buildAmbientParts(
   placements: readonly DistrictAmbient[],
   visualStyle: Style,
 ): readonly AmbientPart[] {
@@ -124,6 +124,53 @@ function buildAmbientParts(
           'wave',
         );
         break;
+      case 'sailboat':
+        addPart(
+          parts,
+          placement,
+          0,
+          'box',
+          [0, 0.24, 0],
+          [1.55, 0.28, 0.7],
+          city.props['harbour-bollard'].primary,
+          'drift',
+        );
+        addPart(parts, placement, 1, 'cylinder', [0, 1.12, 0], [0.1, 1.8, 0.1], pole, 'drift');
+        addPart(
+          parts,
+          placement,
+          2,
+          'box',
+          [0.39, 1.34, 0],
+          [0.78, 0.92, 0.07],
+          city.routes.harbour.primary,
+          'drift',
+        );
+        addPart(parts, placement, 3, 'sphere', [0, 2.02, 0], [0.18, 0.18, 0.18], detail, 'drift');
+        break;
+      case 'butterfly':
+        addPart(parts, placement, 0, 'sphere', [0, 1.48, 0], [0.18, 0.22, 0.18], detail, 'flutter');
+        addPart(
+          parts,
+          placement,
+          1,
+          'box',
+          [-0.2, 1.5, 0],
+          [0.38, 0.32, 0.08],
+          city.routes.garden.primary,
+          'flutter',
+        );
+        addPart(
+          parts,
+          placement,
+          2,
+          'box',
+          [0.2, 1.5, 0],
+          [0.38, 0.32, 0.08],
+          city.routes.garden.secondary,
+          'flutter',
+        );
+        break;
       default:
         // Exhaustiveness keeps content vocabulary and art kits in lockstep.
         assertNever(placement.type);
@@ -144,53 +191,89 @@ function AmbientPartGeometry({ shape }: { readonly shape: AmbientShape }) {
   return <boxGeometry />;
 }
 
+function animateAmbientPart(
+  part: AmbientPart,
+  object: Group,
+  reactions: WorldReactionField,
+  elapsedSeconds: number,
+): void {
+  if (part.motion === 'none') return;
+  const baseRotation = part.rotation;
+  const basePosition = part.position;
+  const baseSize = part.size;
+  const time = elapsedSeconds + part.phase;
+
+  // Drifting boats and butterflies are deliberately independent of nearby
+  // hose/siren reactions, so do not perform a disturbance lookup for every
+  // component of their shared silhouette.
+  if (part.motion === 'drift') {
+    object.position.set(
+      basePosition[0] + Math.sin(time * 0.48) * 0.12,
+      basePosition[1] + Math.sin(time * 0.85) * 0.045,
+      basePosition[2],
+    );
+    object.rotation.z = baseRotation[2] + Math.sin(time * 0.72) * 0.035;
+    return;
+  }
+  if (part.motion === 'flutter') {
+    object.position.set(
+      basePosition[0] + Math.sin(time * 1.1) * 0.11,
+      basePosition[1] + Math.sin(time * 1.8) * 0.09,
+      basePosition[2] + Math.cos(time * 0.75) * 0.08,
+    );
+    object.rotation.z = baseRotation[2] + Math.sin(time * 2.2) * 0.16;
+    return;
+  }
+
+  // Ambient life is the town's own idle motion; a stir from the hose or the
+  // siren rides on top of it and dies away with the disturbance that caused
+  // it (#181). Nothing here is a state change — the flag ends where it began.
+  const stir = reactions.sampleDisturbance(basePosition[0], basePosition[2]);
+  if (part.motion === 'wave') {
+    const gust = 1 + stir.intensity * 3.2;
+    object.rotation.z =
+      baseRotation[2] + Math.sin(time * (1.25 + stir.intensity * 5)) * 0.055 * gust;
+  } else if (part.motion === 'spin') {
+    object.rotation.y = baseRotation[1] + time * (0.45 + stir.intensity * 2.4);
+  } else if (part.motion === 'bob') {
+    // Startled: birds break upward and away rather than just flapping harder.
+    const startle = stir.intensity;
+    object.position.set(
+      basePosition[0] + stir.awayX * startle * 1.6,
+      basePosition[1] +
+        Math.sin(time * (0.9 + startle * 9)) * (0.16 + startle * 0.5) +
+        startle * 1.1,
+      basePosition[2] + stir.awayZ * startle * 1.6,
+    );
+    object.rotation.z = Math.sin(time * (1.1 + startle * 10)) * (0.16 + startle * 0.45);
+  } else if (part.motion === 'ripple') {
+    const pulse = 1 + Math.sin(time * (0.85 + stir.intensity * 3)) * (0.09 + stir.intensity * 0.2);
+    object.scale.set(baseSize[0] * pulse, baseSize[1], baseSize[2] * pulse);
+  }
+}
+
+interface LiveAmbientPart {
+  readonly part: AmbientPart;
+  readonly object: Group;
+}
+
 function AmbientPartInstance({
   part,
-  reactions,
+  instances,
 }: {
   readonly part: AmbientPart;
-  readonly reactions: WorldReactionField;
+  readonly instances: RefObject<Map<string, LiveAmbientPart>>;
 }) {
-  const ref = useRef<Group>(null);
   const baseRotation = part.rotation;
   const basePosition = part.position;
   const baseSize = part.size;
 
-  useFrame(({ clock }) => {
-    const object = ref.current;
-    if (!object) return;
-    const time = clock.elapsedTime + part.phase;
-    // Ambient life is the town's own idle motion; a stir from the hose or the
-    // siren rides on top of it and dies away with the disturbance that caused
-    // it (#181). Nothing here is a state change — the flag ends where it began.
-    const stir = reactions.sampleDisturbance(basePosition[0], basePosition[2]);
-    if (part.motion === 'wave') {
-      const gust = 1 + stir.intensity * 3.2;
-      object.rotation.z =
-        baseRotation[2] + Math.sin(time * (1.25 + stir.intensity * 5)) * 0.055 * gust;
-    } else if (part.motion === 'spin') {
-      object.rotation.y = baseRotation[1] + time * (0.45 + stir.intensity * 2.4);
-    } else if (part.motion === 'bob') {
-      // Startled: birds break upward and away rather than just flapping harder.
-      const startle = stir.intensity;
-      object.position.set(
-        basePosition[0] + stir.awayX * startle * 1.6,
-        basePosition[1] +
-          Math.sin(time * (0.9 + startle * 9)) * (0.16 + startle * 0.5) +
-          startle * 1.1,
-        basePosition[2] + stir.awayZ * startle * 1.6,
-      );
-      object.rotation.z = Math.sin(time * (1.1 + startle * 10)) * (0.16 + startle * 0.45);
-    } else if (part.motion === 'ripple') {
-      const pulse =
-        1 + Math.sin(time * (0.85 + stir.intensity * 3)) * (0.09 + stir.intensity * 0.2);
-      object.scale.set(baseSize[0] * pulse, baseSize[1], baseSize[2] * pulse);
-    }
-  });
-
   return (
     <Instance
-      ref={ref}
+      ref={(object: Group | null) => {
+        if (object === null) instances.current.delete(part.id);
+        else instances.current.set(part.id, { part, object });
+      }}
       position={basePosition}
       rotation={baseRotation}
       scale={baseSize}
@@ -202,11 +285,11 @@ function AmbientPartInstance({
 function AmbientLayer({
   shape,
   parts,
-  reactions,
+  instances,
 }: {
   readonly shape: AmbientShape;
   readonly parts: readonly AmbientPart[];
-  readonly reactions: WorldReactionField;
+  readonly instances: RefObject<Map<string, LiveAmbientPart>>;
 }) {
   if (parts.length === 0) return null;
   return (
@@ -214,7 +297,7 @@ function AmbientLayer({
       <AmbientPartGeometry shape={shape} />
       <meshLambertMaterial />
       {parts.map((part) => (
-        <AmbientPartInstance key={part.id} part={part} reactions={reactions} />
+        <AmbientPartInstance key={part.id} part={part} instances={instances} />
       ))}
     </Instances>
   );
@@ -241,6 +324,17 @@ export function AmbientDistrict({
     () => buildAmbientParts(district.ambient ?? [], visualStyle),
     [district.ambient, visualStyle],
   );
+  const instances = useRef<Map<string, LiveAmbientPart>>(new Map());
+
+  // One frame subscription for the entire district, rather than one per
+  // component of every flag, bird, boat, and butterfly. This keeps the richer
+  // exploration pass inside the hosted browser's simulation/frame budgets.
+  useFrame(({ clock }) => {
+    for (const { part, object } of instances.current.values()) {
+      animateAmbientPart(part, object, reactions, clock.elapsedTime);
+    }
+  });
+
   const partsByShape = new Map<AmbientShape, AmbientPart[]>();
   for (const part of parts) {
     const layer = partsByShape.get(part.shape) ?? [];
@@ -251,7 +345,7 @@ export function AmbientDistrict({
   return (
     <group name="ambient-district" userData={{ nonBlocking: true }}>
       {[...partsByShape.entries()].map(([shape, layer]) => (
-        <AmbientLayer key={shape} shape={shape} parts={layer} reactions={reactions} />
+        <AmbientLayer key={shape} shape={shape} parts={layer} instances={instances} />
       ))}
       <AmbientAudioBridge district={district} listenerRef={listenerRef} />
     </group>

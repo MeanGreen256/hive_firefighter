@@ -538,7 +538,16 @@
     { "id": "school-yard-bench", "type": "bench", "x": 22, "z": 22.7 },
     { "id": "school-yard-tree", "type": "tree", "x": 25.8, "z": 22.5, "variant": "conifer" },
     { "id": "school-yard-flowers", "type": "flower-box", "x": 27.5, "z": 28.5 },
-    { "id": "lamp-school-yard", "type": "lamp-post", "x": 28.5, "z": 26.5 }
+    { "id": "lamp-school-yard", "type": "lamp-post", "x": 28.5, "z": 26.5 },
+    { "id": "garden-pinwheel-north", "type": "pinwheel", "x": -43, "z": -46 },
+    { "id": "garden-flowers-north", "type": "flower-box", "x": -42, "z": -54 },
+    { "id": "garden-flowers-meadow", "type": "flower-box", "x": -42, "z": 24 },
+    { "id": "civic-market-flowers", "type": "flower-box", "x": -27, "z": 40 },
+    { "id": "civic-market-pinwheel", "type": "pinwheel", "x": -27, "z": 39.5 },
+    { "id": "civic-postoffice-flowers", "type": "flower-box", "x": -24, "z": 52 },
+    { "id": "harbour-tower-bollard", "type": "harbour-bollard", "x": 44, "z": -43 },
+    { "id": "harbour-cove-bollard", "type": "harbour-bollard", "x": 50, "z": 51 },
+    { "id": "harbour-pier-bollard", "type": "harbour-bollard", "x": 58, "z": -27 }
   ],
   "ambient": [
     {
@@ -668,7 +677,67 @@
       "z": 21,
       "yawDegrees": -40,
       "variant": "garden"
-    }
+    },
+    {
+      "id": "butterfly-school-garden",
+      "type": "butterfly",
+      "x": 27.2,
+      "z": 23.5,
+      "variant": "garden"
+    },
+    {
+      "id": "butterfly-meadow-flowers",
+      "type": "butterfly",
+      "x": -42,
+      "z": 24,
+      "variant": "garden"
+    },
+    {
+      "id": "butterfly-north-green",
+      "type": "butterfly",
+      "x": -43,
+      "z": -46,
+      "variant": "garden"
+    },
+    {
+      "id": "butterfly-riverside-beds",
+      "type": "butterfly",
+      "x": 20,
+      "z": 48,
+      "variant": "garden"
+    },
+    { "id": "bird-firehouse-roof", "type": "bird", "x": -18, "z": -10, "variant": "garden" },
+    { "id": "bird-bakery-window", "type": "bird", "x": 16, "z": -7, "variant": "garden" },
+    {
+      "id": "sign-market-corner",
+      "type": "rotating-sign",
+      "x": -27,
+      "z": 40,
+      "variant": "market"
+    },
+    {
+      "id": "sailboat-east-harbour",
+      "type": "sailboat",
+      "x": 61,
+      "z": -16,
+      "variant": "harbour"
+    },
+    {
+      "id": "sailboat-harbour-pier",
+      "type": "sailboat",
+      "x": 61,
+      "z": -23,
+      "variant": "harbour"
+    },
+    {
+      "id": "sailboat-lighthouse-cove",
+      "type": "sailboat",
+      "x": 61.5,
+      "z": 47,
+      "variant": "harbour"
+    },
+    { "id": "bird-water-tower", "type": "bird", "x": 46, "z": -44, "variant": "gull" },
+    { "id": "bird-lighthouse-lantern", "type": "bird", "x": 54, "z": 51, "variant": "gull" }
   ],
   "streetEdges": [
     {
@@ -775,6 +844,95 @@
       "x": 22,
       "z": 29,
       "length": 12
+    }
+  ],
+  "explorationRoutes": [
+    {
+      "id": "garden",
+      "name": "Pinwheels, park lawns, and the school dome",
+      "landmarkId": "school",
+      "stops": [
+        {
+          "anchorId": "school",
+          "cue": "Follow the dome to fluttering school-yard pinwheels",
+          "propIds": ["school-pinwheel", "school-yard-flowers"],
+          "ambientIds": ["butterfly-school-garden", "bird-school-yard"]
+        },
+        {
+          "anchorId": "meadow-park",
+          "cue": "Find the meadow pinwheel and flower lawn",
+          "propIds": ["meadow-pinwheel", "garden-flowers-meadow"],
+          "ambientIds": ["butterfly-meadow-flowers", "foliage-meadow-east"]
+        },
+        {
+          "anchorId": "north-green",
+          "cue": "Find the bandstand behind the spinning pinwheel",
+          "propIds": ["garden-pinwheel-north", "north-green-bench-1"],
+          "ambientIds": ["butterfly-north-green"]
+        },
+        {
+          "anchorId": "riverside-green",
+          "cue": "Follow butterflies to the garden beds",
+          "propIds": ["riverside-tree-4", "riverside-bench-1"],
+          "ambientIds": ["butterfly-riverside-beds", "bird-riverside"]
+        }
+      ]
+    },
+    {
+      "id": "civic",
+      "name": "Bell tower, bee bakery, and market flags",
+      "landmarkId": "firehouse",
+      "stops": [
+        {
+          "anchorId": "firehouse",
+          "cue": "Start beneath the bell tower and station flag",
+          "propIds": ["firehouse-flowers-1", "firehouse-flowers-2"],
+          "ambientIds": ["flag-station", "bird-firehouse-roof"]
+        },
+        {
+          "anchorId": "bakery",
+          "cue": "Follow the bee to the striped bakery awning",
+          "propIds": ["bakery-bee-sign", "bakery-flowers-1"],
+          "ambientIds": ["bird-bakery-window"]
+        },
+        {
+          "anchorId": "shop-market",
+          "cue": "Find the market flag and spinning corner flowers",
+          "propIds": ["civic-market-pinwheel", "civic-market-flowers"],
+          "ambientIds": ["flag-market", "sign-market-corner"]
+        },
+        {
+          "anchorId": "shop-postoffice",
+          "cue": "Find the post office behind the flowered market",
+          "propIds": ["civic-postoffice-flowers"],
+          "ambientIds": ["flag-market"]
+        }
+      ]
+    },
+    {
+      "id": "harbour",
+      "name": "Water tower, working pier, and lighthouse cove",
+      "landmarkId": "lighthouse",
+      "stops": [
+        {
+          "anchorId": "water-tower-hill",
+          "cue": "Spot gulls circling the round blue water tower",
+          "propIds": ["harbour-tower-bollard"],
+          "ambientIds": ["bird-water-tower", "flag-harbour"]
+        },
+        {
+          "anchorId": "workshop-harbour",
+          "cue": "Follow the bollards to boats bobbing by the pier",
+          "propIds": ["harbour-bollard-centre", "harbour-pier-bollard"],
+          "ambientIds": ["sailboat-east-harbour", "sailboat-harbour-pier"]
+        },
+        {
+          "anchorId": "lighthouse",
+          "cue": "Follow the spinning lighthouse to the toy sailboat cove",
+          "propIds": ["harbour-cove-bollard"],
+          "ambientIds": ["sailboat-lighthouse-cove", "bird-lighthouse-lantern"]
+        }
+      ]
     }
   ],
   "questSites": [

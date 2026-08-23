@@ -132,7 +132,15 @@ export type DistrictPropType = (typeof PROP_TYPES)[number];
  * These are deliberately separate from props: ambient placements never enter
  * collision data and can evolve into richer kits without changing driving.
  */
-export const AMBIENT_TYPES = ['flag', 'bird', 'water-ripple', 'rotating-sign', 'foliage'] as const;
+export const AMBIENT_TYPES = [
+  'flag',
+  'bird',
+  'water-ripple',
+  'rotating-sign',
+  'foliage',
+  'sailboat',
+  'butterfly',
+] as const;
 export type DistrictAmbientType = (typeof AMBIENT_TYPES)[number];
 
 export interface PropFootprint {
@@ -291,6 +299,22 @@ export interface DistrictStreetEdge {
   readonly length: number;
 }
 
+/** One child-readable scenic stop; cues are author notes, never player-facing text. */
+export interface DistrictExplorationStop {
+  readonly anchorId: string;
+  readonly cue: string;
+  readonly propIds: readonly string[];
+  readonly ambientIds: readonly string[];
+}
+
+/** A landmark-led free-roam route, authored entirely from existing scenic content. */
+export interface DistrictExplorationRoute {
+  readonly id: DistrictRouteId;
+  readonly name: string;
+  readonly landmarkId: string;
+  readonly stops: readonly DistrictExplorationStop[];
+}
+
 export interface DistrictQuestSite {
   readonly id: string;
   readonly name: string;
@@ -315,6 +339,8 @@ export interface DistrictDefinition {
   readonly ambient?: readonly DistrictAmbient[];
   /** Optional, nonblocking production-art kit placements. */
   readonly streetEdges?: readonly DistrictStreetEdge[];
+  /** Optional landmark-led scenic itineraries; never objectives or progression gates. */
+  readonly explorationRoutes?: readonly DistrictExplorationRoute[];
   readonly questSites: readonly DistrictQuestSite[];
 }
 
@@ -561,7 +587,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   const problems: string[] = [];
   const root = readObject(data, id, problems);
   if (!root) throw new DistrictValidationError(id, problems);
-  checkFields(root, id, ROOT_FIELDS, problems, ['ambient', 'streetEdges']);
+  checkFields(root, id, ROOT_FIELDS, problems, ['ambient', 'streetEdges', 'explorationRoutes']);
 
   const name = readString(root.name, `${id}.name`, problems);
   const bounds = readBounds(root.bounds, `${id}.bounds`, problems);
@@ -766,6 +792,61 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
           },
         );
 
+  const readReferenceIds = (
+    value: unknown,
+    path: string,
+    referenceProblems: string[],
+  ): string[] => {
+    if (!Array.isArray(value)) {
+      referenceProblems.push(`${path} must be an array of authored ids`);
+      return [];
+    }
+    return value.map((reference, index) =>
+      readString(reference, `${path}[${String(index)}]`, referenceProblems),
+    );
+  };
+
+  const explorationRoutes =
+    root.explorationRoutes === undefined
+      ? []
+      : readPlacementArray(
+          root.explorationRoutes,
+          `${id}.explorationRoutes`,
+          problems,
+          (object, path, routeProblems): DistrictExplorationRoute => {
+            checkFields(object, path, ['id', 'name', 'landmarkId', 'stops'], routeProblems);
+            const stops = readPlacementArray(
+              object.stops,
+              `${path}.stops`,
+              routeProblems,
+              (stop, stopPath, stopProblems): DistrictExplorationStop => {
+                checkFields(
+                  stop,
+                  stopPath,
+                  ['anchorId', 'cue', 'propIds', 'ambientIds'],
+                  stopProblems,
+                );
+                return {
+                  anchorId: readString(stop.anchorId, `${stopPath}.anchorId`, stopProblems),
+                  cue: readString(stop.cue, `${stopPath}.cue`, stopProblems),
+                  propIds: readReferenceIds(stop.propIds, `${stopPath}.propIds`, stopProblems),
+                  ambientIds: readReferenceIds(
+                    stop.ambientIds,
+                    `${stopPath}.ambientIds`,
+                    stopProblems,
+                  ),
+                };
+              },
+            );
+            return {
+              id: readEnum(object.id, `${path}.id`, DISTRICT_ROUTE_IDS, routeProblems),
+              name: readString(object.name, `${path}.name`, routeProblems),
+              landmarkId: readString(object.landmarkId, `${path}.landmarkId`, routeProblems),
+              stops,
+            };
+          },
+        );
+
   const questSites = readPlacementArray(
     root.questSites,
     `${id}.questSites`,
@@ -789,6 +870,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   validateUniqueIds(props, `${id}.props`, problems);
   validateUniqueIds(ambient, `${id}.ambient`, problems);
   validateUniqueIds(streetEdges, `${id}.streetEdges`, problems);
+  validateUniqueIds(explorationRoutes, `${id}.explorationRoutes`, problems);
   validateUniqueIds(questSites, `${id}.questSites`, problems);
 
   const roadRects = roads.map(getRoadRect);
@@ -872,6 +954,78 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     }
   });
 
+  if (explorationRoutes.length > 0) {
+    const buildingsById = new Map(buildings.map((building) => [building.id, building]));
+    const anchorsById = new Map<string, DistrictBuilding | DistrictPark>(
+      [...buildings, ...parks].map((anchor) => [anchor.id, anchor]),
+    );
+    const propsById = new Map(props.map((prop) => [prop.id, prop]));
+    const ambientById = new Map(ambient.map((placement) => [placement.id, placement]));
+
+    for (const routeId of DISTRICT_ROUTE_IDS) {
+      if (!explorationRoutes.some((route) => route.id === routeId)) {
+        problems.push(`${id}.explorationRoutes is missing the ${routeId} landmark route`);
+      }
+    }
+
+    explorationRoutes.forEach((route, routeIndex) => {
+      const routePath = `${id}.explorationRoutes[${String(routeIndex)}]`;
+      const landmark = buildingsById.get(route.landmarkId);
+      if (!landmark?.landmark) {
+        problems.push(
+          `${routePath}.landmarkId ${JSON.stringify(route.landmarkId)} names no landmark`,
+        );
+      } else if (landmark.art?.route !== route.id) {
+        problems.push(`${routePath}.landmarkId belongs to a different scenic route`);
+      }
+      if (route.stops.length < 3) {
+        problems.push(`${routePath}.stops must contain at least three distinct scenic stops`);
+      }
+
+      const seenStops = new Set<string>();
+      route.stops.forEach((stop, stopIndex) => {
+        const stopPath = `${routePath}.stops[${String(stopIndex)}]`;
+        const anchor = anchorsById.get(stop.anchorId);
+        if (!anchor) {
+          problems.push(
+            `${stopPath}.anchorId ${JSON.stringify(stop.anchorId)} names no building or park`,
+          );
+        } else {
+          const anchorRoute = 'art' in anchor ? anchor.art?.route : anchor.kit?.route;
+          if (anchorRoute !== route.id) {
+            problems.push(
+              `${stopPath}.anchorId belongs to ${String(anchorRoute)}, not ${route.id}`,
+            );
+          }
+        }
+        if (seenStops.has(stop.anchorId)) {
+          problems.push(`${stopPath}.anchorId duplicates an earlier scenic stop`);
+        }
+        seenStops.add(stop.anchorId);
+        if (stop.propIds.length === 0) {
+          problems.push(`${stopPath}.propIds must name at least one visible scenic prop`);
+        }
+        if (stop.ambientIds.length === 0) {
+          problems.push(`${stopPath}.ambientIds must name at least one quiet-world motion cue`);
+        }
+        for (const [propIndex, propId] of stop.propIds.entries()) {
+          if (!propsById.has(propId)) {
+            problems.push(
+              `${stopPath}.propIds[${String(propIndex)}] ${JSON.stringify(propId)} names no prop`,
+            );
+          }
+        }
+        for (const [ambientIndex, ambientId] of stop.ambientIds.entries()) {
+          if (!ambientById.has(ambientId)) {
+            problems.push(
+              `${stopPath}.ambientIds[${String(ambientIndex)}] ${JSON.stringify(ambientId)} names no ambient cue`,
+            );
+          }
+        }
+      });
+    });
+  }
+
   const truckStartRect = rectFromCenter(truckStart, 0.01, 0.01);
   if (!onRoad(truckStartRect)) {
     problems.push(`${id}.truckStart must be on a road`);
@@ -926,6 +1080,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     props,
     ambient,
     streetEdges,
+    explorationRoutes,
     questSites,
   };
 }
