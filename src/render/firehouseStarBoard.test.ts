@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getDistrict } from '@sim/districts';
 import { getQuestPresentation } from '@sim/quests';
-import { QUEST_SHIFT_ORDER } from '../state/questOrder';
+import { getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
 import {
   buildFirehouseStarBoard,
   FIREHOUSE_COSMETIC_REWARDS,
@@ -34,6 +34,15 @@ describe('Firehouse Star Board', () => {
     expect(board.badges.map((badge) => badge.shape)).toEqual(
       QUEST_IDS.map((questId) => getQuestPresentation(questId).badge),
     );
+  });
+
+  it('projects the selected shift roster without duplicating a badge', () => {
+    const secondShiftIds = getQuestShiftSlots(QUEST_SHIFT_ORDER, 1).map((slot) => slot.questId);
+    const board = buildFirehouseStarBoard(secondShiftIds, profile());
+
+    expect(board.badges.map((badge) => badge.questId)).toContain('bakery-awning');
+    expect(board.badges.map((badge) => badge.questId)).not.toContain('school-yard-frame');
+    expect(new Set(board.badges.map((badge) => badge.shape)).size).toBe(5);
   });
 
   it('shows a quest best once, independent of retries, and marks the latest badge', () => {

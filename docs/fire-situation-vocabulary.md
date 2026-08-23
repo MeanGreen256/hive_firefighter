@@ -1,6 +1,6 @@
 # Fire-situation vocabulary
 
-This is the authoring vocabulary for Harbour Hill's five-incident shift. A
+This is the authoring vocabulary for Harbour Hill's five-incident shift cycle. A
 **situation** is the visible shape of an exterior fire and the choice it invites,
 not a new objective, a new control, or a way to fail. Every situation is finished
 with **move** and **spray**. One smoke beacon leads to one active incident; there
@@ -46,8 +46,13 @@ therefore gameplay data, not a document-only sequence.
 | 1 | Meadow Park / `meadow-picnic` | Quiet single spark | Follow the one beacon, get close, and hold spray on one clear outdoor fire. | Bench, two trees, hedge. |
 | 2 | Riverside Green / `bandstand-green` | Wind-driven line | Flames can travel along an obvious row; work along that row instead of treating each flame as unrelated. | Three hedges, bench. |
 | 3 | Harbour workshop / `harbour-yard` | Two fronts | More than one flame group can be active, so make a simple first choice and move to the second group. | Workshop, yard tree, yard hedge. |
-| 4 | Bakery / `bakery-awning` | Visible propane urgency | The hose can calm a conspicuous hot cylinder as well as flames; save it with the same familiar action. | Bakery, two street trees. |
+| 4 | School / `school-yard-frame` (first roster) or Bakery / `bakery-awning` (successive roster) | Visible propane urgency | The hose can calm a conspicuous hot cylinder as well as flames; save it with the same familiar action. | School hedge/frame/trees, or Bakery/two street trees. |
 | 5 | Fire station yard / `firehouse-yard` | Porch climb / awkward approach | Go around a building when the low fire is not on the nearest side; stop a climb before the roofline catches. | Station Cottage, fire station, street tree. |
+
+Both complete rosters retain that curve and exactly five calls. After the first
+shift, Bakery replaces School in slot 4; after the second, the cycle returns to
+School. All six authored incidents are therefore reachable within two shifts,
+without scheduling the two shield-badge hazard calls together.
 
 The curve adds one readable complication at a time. Slot 5 combines an awkward
 view with vertical spread, but never asks for a precision shot, a written

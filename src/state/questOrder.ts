@@ -12,6 +12,8 @@ import { getQuestShiftOrder } from '@sim/questShifts';
 
 export {
   getQuestShiftOrder,
+  getQuestShiftCycle,
+  getQuestShiftSlots,
   getQuestShiftSlotIndex,
   loadQuestShiftOrder,
   QUESTS_PER_SHIFT,

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { getQuestPacing } from './quests';
 import {
   getQuestShiftOrder,
+  getQuestShiftCycle,
+  getQuestShiftSlots,
   getQuestShiftSlotIndex,
   loadQuestShiftOrder,
   QUESTS_PER_SHIFT,
@@ -13,6 +15,13 @@ const HARBOUR_HILL_SHIFT = [
   'bandstand-green',
   'harbour-yard',
   'school-yard-frame',
+  'firehouse-yard',
+];
+const HARBOUR_HILL_SECOND_SHIFT = [
+  'meadow-picnic',
+  'bandstand-green',
+  'harbour-yard',
+  'bakery-awning',
   'firehouse-yard',
 ];
 
@@ -28,6 +37,12 @@ describe('authored quest shift order', () => {
     expect(order.slots).toHaveLength(QUESTS_PER_SHIFT);
     expect(order.slots.map((slot) => slot.questId)).toEqual(HARBOUR_HILL_SHIFT);
     expect(getQuestShiftSlotIndex(order, 'school-yard-frame')).toBe(3);
+    expect(getQuestShiftCycle(order)).toHaveLength(2);
+    expect(getQuestShiftSlots(order, 1).map((slot) => slot.questId)).toEqual(
+      HARBOUR_HILL_SECOND_SHIFT,
+    );
+    expect(getQuestShiftSlots(order, 2).map((slot) => slot.questId)).toEqual(HARBOUR_HILL_SHIFT);
+    expect(getQuestShiftSlotIndex(order, 'bakery-awning', 1)).toBe(3);
   });
 
   it("carries each incident's authored seed, so the director never invents one", () => {
@@ -42,6 +57,19 @@ describe('authored quest shift order', () => {
 
     expect(first).toBeDefined();
     expect(getQuestPacing(first!.questId).tempo).toBe('calm');
+  });
+
+  it('reaches every authored incident within two deterministic five-call shifts', () => {
+    const order = getQuestShiftOrder('harbour-hill');
+    const cycleIds = new Set(
+      getQuestShiftCycle(order).flatMap((roster) => roster.map((slot) => slot.questId)),
+    );
+
+    expect(cycleIds).toEqual(new Set([...HARBOUR_HILL_SHIFT, ...HARBOUR_HILL_SECOND_SHIFT]));
+    expect(cycleIds).toHaveProperty('size', 6);
+    expect(getQuestShiftCycle(order).every((roster) => roster.length === QUESTS_PER_SHIFT)).toBe(
+      true,
+    );
   });
 
   it('names the source file and the offending index when authoring is wrong', () => {
@@ -98,5 +126,33 @@ describe('authored quest shift order', () => {
     expect(() =>
       loadQuestShiftOrder({ quests: HARBOUR_HILL_SHIFT, district: 'harbour-hill' }, 'harbour-hill'),
     ).toThrow(/root has unknown field "district"/);
+  });
+
+  it('rejects malformed, duplicated, or non-calm successive rosters', () => {
+    expect(() =>
+      loadQuestShiftOrder(
+        { quests: HARBOUR_HILL_SHIFT, successiveShifts: [['meadow-picnic']] },
+        'harbour-hill',
+      ),
+    ).toThrow(/successiveShifts\[0\] must contain exactly 5 incidents/);
+
+    expect(() =>
+      loadQuestShiftOrder(
+        { quests: HARBOUR_HILL_SHIFT, successiveShifts: [HARBOUR_HILL_SHIFT] },
+        'harbour-hill',
+      ),
+    ).toThrow(/duplicates an earlier shift roster/);
+
+    expect(() =>
+      loadQuestShiftOrder(
+        {
+          quests: HARBOUR_HILL_SHIFT,
+          successiveShifts: [
+            ['bandstand-green', 'meadow-picnic', 'harbour-yard', 'bakery-awning', 'firehouse-yard'],
+          ],
+        },
+        'harbour-hill',
+      ),
+    ).toThrow(/successiveShifts\[0\]\[0\].*pacing\.tempo must be "calm"/);
   });
 });

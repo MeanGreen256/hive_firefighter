@@ -14,8 +14,8 @@ Game data as JSON. **Adding content should not require writing code.**
   shape of the shell it occupies.
 - `quests/*.json` — one authored incident per quest site (#91, #171), in three
   named blocks: `simulation`, `presentation`, and `pacing`.
-- `shifts/*.json` — the order a district's incidents are played in (#171). One
-  file per district; the filename is the district id.
+- `shifts/*.json` — the bounded cycle of five-call shifts a district plays
+  (#171, #213). One file per district; the filename is the district id.
 - `rewards.json` — the catalogue of stable cosmetic reward ids (#171).
 - Later: building prefabs.
 
@@ -238,10 +238,10 @@ it may become required reading (ADR-007).
 `situation` is checked against the authored fire, so a label cannot lie: a
 `two-fronts` incident needs two ignitions, `propane-urgency` needs a cylinder,
 `quiet-spark` needs one ignition and still air, and `porch-climb` needs an
-ignition on a low street-facing attachment. `badge` must be unique within the
-district's active five-incident shift — a silhouette is how a non-reader tells
-two calls apart on the Firehouse Star Board. A larger quest catalogue may reuse
-a silhouette for an incident that is not in the same shift. `approach` is an advisory authoring and preview
+ignition on a low street-facing attachment. `badge` must be unique within every
+five-incident roster — a silhouette is how a non-reader tells two calls apart
+on the Firehouse Star Board. Catalogue incidents that never share a roster may
+reuse a silhouette. `approach` is an advisory authoring and preview
 annotation; it is never shown as an instruction and never gates completion.
 
 ### `pacing`
@@ -274,18 +274,30 @@ a second file with no code change and no shared list to keep in sync.
 
 ```json
 {
-  "quests": ["meadow-picnic", "bandstand-green", "harbour-yard", "bakery-awning", "firehouse-yard"]
+  "quests": [
+    "meadow-picnic",
+    "bandstand-green",
+    "harbour-yard",
+    "school-yard-frame",
+    "firehouse-yard"
+  ],
+  "successiveShifts": [
+    ["meadow-picnic", "bandstand-green", "harbour-yard", "bakery-awning", "firehouse-yard"]
+  ]
 }
 ```
 
-Exactly five ids, each an authored incident of that district, each named once.
-The first slot is the teaching slot and must be a `calm` incident — a child
-meets the game through one still, unmistakable fire before the curve adds
-anything. See [`docs/fire-situation-vocabulary.md`](../docs/fire-situation-vocabulary.md).
+`quests` is the first shift. Every optional `successiveShifts` row is another
+complete roster; runtime visits them in order, then cycles to `quests`. Every
+roster contains exactly five distinct authored incidents, starts with a `calm`
+teaching call, and has no duplicate badge silhouettes. The cross-file graph also
+requires every authored district incident to appear somewhere in this bounded
+cycle. See [`docs/fire-situation-vocabulary.md`](../docs/fire-situation-vocabulary.md).
 
 Order lives here rather than in the incident files because it is a property of
 the shift, not of any one fire; the quest director reads it and remixes each
-slot's authored seed per shift and retry.
+slot's authored seed per shift and retry. The roster is derived from the durable
+shift number, so save/resume cannot reshuffle it and there is no quest picker.
 
 ## `rewards.json`
 
@@ -311,12 +323,17 @@ water, and fuel are absent by construction.
 
 `src/content/contentGraph.ts` joins all decoded district, quest, shift, reward,
 art-kit, and style contracts before React boots. It rejects unassigned or
-multiply assigned quest sites, invalid shift references or duplicate active
-badges, unreachable or out-of-order cosmetic rewards, unknown prop variants,
+multiply assigned quest sites, invalid shift-cycle references, unreachable
+catalogue incidents, duplicate roster badges, unreachable or out-of-order cosmetic rewards, unknown prop variants,
 and assets that do not have both diorama and ink appearances. All detected
 problems are returned in one report with their source file and field path.
 
+Reward reachability uses the union of the bounded cycle: Harbour Hill's six
+reachable incidents provide ceilings of 18 total best stars and 6 mastered
+quests, while every individual shift remains exactly five calls.
+
 Quest ids come from their filenames; quest-site ids come from
 `simulation.questSite`. They do not have to match. A district may author more
-quests than fit in one five-incident shift: change the shift file to rotate an
-additional quest in without changing simulation, progression, or scene code.
+quests than fit in one five-incident shift: add another `successiveShifts`
+roster so every incident remains reachable without changing simulation,
+progression, or scene code.
