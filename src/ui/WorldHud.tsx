@@ -66,6 +66,9 @@ export interface WorldHudProps {
   readonly onBoard: () => void;
   readonly sirenOn: boolean;
   readonly onToggleSiren: () => void;
+  readonly quietTown?: boolean;
+  readonly nextCallAvailable?: boolean;
+  readonly onNextCall?: () => void;
 }
 
 /**
@@ -97,6 +100,9 @@ export function WorldHud({
   onBoard,
   sirenOn,
   onToggleSiren,
+  quietTown = false,
+  nextCallAvailable = false,
+  onNextCall,
 }: WorldHudProps) {
   const boardLabel = onFoot
     ? boardingAvailable
@@ -115,33 +121,53 @@ export function WorldHud({
           <span aria-hidden="true">{onFoot ? '🧑‍🚒' : '🚒'}</span>
         </span>
 
-        {/* Distance, as ground covered rather than as metres: the pips fill in
-            as the player closes on the smoke they are pointed at. */}
-        <Pips
-          total={APPROACH_PIP_TOTAL}
-          lit={getApproachPips(approach)}
-          litGlyph="◆"
-          spentGlyph="◇"
-          label={APPROACH_LABELS[approach]}
-          modifier="approach"
-        />
-        <span className="world-hud__target" aria-hidden="true">
-          💨
-        </span>
+        {quietTown ? (
+          <span className="world-hud__quiet" role="img" aria-label="Quiet town — no active fire">
+            🏘️ ✨
+          </span>
+        ) : (
+          <>
+            {/* Distance, as ground covered rather than as metres: the pips fill in
+                as the player closes on the smoke they are pointed at. */}
+            <Pips
+              total={APPROACH_PIP_TOTAL}
+              lit={getApproachPips(approach)}
+              litGlyph="◆"
+              spentGlyph="◇"
+              label={APPROACH_LABELS[approach]}
+              modifier="approach"
+            />
+            <span className="world-hud__target" aria-hidden="true">
+              💨
+            </span>
 
-        <span className="world-hud__divider" aria-hidden="true" />
+            <span className="world-hud__divider" aria-hidden="true" />
 
-        <Pips
-          total={FIRE_PIP_TOTAL}
-          lit={getFirePips(fire)}
-          litGlyph="🔥"
-          spentGlyph="💧"
-          label={FIRE_LABELS[fire]}
-          modifier="fire"
-        />
+            <Pips
+              total={FIRE_PIP_TOTAL}
+              lit={getFirePips(fire)}
+              litGlyph="🔥"
+              spentGlyph="💧"
+              label={FIRE_LABELS[fire]}
+              modifier="fire"
+            />
+          </>
+        )}
       </div>
 
       <div className="world-hud__actions">
+        {quietTown && onNextCall ? (
+          <button
+            type="button"
+            className="world-hud__action world-hud__action--next-call"
+            onClick={onNextCall}
+            disabled={!nextCallAvailable}
+            aria-label={nextCallAvailable ? 'Start the next fire call' : 'Visit the firehouse bell'}
+            title={nextCallAvailable ? 'Start next call' : 'Visit the firehouse bell'}
+          >
+            <span aria-hidden="true">🔔</span>
+          </button>
+        ) : null}
         <button
           type="button"
           className="world-hud__action"
@@ -170,7 +196,7 @@ export function WorldHud({
       <details className="world-hud__adults">
         <summary aria-label="Notes for grown-ups">Grown-ups</summary>
         <p className="world-hud__place">
-          <b>{districtName}</b> · free roam · <b>{questName}</b>
+          <b>{districtName}</b> · free roam · <b>{quietTown ? 'quiet town' : questName}</b>
         </p>
         <p className="world-hud__legend">
           <span aria-hidden="true">🕹</span> move · <span aria-hidden="true">💦</span> hold to squirt
@@ -179,6 +205,12 @@ export function WorldHud({
           <small>
             <span aria-hidden="true">📢</span> siren · <span aria-hidden="true">👀</span> right-drag
             to look around — both optional
+            {quietTown ? (
+              <>
+                {' '}
+                · <span aria-hidden="true">🔔</span> next call at the firehouse board
+              </>
+            ) : null}
           </small>
         </p>
         <VolumeControl />

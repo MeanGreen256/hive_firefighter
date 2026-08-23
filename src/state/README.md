@@ -41,6 +41,13 @@ The controller ends each quest as `contained` or `scorched`, freezes the fire,
 and publishes a 1–3 star debrief. Retry keeps the current seed; the alternate
 new-fire action advances deterministically to another seed.
 
+`questDirector.ts` owns the explicit between-call quiet-town state (#212). Its
+durable V1 phase name remains `next` for existing profiles, while
+`enterQuietTown`, `isQuietTown`, and `queuedIncident` make the runtime contract
+explicit: the next authored identity is saved, but it is not an active incident
+and cannot reach the fire controller until `activateNext()` is called. Wall time
+never advances that lifecycle boundary.
+
 #100 deleted `simDebugController.ts` and `hoseController.ts` with the M2 view
 they hosted. The Sim Lab overlay went with them: it inspected cells and tuned
 constants for a scenario grid that no longer has a renderer, so what remained

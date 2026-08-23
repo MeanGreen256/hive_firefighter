@@ -46,6 +46,13 @@ screen; that one button plus a direction finishes the game (ADR-007). Everything
 else is optional: right-drag or the right stick orbits while driving and steers
 free aim on foot, `E` boards or dismounts, `L` toggles siren and lights.
 
+After the star screen, the scene remains fire-free until the player returns on
+foot to the pulsing bell at the Firehouse Star Board and presses that same
+action (#212). Away from the bell, quiet-town driving, boarding, siren play,
+hose play, and rinsing the previous aftermath keep their normal controls. The
+completed fire runner is stopped, and the queued call has no beacon or render
+bridge until the explicit station interaction.
+
 ## City district contract
 
 `districtLayout.ts` converts one authored district (`content/districts/*.json`,
