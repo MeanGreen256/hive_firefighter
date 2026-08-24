@@ -58,10 +58,17 @@ to catch:
 /?perfScene=debrief&style=diorama
 ```
 
-These stay pinned to specific, hand-picked district/quest fixtures on
-purpose, so a draw-call number measured today is still comparable to one
-measured after a later content change — see the dated results below. They
-are not how to review an arbitrary authored quest; for that,
+Each fixture names the incident it measures outright (`questId` in
+`acceptanceScene.ts`) and resolves it through the frozen benchmark roster in
+`benchmarkShift.ts` — never through the child's five-call shift. That
+separation is the point: shift order rotates the authored catalogue between
+shifts by design (#213), and a benchmark that followed it stopped booting the
+moment the propane bakery left the opening roster (#217). Adding, reordering,
+or retiring a player-facing shift can no longer move, or break, a recorded
+render-budget number, and a number measured today stays comparable to one
+measured after a later content change — see the dated results below.
+
+Fixtures are not how to review an arbitrary authored quest; for that,
 `questPreviewScene.ts` in this folder defines a second, open-ended URL
 contract (`?previewQuest=<quest id>&previewState=<state id>`) that the
 development-only `QuestPreviewHarness` (`src/render/QuestPreviewHarness.tsx`,
@@ -70,6 +77,11 @@ presentation states, in either style, without touching code. Reach for
 `?perfScene=` when the question is "did this change the render budget";
 reach for `?previewQuest=` when the question is "does this quest look right."
 Full contract: [`docs/quest-preview-harness.md`](../../docs/quest-preview-harness.md).
+
+`npm run acceptance` opens all nine routes in both styles in headless Chrome
+after the preview matrix, and fails if one does not boot, renders nothing, drifts
+onto a different benchmark incident or seed, or crosses a budget. A fixture that
+throws before its first frame is a route failure there, not a silent gap.
 
 Repeat each with `style=ink`, open the J overlay, and record the stable maximum
 after the one-time shadow bake. `on-foot` freezes the initial incident with the
@@ -136,3 +148,27 @@ and street-edge kits. The 1280×720 DPR-2 matrix ranges from 42 to 56 draws; the
 worst collapse/ink frame retains 24 calls of headroom. The full FPS, draw,
 triangle, console, bundle, and visual checklist is recorded in
 [`docs/art/harbour-hill-production-art-acceptance.md`](../../docs/art/harbour-hill-production-art-acceptance.md).
+
+### 2026-08-23 benchmark-roster repair result
+
+`?perfScene=` fixtures moved off district site indices onto named benchmark
+incidents (#217), restoring the seven routes that threw on boot once the bakery
+left the opening shift. The bakery benchmark keeps its authored seed (1901) and
+its historical second slot, so earlier numbers stay comparable. Measured by the
+new browser-acceptance pass at the software-rendered 640 × 360 CI viewport,
+where absolute draws sit below the 1280 × 720 DPR-2 figures above:
+
+| Scene     | Incident        | Diorama draws | Ink draws |
+| --------- | --------------- | ------------: | --------: |
+| spawn     | bandstand-green |            44 |        45 |
+| approach  | bakery-awning   |            45 |        46 |
+| on-foot   | bandstand-green |            65 |        66 |
+| incident  | bakery-awning   |            55 |        56 |
+| spray     | bakery-awning   |            56 |        57 |
+| hazard    | bakery-awning   |            55 |        56 |
+| collapse  | bakery-awning   |            56 |        57 |
+| aftermath | bakery-awning   |            54 |        54 |
+| debrief   | bakery-awning   |            51 |        51 |
+
+Every route stays below the reserved acceptance ceiling of 72 draws and the
+shipped `<80` budget.

@@ -12,7 +12,7 @@ import { useStore } from 'zustand';
 import type { DirectionalLight, Group } from 'three';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
 import { DEFAULT_DISTRICT_ID, getDistrict, type DistrictQuestSite } from '@sim/districts';
-import { getQuest, getQuestForSite } from '@sim/quests';
+import { getQuest } from '@sim/quests';
 import { CellState } from '@sim/cellGrid';
 import { PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { questFireController } from '../state/questFireController';
@@ -21,7 +21,7 @@ import {
   resumeQuestDirector,
   type QuestDirector,
 } from '../state/questDirector';
-import { getQuestShiftSlotIndex, getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
+import { getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
 import { progressProfileStore } from '../state/progressProfile';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
@@ -46,6 +46,10 @@ import {
   performanceSceneFromSearch,
   type PerformanceAcceptanceScene,
 } from '../perf/acceptanceScene';
+import {
+  getPerformanceBenchmarkShiftOrder,
+  getPerformanceSceneIncident,
+} from '../perf/benchmarkShift';
 import { AnchoredHoseEffects } from './AnchoredHoseEffects';
 import { AmbientDistrict } from './AmbientDistrict';
 import { WorldReactions } from './WorldReactionsLayer';
@@ -96,24 +100,24 @@ const AMBIENT_BIRD_POSITIONS = (DISTRICT.ambient ?? [])
 const PERFORMANCE_SCENE = import.meta.env.DEV
   ? performanceSceneFromSearch(window.location.search)
   : null;
+/**
+ * A render-budget fixture measures its own frozen roster (#217), so which
+ * incident it opens never depends on where the child's rotating shift has
+ * reached. Ordinary play always reads the authored district shift.
+ */
+const SHIFT_ORDER = PERFORMANCE_SCENE ? getPerformanceBenchmarkShiftOrder() : QUEST_SHIFT_ORDER;
 function initialDirectorSlot(): number {
-  if (!PERFORMANCE_SCENE) return 0;
-  // Render-budget URLs predate authored shift order. Translate their stable
-  // district index (notably index 1's propane bakery fixture) into this new
-  // order without letting those benchmarks choose a child's progression.
-  const siteId = DISTRICT.questSites[PERFORMANCE_SCENE.questIndex]?.id;
-  if (!siteId) throw new Error(`Unknown performance quest index ${PERFORMANCE_SCENE.questIndex}`);
-  return getQuestShiftSlotIndex(QUEST_SHIFT_ORDER, getQuestForSite(DISTRICT.id, siteId).id);
+  return PERFORMANCE_SCENE ? getPerformanceSceneIncident(PERFORMANCE_SCENE).slot : 0;
 }
 
 /** Resume an in-progress fire safely; a completed debrief resumes in quiet town. */
 function initialQuestDirector(): QuestDirector {
-  const fresh = createQuestDirector(QUEST_SHIFT_ORDER);
+  const fresh = createQuestDirector(SHIFT_ORDER);
   if (PERFORMANCE_SCENE) return fresh.start(initialDirectorSlot());
   const serialized = progressProfileStore.getState().profile.director;
   if (serialized === null) return fresh.start();
   try {
-    const resumed = resumeQuestDirector(QUEST_SHIFT_ORDER, serialized);
+    const resumed = resumeQuestDirector(SHIFT_ORDER, serialized);
     if (resumed.state.phase === 'active') return resumed;
     if (resumed.isQuietTown) return resumed;
     if (resumed.state.phase === 'resolved') return resumed.beginCelebration().enterQuietTown();
@@ -136,10 +140,10 @@ function initialLatestQuestBadge(): string | null {
     if (finishedSlot > 0) finishedSlot -= 1;
     else if (finishedShift > 0) {
       finishedShift -= 1;
-      finishedSlot = getQuestShiftSlots(QUEST_SHIFT_ORDER, finishedShift).length - 1;
+      finishedSlot = getQuestShiftSlots(SHIFT_ORDER, finishedShift).length - 1;
     } else return null;
   }
-  const questId = getQuestShiftSlots(QUEST_SHIFT_ORDER, finishedShift)[finishedSlot]?.questId;
+  const questId = getQuestShiftSlots(SHIFT_ORDER, finishedShift)[finishedSlot]?.questId;
   return questId && (profile.quests[questId]?.completedCount ?? 0) > 0 ? questId : null;
 }
 
@@ -543,7 +547,7 @@ export default function FollowCameraScene() {
   }, [questDirector]);
   const fireSnapshot = useStore(questFireController.store);
   const shiftBadgeQuestIds = useMemo(
-    () => getQuestShiftSlots(QUEST_SHIFT_ORDER, directedIncident.shift).map((slot) => slot.questId),
+    () => getQuestShiftSlots(SHIFT_ORDER, directedIncident.shift).map((slot) => slot.questId),
     [directedIncident.shift],
   );
   const starBoard = useMemo(
@@ -575,6 +579,22 @@ export default function FollowCameraScene() {
       current.state.phase === 'active' ? current.resolve(fireSnapshot.debrief!.outcome) : current,
     );
   }, [directedIncident, fireSnapshot.debrief, questDirector]);
+  // Development-only proof that a `?perfScene=` route actually booted the
+  // incident it claims to benchmark, so browser acceptance fails on a broken
+  // route instead of on a screenshot nobody compares (#217).
+  useEffect(() => {
+    if (!import.meta.env.DEV || !PERFORMANCE_SCENE) return;
+    window.__hivePerfScene = {
+      sceneId: PERFORMANCE_SCENE.id,
+      questId: directedIncident.questId,
+      slot: directedIncident.slot,
+      seed: directedIncident.seed,
+      styleId: activeStyleId,
+    };
+    return () => {
+      delete window.__hivePerfScene;
+    };
+  }, [activeStyleId, directedIncident]);
   // Save the precise lifecycle boundary. In particular, `next` retains
   // wrappedShift before activation, so the end of a five-fire shift is never
   // ambiguous to a reload or development investigation.
@@ -744,7 +764,7 @@ export default function FollowCameraScene() {
     setLatestBadgeId(null);
     setStationCelebration(null);
     questFireController.restart();
-    setQuestDirector(createQuestDirector(QUEST_SHIFT_ORDER).start());
+    setQuestDirector(createQuestDirector(SHIFT_ORDER).start());
   }, []);
 
   useEffect(() => {
@@ -904,7 +924,7 @@ export default function FollowCameraScene() {
           <DevTelemetry
             districtName={DISTRICT.name}
             questIndex={directedIncident.slot}
-            questCount={QUEST_SHIFT_ORDER.slots.length}
+            questCount={SHIFT_ORDER.slots.length}
             questName={quietTown ? 'Quiet town' : directedQuestSite.name}
             distanceMeters={approach?.distanceMeters ?? null}
             approach={approachBand}

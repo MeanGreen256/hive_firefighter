@@ -225,6 +225,20 @@ function snapshotExpression() {
   })()`;
 }
 
+function performanceSnapshotExpression() {
+  return `(() => {
+    const canvas = document.querySelector('canvas');
+    return {
+      scene: window.__hivePerfScene ?? null,
+      canvasWidth: canvas?.width ?? 0,
+      canvasHeight: canvas?.height ?? 0,
+      errorOverlay: Boolean(document.querySelector('vite-error-overlay')),
+      metrics: window.__hivePerf?.getMetrics() ?? null,
+      shadowAutoUpdate: window.__hiveRenderDiagnostics?.getShadowAutoUpdate() ?? null
+    };
+  })()`;
+}
+
 async function visibleFrameColorCount(session, sessionId, screenshot) {
   const expression = `(async () => {
     const image = new Image();
@@ -267,6 +281,24 @@ async function waitForFrame(session, sessionId, scenario) {
   throw new Error('Timed out waiting for a visible, sampled preview frame');
 }
 
+async function waitForPerformanceFrame(session, sessionId, scenario) {
+  const deadline = Date.now() + frameTimeoutMs;
+  while (Date.now() < deadline) {
+    if (session.errors.length > 0) throw new Error(session.errors.join('\n'));
+    const snapshot = await session.evaluate(performanceSnapshotExpression(), sessionId);
+    if (
+      snapshot.scene?.sceneId === scenario.sceneId &&
+      snapshot.metrics?.drawCalls !== null &&
+      snapshot.metrics?.drawCalls !== undefined
+    ) {
+      return snapshot;
+    }
+    if (snapshot.errorOverlay) throw new Error('Vite error overlay is visible');
+    await wait(120);
+  }
+  throw new Error('Timed out waiting for a sampled render-budget frame');
+}
+
 async function loadAcceptanceContracts() {
   const server = await createViteServer({
     configFile: join(rootDirectory, 'vite.config.ts'),
@@ -282,6 +314,7 @@ async function loadAcceptanceContracts() {
 const chromePath = chromeExecutable();
 const contracts = await loadAcceptanceContracts();
 const matrix = contracts.createPreviewAcceptanceMatrix();
+const performanceMatrix = contracts.createPerformanceSceneAcceptanceMatrix();
 const port = await availablePort();
 const baseUrl = `http://127.0.0.1:${port}`;
 const profileDirectory = await mkdtemp(join(tmpdir(), 'hive-firefighter-acceptance-'));
@@ -383,6 +416,40 @@ try {
     }
   }
 
+  // The documented render-budget routes boot the real game scene rather than
+  // the preview harness, so only this pass catches a fixture that throws
+  // before a frame exists (#217).
+  for (const scenario of performanceMatrix) {
+    const key = contracts.performanceSceneAcceptanceKey(scenario);
+    session.resetDiagnostics();
+    await session.command('Page.navigate', { url: `${baseUrl}${scenario.url}` }, sessionId);
+    try {
+      let snapshot = await waitForPerformanceFrame(session, sessionId, scenario);
+      const capture = await session.command('Page.captureScreenshot', { format: 'png' }, sessionId);
+      const distinctFrameColors = await visibleFrameColorCount(session, sessionId, capture.data);
+      snapshot = { ...snapshot, distinctFrameColors };
+      const problems = contracts.collectPerformanceSceneProblems(scenario, snapshot);
+      if (session.errors.length > 0)
+        problems.push(...session.errors.map((error) => `${key}: ${error}`));
+      if (artifactDirectory) {
+        const filename = `${key.replaceAll('/', '--')}.png`;
+        await writeFile(join(artifactDirectory, filename), Buffer.from(capture.data, 'base64'));
+      }
+      if (problems.length > 0) throw new Error(problems.join('\n'));
+      report.push({
+        key,
+        ...snapshot.metrics,
+        distinctFrameColors,
+        shadowAutoUpdate: snapshot.shadowAutoUpdate,
+      });
+      process.stdout.write(
+        `${key}: ${scenario.questId} seed ${scenario.seed}, ${snapshot.metrics.drawCalls} draws, ${snapshot.metrics.triangles} triangles, ${distinctFrameColors} colors\n`,
+      );
+    } catch (error) {
+      throw new Error(`${key}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   if (artifactDirectory) {
     await writeFile(
       join(artifactDirectory, 'metrics.json'),
@@ -390,7 +457,8 @@ try {
     );
   }
   process.stdout.write(
-    `Browser acceptance passed for ${report.length} quest/state/style combinations.\n`,
+    `Browser acceptance passed for ${matrix.length} quest/state/style combinations ` +
+      `and ${performanceMatrix.length} render-budget scene/style routes.\n`,
   );
 } finally {
   session?.close();

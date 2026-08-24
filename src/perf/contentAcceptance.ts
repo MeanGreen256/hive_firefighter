@@ -9,6 +9,12 @@
 import { CellState } from '@sim/cellGrid';
 import { createQuestFire, getQuestPresentation, QUESTS, type QuestDefinition } from '@sim/quests';
 import { buildQuestPreviewController } from '../state/questPreviewSetup';
+import {
+  PERFORMANCE_SCENE_IDS,
+  getPerformanceScene,
+  type PerformanceSceneId,
+} from './acceptanceScene';
+import { getPerformanceSceneIncident } from './benchmarkShift';
 import { STYLES, STYLE_IDS, type StyleId } from '@styles/styles';
 import { PERFORMANCE_BUDGETS, type PerformanceMetrics } from './metrics';
 import {
@@ -116,6 +122,141 @@ export function createPreviewAcceptanceMatrix(
   );
 }
 
+/** One budget verdict for every browser route, preview or benchmark. */
+function checkMetricBudgets(metrics: PerformanceMetrics, fail: (message: string) => void): void {
+  if (metrics.drawCalls === null || metrics.drawCalls >= ACCEPTANCE_BUDGETS.maxDrawCalls) {
+    fail(
+      `drawCalls=${String(metrics.drawCalls)} must stay below ${ACCEPTANCE_BUDGETS.maxDrawCalls}`,
+    );
+  }
+  if (metrics.particleCount >= ACCEPTANCE_BUDGETS.maxParticleCount) {
+    fail(
+      `particleCount=${metrics.particleCount} must stay below ${ACCEPTANCE_BUDGETS.maxParticleCount}`,
+    );
+  }
+  if (metrics.triangles === null || metrics.triangles > ACCEPTANCE_BUDGETS.maxTriangles) {
+    fail(
+      `triangles=${String(metrics.triangles)} must stay below ${ACCEPTANCE_BUDGETS.maxTriangles}`,
+    );
+  }
+  if (metrics.fps === null || metrics.fps < ACCEPTANCE_BUDGETS.minHostedFps) {
+    fail(`hosted fps=${String(metrics.fps)} must stay above ${ACCEPTANCE_BUDGETS.minHostedFps}`);
+  }
+  if (
+    metrics.frameTimeMs === null ||
+    metrics.frameTimeMs > ACCEPTANCE_BUDGETS.maxHostedFrameTimeMs
+  ) {
+    fail(
+      `hosted frameTimeMs=${String(metrics.frameTimeMs)} must stay below ${ACCEPTANCE_BUDGETS.maxHostedFrameTimeMs}`,
+    );
+  }
+  if (metrics.simTickMs !== null && metrics.simTickMs >= ACCEPTANCE_BUDGETS.maxSimTickMs) {
+    fail(`simTickMs=${metrics.simTickMs} must stay below ${ACCEPTANCE_BUDGETS.maxSimTickMs}`);
+  }
+}
+
+/**
+ * The render-budget half of browser acceptance (#217).
+ *
+ * The preview matrix above reviews authored content; these routes boot the
+ * real game scene at a frozen benchmark incident. CI exercised only the
+ * former, which is why seven `?perfScene=` routes could throw on boot for a
+ * whole milestone while the pipeline stayed green.
+ */
+export interface PerformanceSceneAcceptanceCase {
+  readonly sceneId: PerformanceSceneId;
+  readonly questId: string;
+  readonly slot: number;
+  readonly seed: number;
+  readonly styleId: StyleId;
+  readonly url: string;
+}
+
+/** What a booted `?perfScene=` route reports about itself in development. */
+export interface PerformanceSceneBrowserSnapshot {
+  readonly scene: {
+    readonly sceneId: string;
+    readonly questId: string;
+    readonly slot: number;
+    readonly seed: number;
+    readonly styleId: string;
+  } | null;
+  readonly canvasWidth: number;
+  readonly canvasHeight: number;
+  readonly errorOverlay: boolean;
+  readonly metrics: PerformanceMetrics;
+  readonly shadowAutoUpdate: boolean | null;
+  readonly distinctFrameColors: number;
+}
+
+export function createPerformanceSceneAcceptanceMatrix(
+  sceneIds: readonly PerformanceSceneId[] = PERFORMANCE_SCENE_IDS,
+  styles: readonly StyleId[] = STYLE_IDS,
+): PerformanceSceneAcceptanceCase[] {
+  return sceneIds.flatMap((sceneId) => {
+    const incident = getPerformanceSceneIncident(getPerformanceScene(sceneId));
+    return styles.map((styleId) => ({
+      sceneId,
+      questId: incident.questId,
+      slot: incident.slot,
+      seed: incident.seed,
+      styleId,
+      url: `/?perfScene=${encodeURIComponent(sceneId)}` + `&style=${encodeURIComponent(styleId)}`,
+    }));
+  });
+}
+
+export function performanceSceneAcceptanceKey(scenario: PerformanceSceneAcceptanceCase): string {
+  return `perfScene/${scenario.sceneId}/${scenario.styleId}`;
+}
+
+/** A failure names the route, so a broken benchmark is fixable from CI output alone. */
+export function collectPerformanceSceneProblems(
+  scenario: PerformanceSceneAcceptanceCase,
+  snapshot: PerformanceSceneBrowserSnapshot,
+): string[] {
+  const problems: string[] = [];
+  const prefix = performanceSceneAcceptanceKey(scenario);
+  const fail = (message: string) => problems.push(`${prefix}: ${message}`);
+
+  if (snapshot.errorOverlay) fail('the page contains a Vite error overlay');
+  if (snapshot.canvasWidth <= 0 || snapshot.canvasHeight <= 0) fail('the WebGL canvas is blank');
+  if (snapshot.scene === null) {
+    fail('the route never booted a performance fixture');
+  } else {
+    const { scene } = snapshot;
+    if (scene.sceneId !== scenario.sceneId) {
+      fail(`booted fixture ${JSON.stringify(scene.sceneId)}, expected ${scenario.sceneId}`);
+    }
+    // The whole point of a benchmark: the same incident, at the same authored
+    // seed, whatever the child's rotating shift currently holds.
+    if (scene.questId !== scenario.questId) {
+      fail(
+        `measured incident ${JSON.stringify(scene.questId)}, expected ${JSON.stringify(scenario.questId)}`,
+      );
+    }
+    if (scene.seed !== scenario.seed) {
+      fail(`measured seed ${String(scene.seed)}, expected ${String(scenario.seed)}`);
+    }
+    if (scene.slot !== scenario.slot) {
+      fail(`measured benchmark slot ${String(scene.slot)}, expected ${String(scenario.slot)}`);
+    }
+    if (scene.styleId !== scenario.styleId) {
+      fail(`rendered style ${JSON.stringify(scene.styleId)}, expected ${scenario.styleId}`);
+    }
+  }
+  if (snapshot.distinctFrameColors < ACCEPTANCE_BUDGETS.minDistinctFrameColors) {
+    fail(
+      `the captured frame has ${snapshot.distinctFrameColors} visible colors; expected at least ${ACCEPTANCE_BUDGETS.minDistinctFrameColors}`,
+    );
+  }
+  checkMetricBudgets(snapshot.metrics, fail);
+  if (snapshot.shadowAutoUpdate !== false) {
+    fail('static shadows are refreshing continuously instead of using one baked pass');
+  }
+  return problems;
+}
+
 export function capturePreviewAcceptanceFrame(
   scenario: PreviewAcceptanceCase,
 ): PreviewAcceptanceFrame {
@@ -221,36 +362,7 @@ export function collectBrowserAcceptanceProblems(
     fail('the authored propane countdown is not visible in preview telemetry');
   }
 
-  const { metrics } = snapshot;
-  if (metrics.drawCalls === null || metrics.drawCalls >= ACCEPTANCE_BUDGETS.maxDrawCalls) {
-    fail(
-      `drawCalls=${String(metrics.drawCalls)} must stay below ${ACCEPTANCE_BUDGETS.maxDrawCalls}`,
-    );
-  }
-  if (metrics.particleCount >= ACCEPTANCE_BUDGETS.maxParticleCount) {
-    fail(
-      `particleCount=${metrics.particleCount} must stay below ${ACCEPTANCE_BUDGETS.maxParticleCount}`,
-    );
-  }
-  if (metrics.triangles === null || metrics.triangles > ACCEPTANCE_BUDGETS.maxTriangles) {
-    fail(
-      `triangles=${String(metrics.triangles)} must stay below ${ACCEPTANCE_BUDGETS.maxTriangles}`,
-    );
-  }
-  if (metrics.fps === null || metrics.fps < ACCEPTANCE_BUDGETS.minHostedFps) {
-    fail(`hosted fps=${String(metrics.fps)} must stay above ${ACCEPTANCE_BUDGETS.minHostedFps}`);
-  }
-  if (
-    metrics.frameTimeMs === null ||
-    metrics.frameTimeMs > ACCEPTANCE_BUDGETS.maxHostedFrameTimeMs
-  ) {
-    fail(
-      `hosted frameTimeMs=${String(metrics.frameTimeMs)} must stay below ${ACCEPTANCE_BUDGETS.maxHostedFrameTimeMs}`,
-    );
-  }
-  if (metrics.simTickMs !== null && metrics.simTickMs >= ACCEPTANCE_BUDGETS.maxSimTickMs) {
-    fail(`simTickMs=${metrics.simTickMs} must stay below ${ACCEPTANCE_BUDGETS.maxSimTickMs}`);
-  }
+  checkMetricBudgets(snapshot.metrics, fail);
   if (snapshot.shadowAutoUpdate !== false) {
     fail('static shadows are refreshing continuously instead of using one baked pass');
   }

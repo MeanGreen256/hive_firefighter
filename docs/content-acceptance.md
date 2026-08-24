@@ -25,19 +25,32 @@ or downloaded browser package is required. GitHub's `ubuntu-latest` runner
 already provides `google-chrome`. Set `CHROME_PATH=/path/to/chrome` locally if
 the executable is not on `PATH`.
 
+The browser run covers two matrices. First the open-ended preview matrix — every
+authored quest, in every reachable preview state, in both styles. Then the nine
+documented `?perfScene=` render-budget routes in both styles, which boot the
+**real game scene** rather than the preview harness. That second pass exists
+because CI once stayed green for a milestone while seven of those routes threw
+on boot (#217): only a run that opens the shipped scene can catch a fixture that
+never renders. Each route must report the benchmark incident and authored seed
+it claims to measure, so a fixture silently drifting onto another incident fails
+the same way a budget regression does.
+
 Set `ACCEPTANCE_ARTIFACT_DIR=artifacts/acceptance` to retain each PNG screenshot
 and a machine-readable `metrics.json` report. CI uploads these artifacts when a
 gate fails.
 
 ## What fails a pull request
 
-Every failure includes the quest id, preview state, and art direction.
+Every failure includes the quest id, preview state, and art direction — or, for
+a render-budget route, the `perfScene` id and art direction.
 
 - Missing/invalid authored content or deterministic preview setup.
 - An added or deleted quest/state/style with no reviewed visual baseline.
 - Changed visual tokens, fire-cell states, hazard state, stars, or camera pose.
 - Missing telemetry, blank canvas, invisible/unstyled debrief, or preview/Vite
   error overlays.
+- A `?perfScene=` route that fails to boot, or that measures an incident, seed,
+  benchmark slot, or style other than the one its fixture names.
 - JavaScript exceptions, browser console errors, missing assets, or repeatedly
   emitted deprecation warnings.
 - Draws at or above **72**, leaving eight calls below the shipped `<80` limit.

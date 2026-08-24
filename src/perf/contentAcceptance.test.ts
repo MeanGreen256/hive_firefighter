@@ -6,14 +6,21 @@ import {
   ACCEPTANCE_BUDGETS,
   capturePreviewAcceptanceFrame,
   collectBrowserAcceptanceProblems,
+  collectPerformanceSceneProblems,
+  createPerformanceSceneAcceptanceMatrix,
   createPreviewAcceptanceMatrix,
   isPreviewStateReachable,
+  performanceSceneAcceptanceKey,
   previewAcceptanceKey,
   previewFrameFingerprint,
   type AcceptanceBrowserSnapshot,
+  type PerformanceSceneAcceptanceCase,
+  type PerformanceSceneBrowserSnapshot,
 } from './contentAcceptance';
+import { PERFORMANCE_SCENE_IDS } from './acceptanceScene';
 
 const matrix = createPreviewAcceptanceMatrix();
+const performanceMatrix = createPerformanceSceneAcceptanceMatrix();
 const baselineFingerprints = baselines as Readonly<Record<string, string>>;
 
 function healthySnapshot(
@@ -165,5 +172,116 @@ describe('browser visual and render-budget gate', () => {
     expect(problems.join('\n')).toContain('QUEST telemetry does not identify');
     expect(problems.join('\n')).toContain('missing its open debrief dialog');
     expect(problems.join('\n')).toContain('no resolved style-specific HUD background');
+  });
+});
+
+function bootedPerformanceSnapshot(
+  scenario: PerformanceSceneAcceptanceCase,
+  overrides: Partial<PerformanceSceneBrowserSnapshot> = {},
+): PerformanceSceneBrowserSnapshot {
+  return {
+    scene: {
+      sceneId: scenario.sceneId,
+      questId: scenario.questId,
+      slot: scenario.slot,
+      seed: scenario.seed,
+      styleId: scenario.styleId,
+    },
+    canvasWidth: ACCEPTANCE_BUDGETS.viewportWidth,
+    canvasHeight: ACCEPTANCE_BUDGETS.viewportHeight,
+    errorOverlay: false,
+    metrics: {
+      fps: 60,
+      frameTimeMs: 16.67,
+      drawCalls: 56,
+      triangles: 230_000,
+      particleCount: 0,
+      simTickMs: 0.2,
+    },
+    shadowAutoUpdate: false,
+    distinctFrameColors: 32,
+    ...overrides,
+  };
+}
+
+describe('render-budget route acceptance', () => {
+  it('covers every documented perfScene in both live styles', () => {
+    expect(performanceMatrix).toHaveLength(PERFORMANCE_SCENE_IDS.length * STYLE_IDS.length);
+    for (const sceneId of PERFORMANCE_SCENE_IDS) {
+      for (const styleId of STYLE_IDS) {
+        const scenario = performanceMatrix.find(
+          (candidate) => candidate.sceneId === sceneId && candidate.styleId === styleId,
+        );
+        expect(scenario, `${sceneId}/${styleId} has no render-budget coverage`).toBeDefined();
+        expect(scenario!.url).toBe(`/?perfScene=${sceneId}&style=${styleId}`);
+        expect(scenario!.questId).not.toBe('');
+      }
+    }
+    expect(new Set(performanceMatrix.map(performanceSceneAcceptanceKey)).size).toBe(
+      performanceMatrix.length,
+    );
+  });
+
+  it('accepts a route that booted its benchmark incident within budget', () => {
+    expect(
+      collectPerformanceSceneProblems(
+        performanceMatrix[0]!,
+        bootedPerformanceSnapshot(performanceMatrix[0]!),
+      ),
+    ).toEqual([]);
+  });
+
+  /** A route that throws before rendering never reports a fixture at all. */
+  it('fails a route that never booted its fixture', () => {
+    const scenario = performanceMatrix[0]!;
+    const problems = collectPerformanceSceneProblems(
+      scenario,
+      bootedPerformanceSnapshot(scenario, { scene: null, canvasWidth: 0 }),
+    );
+    expect(problems.join('\n')).toContain('never booted a performance fixture');
+    expect(problems.join('\n')).toContain('the WebGL canvas is blank');
+    expect(
+      problems.every((problem) => problem.startsWith(performanceSceneAcceptanceKey(scenario))),
+    ).toBe(true);
+  });
+
+  it('fails a route that quietly measures a different incident or seed', () => {
+    const scenario = performanceMatrix.find((candidate) => candidate.sceneId === 'hazard')!;
+    const problems = collectPerformanceSceneProblems(
+      scenario,
+      bootedPerformanceSnapshot(scenario, {
+        scene: {
+          sceneId: scenario.sceneId,
+          questId: 'meadow-picnic',
+          slot: scenario.slot,
+          seed: scenario.seed + 1,
+          styleId: scenario.styleId,
+        },
+      }),
+    );
+    expect(problems.join('\n')).toContain('measured incident "meadow-picnic"');
+    expect(problems.join('\n')).toContain('measured seed');
+  });
+
+  it('holds render-budget routes to the same reserved headroom as previews', () => {
+    const scenario = performanceMatrix[0]!;
+    const problems = collectPerformanceSceneProblems(
+      scenario,
+      bootedPerformanceSnapshot(scenario, {
+        distinctFrameColors: 1,
+        shadowAutoUpdate: true,
+        metrics: {
+          fps: 60,
+          frameTimeMs: 16.67,
+          drawCalls: ACCEPTANCE_BUDGETS.maxDrawCalls,
+          triangles: ACCEPTANCE_BUDGETS.maxTriangles + 1,
+          particleCount: 0,
+          simTickMs: 0.2,
+        },
+      }),
+    );
+    expect(problems.join('\n')).toContain(`drawCalls=${ACCEPTANCE_BUDGETS.maxDrawCalls}`);
+    expect(problems.join('\n')).toContain('static shadows are refreshing continuously');
+    expect(problems.join('\n')).toContain('visible colors');
   });
 });
