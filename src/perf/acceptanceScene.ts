@@ -1,3 +1,27 @@
+/**
+ * Fixed render-budget fixtures (#155, #217).
+ *
+ * A benchmark only means something if it measures the same incident every
+ * time, so each scene below names its incident outright. It used to name a
+ * district site index instead, which the scene then looked up in whichever
+ * five-call shift the child was currently playing — so the moment rotation
+ * (#213) moved the propane bakery out of the opening roster, seven documented
+ * routes threw before a frame could render. Benchmarks and progression are
+ * different clocks; `benchmarkShift.ts` gives fixtures their own frozen
+ * roster so neither one moves the other.
+ */
+
+/** The frozen benchmark roster, in the order the recorded results assume. */
+export const PERFORMANCE_BENCHMARK_QUEST_IDS = [
+  'bandstand-green',
+  'bakery-awning',
+  'firehouse-yard',
+  'meadow-picnic',
+  'harbour-yard',
+] as const;
+
+export type PerformanceBenchmarkQuestId = (typeof PERFORMANCE_BENCHMARK_QUEST_IDS)[number];
+
 export const PERFORMANCE_SCENE_IDS = [
   'spawn',
   'approach',
@@ -14,7 +38,8 @@ export type PerformanceSceneId = (typeof PERFORMANCE_SCENE_IDS)[number];
 
 export interface PerformanceAcceptanceScene {
   readonly id: PerformanceSceneId;
-  readonly questIndex: number;
+  /** The benchmark incident this fixture measures, independent of any shift. */
+  readonly questId: PerformanceBenchmarkQuestId;
   readonly onFoot: boolean;
   readonly advanceFireSeconds: number;
   readonly completeQuest: boolean;
@@ -28,7 +53,7 @@ export interface PerformanceAcceptanceScene {
 const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAcceptanceScene>> = {
   spawn: {
     id: 'spawn',
-    questIndex: 0,
+    questId: 'bandstand-green',
     onFoot: false,
     advanceFireSeconds: 0,
     completeQuest: false,
@@ -40,7 +65,7 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
   },
   approach: {
     id: 'approach',
-    questIndex: 1,
+    questId: 'bakery-awning',
     onFoot: false,
     advanceFireSeconds: 12,
     completeQuest: false,
@@ -52,7 +77,7 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
   },
   'on-foot': {
     id: 'on-foot',
-    questIndex: 0,
+    questId: 'bandstand-green',
     onFoot: true,
     advanceFireSeconds: 0,
     completeQuest: false,
@@ -64,7 +89,7 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
   },
   incident: {
     id: 'incident',
-    questIndex: 1,
+    questId: 'bakery-awning',
     onFoot: true,
     advanceFireSeconds: 20,
     completeQuest: false,
@@ -76,7 +101,7 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
   },
   spray: {
     id: 'spray',
-    questIndex: 1,
+    questId: 'bakery-awning',
     onFoot: true,
     advanceFireSeconds: 20,
     completeQuest: false,
@@ -88,7 +113,7 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
   },
   hazard: {
     id: 'hazard',
-    questIndex: 1,
+    questId: 'bakery-awning',
     onFoot: true,
     advanceFireSeconds: 0,
     completeQuest: false,
@@ -100,7 +125,7 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
   },
   collapse: {
     id: 'collapse',
-    questIndex: 1,
+    questId: 'bakery-awning',
     onFoot: true,
     advanceFireSeconds: 0,
     completeQuest: false,
@@ -112,7 +137,7 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
   },
   aftermath: {
     id: 'aftermath',
-    questIndex: 1,
+    questId: 'bakery-awning',
     onFoot: true,
     advanceFireSeconds: 0,
     completeQuest: false,
@@ -124,7 +149,7 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
   },
   debrief: {
     id: 'debrief',
-    questIndex: 1,
+    questId: 'bakery-awning',
     onFoot: true,
     advanceFireSeconds: 0,
     completeQuest: true,
@@ -135,6 +160,11 @@ const PERFORMANCE_SCENES: Readonly<Record<PerformanceSceneId, PerformanceAccepta
     freezeClock: false,
   },
 };
+
+/** The fixture behind one documented scene id. */
+export function getPerformanceScene(id: PerformanceSceneId): PerformanceAcceptanceScene {
+  return PERFORMANCE_SCENES[id];
+}
 
 /** Development-only URL contract for repeatable M3 render-budget measurements. */
 export function performanceSceneFromSearch(search: string): PerformanceAcceptanceScene | null {

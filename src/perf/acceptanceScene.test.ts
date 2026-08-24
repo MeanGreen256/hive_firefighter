@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { performanceSceneFromSearch } from './acceptanceScene';
+import {
+  getPerformanceScene,
+  PERFORMANCE_BENCHMARK_QUEST_IDS,
+  PERFORMANCE_SCENE_IDS,
+  performanceSceneFromSearch,
+} from './acceptanceScene';
 
 describe('performance acceptance scenes', () => {
   it('keeps ordinary play out of the profiling setup', () => {
@@ -10,7 +15,7 @@ describe('performance acceptance scenes', () => {
   it('defines a repeatable active incident at the bakery vertical slice', () => {
     expect(performanceSceneFromSearch('?style=ink&perfScene=incident')).toEqual({
       id: 'incident',
-      questIndex: 1,
+      questId: 'bakery-awning',
       onFoot: true,
       advanceFireSeconds: 20,
       completeQuest: false,
@@ -25,7 +30,7 @@ describe('performance acceptance scenes', () => {
   it('can isolate the on-foot hero and hose-ready silhouette', () => {
     expect(performanceSceneFromSearch('?perfScene=on-foot')).toEqual({
       id: 'on-foot',
-      questIndex: 0,
+      questId: 'bandstand-green',
       onFoot: true,
       advanceFireSeconds: 0,
       completeQuest: false,
@@ -40,7 +45,7 @@ describe('performance acceptance scenes', () => {
   it('stages a frozen chase approach before the shoulder-camera scenes', () => {
     expect(performanceSceneFromSearch('?perfScene=approach')).toMatchObject({
       id: 'approach',
-      questIndex: 1,
+      questId: 'bakery-awning',
       onFoot: false,
       advanceFireSeconds: 12,
       cameraStage: 'approach',
@@ -87,5 +92,11 @@ describe('performance acceptance scenes', () => {
       id: 'debrief',
       completeQuest: true,
     });
+  });
+
+  it('names the incident each benchmark measures instead of a shift position', () => {
+    for (const sceneId of PERFORMANCE_SCENE_IDS) {
+      expect(PERFORMANCE_BENCHMARK_QUEST_IDS).toContain(getPerformanceScene(sceneId).questId);
+    }
   });
 });
