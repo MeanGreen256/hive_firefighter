@@ -75,6 +75,18 @@ Both `contained` and `scorched` are terminal completions under ADR-008, so a
 run accepts either outcome — what it will not accept is an incident that
 finished without the hose being on it.
 
+## What it has already found
+
+- **#239 — seven minutes between the last flame and the stars.** An incident
+  stays `active` while any cell is still warm, and warm cells cool at a floor of
+  0.2 heat a second, so even a fire doused in under a second leaves the child
+  waiting. Reproduced deterministically without a browser, in the issue. The
+  runner waits it out on a ten-minute settling grace and prints the measured gap
+  on every run; when #239 lands, both should drop to seconds.
+- **The hose got weaker the slower your device.** Water was metered against the
+  renderer's frame clamp while fire advanced by real time — see
+  `src/render/hoseWater.ts`.
+
 ## What it does not cover yet
 
 - **Gamepad.** The Gamepad API cannot be driven from outside the page, so

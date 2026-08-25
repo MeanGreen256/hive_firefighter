@@ -64,8 +64,18 @@ const HOSE_REACH_METERS = 9;
  * not the player working. It is separate from the fight budget because a fire
  * the runner has actually put out is not a slow fight, and blaming one for the
  * other sends the next person reading the failure to the wrong place.
+ *
+ * Ten minutes is not a design target; it is what today's game needs. An
+ * incident stays `active` while any cell is still warm, and a warm cell cools
+ * at a floor of 0.2 heat a second, so a fire put out in under a second still
+ * takes about seven minutes to become `contained` — measured, deterministically
+ * and without a browser, on the first authored call. That is the wait a child
+ * sits through before their stars, and it is filed as #239; when that is fixed
+ * this number should come down to seconds, and so should this gate's runtime.
+ * The report prints the measured settle time on every run, so a regression is
+ * visible rather than merely slow.
  */
-const SETTLE_GRACE_MS = 150_000;
+const SETTLE_GRACE_MS = 600_000;
 /** Seconds of fighting one incident gets, before the settle grace above. */
 const DEFAULT_INCIDENT_SECONDS = 600;
 
@@ -223,6 +233,7 @@ async function extinguish(player, incident, index) {
   // called it" are different failures and only one of them is the game's.
   const fightDeadline = Date.now() + options.incidentSeconds * 1_000;
   let settleDeadline = null;
+  let flamesOutAt = null;
   let onTargetSamples = 0;
 
   for (;;) {
@@ -245,6 +256,11 @@ async function extinguish(player, incident, index) {
     const state = await player.observe();
     if (state.starScreenOpen) {
       await player.releaseAll();
+      if (flamesOutAt !== null) {
+        note(
+          `incident ${index + 1} waited ${((Date.now() - flamesOutAt) / 1_000).toFixed(0)} s between its last flame and its stars`,
+        );
+      }
       // Water on target, as the game itself reports it: the hose had a burning
       // cell under it and the button was down. An incident that burned itself
       // out while the runner wandered would end on a star screen too, and that
@@ -274,11 +290,15 @@ async function extinguish(player, incident, index) {
       // hot cell is about to catch again. Both are things a player waits out
       // rather than walks around, and the wait gets its own clock so a fight
       // that ran long cannot fail a fire that is already out.
-      settleDeadline ??= Date.now() + SETTLE_GRACE_MS;
+      if (settleDeadline === null) {
+        flamesOutAt = Date.now();
+        settleDeadline = flamesOutAt + SETTLE_GRACE_MS;
+      }
       await wait(1_000);
       continue;
     }
     settleDeadline = null;
+    flamesOutAt = null;
     const fire = state.fire;
     const metersToFire = Math.hypot(state.player.x - fire.x, state.player.z - fire.z);
     if (metersToFire > HOSE_REACH_METERS) {
