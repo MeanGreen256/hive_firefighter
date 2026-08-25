@@ -16,7 +16,7 @@
  *
  * Everything it asserts is something a player would notice.
  *
- *   node scripts/production-journey.mjs [--incidents=N] [--skip-build]
+ *   node scripts/production-journey.mjs [--incidents=N] [--incident-seconds=S] [--skip-build]
  */
 
 import { spawn } from 'node:child_process';
@@ -57,16 +57,37 @@ const DEFAULT_INCIDENTS = 5;
 const MINIMUM_FRAME_COLORS = 8;
 /** `HOSE_AIM_MAX_RANGE_METERS`: past this, no aim helps and only walking does. */
 const HOSE_REACH_METERS = 9;
+/**
+ * How long an incident gets to end itself once the last flame is out.
+ *
+ * Hot cells cool on the simulation's own clock, so this is the game settling,
+ * not the player working. It is separate from the fight budget because a fire
+ * the runner has actually put out is not a slow fight, and blaming one for the
+ * other sends the next person reading the failure to the wrong place.
+ */
+const SETTLE_GRACE_MS = 150_000;
+/** Seconds of fighting one incident gets, before the settle grace above. */
+const DEFAULT_INCIDENT_SECONDS = 600;
 
 const options = parseOptions(process.argv.slice(2));
 const problems = [];
 const timeline = [];
 
 function parseOptions(argv) {
-  const parsed = { incidents: DEFAULT_INCIDENTS, build: true };
+  const parsed = {
+    incidents: DEFAULT_INCIDENTS,
+    incidentSeconds: DEFAULT_INCIDENT_SECONDS,
+    build: true,
+  };
   for (const argument of argv) {
     if (argument === '--skip-build') parsed.build = false;
-    else if (argument.startsWith('--incidents=')) {
+    else if (argument.startsWith('--incident-seconds=')) {
+      const seconds = Number(argument.slice('--incident-seconds='.length));
+      if (!Number.isFinite(seconds) || seconds < 30) {
+        throw new Error(`--incident-seconds needs at least 30 seconds, not ${argument}`);
+      }
+      parsed.incidentSeconds = seconds;
+    } else if (argument.startsWith('--incidents=')) {
       const count = Number(argument.slice('--incidents='.length));
       if (!Number.isInteger(count) || count < 1) {
         throw new Error(`--incidents needs a whole number of incidents, not ${argument}`);
@@ -198,10 +219,29 @@ async function playIncident(player, session, sessionId, index) {
  * itself out — both end on a star screen, and only one of them is playing.
  */
 async function extinguish(player, incident, index) {
-  const deadline = Date.now() + 420_000;
+  // Two clocks, because "still fighting" and "fought it out but the game never
+  // called it" are different failures and only one of them is the game's.
+  const fightDeadline = Date.now() + options.incidentSeconds * 1_000;
+  let settleDeadline = null;
   let onTargetSamples = 0;
 
-  while (Date.now() < deadline) {
+  for (;;) {
+    const now = Date.now();
+    if (settleDeadline === null && now > fightDeadline) {
+      await player.releaseAll();
+      const stalled = await player.observe();
+      throw new Error(
+        `Incident ${index + 1} (${incident.questId}) was still alight after ${options.incidentSeconds} s: ${stalled.burningCellCount} cells burning`,
+      );
+    }
+    if (settleDeadline !== null && now > settleDeadline) {
+      await player.releaseAll();
+      const stalled = await player.observe();
+      throw new Error(
+        `Incident ${index + 1} (${incident.questId}) put its last flame out but never finished: ${stalled.heatingCellCount} cells still hot, status ${stalled.incidentStatus}`,
+      );
+    }
+
     const state = await player.observe();
     if (state.starScreenOpen) {
       await player.releaseAll();
@@ -232,10 +272,13 @@ async function extinguish(player, incident, index) {
     if (state.fire === null) {
       // Nothing alight anywhere: either the incident is about to resolve, or a
       // hot cell is about to catch again. Both are things a player waits out
-      // rather than walks around.
+      // rather than walks around, and the wait gets its own clock so a fight
+      // that ran long cannot fail a fire that is already out.
+      settleDeadline ??= Date.now() + SETTLE_GRACE_MS;
       await wait(1_000);
       continue;
     }
+    settleDeadline = null;
     const fire = state.fire;
     const metersToFire = Math.hypot(state.player.x - fire.x, state.player.z - fire.z);
     if (metersToFire > HOSE_REACH_METERS) {
@@ -250,11 +293,6 @@ async function extinguish(player, incident, index) {
     // stream keeps going somewhere the fire is not.
     await player.sweepSprayAt(fire, { timeoutMs: 45_000 });
   }
-  await player.releaseAll();
-  const stalled = await player.observe();
-  throw new Error(
-    `Incident ${index + 1} (${incident.questId}) never finished: ${stalled.burningCellCount} cells still burning`,
-  );
 }
 
 /** Take the stars and land in the quiet town the next call is started from. */
