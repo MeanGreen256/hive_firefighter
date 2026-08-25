@@ -11,6 +11,21 @@ outcomes, and 1–3 stars, as specified in `docs/game-direction.md`. Tank levels
 foam selection, hookup, refill, and hose reach are not part of any runtime
 contract here. Keep the fixed-timestep and renderer/UI boundary.
 
+## The wordless guide
+
+`onboardingGuide.ts` is the memory behind the first-play prompts (#107, #214).
+The step itself stays a pure function in `@ui/onboardingSteps`; this holds the
+two facts that outlive a frame — water has landed on a burning cell for long
+enough to count, and an incident has finished with its star screen up — and
+publishes a step to React only when the prompt actually changes, which is at
+most five times in a lifetime.
+
+It is here rather than in the scene because `restart()` is an API before it is a
+button: an adult can undo a skip or an accidental completion without clearing
+site data, and #222 decides where that control appears. A restart rebases the
+hose's contact counter instead of reaching into the world to zero it, so the
+next player has to earn the hit again.
+
 ## Quest fire controller
 
 `questFireController.ts` is the M3 incident host (#91, #131, #135): one active

@@ -97,9 +97,10 @@ child will never meet it, and it is not in the bundle a player downloads.
 
 `onboardingSteps.ts` answers one question — which prompt is owed right now — as a
 pure function of what the player has done: how far the truck has moved, how far
-they are from the quest site, whether they are on foot, and whether water has
-ever left the nozzle. Four prompts, in order: drive, go to the smoke, hop out,
-hold to squirt.
+they are from the quest site, whether they are on foot, whether water has landed
+on something alight for at least half a second, and whether an incident has
+finished with its star screen up. Four prompts, in order: drive, go to the
+smoke, hop out, hold to squirt.
 
 There is no clock in it. A prompt is owed until the thing it asks for has
 happened, whether that takes four seconds or four minutes, and it can go
@@ -113,7 +114,16 @@ The device glyphs are drawn — a space bar and a round pad button — rather th
 named. The card is `pointer-events: none` apart from its skip control, so a
 child mashing the screen cannot lose the prompt by accident.
 
-It runs once ever. Finishing the first squirt or pressing skip writes a
-completion record to local storage, and a player who has it is never sampled for
-again — `FollowCameraScene` passes a null callback rather than doing frame work
-for nobody.
+It ends on the firefighting working, not on the button being pressed (#214).
+An accidental squirt into empty space produces no suppression contact, so the
+"hold to squirt" prompt is still there when the child looks back at the screen.
+Once water is landing the card goes away — that is the silent `dousing` step —
+but the guide is not finished until an incident ends with stars on the screen,
+so wandering off in between brings the right prompt back.
+
+It runs once ever. Finishing or pressing skip writes a completion record to
+local storage, and a player who has it is never sampled for again —
+`FollowCameraScene` passes a null callback rather than doing frame work for
+nobody. What holds all of that between the 10 Hz world sample and React is
+`state/onboardingGuide.ts`, which also owns the adult restart that puts the
+guide back; where that button lives is #222's decision, not this folder's.

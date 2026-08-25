@@ -15,6 +15,13 @@
  *   "go to the smoke" prompt comes back. That is re-teaching, not punishment —
  *   the alternative is a child stranded with no prompt at all because the game
  *   decided they had already learned it.
+ *
+ * A third rule arrived with #214: **an accident is not a lesson.** The guide
+ * used to finish on the first squirt, so a child who pressed the button once
+ * in the wrong direction lost every remaining prompt for good. What ends it now
+ * is the firefighting actually working — water on a burning cell for long
+ * enough to count, and then the star screen that says the incident is over.
+ * Both halves are things the player can see happen.
  */
 
 import type { StorageLike } from '../state/personalBests';
@@ -28,6 +35,12 @@ export const OnboardingStep = Object.freeze({
   Dismount: 'dismount',
   /** Learn that holding the button puts the fire out. */
   Spray: 'spray',
+  /**
+   * The water is landing on the fire. Nothing is drawn for this step — the
+   * prompt has been answered — but the guide is not finished either, so it
+   * comes back if the player wanders off before the incident is over.
+   */
+  Dousing: 'dousing',
   Done: 'done',
 } as const);
 
@@ -43,19 +56,36 @@ export const ONBOARDING_MOVED_METERS = 6;
  */
 export const ONBOARDING_ARRIVAL_METERS = 16;
 
+/**
+ * Seconds of water actually landing on burning cells that count as "they have
+ * hit the fire".
+ *
+ * Half a second is longer than a stray sweep of the stream across a flame and
+ * far shorter than putting anything out, which is the window this wants: it
+ * rules out the accident the issue is about without asking a five-year-old to
+ * hold anything steady.
+ */
+export const ONBOARDING_EFFECTIVE_HIT_SECONDS = 0.5;
+
 export interface OnboardingSignals {
   /** How far the truck has travelled from where it started. */
   readonly truckMovedMeters: number;
   /** How far the active subject is from the quest site. */
   readonly distanceToQuestMeters: number;
   readonly onFoot: boolean;
-  /** Whether water has actually left the nozzle at least once. */
-  readonly hasSprayed: boolean;
+  /**
+   * Whether water has landed on a burning cell for at least
+   * `ONBOARDING_EFFECTIVE_HIT_SECONDS`. Spraying the sky, the pavement, or a
+   * scorch mark is not a hit: none of them produces a suppression contact.
+   */
+  readonly hasHitFire: boolean;
+  /** Whether an incident has finished with its star screen on screen. */
+  readonly hasSeenIncidentComplete: boolean;
 }
 
 export function getOnboardingStep(signals: OnboardingSignals): OnboardingStepId {
-  if (signals.hasSprayed) return OnboardingStep.Done;
-  if (signals.onFoot) return OnboardingStep.Spray;
+  if (signals.hasHitFire && signals.hasSeenIncidentComplete) return OnboardingStep.Done;
+  if (signals.onFoot) return signals.hasHitFire ? OnboardingStep.Dousing : OnboardingStep.Spray;
   if (signals.distanceToQuestMeters <= ONBOARDING_ARRIVAL_METERS) return OnboardingStep.Dismount;
   if (signals.truckMovedMeters >= ONBOARDING_MOVED_METERS) return OnboardingStep.Approach;
   return OnboardingStep.Drive;
@@ -82,9 +112,24 @@ export function hasCompletedOnboarding(storage: StorageLike | null): boolean {
 }
 
 export function markOnboardingComplete(storage: StorageLike | null): void {
+  writeOnboardingRecord(storage, true);
+}
+
+/**
+ * Give the guide back (#214).
+ *
+ * The adult-facing half of the tutorial: an authorized grown-up can undo a
+ * skip, or an accidental completion, without clearing site data. This module
+ * owns the record; where the button lives is #222's decision.
+ */
+export function clearOnboardingCompletion(storage: StorageLike | null): void {
+  writeOnboardingRecord(storage, false);
+}
+
+function writeOnboardingRecord(storage: StorageLike | null, completed: boolean): void {
   if (!storage) return;
   try {
-    const record: PersistedOnboarding = { version: 1, completed: true };
+    const record: PersistedOnboarding = { version: 1, completed };
     storage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(record));
   } catch {
     // A blocked or full storage costs a repeated tutorial, never a broken game.

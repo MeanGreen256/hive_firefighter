@@ -370,6 +370,14 @@ export function AnchoredHoseEffects({
     if (!forceSpraying && spraying && resolution.targetId !== null) {
       const result = fire.applyWater(resolution.targetId, HOSE_LITRES_PER_SECOND * delta);
       if (result && result.contacts.length > 0) {
+        // How long the water has actually been landing on something alight.
+        // The guide reads it to tell an effective hit from a hopeful squirt
+        // into the sky (#214); nothing else in the game consumes it, and no
+        // objective or score depends on it.
+        character.userData.fireContactSeconds =
+          (typeof character.userData.fireContactSeconds === 'number'
+            ? character.userData.fireContactSeconds
+            : 0) + delta;
         fireAudioSystem.handleWaterApplication(result);
         const scalded = result.contacts.some((contact) =>
           isHotWaterContact({ heat: contact.heatBefore }),

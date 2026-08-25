@@ -30,14 +30,7 @@ import { DevTelemetry } from '@ui/DevTelemetry';
 import { OnboardingCoach } from '@ui/OnboardingCoach';
 import { WorldHud } from '@ui/WorldHud';
 import { ApproachBand, getApproachBand, getFireBand, type ApproachBandId } from '@ui/worldGuidance';
-import {
-  getBrowserOnboardingStorage,
-  getOnboardingStep,
-  hasCompletedOnboarding,
-  markOnboardingComplete,
-  OnboardingStep,
-  type OnboardingStepId,
-} from '@ui/onboardingSteps';
+import { onboardingGuide, type OnboardingWorldSample } from '../state/onboardingGuide';
 import { QuestDebriefPanel } from '@ui/QuestDebriefPanel';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { StationCelebration, type StationCelebrationNotice } from '@ui/StationCelebration';
@@ -219,7 +212,7 @@ interface GameWorldProps {
   readonly truckSpeedRatio: RefObject<number>;
   readonly onBoardingRangeChange: (canBoard: boolean) => void;
   /** Null once the player has been taught, so nothing is sampled for nobody. */
-  readonly onOnboardingStep: ((step: OnboardingStepId) => void) | null;
+  readonly onOnboardingSample: ((sample: OnboardingWorldSample) => void) | null;
   readonly onApproachChange: (approach: ApproachSample) => void;
   readonly performanceScene: PerformanceAcceptanceScene | null;
   readonly quietTown: boolean;
@@ -242,7 +235,7 @@ function GameWorld({
   firefighterRef,
   truckSpeedRatio,
   onBoardingRangeChange,
-  onOnboardingStep,
+  onOnboardingSample,
   onApproachChange,
   performanceScene,
   quietTown,
@@ -262,8 +255,6 @@ function GameWorld({
   const lastCanBoard = useRef(false);
   const lastCanStartNextCall = useRef(false);
   const boardingCheckElapsed = useRef(0);
-  const hasSprayed = useRef(false);
-  const lastOnboardingStep = useRef<OnboardingStepId | null>(null);
   const lastApproachBand = useRef<ApproachBandId | null>(null);
   const telemetryElapsed = useRef(0);
   const approachTruckPosition: readonly [number, number, number] = [activeQuestSite.x - 28, 0, 0];
@@ -328,7 +319,6 @@ function GameWorld({
     // approach meter is four bands wide, so an entire drive across the district
     // costs three renders rather than three hundred.
     if (!truck) return;
-    if (firefighter?.userData.spraying === true) hasSprayed.current = true;
     const subject = mode === 'driving' ? truck : (firefighter ?? truck);
     const distanceToQuestMeters = Math.hypot(
       subject.position.x - activeQuestSite.x,
@@ -347,18 +337,19 @@ function GameWorld({
       onApproachChange({ band, distanceMeters: distanceToQuestMeters });
     }
 
-    if (!onOnboardingStep) return;
+    if (!onOnboardingSample) return;
     const [startX, , startZ] = DISTRICT_LAYOUT.truckStart.position;
-    const step = getOnboardingStep({
+    // Reported every sample; the guide decides what has changed and publishes
+    // to React only when the prompt itself does.
+    onOnboardingSample({
       truckMovedMeters: Math.hypot(truck.position.x - startX, truck.position.z - startZ),
       distanceToQuestMeters,
       onFoot: mode === 'on-foot',
-      hasSprayed: hasSprayed.current,
+      fireContactSeconds:
+        typeof firefighter?.userData.fireContactSeconds === 'number'
+          ? firefighter.userData.fireContactSeconds
+          : 0,
     });
-    if (step !== lastOnboardingStep.current) {
-      lastOnboardingStep.current = step;
-      onOnboardingStep(step);
-    }
   });
 
   return (
@@ -625,22 +616,13 @@ export default function FollowCameraScene() {
    * game is told what to do before they have touched anything — and it is
    * skipped outright, with nothing sampled, for anyone who has finished it once.
    */
-  const [onboardingStep, setOnboardingStep] = useState<OnboardingStepId>(() =>
-    PERFORMANCE_SCENE || hasCompletedOnboarding(getBrowserOnboardingStorage())
-      ? OnboardingStep.Done
-      : OnboardingStep.Drive,
-  );
-  const teaching = onboardingStep !== OnboardingStep.Done;
-  const finishOnboarding = useCallback(() => {
-    markOnboardingComplete(getBrowserOnboardingStorage());
-    setOnboardingStep(OnboardingStep.Done);
-  }, []);
-  const advanceOnboarding = useCallback(
-    (step: OnboardingStepId) => {
-      if (step === OnboardingStep.Done) finishOnboarding();
-      else setOnboardingStep(step);
-    },
-    [finishOnboarding],
+  const onboarding = useStore(onboardingGuide.store);
+  // A benchmark scene is nobody's first play, so it is never taught.
+  const teaching = onboarding.teaching && !PERFORMANCE_SCENE;
+  const skipOnboarding = useCallback(() => onboardingGuide.skip(), []);
+  const reportOnboarding = useCallback(
+    (sample: OnboardingWorldSample) => onboardingGuide.report(sample),
+    [],
   );
 
   useEffect(() => {
@@ -759,6 +741,8 @@ export default function FollowCameraScene() {
   const resetProgress = useCallback(() => {
     if (!window.confirm('Reset all quest progress and cosmetic rewards?')) return;
     progressProfileStore.getState().reset();
+    // A profile with no history is somebody's first play again.
+    onboardingGuide.restart();
     celebratedRewardIds.current = [];
     celebratedShiftCount.current = 0;
     setLatestBadgeId(null);
@@ -793,6 +777,12 @@ export default function FollowCameraScene() {
    * moves the player.
    */
   const debriefOpen = fireSnapshot.debrief !== null && questDirector.state.phase === 'celebrating';
+  // Stars on the screen are the readable half of "you put the fire out" (#214).
+  // Together with a real hit they are what finishes the guide; either alone
+  // leaves it up, because either alone can happen by accident.
+  useEffect(() => {
+    if (debriefOpen) onboardingGuide.noteIncidentComplete();
+  }, [debriefOpen]);
   const pressAction = useCallback(() => {
     if (debriefOpen) return;
     const targetCaptured = firefighterRef.current?.userData.targetCaptured === true;
@@ -882,7 +872,7 @@ export default function FollowCameraScene() {
             firefighterRef={firefighterRef}
             truckSpeedRatio={truckSpeedRatio}
             onBoardingRangeChange={setCanBoard}
-            onOnboardingStep={teaching && !quietTown ? advanceOnboarding : null}
+            onOnboardingSample={teaching && !quietTown ? reportOnboarding : null}
             onApproachChange={setApproach}
             performanceScene={PERFORMANCE_SCENE}
             quietTown={quietTown}
@@ -907,7 +897,9 @@ export default function FollowCameraScene() {
         onNextCall={beginNextCall}
       />
       {/* Hidden behind the star screen: one thing to look at at a time. */}
-      {debriefOpen ? null : <OnboardingCoach step={onboardingStep} onSkip={finishOnboarding} />}
+      {debriefOpen || !teaching ? null : (
+        <OnboardingCoach step={onboarding.step} onSkip={skipOnboarding} />
+      )}
       {debriefOpen ? (
         <QuestDebriefPanel
           onNextQuest={takeNextQuest}
