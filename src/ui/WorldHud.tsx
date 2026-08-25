@@ -68,6 +68,12 @@ export interface WorldHudProps {
   readonly onToggleSiren: () => void;
   readonly quietTown?: boolean;
   readonly nextCallAvailable?: boolean;
+  /**
+   * Puts the wordless guide back for the next player (#214). It lives in the
+   * grown-ups drawer because an adult decides whether a tutorial replays, and
+   * because a child cannot lose anything by pressing it.
+   */
+  readonly onRestartGuide?: (() => void) | undefined;
   readonly onNextCall?: () => void;
 }
 
@@ -102,6 +108,7 @@ export function WorldHud({
   onToggleSiren,
   quietTown = false,
   nextCallAvailable = false,
+  onRestartGuide,
   onNextCall,
 }: WorldHudProps) {
   const boardLabel = onFoot
@@ -214,6 +221,16 @@ export function WorldHud({
           </small>
         </p>
         <VolumeControl />
+        {onRestartGuide ? (
+          <button
+            type="button"
+            className="world-hud__adults-action"
+            aria-label="Show the first-play guide again"
+            onClick={onRestartGuide}
+          >
+            <span aria-hidden="true">🕹</span> Show the guide again
+          </button>
+        ) : null}
       </details>
     </div>
   );
