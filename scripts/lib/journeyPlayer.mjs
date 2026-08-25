@@ -196,17 +196,27 @@ export class JourneyPlayer {
    * five-year-old does with an arcade truck, which is the point — a route
    * baked into the runner would stop testing the driving.
    */
-  async driveTo(target, { arriveMeters = 12, timeoutMs = 90_000, label = 'the target' } = {}) {
+  async driveTo(target, { arriveMeters = 12, timeoutMs = 240_000, label = 'the target' } = {}) {
     const deadline = Date.now() + timeoutMs;
     let lastPosition = null;
     let stationarySince = Date.now();
     let shunts = 0;
+    // Where the chase is actually steering. Normally the destination; after a
+    // few failed shunts, a point off to one side, because a truck wedged on a
+    // corner un-wedges by driving somewhere else first rather than by trying
+    // the same line harder.
+    let steerTarget = target;
+    let detourUntil = 0;
 
     try {
       while (Date.now() < deadline) {
         const observation = await this.observe();
         if (observation.mode !== 'driving') {
           throw new Error(`The player left the cab while driving to ${label}`);
+        }
+        if (detourUntil !== 0 && Date.now() > detourUntil) {
+          steerTarget = target;
+          detourUntil = 0;
         }
         const distance = distanceBetween(observation.truck, target);
         if (distance <= arriveMeters) {
@@ -219,8 +229,10 @@ export class JourneyPlayer {
         }
 
         const headingError = normalizeAngle(
-          Math.atan2(-(target.x - observation.truck.x), -(target.z - observation.truck.z)) -
-            observation.truckYawRadians,
+          Math.atan2(
+            -(steerTarget.x - observation.truck.x),
+            -(steerTarget.z - observation.truck.z),
+          ) - observation.truckYawRadians,
         );
         const keys = ['w'];
         if (headingError > 0.06) keys.push('a');
@@ -245,6 +257,21 @@ export class JourneyPlayer {
           await wait(900 + shunts * 400);
           await this.hold(['w', away === 'a' ? 'd' : 'a']);
           await wait(700);
+          if (shunts % 3 === 0) {
+            // Still stuck after three tries: stop aiming at the destination for
+            // a moment and drive out sideways, which is what gets a truck off a
+            // corner it keeps re-finding.
+            const sideways = shunts % 6 === 0 ? 1 : -1;
+            const offsetX = target.x - observation.truck.x;
+            const offsetZ = target.z - observation.truck.z;
+            const length = Math.hypot(offsetX, offsetZ) || 1;
+            steerTarget = {
+              x: observation.truck.x + (-offsetZ / length) * 25 * sideways,
+              z: observation.truck.z + (offsetX / length) * 25 * sideways,
+            };
+            detourUntil = Date.now() + 6_000;
+            trace(`drive ${label}: taking a detour to get off the scenery`);
+          }
           lastPosition = null;
           stationarySince = Date.now();
         }
