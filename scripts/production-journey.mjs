@@ -361,16 +361,16 @@ async function roamAndStartNextCall(player, session, sessionId, index) {
     roamedFrom.x - quiet.firehouse.x,
     roamedFrom.z - quiet.firehouse.z,
   );
-  const firehouseForecourt = {
+  const firehouseApproach = {
     x: quiet.firehouse.x,
-    // The board is mounted on the station's north wall. Stage on the road-side
-    // forecourt so neither the truck nor firefighter tries to cross the solid
-    // building footprint while navigating to it.
-    z: quiet.firehouse.z + 8,
+    // The board is mounted on the station's north wall. Stop on the clear main
+    // street in front of it, then make the final approach on foot; steering the
+    // truck closer can send a direct-path driver around the solid station.
+    z: quiet.firehouse.z + 12,
   };
-  await player.driveTo(firehouseForecourt, {
+  await player.driveTo(firehouseApproach, {
     arriveMeters: 7,
-    label: 'the firehouse forecourt',
+    label: 'the firehouse approach',
     timeoutMs: 240_000,
   });
   const parked = await player.observe();
