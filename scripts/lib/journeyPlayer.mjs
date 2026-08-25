@@ -1,0 +1,562 @@
+/**
+ * A script that plays the game the way a child does (#219).
+ *
+ * Every input here is one a player has: `w`/`a`/`s`/`d`, the one action button,
+ * and the right-drag the game uses for free aim. Nothing calls into the game to
+ * move the truck, put a fire out, or advance a quest — the runner reads
+ * `window.__hiveGame`, which is a read-only window onto what is already on
+ * screen, and decides which keys to hold, the same decision a player makes by
+ * looking at it.
+ *
+ * That distinction is the whole value of the acceptance run. A harness that
+ * poked the simulation would prove the simulation works, which the 850 unit
+ * tests already do. This proves the shipped bundle can be played.
+ */
+
+import { wait } from './browserHarness.mjs';
+
+/** `JOURNEY_TRACE=1` narrates every decision, for debugging a failed run. */
+const tracing = process.env.JOURNEY_TRACE === '1';
+
+function trace(message) {
+  if (tracing) console.log(`    ${message}`);
+}
+
+/** Held-key state lives here so every press has a matching release. */
+const KEYS = {
+  w: { code: 'KeyW', virtualKeyCode: 87, text: 'w' },
+  a: { code: 'KeyA', virtualKeyCode: 65, text: 'a' },
+  s: { code: 'KeyS', virtualKeyCode: 83, text: 's' },
+  d: { code: 'KeyD', virtualKeyCode: 68, text: 'd' },
+  ' ': { code: 'Space', virtualKeyCode: 32, text: ' ' },
+};
+
+function normalizeAngle(angle) {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
+}
+
+function distanceBetween(from, to) {
+  return Math.hypot(to.x - from.x, to.z - from.z);
+}
+
+/** Radians of aim per pixel of right-drag, from `AnchoredHoseEffects`. */
+const POINTER_AIM_RADIANS_PER_PIXEL = 0.004;
+/** Free aim past this turns the firefighter's body instead of the aim alone. */
+const FREE_AIM_YAW_CLAMP_RADIANS = (70 * Math.PI) / 180;
+/** Roughly where the nozzle sits above the firefighter's feet. */
+const NOZZLE_HEIGHT_METERS = 1.16;
+/** Free-aim pitch clamps, from `hoseFreeAim.ts`. */
+const FREE_AIM_MIN_PITCH_RADIANS = (-30 * Math.PI) / 180;
+const FREE_AIM_MAX_PITCH_RADIANS = (45 * Math.PI) / 180;
+
+export class JourneyPlayer {
+  held = new Set();
+
+  constructor(session, sessionId, viewport = { width: 854, height: 480 }) {
+    this.session = session;
+    this.sessionId = sessionId;
+    this.viewport = viewport;
+  }
+
+  async mouse(type, x, y, buttons) {
+    await this.session.command(
+      'Input.dispatchMouseEvent',
+      {
+        type,
+        x: Math.round(x),
+        y: Math.round(y),
+        button: 'right',
+        buttons,
+        clickCount: type === 'mouseMoved' ? 0 : 1,
+      },
+      this.sessionId,
+    );
+  }
+
+  /**
+   * Turn to face something, by dragging the aim across it.
+   *
+   * Right-drag is the game's own free aim. Past seventy degrees it stops being
+   * an offset and turns the firefighter's body, which is what makes it a way to
+   * look behind you: each drag is sized so the part beyond the clamp is exactly
+   * the turn still owed, and the loop repeats because one drag is at most a
+   * window's width of pixels.
+   */
+  async lookAt(target, { timeoutMs = 20_000 } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    const centerY = this.viewport.height / 2;
+    while (Date.now() < deadline) {
+      const state = await this.observe();
+      if (state.targetCaptured) return state;
+      const desiredYaw = Math.atan2(-(target.x - state.player.x), -(target.z - state.player.z));
+      const error = normalizeAngle(desiredYaw - state.playerYawRadians);
+      if (Math.abs(error) < 0.09) return state;
+
+      const radians = error + Math.sign(error) * FREE_AIM_YAW_CLAMP_RADIANS;
+      const pixels = -radians / POINTER_AIM_RADIANS_PER_PIXEL;
+      const startX = pixels > 0 ? 30 : this.viewport.width - 30;
+      const endX = Math.min(this.viewport.width - 10, Math.max(10, startX + pixels));
+      trace(
+        `look: off by ${((error * 180) / Math.PI).toFixed(0)}°, dragging ${Math.round(endX - startX)} px`,
+      );
+
+      await this.mouse('mousePressed', startX, centerY, 2);
+      const steps = 12;
+      for (let step = 1; step <= steps; step += 1) {
+        await this.mouse('mouseMoved', startX + ((endX - startX) * step) / steps, centerY, 2);
+        await wait(35);
+      }
+      await this.mouse('mouseReleased', endX, centerY, 0);
+      // The offset springs back to the body's own facing once the drag ends.
+      await wait(450);
+    }
+    return this.observe();
+  }
+
+  async key(type, key) {
+    const descriptor = KEYS[key];
+    if (!descriptor) throw new Error(`No production control is bound to ${JSON.stringify(key)}`);
+    await this.session.command(
+      'Input.dispatchKeyEvent',
+      {
+        type,
+        key,
+        code: descriptor.code,
+        windowsVirtualKeyCode: descriptor.virtualKeyCode,
+        nativeVirtualKeyCode: descriptor.virtualKeyCode,
+        ...(type === 'keyUp' ? {} : { text: descriptor.text }),
+      },
+      this.sessionId,
+    );
+  }
+
+  /** Hold exactly this set of keys, releasing whatever else was down. */
+  async hold(keys) {
+    const wanted = new Set(keys);
+    for (const key of this.held) {
+      if (!wanted.has(key)) {
+        await this.key('keyUp', key);
+        this.held.delete(key);
+      }
+    }
+    for (const key of wanted) {
+      if (!this.held.has(key)) {
+        await this.key('keyDown', key);
+        this.held.add(key);
+      }
+    }
+  }
+
+  async releaseAll() {
+    await this.hold([]);
+  }
+
+  /** One fresh press of one button, which is the whole control floor (ADR-007). */
+  async press(key = ' ') {
+    await this.key('keyDown', key);
+    await wait(60);
+    await this.key('keyUp', key);
+    await wait(140);
+  }
+
+  /** Null while the page is still booting and the window is not open yet. */
+  async tryObserve() {
+    return this.session.evaluate(
+      'window.__hiveGame ? window.__hiveGame.read() : null',
+      this.sessionId,
+    );
+  }
+
+  async observe() {
+    const observation = await this.tryObserve();
+    if (!observation) {
+      throw new Error('The production bundle exposed no game observation window');
+    }
+    return observation;
+  }
+
+  /** Poll the shipped game until it says what we are waiting for is true. */
+  async waitFor(label, predicate, timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (this.session.errors.length > 0) throw new Error(this.session.errors.join('\n'));
+      const latest = await this.tryObserve();
+      if (latest && predicate(latest)) return latest;
+      await wait(120);
+    }
+    throw new Error(`Timed out after ${timeoutMs} ms waiting for ${label}`);
+  }
+
+  /**
+   * Drive the truck to a place in the world.
+   *
+   * A proportional chase, not a path: hold the throttle, steer towards the
+   * heading that points at the target, and back out of whatever the truck has
+   * driven into when the position stops changing. It is roughly what a
+   * five-year-old does with an arcade truck, which is the point — a route
+   * baked into the runner would stop testing the driving.
+   */
+  async driveTo(target, { arriveMeters = 12, timeoutMs = 90_000, label = 'the target' } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    let lastPosition = null;
+    let stationarySince = Date.now();
+    let shunts = 0;
+
+    try {
+      while (Date.now() < deadline) {
+        const observation = await this.observe();
+        if (observation.mode !== 'driving') {
+          throw new Error(`The player left the cab while driving to ${label}`);
+        }
+        const distance = distanceBetween(observation.truck, target);
+        if (distance <= arriveMeters) {
+          // Brake rather than coast, so the parked position is the one the
+          // arrival was measured at.
+          await this.hold(['s']);
+          await wait(500);
+          await this.releaseAll();
+          return observation;
+        }
+
+        const headingError = normalizeAngle(
+          Math.atan2(-(target.x - observation.truck.x), -(target.z - observation.truck.z)) -
+            observation.truckYawRadians,
+        );
+        const keys = ['w'];
+        if (headingError > 0.06) keys.push('a');
+        else if (headingError < -0.06) keys.push('d');
+        await this.hold(keys);
+        trace(
+          `drive ${label}: ${distance.toFixed(1)} m away, heading off by ${((headingError * 180) / Math.PI).toFixed(0)}°, holding ${keys.join('+')}`,
+        );
+
+        if (lastPosition === null || distanceBetween(lastPosition, observation.truck) > 0.6) {
+          lastPosition = observation.truck;
+          stationarySince = Date.now();
+        } else if (Date.now() - stationarySince > 1_600) {
+          // Wedged against scenery. Back out the way a driver does: reverse
+          // while turning, then pull forward turning the same way, so the nose
+          // ends up somewhere it was not stuck. Each attempt tries harder, and
+          // alternating the turn stops a symmetric obstacle trapping it.
+          shunts += 1;
+          const away = shunts % 2 === 0 ? 'd' : 'a';
+          trace(`drive ${label}: wedged, shunt ${shunts}`);
+          await this.hold(['s', away]);
+          await wait(900 + shunts * 400);
+          await this.hold(['w', away === 'a' ? 'd' : 'a']);
+          await wait(700);
+          lastPosition = null;
+          stationarySince = Date.now();
+        }
+        await wait(90);
+      }
+    } finally {
+      await this.releaseAll();
+    }
+    const arrived = await this.observe();
+    throw new Error(
+      `Timed out driving to ${label}; still ${distanceBetween(arrived.truck, target).toFixed(1)} m away`,
+    );
+  }
+
+  /**
+   * Walk to a place on foot.
+   *
+   * The movement keys are camera-relative, so the runner projects the direction
+   * it wants onto the movement basis the game publishes. Turning always keeps
+   * the throttle on, because the character only changes facing while walking
+   * forwards — the same reason a child circles rather than pivots.
+   */
+  async walkTo(target, { arriveMeters = 6, timeoutMs = 45_000, label = 'the target' } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    try {
+      while (Date.now() < deadline) {
+        const observation = await this.observe();
+        if (observation.mode !== 'on-foot') {
+          throw new Error(`The player is not on foot while walking to ${label}`);
+        }
+        const distance = distanceBetween(observation.player, target);
+        if (distance <= arriveMeters) {
+          await this.releaseAll();
+          return observation;
+        }
+        const keys = travelKeys(observation, target);
+        await this.hold(keys);
+        trace(`walk ${label}: ${distance.toFixed(1)} m away, holding ${keys.join('+')}`);
+        await wait(90);
+      }
+    } finally {
+      await this.releaseAll();
+    }
+    const stopped = await this.observe();
+    throw new Error(
+      `Timed out walking to ${label}; still ${distanceBetween(stopped.player, target).toFixed(1)} m away`,
+    );
+  }
+
+  /**
+   * Hold a set of keys until something becomes true, or the time runs out.
+   *
+   * Polling while the keys are down is what lets the runner notice the exact
+   * moment the hose picks the fire up, the same moment the reticle changes for
+   * a player.
+   */
+  async holdUntil(keys, predicate, milliseconds) {
+    const deadline = Date.now() + milliseconds;
+    await this.hold(keys);
+    while (Date.now() < deadline) {
+      await wait(110);
+      const state = await this.observe();
+      if (predicate(state)) return state;
+    }
+    return this.observe();
+  }
+
+  /** Walk to a spot, giving up quietly when scenery is in the way. */
+  async approach(goal, { timeoutMs = 15_000, arriveMeters = 1.4 } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    let lastPosition = null;
+    let stationarySince = Date.now();
+    try {
+      while (Date.now() < deadline) {
+        const state = await this.observe();
+        if (state.targetCaptured) return state;
+        const distance = Math.hypot(state.player.x - goal.x, state.player.z - goal.z);
+        if (distance <= arriveMeters) return state;
+        if (
+          lastPosition === null ||
+          Math.hypot(state.player.x - lastPosition.x, state.player.z - lastPosition.z) > 0.4
+        ) {
+          lastPosition = state.player;
+          stationarySince = Date.now();
+        } else if (Date.now() - stationarySince > 2_500) {
+          trace('approach: scenery in the way, trying another angle');
+          return state;
+        }
+        await this.hold(travelKeys(state, goal));
+        await wait(110);
+      }
+    } finally {
+      await this.releaseAll();
+    }
+    return this.observe();
+  }
+
+  /**
+   * Turn on the spot-ish until the hose picks the fire up.
+   *
+   * The firefighter only changes facing while walking forwards, so looking
+   * around means walking: at the fire when it is ahead, and in a curve when it
+   * is behind. Distance is held in a band, because the aim cone is measured in
+   * three dimensions — stand underneath a burning wall and the water goes past
+   * it however well the yaw lines up.
+   */
+  async sweepOnto(fire, { standMeters = 6.5, timeoutMs = 14_000 } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    let turnDirection = null;
+    const flat = { x: fire.x, z: fire.z };
+    try {
+      while (Date.now() < deadline) {
+        const state = await this.observe();
+        if (state.targetCaptured) return state;
+        const distance = Math.hypot(state.player.x - flat.x, state.player.z - flat.z);
+        const captured = (sample) => sample.targetCaptured;
+
+        if (distance < standMeters - 2) {
+          await this.holdUntil(
+            travelKeys(state, standOffPoint(flat, state.player, standMeters + 0.5)),
+            captured,
+            500,
+          );
+          continue;
+        }
+        const { forwardInput, rightInput } = projectOntoCamera(state, flat);
+        if (forwardInput > 0.4) {
+          turnDirection = null;
+          trace(`sweep: ${distance.toFixed(1)} m out, walking onto the fire`);
+          await this.holdUntil(travelKeys(state, flat), captured, 400);
+          continue;
+        }
+        turnDirection ??= rightInput >= 0 ? 'd' : 'a';
+        trace(`sweep: ${distance.toFixed(1)} m out, swinging round (${turnDirection})`);
+        await this.holdUntil(['w', turnDirection], captured, 450);
+      }
+    } finally {
+      await this.releaseAll();
+    }
+    return this.observe();
+  }
+
+  /**
+   * Get the hose onto the fire, from whichever side of it works.
+   *
+   * The first side tried is the one the truck is parked on, because the drive
+   * proved that side is reachable. After that it works round the fire the way
+   * a person does when a pond or a wall is in the way — the district has both,
+   * and "walk straight at it" is not a plan a five-year-old sticks to either.
+   */
+  async aimAt(fire, { standMeters = hosingDistance(fire), from = null, timeoutMs = 90_000 } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    const opening = await this.observe();
+    if (opening.targetCaptured) return opening;
+    const anchor = from ?? opening.truck;
+    const bearingsDegrees = [0, 45, -45, 90, -90, 135, -135, 180];
+
+    for (const bearingDegrees of bearingsDegrees) {
+      if (Date.now() >= deadline) break;
+      const radians = (bearingDegrees * Math.PI) / 180;
+      const offsetX = anchor.x - fire.x;
+      const offsetZ = anchor.z - fire.z;
+      const rotated = {
+        x: fire.x + offsetX * Math.cos(radians) - offsetZ * Math.sin(radians),
+        z: fire.z + offsetX * Math.sin(radians) + offsetZ * Math.cos(radians),
+      };
+      const goal = standOffPoint(fire, rotated, standMeters);
+      trace(`aim: trying the fire from ${bearingDegrees}° round`);
+      const walked = await this.approach(goal, { timeoutMs: 16_000 });
+      if (walked.targetCaptured) return walked;
+      const facing = await this.lookAt(fire, { timeoutMs: 14_000 });
+      if (facing.targetCaptured) return facing;
+    }
+    return this.observe();
+  }
+
+  /**
+   * Aim over the top of the assist and spray, for a fire the reticle will not
+   * pick up on its own.
+   *
+   * Something burning three metres up is inside the hose's reach and outside
+   * the assist cone, because the cone is measured in three dimensions. A player
+   * solves that by dragging the aim up — the game's own free aim — and holding
+   * the button. Holding the drag freezes the offset, so the water keeps going
+   * where it was pointed instead of springing back to the body's facing.
+   */
+  async sprayWithFreeAim(fire, { timeoutMs = 30_000 } = {}) {
+    const state = await this.observe();
+    const horizontal = Math.hypot(fire.x - state.player.x, fire.z - state.player.z);
+    const desiredYaw = Math.atan2(-(fire.x - state.player.x), -(fire.z - state.player.z));
+    const yawError = normalizeAngle(desiredYaw - state.playerYawRadians);
+    const pitch = Math.min(
+      FREE_AIM_MAX_PITCH_RADIANS,
+      Math.max(
+        FREE_AIM_MIN_PITCH_RADIANS,
+        Math.atan2((fire.y ?? 0) - NOZZLE_HEIGHT_METERS, Math.max(horizontal, 0.01)),
+      ),
+    );
+    const dragX = -yawError / POINTER_AIM_RADIANS_PER_PIXEL;
+    const dragY = -pitch / POINTER_AIM_RADIANS_PER_PIXEL;
+    const startX = Math.min(
+      this.viewport.width - 20,
+      Math.max(20, this.viewport.width / 2 - dragX / 2),
+    );
+    const startY = Math.min(
+      this.viewport.height - 20,
+      Math.max(20, this.viewport.height / 2 - dragY / 2),
+    );
+    trace(
+      `free aim: ${((pitch * 180) / Math.PI).toFixed(0)}° up, ${((yawError * 180) / Math.PI).toFixed(0)}° across, ${horizontal.toFixed(1)} m out`,
+    );
+
+    await this.mouse('mousePressed', startX, startY, 2);
+    try {
+      for (let step = 1; step <= 10; step += 1) {
+        await this.mouse(
+          'mouseMoved',
+          startX + (dragX * step) / 10,
+          startY + (dragY * step) / 10,
+          2,
+        );
+        await wait(35);
+      }
+      // The drag stays down, which holds the aim where it was put, and the
+      // action button is the same one that sprays from the hip.
+      await this.hold([' ']);
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        await wait(400);
+        const sprayed = await this.observe();
+        if (sprayed.starScreenOpen) return sprayed;
+        // A new nearest fire means this aim is stale; go round again.
+        if (!sprayed.fire) return sprayed;
+        if (Math.hypot(sprayed.fire.x - fire.x, sprayed.fire.z - fire.z) > 1.5) return sprayed;
+      }
+      return this.observe();
+    } finally {
+      await this.releaseAll();
+      await this.mouse('mouseReleased', startX + dragX, startY + dragY, 0);
+    }
+  }
+}
+
+/**
+ * Which movement keys point the player at a world direction.
+ *
+ * The movement keys are read against the camera's heading, which the game
+ * publishes as `moveForward`, so this is the same projection the game does in
+ * reverse: take the direction we want to go, express it as forward and
+ * sideways amounts, and hold the keys nearest to it. Eight directions, exactly
+ * what a keyboard offers a player.
+ */
+export function travelKeys(observation, target) {
+  const { forwardInput, rightInput } = projectOntoCamera(observation, target);
+  const keys = [];
+  if (forwardInput > 0.38) keys.push('w');
+  else if (forwardInput < -0.38) keys.push('s');
+  if (rightInput > 0.38) keys.push('d');
+  else if (rightInput < -0.38) keys.push('a');
+  return keys.length > 0 ? keys : ['w'];
+}
+
+/**
+ * How far off the camera's heading something is.
+ *
+ * It matters because the firefighter only changes facing while walking
+ * forwards: something behind the camera cannot be looked at by walking
+ * straight at it, and has to be turned towards first.
+ */
+export function projectOntoCamera(observation, target) {
+  const forward = observation.moveForward;
+  const forwardLength = Math.hypot(forward.x, forward.z) || 1;
+  const forwardX = forward.x / forwardLength;
+  const forwardZ = forward.z / forwardLength;
+  const offsetX = target.x - observation.player.x;
+  const offsetZ = target.z - observation.player.z;
+  const offsetLength = Math.hypot(offsetX, offsetZ) || 1;
+  const unitX = offsetX / offsetLength;
+  const unitZ = offsetZ / offsetLength;
+  return {
+    forwardInput: unitX * forwardX + unitZ * forwardZ,
+    rightInput: unitX * -forwardZ + unitZ * forwardX,
+  };
+}
+
+/**
+ * How far back to stand from a particular fire.
+ *
+ * The assist cone is measured in three dimensions, so the right distance
+ * depends on how high the flames are: close to something burning at head
+ * height, further back from something burning on a roof, and never past the
+ * hose's own reach.
+ */
+export function hosingDistance(fire) {
+  const rise = Math.max(0, (fire.y ?? 0) - 1.16);
+  const comfortable = rise / Math.tan((14 * Math.PI) / 180);
+  return Math.min(8, Math.max(4.5, comfortable));
+}
+
+/**
+ * Where to stand to hose something.
+ *
+ * Close enough to be in range, far enough that the flames are in front of the
+ * player rather than above them: the aim cone is measured in three dimensions,
+ * so standing under a burning roof points the water past it. Backing off is
+ * what a person does when the stream keeps missing, and it is the one piece of
+ * "how to play" this runner knows.
+ */
+export function standOffPoint(fire, from, meters) {
+  const offsetX = from.x - fire.x;
+  const offsetZ = from.z - fire.z;
+  const length = Math.hypot(offsetX, offsetZ);
+  if (length < 0.001) return { x: fire.x + meters, z: fire.z };
+  return { x: fire.x + (offsetX / length) * meters, z: fire.z + (offsetZ / length) * meters };
+}

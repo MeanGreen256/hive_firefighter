@@ -53,3 +53,20 @@ jobs:
           name: content-visual-performance-acceptance
           path: artifacts/acceptance
           if-no-files-found: ignore
+
+      # The other half of acceptance (#219): a browser playing the built bundle
+      # rather than posing it. One incident on every pull request, because a
+      # software-rendered shift takes longer than the rest of CI put together;
+      # the whole five-call shift runs nightly in `production-shift.yml`.
+      - name: Production journey acceptance
+        run: npm run acceptance:production -- --skip-build --incidents=1
+        env:
+          ACCEPTANCE_ARTIFACT_DIR: artifacts/journey
+
+      - name: Upload journey evidence when the game cannot be played
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-journey
+          path: artifacts/journey
+          if-no-files-found: ignore

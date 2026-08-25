@@ -1,0 +1,55 @@
+# The full five-call shift, played in a browser against the production build.
+#
+# It lives outside `ci.yml` for one reason: CI has no GPU, so the game runs on
+# Chrome's software rasterizer at a few frames a second, and a whole shift takes
+# longer than every other gate put together. Pull requests get the first-incident
+# journey; this runs nightly and on demand, and is the gate that says every
+# authored incident in the rotation is still reachable and completable.
+name: Production shift
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      incidents:
+        description: 'How many calls of the shift to play'
+        default: '5'
+
+concurrency:
+  group: production-shift-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  shift:
+    name: five-call shift
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Play a whole shift of the production build
+        run: npm run acceptance:production -- --incidents=${{ inputs.incidents || '5' }}
+        env:
+          ACCEPTANCE_ARTIFACT_DIR: artifacts/journey
+
+      - name: Upload journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-shift
+          path: artifacts/journey
+          if-no-files-found: ignore

@@ -11,6 +11,21 @@ outcomes, and 1–3 stars, as specified in `docs/game-direction.md`. Tank levels
 foam selection, hookup, refill, and hose reach are not part of any runtime
 contract here. Keep the fixed-timestep and renderer/UI boundary.
 
+## The observation window
+
+`gameObservation.ts` is what the shipped game tells an automated player about
+itself (#219): where the truck is, whether anything is burning, what the star
+screen is showing. It is published on `window.__hiveGame` in every build,
+including production, because a hook that only exists in development proves
+nothing about the bundle a family downloads.
+
+It is a window, not a door. One method, `read`, returning a copy of one moment;
+nothing on it starts, skips, completes, or teleports anything. The production
+journey runner (`scripts/production-journey.mjs`) presses the same keys a child
+does and reads the result here — if it could reach in and finish a quest, the
+run would stop being evidence about the real game. Add a field only when it is
+something a player can already see on screen.
+
 ## The wordless guide
 
 `onboardingGuide.ts` is the memory behind the first-play prompts (#107, #214).

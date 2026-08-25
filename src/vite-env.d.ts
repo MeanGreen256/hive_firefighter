@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import type { GameObservationWindow } from './state/gameObservation';
 import type { PerformanceMetrics } from './perf/metrics';
 
 declare global {
@@ -18,6 +19,11 @@ declare global {
       seed: number;
       styleId: string;
     };
+    /**
+     * Read-only window onto the shipped game for production journey acceptance
+     * (#219). Present in every build, and never a control surface.
+     */
+    __hiveGame?: GameObservationWindow;
     /** Development-only renderer diagnostics used by deterministic browser acceptance. */
     __hiveRenderDiagnostics?: {
       getShadowAutoUpdate: () => boolean;

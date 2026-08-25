@@ -13,6 +13,7 @@ import type { Style } from '@styles/styles';
 import type { ShellPoint } from '@sim/exteriorShell';
 import type { WaterApplicationResult } from '@sim/waterApplication';
 import { firstConnectedGamepad, isIntentHeld } from '@ui/gamepad';
+import { getWaterDeltaSeconds, getWaterLitres } from './hoseWater';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
 import type { Vector3Tuple } from './worldUnits';
 import { applyRadialDeadzone } from './followCamera';
@@ -41,8 +42,6 @@ import {
   type WorldSurfaceIndex,
 } from './worldReactions';
 
-/** Litres per second the character can hold-to-spray; water is unlimited (ADR-006). */
-const HOSE_LITRES_PER_SECOND = 3;
 const STEAM_PULSE_SECONDS = 0.45;
 const RETICLE_LOCKED_SCALE = 0.34;
 const RETICLE_SEARCHING_SCALE = 0.14;
@@ -368,7 +367,11 @@ export function AnchoredHoseEffects({
     }
 
     if (!forceSpraying && spraying && resolution.targetId !== null) {
-      const result = fire.applyWater(resolution.targetId, HOSE_LITRES_PER_SECOND * delta);
+      // Water is metered against the simulation's catch-up ceiling rather than
+      // the renderer's frame clamp, so a slow device does not quietly halve the
+      // hose while the fire keeps burning in real time — see `hoseWater.ts`.
+      const waterDelta = getWaterDeltaSeconds(rawDelta);
+      const result = fire.applyWater(resolution.targetId, getWaterLitres(rawDelta));
       if (result && result.contacts.length > 0) {
         // How long the water has actually been landing on something alight.
         // The guide reads it to tell an effective hit from a hopeful squirt
@@ -377,7 +380,7 @@ export function AnchoredHoseEffects({
         character.userData.fireContactSeconds =
           (typeof character.userData.fireContactSeconds === 'number'
             ? character.userData.fireContactSeconds
-            : 0) + delta;
+            : 0) + waterDelta;
         fireAudioSystem.handleWaterApplication(result);
         const scalded = result.contacts.some((contact) =>
           isHotWaterContact({ heat: contact.heatBefore }),
