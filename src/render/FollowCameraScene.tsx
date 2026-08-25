@@ -666,6 +666,9 @@ export default function FollowCameraScene() {
   // A benchmark scene is nobody's first play, so it is never taught.
   const teaching = onboarding.teaching && !PERFORMANCE_SCENE;
   const skipOnboarding = useCallback(() => onboardingGuide.skip(), []);
+  // The adult-facing half of #214: an accidental skip, or a guide finished by
+  // an older sibling, does not have to be somebody's last first play.
+  const restartOnboarding = useCallback(() => onboardingGuide.restart(), []);
   const reportOnboarding = useCallback(
     (sample: OnboardingWorldSample) => onboardingGuide.report(sample),
     [],
@@ -981,6 +984,7 @@ export default function FollowCameraScene() {
         quietTown={quietTown}
         nextCallAvailable={canStartNextCall}
         onNextCall={beginNextCall}
+        onRestartGuide={restartOnboarding}
       />
       {/* Hidden behind the star screen: one thing to look at at a time. */}
       {debriefOpen || !teaching ? null : (

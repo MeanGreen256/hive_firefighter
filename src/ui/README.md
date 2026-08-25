@@ -126,4 +126,6 @@ local storage, and a player who has it is never sampled for again —
 `FollowCameraScene` passes a null callback rather than doing frame work for
 nobody. What holds all of that between the 10 Hz world sample and React is
 `state/onboardingGuide.ts`, which also owns the adult restart that puts the
-guide back; where that button lives is #222's decision, not this folder's.
+guide back. Its button sits in the grown-ups drawer inside `WorldHud` — closed
+by default, wordy on purpose, and nothing a child needs — until #222 gives the
+settings a proper home.
