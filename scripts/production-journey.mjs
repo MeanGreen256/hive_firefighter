@@ -341,14 +341,21 @@ async function roamAndStartNextCall(player, session, sessionId, index) {
   );
 
   // Get back in the truck and drive: the quiet interval is a place, not a menu.
-  // Inside `BOARDING_RANGE` with room to spare, so arriving is boarding.
-  await player.walkTo(quiet.truck, { arriveMeters: 2, label: 'the truck', timeoutMs: 30_000 });
-  await player.press(' ');
-  const driving = await player.waitFor(
-    'the player to board the truck in the quiet town',
-    (state) => state.mode === 'driving',
-    10_000,
-  );
+  // A refresh restores quiet-town progression but intentionally boots the player
+  // in the truck, so only walk and board when the current mode actually needs it.
+  let driving = quiet;
+  if (quiet.mode === 'on-foot') {
+    // Inside `BOARDING_RANGE` with room to spare, so arriving is boarding.
+    await player.walkTo(quiet.truck, { arriveMeters: 2, label: 'the truck', timeoutMs: 30_000 });
+    await player.press(' ');
+    driving = await player.waitFor(
+      'the player to board the truck in the quiet town',
+      (state) => state.mode === 'driving',
+      10_000,
+    );
+  } else if (quiet.mode !== 'driving') {
+    throw new Error(`Quiet town resumed in unsupported player mode ${quiet.mode}`);
+  }
   const roamedFrom = driving.truck;
   const firehouseMeters = Math.hypot(
     roamedFrom.x - quiet.firehouse.x,
