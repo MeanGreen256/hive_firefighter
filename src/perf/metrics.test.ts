@@ -7,6 +7,8 @@ import {
   reportParticleCount,
   reportSimTick,
   resetPerformanceMetrics,
+  SIM_TICK_MINIMUM_SAMPLES,
+  SIM_TICK_WINDOW,
   type PerformanceMetrics,
 } from './metrics';
 
@@ -75,8 +77,7 @@ describe('performance warnings', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     reportParticleCount(5000);
-    reportSimTick(2);
-    reportSimTick(4.5);
+    for (let tick = 0; tick < SIM_TICK_MINIMUM_SAMPLES; tick += 1) reportSimTick(4.5);
     expect(performanceStore.getState().metrics.particleCount).toBe(0);
 
     commitRendererSample({ fps: 60, frameTimeMs: 16.67, drawCalls: 1, triangles: 12 });
@@ -84,5 +85,54 @@ describe('performance warnings', () => {
       metrics: { particleCount: 5000, simTickMs: 4.5 },
       violations: ['particleCount', 'simTickMs'],
     });
+  });
+});
+
+describe('simulation tick cost', () => {
+  function flush(): number | null {
+    commitRendererSample({ fps: 60, frameTimeMs: 16.67, drawCalls: 1, triangles: 12 });
+    return performanceStore.getState().metrics.simTickMs;
+  }
+
+  it('says nothing until it has seen enough ticks to have an opinion', () => {
+    // The first tick of a fresh shell is the expensive one. A median of two
+    // samples is one of the samples, so a cold window has to stay quiet.
+    reportSimTick(36.8);
+    reportSimTick(1.2);
+    expect(flush()).toBeNull();
+  });
+
+  it('is not defined by one descheduled tick', () => {
+    // Browser acceptance failed three times on exactly this: 36.8 ms, 4.85 ms
+    // and 3.57 ms single ticks against a 2.7 ms budget, with the simulation
+    // unchanged. A typical tick costs about 1.2 ms.
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    for (let tick = 0; tick < 19; tick += 1) reportSimTick(1.2);
+    reportSimTick(36.8);
+    expect(flush()).toBeCloseTo(1.2);
+    expect(performanceStore.getState().violations).not.toContain('simTickMs');
+  });
+
+  it('moves when the simulation itself gets more expensive', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    for (let tick = 0; tick < 20; tick += 1) reportSimTick(4);
+    expect(flush()).toBeCloseTo(4);
+    expect(performanceStore.getState().violations).toContain('simTickMs');
+  });
+
+  it('forgets an old regression once the simulation is cheap again', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    for (let tick = 0; tick < SIM_TICK_WINDOW; tick += 1) reportSimTick(9);
+    expect(flush()).toBeCloseTo(9);
+    for (let tick = 0; tick < SIM_TICK_WINDOW; tick += 1) reportSimTick(1.1);
+    expect(flush()).toBeCloseTo(1.1);
+    expect(performanceStore.getState().violations).not.toContain('simTickMs');
+  });
+
+  it('ignores a tick that is not a duration', () => {
+    for (let tick = 0; tick < SIM_TICK_MINIMUM_SAMPLES; tick += 1) reportSimTick(1.5);
+    reportSimTick(Number.NaN);
+    reportSimTick(-3);
+    expect(flush()).toBeCloseTo(1.5);
   });
 });

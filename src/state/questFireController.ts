@@ -66,22 +66,6 @@ import {
 /** Cap on catch-up work after a stall, so a backgrounded tab cannot burn a city down. */
 const MAX_ADVANCE_SECONDS = 0.25;
 
-/**
- * Ticks at the start of a quest that are not offered to the performance budget.
- *
- * The first tick of a fresh shell is where the engine compiles the tick path
- * and allocates the grid it will reuse for the rest of the incident. Measured
- * on this machine it costs about ten milliseconds against a steady-state median
- * of one, and the next few still run two to five times over — none of which
- * says anything about whether the simulation is affordable, which is what
- * `simTickMs` exists to answer. The budget is a maximum, so a single warm-up
- * tick landing inside a sampling window fails a run for having started.
- *
- * The whole warm-up is a second of simulated time. Anything genuinely too
- * expensive is still too expensive on tick thirteen.
- */
-const SIM_TICK_WARMUP_TICKS = 12;
-
 export interface QuestFireSnapshot {
   readonly questId: string | null;
   /** The district quest site this fire belongs to; what the beacon keys off. */
@@ -231,8 +215,6 @@ export function createQuestFireController(
   let runner: FixedTimestepRunner | null = null;
   let elapsedSeconds = 0;
   let waterUsedLitres = 0;
-  /** Reset whenever a quest starts; see `SIM_TICK_WARMUP_TICKS`. */
-  let ticksSinceQuestStart = 0;
   let debrief: SessionDebrief | null = null;
   let hazards = createHazardSimulation([]);
   let structures = createStructuralSimulation();
@@ -350,7 +332,6 @@ export function createQuestFireController(
     store,
 
     setQuest: (quest) => {
-      ticksSinceQuestStart = 0;
       fire = createQuestFire(quest);
       runner = createFixedTimestepRunner(fire.state);
       hazards = createHazardSimulation(
@@ -509,10 +490,7 @@ export function createQuestFireController(
       const startedAt = performance.now();
       const ticks = runner.advance(elapsed);
       if (ticks > 0) {
-        ticksSinceQuestStart += ticks;
-        if (ticksSinceQuestStart > SIM_TICK_WARMUP_TICKS) {
-          reportSimTick((performance.now() - startedAt) / ticks);
-        }
+        reportSimTick((performance.now() - startedAt) / ticks);
         const simulatedSeconds = ticks * FIRE_TICK_SECONDS;
         if (residualHotspots) {
           const result = advanceResidualHotspots(residualHotspots, simulatedSeconds, (hotspot) => {

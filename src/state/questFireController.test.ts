@@ -4,7 +4,6 @@ import { IncidentEventType, PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@
 import { materials } from '@sim/materials';
 import { getQuestForSite } from '@sim/quests';
 import { COLLAPSE_WARNING_SECONDS, StructuralEventType } from '@sim/structuralCollapse';
-import { commitRendererSample, performanceStore, resetPerformanceMetrics } from '../perf/metrics';
 import { createQuestFireController } from './questFireController';
 import { SessionStatus } from './sessionStats';
 
@@ -13,44 +12,6 @@ function controllerFor(questSiteId: string) {
   controller.setQuest(getQuestForSite('harbour-hill', questSiteId));
   return controller;
 }
-
-describe('quest fire controller performance reporting', () => {
-  /** Flushes whatever the controller reported into the published metrics. */
-  function sampleFrame(): number | null {
-    commitRendererSample({ fps: 60, frameTimeMs: 16, drawCalls: 40, triangles: 1000 });
-    return performanceStore.getState().metrics.simTickMs;
-  }
-
-  it("keeps a quest's warm-up ticks out of the performance budget", () => {
-    // The first tick of a fresh shell compiles the tick path and allocates the
-    // grid, and it costs several times what a steady-state tick costs. The
-    // budget is a maximum, so letting warm-up into it fails a run for having
-    // started — which is what it did twice on a CI runner in #219.
-    resetPerformanceMetrics();
-    const controller = controllerFor('bakery-awning');
-    for (let step = 0; step < 12; step += 1) controller.advance(0.1);
-    expect(sampleFrame()).toBeNull();
-
-    for (let step = 0; step < 5; step += 1) controller.advance(0.1);
-    expect(sampleFrame()).not.toBeNull();
-    controller.stop();
-    resetPerformanceMetrics();
-  });
-
-  it('starts the warm-up over for each new quest', () => {
-    resetPerformanceMetrics();
-    const controller = controllerFor('bakery-awning');
-    for (let step = 0; step < 30; step += 1) controller.advance(0.1);
-    expect(sampleFrame()).not.toBeNull();
-
-    controller.setQuest(getQuestForSite('harbour-hill', 'harbour-yard'));
-    resetPerformanceMetrics();
-    controller.advance(0.1);
-    expect(sampleFrame()).toBeNull();
-    controller.stop();
-    resetPerformanceMetrics();
-  });
-});
 
 describe('quest fire controller', () => {
   it('starts empty and reports nothing until a quest is set', () => {
