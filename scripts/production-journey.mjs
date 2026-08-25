@@ -363,7 +363,10 @@ async function roamAndStartNextCall(player, session, sessionId, index) {
   );
   await player.driveTo(
     { x: quiet.firehouse.x, z: quiet.firehouse.z },
-    { arriveMeters: 9, label: 'the firehouse', timeoutMs: 240_000 },
+    // The board is approached on foot. Requiring the truck to nose up to the
+    // station wall turns collision-safe parking into a false failure; a child
+    // only needs to park within one short, forgiving walk of the bell.
+    { arriveMeters: 16, label: 'the firehouse', timeoutMs: 240_000 },
   );
   const parked = await player.observe();
   const roamedMeters = Math.hypot(parked.truck.x - roamedFrom.x, parked.truck.z - roamedFrom.z);
