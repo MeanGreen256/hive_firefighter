@@ -343,51 +343,6 @@ export class JourneyPlayer {
   }
 
   /**
-   * Turn on the spot-ish until the hose picks the fire up.
-   *
-   * The firefighter only changes facing while walking forwards, so looking
-   * around means walking: at the fire when it is ahead, and in a curve when it
-   * is behind. Distance is held in a band, because the aim cone is measured in
-   * three dimensions — stand underneath a burning wall and the water goes past
-   * it however well the yaw lines up.
-   */
-  async sweepOnto(fire, { standMeters = 6.5, timeoutMs = 14_000 } = {}) {
-    const deadline = Date.now() + timeoutMs;
-    let turnDirection = null;
-    const flat = { x: fire.x, z: fire.z };
-    try {
-      while (Date.now() < deadline) {
-        const state = await this.observe();
-        if (state.targetCaptured) return state;
-        const distance = Math.hypot(state.player.x - flat.x, state.player.z - flat.z);
-        const captured = (sample) => sample.targetCaptured;
-
-        if (distance < standMeters - 2) {
-          await this.holdUntil(
-            travelKeys(state, standOffPoint(flat, state.player, standMeters + 0.5)),
-            captured,
-            500,
-          );
-          continue;
-        }
-        const { forwardInput, rightInput } = projectOntoCamera(state, flat);
-        if (forwardInput > 0.4) {
-          turnDirection = null;
-          trace(`sweep: ${distance.toFixed(1)} m out, walking onto the fire`);
-          await this.holdUntil(travelKeys(state, flat), captured, 400);
-          continue;
-        }
-        turnDirection ??= rightInput >= 0 ? 'd' : 'a';
-        trace(`sweep: ${distance.toFixed(1)} m out, swinging round (${turnDirection})`);
-        await this.holdUntil(['w', turnDirection], captured, 450);
-      }
-    } finally {
-      await this.releaseAll();
-    }
-    return this.observe();
-  }
-
-  /**
    * Get the hose onto the fire, from whichever side of it works.
    *
    * The first side tried is the one the truck is parked on, because the drive
@@ -422,68 +377,99 @@ export class JourneyPlayer {
   }
 
   /**
-   * Aim over the top of the assist and spray, for a fire the reticle will not
-   * pick up on its own.
+   * Aim over the top of the assist and hose, sweeping the stream about a bit.
    *
    * Something burning three metres up is inside the hose's reach and outside
-   * the assist cone, because the cone is measured in three dimensions. A player
-   * solves that by dragging the aim up — the game's own free aim — and holding
-   * the button. Holding the drag freezes the offset, so the water keeps going
-   * where it was pointed instead of springing back to the body's facing.
+   * the assist cone, because the cone is measured in three dimensions: point
+   * straight ahead and the water goes under the flames. What a player does is
+   * drag the aim up and wave it around until the stream connects, and holding
+   * the drag is what keeps it there — free aim springs back to the body's
+   * facing the moment the button comes up.
+   *
+   * The sweep is small and centred on where the flames actually are. It is not
+   * a search of the sky; it is the couple of degrees either side that the
+   * runner cannot resolve from a cell centre and a nozzle height.
    */
-  async sprayWithFreeAim(fire, { timeoutMs = 30_000 } = {}) {
+  async sweepSprayAt(fire, { timeoutMs = 30_000 } = {}) {
     const state = await this.observe();
-    const horizontal = Math.hypot(fire.x - state.player.x, fire.z - state.player.z);
+    const horizontal = Math.max(0.01, Math.hypot(fire.x - state.player.x, fire.z - state.player.z));
     const desiredYaw = Math.atan2(-(fire.x - state.player.x), -(fire.z - state.player.z));
-    const yawError = normalizeAngle(desiredYaw - state.playerYawRadians);
-    const pitch = Math.min(
-      FREE_AIM_MAX_PITCH_RADIANS,
-      Math.max(
-        FREE_AIM_MIN_PITCH_RADIANS,
-        Math.atan2((fire.y ?? 0) - NOZZLE_HEIGHT_METERS, Math.max(horizontal, 0.01)),
-      ),
-    );
-    const dragX = -yawError / POINTER_AIM_RADIANS_PER_PIXEL;
-    const dragY = -pitch / POINTER_AIM_RADIANS_PER_PIXEL;
-    const startX = Math.min(
-      this.viewport.width - 20,
-      Math.max(20, this.viewport.width / 2 - dragX / 2),
-    );
-    const startY = Math.min(
-      this.viewport.height - 20,
-      Math.max(20, this.viewport.height / 2 - dragY / 2),
-    );
+    const baseYaw = normalizeAngle(desiredYaw - state.playerYawRadians);
+    const basePitch = Math.atan2((fire.y ?? 0) - NOZZLE_HEIGHT_METERS, horizontal);
     trace(
-      `free aim: ${((pitch * 180) / Math.PI).toFixed(0)}° up, ${((yawError * 180) / Math.PI).toFixed(0)}° across, ${horizontal.toFixed(1)} m out`,
+      `free aim: ${((basePitch * 180) / Math.PI).toFixed(0)}° up, ${((baseYaw * 180) / Math.PI).toFixed(0)}° across, ${horizontal.toFixed(1)} m out`,
     );
 
-    await this.mouse('mousePressed', startX, startY, 2);
-    try {
-      for (let step = 1; step <= 10; step += 1) {
-        await this.mouse(
-          'mouseMoved',
-          startX + (dragX * step) / 10,
-          startY + (dragY * step) / 10,
-          2,
-        );
-        await wait(35);
+    let pointerX = this.viewport.width / 2;
+    let pointerY = this.viewport.height / 2;
+    let appliedYaw = 0;
+    let appliedPitch = 0;
+    const deadline = Date.now() + timeoutMs;
+
+    const aimTo = async (yaw, pitch) => {
+      const wantedX = pointerX - (yaw - appliedYaw) / POINTER_AIM_RADIANS_PER_PIXEL;
+      const wantedY = pointerY - (pitch - appliedPitch) / POINTER_AIM_RADIANS_PER_PIXEL;
+      const nextX = Math.min(this.viewport.width - 8, Math.max(8, wantedX));
+      const nextY = Math.min(this.viewport.height - 8, Math.max(8, wantedY));
+      const stepX = (nextX - pointerX) / 6;
+      const stepY = (nextY - pointerY) / 6;
+      for (let step = 1; step <= 6; step += 1) {
+        await this.mouse('mouseMoved', pointerX + stepX * step, pointerY + stepY * step, 2);
+        await wait(25);
       }
-      // The drag stays down, which holds the aim where it was put, and the
-      // action button is the same one that sprays from the hip.
+      appliedYaw -= (nextX - pointerX) * POINTER_AIM_RADIANS_PER_PIXEL;
+      appliedPitch -= (nextY - pointerY) * POINTER_AIM_RADIANS_PER_PIXEL;
+      pointerX = nextX;
+      pointerY = nextY;
+    };
+
+    const degrees = (value) => (value * Math.PI) / 180;
+    const sweep = [
+      [0, 0],
+      [0, degrees(10)],
+      [degrees(-10), degrees(5)],
+      [degrees(10), degrees(5)],
+      [0, degrees(20)],
+      [degrees(-15), degrees(15)],
+      [degrees(15), degrees(15)],
+      [0, degrees(-8)],
+    ];
+
+    await this.mouse('mousePressed', pointerX, pointerY, 2);
+    try {
+      // The same button that sprays from the hip; the drag only changes where.
       await this.hold([' ']);
-      const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
-        await wait(400);
-        const sprayed = await this.observe();
-        if (sprayed.starScreenOpen) return sprayed;
-        // A new nearest fire means this aim is stale; go round again.
-        if (!sprayed.fire) return sprayed;
-        if (Math.hypot(sprayed.fire.x - fire.x, sprayed.fire.z - fire.z) > 1.5) return sprayed;
+        for (const [yawOffset, pitchOffset] of sweep) {
+          if (Date.now() >= deadline) break;
+          await aimTo(
+            baseYaw + yawOffset,
+            Math.min(
+              FREE_AIM_MAX_PITCH_RADIANS,
+              Math.max(FREE_AIM_MIN_PITCH_RADIANS, basePitch + pitchOffset),
+            ),
+          );
+          const sprayed = await this.holdUntil(
+            [' '],
+            (sample) => sample.starScreenOpen || sample.targetCaptured,
+            700,
+          );
+          if (sprayed.starScreenOpen) return sprayed;
+          if (sprayed.targetCaptured) {
+            // Connected: stay exactly here for as long as it keeps working.
+            const held = await this.holdUntil([' '], (sample) => sample.starScreenOpen, 6_000);
+            if (held.starScreenOpen) return held;
+            if (!held.targetCaptured) break;
+          }
+        }
+        const moved = await this.observe();
+        if (!moved.fire) return moved;
+        if (Math.hypot(moved.fire.x - fire.x, moved.fire.z - fire.z) > 1.5) return moved;
       }
       return this.observe();
     } finally {
       await this.releaseAll();
-      await this.mouse('mouseReleased', startX + dragX, startY + dragY, 0);
+      await this.mouse('mouseReleased', pointerX, pointerY, 0);
     }
   }
 }

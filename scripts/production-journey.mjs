@@ -230,11 +230,12 @@ async function extinguish(player, incident, index) {
     // Nothing under the hose: walk in on the nearest flames until the game says
     // the stream has them, which is the reticle a player watches for.
     const fire = state.fire ?? { ...incident.questSite, y: 0 };
-    const aimed = await player.aimAt(fire, { from: state.truck, timeoutMs: 90_000 });
+    const aimed = await player.aimAt(fire, { from: state.truck, timeoutMs: 30_000 });
     if (!aimed.targetCaptured) {
-      // The assist did not pick it up from anywhere on the ground: aim over it
-      // by hand, which is what the game's free aim is for.
-      await player.sprayWithFreeAim(fire, { timeoutMs: 40_000 });
+      // The assist did not pick it up from where the runner could stand: aim
+      // over it by hand, which is what the game's free aim is for and what a
+      // player does when the stream keeps going under the flames.
+      await player.sweepSprayAt(fire, { timeoutMs: 30_000 });
     }
   }
   await player.releaseAll();
