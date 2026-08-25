@@ -46,7 +46,7 @@ export interface SessionDebrief {
   readonly isNewPersonalBest: boolean;
 }
 
-/** A scenario ends contained, or scorched once no combustible property remains. */
+/** A scenario ends when no flame remains, or scorched once no combustible property remains. */
 export function getSessionStatus(grid: CellGrid): SessionStatus {
   const cells = Object.values(grid.cells);
   const combustibleCells = cells.filter((cell) => materials[cell.material]?.ignitionPoint !== null);
@@ -60,13 +60,10 @@ export function getSessionStatus(grid: CellGrid): SessionStatus {
     return SessionStatus.Scorched;
   }
 
-  const hasLiveFire = cells.some(
-    (cell) =>
-      cell.state === CellState.Heating ||
-      cell.state === CellState.Burning ||
-      cell.state === CellState.Flashover,
+  const hasAlightCell = cells.some(
+    (cell) => cell.state === CellState.Burning || cell.state === CellState.Flashover,
   );
-  return hasLiveFire ? SessionStatus.Active : SessionStatus.Contained;
+  return hasAlightCell ? SessionStatus.Active : SessionStatus.Contained;
 }
 
 function validateCount(value: number, name: string): void {

@@ -30,6 +30,13 @@ describe('session stats', () => {
     grid.cells['0,0,0']!.state = CellState.Burning;
     expect(getSessionStatus(grid)).toBe(SessionStatus.Active);
 
+    grid.cells['0,0,0']!.state = CellState.Flashover;
+    expect(getSessionStatus(grid)).toBe(SessionStatus.Active);
+
+    grid.cells['0,0,0']!.state = CellState.Heating;
+    grid.cells['0,0,0']!.heat = 500;
+    expect(getSessionStatus(grid)).toBe(SessionStatus.Contained);
+
     grid.cells['0,0,0']!.state = CellState.Wetted;
     expect(getSessionStatus(grid)).toBe(SessionStatus.Contained);
 
