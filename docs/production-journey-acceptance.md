@@ -61,14 +61,18 @@ frames a second, and two things follow:
 
 - A whole shift takes far longer than the rest of CI. Pull requests play the
   first incident; `production-shift.yml` plays all five nightly and on demand.
-- The hose delivers water per frame, capped at a fiftieth of a second's worth
-  (`MAX_FRAME_DELTA_SECONDS` in `AnchoredHoseEffects`), while the fire advances
-  by real elapsed time. Below roughly ten frames a second the player is
-  delivering a fraction of the water the fire is designed against, and an
-  incident that a child would contain ends scorched instead. Both are terminal
-  completions under ADR-008, so the run accepts either — but the ratio is worth
-  keeping in mind for #224's real-device budgets, because it is the same
-  arithmetic on a slow tablet.
+- Everything metered per frame has to be metered against the same ceiling as
+  the simulation, or the game gets harder the slower the device. The hose used
+  to take its water from the renderer's fiftieth-of-a-second frame clamp while
+  the fire advanced by real elapsed time, which made an incident a child
+  contains in twenty seconds impossible to finish at four frames a second. The
+  first thing this runner ever found; `src/render/hoseWater.ts` is the fix, and
+  the same arithmetic applies to any slow tablet, so it is worth remembering
+  when adding the next thing that consumes frame time.
+
+Both `contained` and `scorched` are terminal completions under ADR-008, so a
+run accepts either outcome — what it will not accept is an incident that
+finished without the hose being on it.
 
 ## What it does not cover yet
 
