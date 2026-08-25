@@ -108,6 +108,7 @@ npm run dev
 ```bash
 npm run check   # typecheck + lint
 npm run build   # production build
+npm run acceptance:production -- --incidents=1   # a browser plays the built game
 ```
 
 The game opens at `/`, and it is the only scene there is. The legacy M2 cutaway

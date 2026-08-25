@@ -55,6 +55,8 @@ npm run check    # typecheck + lint — run before every commit
 npm run build    # production build (tsc -b && vite build)
 npx prettier --check .
 npm test         # vitest, if the change touches anything with tests
+npm run acceptance             # content, visual, and render-budget gates
+npm run acceptance:production  # a browser playing the built game (see below)
 ```
 
 `npm run check` does **not** run Prettier or tests — run those separately when
@@ -62,6 +64,14 @@ working locally. CI (`.github/workflows/ci.yml`) runs `prettier --check`,
 `npm run check`, `npm test`, and `npm run build` as distinct steps on every push
 to `main` and every PR, so failures identify which validation stage needs
 attention.
+
+Two acceptance gates sit on top of those, and they answer different questions.
+`npm run acceptance` poses each quest state in a development-only preview
+harness and checks how it looks; `npm run acceptance:production` builds the
+bundle a player downloads and _plays_ it — drive, dismount, spray, stars, quiet
+town, refresh — through the same keys and drags a child uses. Neither replaces
+the other, and neither is a child playtest. See
+[`docs/production-journey-acceptance.md`](docs/production-journey-acceptance.md).
 
 ## Folder layout
 

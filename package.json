@@ -15,6 +15,7 @@
     "acceptance:content": "vitest run src/perf/contentAcceptance.test.ts",
     "acceptance:update": "node scripts/update-preview-baselines.mjs",
     "acceptance": "npm run acceptance:content && node scripts/acceptance-browser.mjs",
+    "acceptance:production": "node scripts/production-journey.mjs",
     "playtest:report": "node scripts/summarize-playtest.mjs",
     "playtest:m3": "node scripts/summarize-m3-playtest.mjs"
   },

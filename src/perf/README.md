@@ -11,6 +11,13 @@ checks, and budget gates. The commands, reserved headroom, and visual-baseline
 review process are documented in
 [`docs/content-acceptance.md`](../../docs/content-acceptance.md).
 
+Both of those open the development-only preview harness and check how a posed
+state looks. The other gate, `npm run acceptance:production`, boots the built
+bundle and plays it — see
+[`docs/production-journey-acceptance.md`](../../docs/production-journey-acceptance.md).
+Neither replaces the other: this folder measures frames, that one measures
+whether the game can be finished.
+
 ## Producers
 
 - `PerformanceSampler` publishes completed Three.js frame measurements four

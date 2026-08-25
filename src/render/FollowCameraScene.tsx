@@ -13,6 +13,7 @@ import type { DirectionalLight, Group } from 'three';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
 import { DEFAULT_DISTRICT_ID, getDistrict, type DistrictQuestSite } from '@sim/districts';
 import { getQuest } from '@sim/quests';
+import type { ShellPoint } from '@sim/exteriorShell';
 import { CellState } from '@sim/cellGrid';
 import { PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { questFireController } from '../state/questFireController';
@@ -31,6 +32,7 @@ import { OnboardingCoach } from '@ui/OnboardingCoach';
 import { WorldHud } from '@ui/WorldHud';
 import { ApproachBand, getApproachBand, getFireBand, type ApproachBandId } from '@ui/worldGuidance';
 import { onboardingGuide, type OnboardingWorldSample } from '../state/onboardingGuide';
+import { installGameObservation, reportGameObservation } from '../state/gameObservation';
 import { QuestDebriefPanel } from '@ui/QuestDebriefPanel';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { StationCelebration, type StationCelebrationNotice } from '@ui/StationCelebration';
@@ -200,6 +202,27 @@ interface HudCssVariables extends CSSProperties {
   '--hud-control': string;
 }
 
+/**
+ * The closest thing on fire, as the player would pick it: the one they are
+ * standing nearest. Published for #219 so an automated player can stand back
+ * far enough to point the hose at flames rather than under them.
+ */
+function nearestSuppressionTarget(
+  from: { readonly x: number; readonly z: number },
+  targets: readonly { readonly kind: string; readonly position: ShellPoint }[],
+): { x: number; y: number; z: number } | null {
+  let best: { x: number; y: number; z: number } | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const target of targets) {
+    if (target.kind === 'residual-hotspot') continue;
+    const distance = Math.hypot(target.position.x - from.x, target.position.z - from.z);
+    if (distance >= bestDistance) continue;
+    bestDistance = distance;
+    best = { x: target.position.x, y: target.position.y, z: target.position.z };
+  }
+  return best;
+}
+
 interface GameWorldProps {
   readonly visualStyle: Style;
   readonly starBoard: FirehouseStarBoardModel;
@@ -255,6 +278,7 @@ function GameWorld({
   const lastCanBoard = useRef(false);
   const lastCanStartNextCall = useRef(false);
   const boardingCheckElapsed = useRef(0);
+  const worldSamples = useRef(0);
   const lastApproachBand = useRef<ApproachBandId | null>(null);
   const telemetryElapsed = useRef(0);
   const approachTruckPosition: readonly [number, number, number] = [activeQuestSite.x - 28, 0, 0];
@@ -336,6 +360,28 @@ function GameWorld({
       lastApproachBand.current = band;
       onApproachChange({ band, distanceMeters: distanceToQuestMeters });
     }
+
+    // The shipped game's read-only window (#219). It carries what a player can
+    // already see, at the rate the HUD already samples, so a browser can play
+    // the production bundle without a development harness underneath it.
+    reportGameObservation({
+      samples: (worldSamples.current += 1),
+      fire: nearestSuppressionTarget(
+        firefighter?.position ?? truck.position,
+        questFireController.getSuppressionTargets(),
+      ),
+      mode,
+      truck: { x: truck.position.x, z: truck.position.z },
+      truckYawRadians: truck.rotation.y,
+      player: firefighter
+        ? { x: firefighter.position.x, z: firefighter.position.z }
+        : { x: truck.position.x, z: truck.position.z },
+      playerYawRadians: firefighter?.rotation.y ?? truck.rotation.y,
+      moveForward: { x: movementForwardRef.current.x, z: movementForwardRef.current.z },
+      distanceToQuestMeters,
+      targetCaptured: firefighter?.userData.targetCaptured === true,
+      spraying: firefighter?.userData.spraying === true,
+    });
 
     if (!onOnboardingSample) return;
     const [startX, , startZ] = DISTRICT_LAYOUT.truckStart.position;
@@ -777,6 +823,46 @@ export default function FollowCameraScene() {
    * moves the player.
    */
   const debriefOpen = fireSnapshot.debrief !== null && questDirector.state.phase === 'celebrating';
+  useEffect(() => installGameObservation(), []);
+  // The other half of the observation window: everything React owns rather than
+  // the world, published when it changes rather than on a timer.
+  useEffect(() => {
+    reportGameObservation({
+      districtId: DISTRICT.id,
+      districtName: DISTRICT.name,
+      questId: quietTown ? null : directedIncident.questId,
+      questName: quietTown ? '' : directedQuestSite.name,
+      questSiteId: quietTown ? null : directedQuestSite.id,
+      questSite: quietTown ? null : { x: directedQuestSite.x, z: directedQuestSite.z },
+      firehouse: { x: FIREHOUSE_BOARD_POSITION[0], z: FIREHOUSE_BOARD_POSITION[2] },
+      slot: directedIncident.slot,
+      slotCount: SHIFT_ORDER.slots.length,
+      quietTown,
+      burningCellCount: fireSnapshot.burningCellCount,
+      heatingCellCount: fireSnapshot.heatingCellCount,
+      extinguished: fireSnapshot.extinguished,
+      incidentStatus: fireSnapshot.status,
+      canBoard,
+      canStartNextCall,
+      starScreenOpen: debriefOpen,
+      stars: debriefOpen ? (fireSnapshot.debrief?.stars ?? null) : null,
+      outcome: debriefOpen ? (fireSnapshot.debrief?.outcome ?? null) : null,
+      onboardingStep: onboarding.step,
+      completedShiftCount: progressProfile.completedShiftCount,
+      completedQuestCount: Object.keys(progressProfile.quests).length,
+      unlockedRewardCount: progressProfile.unlockedRewardIds.length,
+    });
+  }, [
+    canBoard,
+    canStartNextCall,
+    debriefOpen,
+    directedIncident,
+    directedQuestSite,
+    fireSnapshot,
+    onboarding.step,
+    progressProfile,
+    quietTown,
+  ]);
   // Stars on the screen are the readable half of "you put the fire out" (#214).
   // Together with a real hit they are what finishes the guide; either alone
   // leaves it up, because either alone can happen by accident.
