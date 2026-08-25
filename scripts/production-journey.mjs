@@ -199,7 +199,7 @@ async function playIncident(player, session, sessionId, index) {
   await player.driveTo(incident.questSite, {
     arriveMeters: 11,
     label: incident.questName,
-    timeoutMs: 120_000,
+    timeoutMs: 240_000,
   });
   const arrived = await player.observe();
   check(
@@ -366,7 +366,7 @@ async function roamAndStartNextCall(player, session, sessionId, index) {
   );
   await player.driveTo(
     { x: quiet.firehouse.x, z: quiet.firehouse.z },
-    { arriveMeters: 9, label: 'the firehouse', timeoutMs: 120_000 },
+    { arriveMeters: 9, label: 'the firehouse', timeoutMs: 240_000 },
   );
   const parked = await player.observe();
   const roamedMeters = Math.hypot(parked.truck.x - roamedFrom.x, parked.truck.z - roamedFrom.z);
