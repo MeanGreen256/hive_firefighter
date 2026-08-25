@@ -341,49 +341,31 @@ async function roamAndStartNextCall(player, session, sessionId, index) {
   );
 
   // Get back in the truck and drive: the quiet interval is a place, not a menu.
-  // A refresh restores quiet-town progression but intentionally boots the player
-  // in the truck, so only walk and board when the current mode actually needs it.
-  let driving = quiet;
-  if (quiet.mode === 'on-foot') {
-    // Inside `BOARDING_RANGE` with room to spare, so arriving is boarding.
-    await player.walkTo(quiet.truck, { arriveMeters: 2, label: 'the truck', timeoutMs: 30_000 });
-    await player.press(' ');
-    driving = await player.waitFor(
-      'the player to board the truck in the quiet town',
-      (state) => state.mode === 'driving',
-      10_000,
-    );
-  } else if (quiet.mode !== 'driving') {
-    throw new Error(`Quiet town resumed in unsupported player mode ${quiet.mode}`);
-  }
+  // Inside `BOARDING_RANGE` with room to spare, so arriving is boarding.
+  await player.walkTo(quiet.truck, { arriveMeters: 2, label: 'the truck', timeoutMs: 30_000 });
+  await player.press(' ');
+  const driving = await player.waitFor(
+    'the player to board the truck in the quiet town',
+    (state) => state.mode === 'driving',
+    10_000,
+  );
   const roamedFrom = driving.truck;
   const firehouseMeters = Math.hypot(
     roamedFrom.x - quiet.firehouse.x,
     roamedFrom.z - quiet.firehouse.z,
   );
-  const firehouseApproach = {
-    x: quiet.firehouse.x,
-    // The board is mounted on the station's north wall. Stop on the clear main
-    // street in front of it, then make the final approach on foot; steering the
-    // truck closer can send a direct-path driver around the solid station.
-    z: quiet.firehouse.z + 12,
-  };
-  let parked = driving;
+  await player.driveTo(
+    { x: quiet.firehouse.x, z: quiet.firehouse.z },
+    { arriveMeters: 9, label: 'the firehouse', timeoutMs: 240_000 },
+  );
+  const parked = await player.observe();
+  const roamedMeters = Math.hypot(parked.truck.x - roamedFrom.x, parked.truck.z - roamedFrom.z);
   // Some calls end within sight of the firehouse, and a short drive there says
   // nothing either way; the claim is only tested when there was a drive to do.
   if (firehouseMeters >= 20) {
-    await player.driveTo(firehouseApproach, {
-      arriveMeters: 7,
-      label: 'the firehouse approach',
-      timeoutMs: 240_000,
-    });
-    parked = await player.observe();
-    const roamedMeters = Math.hypot(parked.truck.x - roamedFrom.x, parked.truck.z - roamedFrom.z);
     check(roamedMeters >= 12, 'the player can drive across town with no incident active');
   } else {
-    note(
-      `the firehouse was ${firehouseMeters.toFixed(0)} m away; park and finish the short approach on foot`,
-    );
+    note(`the firehouse was ${firehouseMeters.toFixed(0)} m away, too close to test free roam`);
   }
   check(parked.quietTown, 'the town stays fire-free for the whole drive between calls');
   await capture(session, sessionId, `quiet-town-${index + 1}`);

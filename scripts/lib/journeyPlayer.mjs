@@ -296,51 +296,20 @@ export class JourneyPlayer {
    */
   async walkTo(target, { arriveMeters = 6, timeoutMs = 45_000, label = 'the target' } = {}) {
     const deadline = Date.now() + timeoutMs;
-    let lastPosition = null;
-    let stationarySince = Date.now();
-    let detours = 0;
-    let steerTarget = target;
-    let detourUntil = 0;
     try {
       while (Date.now() < deadline) {
         const observation = await this.observe();
         if (observation.mode !== 'on-foot') {
           throw new Error(`The player is not on foot while walking to ${label}`);
         }
-        if (detourUntil !== 0 && Date.now() > detourUntil) {
-          steerTarget = target;
-          detourUntil = 0;
-        }
         const distance = distanceBetween(observation.player, target);
         if (distance <= arriveMeters) {
           await this.releaseAll();
           return observation;
         }
-        const keys = travelKeys(observation, steerTarget);
+        const keys = travelKeys(observation, target);
         await this.hold(keys);
         trace(`walk ${label}: ${distance.toFixed(1)} m away, holding ${keys.join('+')}`);
-
-        if (lastPosition === null || distanceBetween(lastPosition, observation.player) > 0.25) {
-          lastPosition = observation.player;
-          stationarySince = Date.now();
-        } else if (Date.now() - stationarySince > 1_200) {
-          // A parked truck, tree, or building corner can sit on the straight
-          // line. Step sideways for a moment, alternating sides if necessary,
-          // then resume towards the destination like a child walking around it.
-          detours += 1;
-          const offsetX = target.x - observation.player.x;
-          const offsetZ = target.z - observation.player.z;
-          const length = Math.hypot(offsetX, offsetZ) || 1;
-          const sideways = detours % 2 === 0 ? 1 : -1;
-          steerTarget = {
-            x: observation.player.x + (-offsetZ / length) * 6 * sideways,
-            z: observation.player.z + (offsetX / length) * 6 * sideways,
-          };
-          detourUntil = Date.now() + 2_500;
-          trace(`walk ${label}: blocked, taking detour ${detours}`);
-          lastPosition = null;
-          stationarySince = Date.now();
-        }
         await wait(90);
       }
     } finally {
