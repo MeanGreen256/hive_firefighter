@@ -59,19 +59,8 @@ jobs:
       # software-rendered shift takes longer than the rest of CI put together;
       # the whole five-call shift runs nightly in `production-shift.yml`.
       #
-      # Reporting, not blocking, until #239 is fixed. The first thing this gate
-      # found is that an incident stays active for about seven minutes after
-      # its last flame goes out, and every later step of the journey — the
-      # quiet town, the next call, the refresh — is behind that star screen. So
-      # today it cannot pass, for a reason that is the game's rather than the
-      # pull request's, and blocking on it would only teach people to ignore a
-      # red tick. Its assertions are unchanged and its evidence is uploaded
-      # either way; the budgets are short so a known failure is quick.
-      #
-      # When #239 lands: delete `continue-on-error`, drop the two budget flags.
       - name: Production journey acceptance
-        continue-on-error: true
-        run: npm run acceptance:production -- --skip-build --incidents=1 --incident-seconds=300 --settle-seconds=120
+        run: npm run acceptance:production -- --skip-build --incidents=1
         env:
           ACCEPTANCE_ARTIFACT_DIR: artifacts/journey
 

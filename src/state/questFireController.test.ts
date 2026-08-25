@@ -169,19 +169,47 @@ describe('quest fire controller', () => {
     expect(fire?.state.grid.cells[target?.cellId ?? '']?.state).not.toBe(CellState.Burning);
   });
 
-  it('reports the incident over once nothing is alight or heating', () => {
-    const controller = controllerFor('bandstand-green');
-    for (let attempt = 0; attempt < 200; attempt += 1) {
-      const burning = controller.getBurningCells();
-      const snapshot = controller.store.getState();
-      if (snapshot.extinguished) break;
-      for (const cell of burning) controller.applyWater(cell.cellId, 6);
+  it('reports the incident over as soon as the last flame is out, even while cells are warm', () => {
+    const controller = createQuestFireController();
+    controller.setQuest({ ...getQuestForSite('harbour-hill', 'meadow-picnic'), seed: 1 });
+    for (let step = 0; step < 200; step += 1) controller.advance(0.1);
+
+    for (let attempt = 0; attempt < 200 && !controller.store.getState().debrief; attempt += 1) {
+      for (const cell of controller.getBurningCells()) controller.applyWater(cell.cellId, 3);
       controller.advance(0.1);
     }
+
+    expect(controller.getLiveCellCounts().burning).toBe(0);
+    expect(controller.getLiveCellCounts().heating).toBeGreaterThan(0);
     expect(controller.store.getState().extinguished).toBe(true);
     expect(controller.store.getState()).toMatchObject({
       status: SessionStatus.Contained,
       debrief: { outcome: SessionStatus.Contained, stars: 3 },
+    });
+  });
+
+  it('keeps a visible propane countdown active after the last flame is out', () => {
+    const controller = controllerFor('bakery-awning');
+    const fire = controller.getFire()!;
+    const placement = fire.hazards[0]!;
+    const hazard = controller.getHazards().hazards[placement.id]!;
+    hazard.state = PropaneHazardState.Countdown;
+    hazard.heat = PROPANE_COUNTDOWN_HEAT;
+    hazard.countdownRemainingSeconds = 4;
+
+    for (const cell of Object.values(fire.state.grid.cells)) {
+      if (cell.state !== CellState.Burning && cell.state !== CellState.Flashover) continue;
+      cell.state = CellState.Heating;
+      cell.heat = 1;
+      fire.state.activeCellIds.add(cell.id);
+    }
+    controller.advance(0.1);
+
+    expect(controller.getLiveCellCounts().burning).toBe(0);
+    expect(controller.store.getState()).toMatchObject({
+      status: SessionStatus.Active,
+      hazardState: PropaneHazardState.Countdown,
+      debrief: null,
     });
   });
 

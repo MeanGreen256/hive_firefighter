@@ -61,22 +61,12 @@ const HOSE_REACH_METERS = 9;
 /**
  * How long an incident gets to end itself once the last flame is out.
  *
- * Hot cells cool on the simulation's own clock, so this is the game settling,
- * not the player working. It is separate from the fight budget because a fire
- * the runner has actually put out is not a slow fight, and blaming one for the
- * other sends the next person reading the failure to the wrong place.
- *
- * Ten minutes is not a design target; it is what today's game needs. An
- * incident stays `active` while any cell is still warm, and a warm cell cools
- * at a floor of 0.2 heat a second, so a fire put out in under a second still
- * takes about seven minutes to become `contained` — measured, deterministically
- * and without a browser, on the first authored call. That is the wait a child
- * sits through before their stars, and it is filed as #239; when that is fixed
- * this number should come down to seconds, and so should this gate's runtime.
- * The report prints the measured settle time on every run, so a regression is
- * visible rather than merely slow.
+ * This is separate from the fight budget because a fire the runner has actually
+ * put out is not a slow fight. Containment now follows the child-visible rule:
+ * no remaining flame. Ten seconds leaves room for a slow hosted frame and the
+ * star-screen transition without allowing residual heat to become a hidden wait.
  */
-const DEFAULT_SETTLE_SECONDS = 600;
+const DEFAULT_SETTLE_SECONDS = 10;
 /** Seconds of fighting one incident gets, before the settle grace above. */
 const DEFAULT_INCIDENT_SECONDS = 600;
 
@@ -257,7 +247,7 @@ async function extinguish(player, incident, index) {
       await player.releaseAll();
       const stalled = await player.observe();
       throw new Error(
-        `Incident ${index + 1} (${incident.questId}) put its last flame out but never finished within ${options.settleSeconds} s: ${stalled.heatingCellCount} cells still hot, status ${stalled.incidentStatus}. This is #239 — the incident stays active while any cell is warm, and nothing the player can do speeds it up.`,
+        `Incident ${index + 1} (${incident.questId}) put its last flame out but never finished within ${options.settleSeconds} s: ${stalled.heatingCellCount} cells still warm, status ${stalled.incidentStatus}`,
       );
     }
 

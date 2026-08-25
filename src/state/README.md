@@ -68,8 +68,11 @@ Propane misses and collapsed fuel feed the existing star debrief, while neither
 system receives collision or player state.
 
 The controller ends each quest as `contained` or `scorched`, freezes the fire,
-and publishes a 1–3 star debrief. Retry keeps the current seed; the alternate
-new-fire action advances deterministically to another seed.
+and publishes a 1–3 star debrief. `Contained` follows what a child can see: it
+begins as soon as no cell is `Burning` or `Flashover`; invisible residual heat
+never delays the stars. A visible propane countdown remains active until it is
+cooled or expires. Retry keeps the current seed; the alternate new-fire action
+advances deterministically to another seed.
 
 `questDirector.ts` owns the explicit between-call quiet-town state (#212). Its
 durable V1 phase name remains `next` for existing profiles, while

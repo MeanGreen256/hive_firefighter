@@ -2,7 +2,8 @@
 
 **Status:** Accepted
 **Date:** 2026-08-21
-**Amended:** 2026-08-23 by #212 (quiet-town activation boundary)
+**Amended:** 2026-08-23 by #212 (quiet-town activation boundary); 2026-08-25 by
+#239 (child-visible containment boundary)
 
 ## Context
 
@@ -46,6 +47,13 @@ incident identity is still advanced deterministically at that boundary, but its
 simulation does not activate until the player explicitly starts the call from
 the station with the existing primary action. This activation pause changes no
 completion, star, retry, reward, or idempotency semantics.
+
+`contained` begins when no exterior cell is visibly alight (`Burning` or
+`Flashover`). A merely warm `Heating` cell has no flame, offers no suppression
+target, and can only cool once every flame is gone, so it cannot hold the player
+behind an invisible timer. A propane cylinder in its visible countdown remains
+an active incident until the player cools it or it expires; this is the only
+non-flame terminal delay.
 
 ### Stars count authored things the player can see
 
