@@ -55,6 +55,8 @@ const DEFAULT_INCIDENTS = 5;
  * WebGL context, or a lost context collapses well below it.
  */
 const MINIMUM_FRAME_COLORS = 8;
+/** `HOSE_AIM_MAX_RANGE_METERS`: past this, no aim helps and only walking does. */
+const HOSE_REACH_METERS = 9;
 
 const options = parseOptions(process.argv.slice(2));
 const problems = [];
@@ -227,16 +229,19 @@ async function extinguish(player, incident, index) {
     }
 
     await player.releaseAll();
-    // Nothing under the hose: walk in on the nearest flames until the game says
-    // the stream has them, which is the reticle a player watches for.
     const fire = state.fire ?? { ...incident.questSite, y: 0 };
-    const aimed = await player.aimAt(fire, { from: state.truck, timeoutMs: 30_000 });
-    if (!aimed.targetCaptured) {
-      // The assist did not pick it up from where the runner could stand: aim
-      // over it by hand, which is what the game's free aim is for and what a
-      // player does when the stream keeps going under the flames.
-      await player.sweepSprayAt(fire, { timeoutMs: 30_000 });
+    const metersToFire = Math.hypot(state.player.x - fire.x, state.player.z - fire.z);
+    if (metersToFire > HOSE_REACH_METERS) {
+      // Out of reach: walk in on the nearest flames until the game says the
+      // stream has them, which is the reticle a player watches for.
+      await player.aimAt(fire, { from: state.truck, timeoutMs: 40_000 });
+      continue;
     }
+    // In reach but the assist has not picked it up — a cell low behind a fence
+    // or high on a wall. Aim over it by hand and keep the water moving, which
+    // is what the game's free aim is for and what a player does when the
+    // stream keeps going somewhere the fire is not.
+    await player.sweepSprayAt(fire, { timeoutMs: 45_000 });
   }
   await player.releaseAll();
   const stalled = await player.observe();
