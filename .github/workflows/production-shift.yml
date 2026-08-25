@@ -41,6 +41,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Blocking here, unlike the pull-request job: this is the gate that is
+      # meant to go red while #239 makes a five-call shift unplayable.
       - name: Play a whole shift of the production build
         run: npm run acceptance:production -- --incidents=${{ inputs.incidents || '5' }}
         env:

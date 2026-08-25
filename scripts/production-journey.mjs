@@ -16,7 +16,8 @@
  *
  * Everything it asserts is something a player would notice.
  *
- *   node scripts/production-journey.mjs [--incidents=N] [--incident-seconds=S] [--skip-build]
+ *   node scripts/production-journey.mjs [--incidents=N] [--incident-seconds=S]
+ *                                       [--settle-seconds=S] [--skip-build]
  */
 
 import { spawn } from 'node:child_process';
@@ -75,7 +76,7 @@ const HOSE_REACH_METERS = 9;
  * The report prints the measured settle time on every run, so a regression is
  * visible rather than merely slow.
  */
-const SETTLE_GRACE_MS = 600_000;
+const DEFAULT_SETTLE_SECONDS = 600;
 /** Seconds of fighting one incident gets, before the settle grace above. */
 const DEFAULT_INCIDENT_SECONDS = 600;
 
@@ -87,11 +88,18 @@ function parseOptions(argv) {
   const parsed = {
     incidents: DEFAULT_INCIDENTS,
     incidentSeconds: DEFAULT_INCIDENT_SECONDS,
+    settleSeconds: DEFAULT_SETTLE_SECONDS,
     build: true,
   };
   for (const argument of argv) {
     if (argument === '--skip-build') parsed.build = false;
-    else if (argument.startsWith('--incident-seconds=')) {
+    else if (argument.startsWith('--settle-seconds=')) {
+      const seconds = Number(argument.slice('--settle-seconds='.length));
+      if (!Number.isFinite(seconds) || seconds < 10) {
+        throw new Error(`--settle-seconds needs at least 10 seconds, not ${argument}`);
+      }
+      parsed.settleSeconds = seconds;
+    } else if (argument.startsWith('--incident-seconds=')) {
       const seconds = Number(argument.slice('--incident-seconds='.length));
       if (!Number.isFinite(seconds) || seconds < 30) {
         throw new Error(`--incident-seconds needs at least 30 seconds, not ${argument}`);
@@ -249,7 +257,7 @@ async function extinguish(player, incident, index) {
       await player.releaseAll();
       const stalled = await player.observe();
       throw new Error(
-        `Incident ${index + 1} (${incident.questId}) put its last flame out but never finished: ${stalled.heatingCellCount} cells still hot, status ${stalled.incidentStatus}`,
+        `Incident ${index + 1} (${incident.questId}) put its last flame out but never finished within ${options.settleSeconds} s: ${stalled.heatingCellCount} cells still hot, status ${stalled.incidentStatus}. This is #239 — the incident stays active while any cell is warm, and nothing the player can do speeds it up.`,
       );
     }
 
@@ -292,7 +300,7 @@ async function extinguish(player, incident, index) {
       // that ran long cannot fail a fire that is already out.
       if (settleDeadline === null) {
         flamesOutAt = Date.now();
-        settleDeadline = flamesOutAt + SETTLE_GRACE_MS;
+        settleDeadline = flamesOutAt + options.settleSeconds * 1_000;
       }
       await wait(1_000);
       continue;

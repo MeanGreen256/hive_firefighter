@@ -17,6 +17,7 @@ npm run acceptance:production                      # a whole five-call shift
 npm run acceptance:production -- --incidents=1     # the first-play journey only
 npm run acceptance:production -- --skip-build      # reuse the existing dist/
 npm run acceptance:production -- --incident-seconds=900   # more time per call
+npm run acceptance:production -- --settle-seconds=60      # less patience for #239
 JOURNEY_TRACE=1 npm run acceptance:production      # narrate every decision
 ```
 
@@ -105,9 +106,11 @@ finished without the hose being on it.
 ## When it fails
 
 An incident has two clocks, and the failure says which one ran out: still
-alight after the fight budget (the runner could not put it out, or could not
-reach it), or last flame out and no star screen (the game did not end an
-incident that is, visibly, over). They send you to different places.
+alight after the fight budget (`--incident-seconds`, default 600 — the runner
+could not put it out, or could not reach it), or last flame out and no star
+screen (`--settle-seconds`, default 600 — the game did not end an incident
+that is, visibly, over). They send you to different places, and the second one
+is #239 until #239 is fixed.
 
 The report names the step. `failure.png` shows where the player was standing.
 `JOURNEY_TRACE=1` prints every drive, walk, aim, and spray decision, which is
