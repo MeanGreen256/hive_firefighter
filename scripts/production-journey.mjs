@@ -229,7 +229,14 @@ async function extinguish(player, incident, index) {
     }
 
     await player.releaseAll();
-    const fire = state.fire ?? { ...incident.questSite, y: 0 };
+    if (state.fire === null) {
+      // Nothing alight anywhere: either the incident is about to resolve, or a
+      // hot cell is about to catch again. Both are things a player waits out
+      // rather than walks around.
+      await wait(1_000);
+      continue;
+    }
+    const fire = state.fire;
     const metersToFire = Math.hypot(state.player.x - fire.x, state.player.z - fire.z);
     if (metersToFire > HOSE_REACH_METERS) {
       // Out of reach: walk in on the nearest flames until the game says the
