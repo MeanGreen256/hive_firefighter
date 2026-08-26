@@ -6,7 +6,10 @@ import {
   CHARACTER_WALK_SPEED,
   getCameraRelativeMovement,
   getCharacterAnimationState,
+  getCharacterGamepadInput,
+  getCharacterKeyboardInput,
   getCharacterTargetSpeed,
+  isCharacterMovementKey,
   resolveCharacterMovement,
   stepCharacterFacingYaw,
   stepCharacterVelocity,
@@ -16,6 +19,37 @@ import {
 const BUILDING: CharacterObstacle = { minX: 0, maxX: 2, minZ: -1, maxZ: 1 };
 
 describe('firefighter movement input and gait', () => {
+  it('accepts arrow keys for left/right movement alongside the letter controls', () => {
+    expect(isCharacterMovementKey('ArrowLeft')).toBe(true);
+    expect(isCharacterMovementKey('ArrowRight')).toBe(true);
+    expect(isCharacterMovementKey(' ')).toBe(false);
+    expect(getCharacterKeyboardInput(new Set(['arrowleft']))).toEqual({
+      right: -1,
+      forward: 0,
+      intensity: 1,
+    });
+    expect(getCharacterKeyboardInput(new Set(['arrowright']))).toEqual({
+      right: 1,
+      forward: 0,
+      intensity: 1,
+    });
+    const diagonal = getCharacterKeyboardInput(new Set(['arrowright', 'arrowup']));
+    expect(diagonal.right).toBeCloseTo(Math.SQRT1_2);
+    expect(diagonal.forward).toBeCloseTo(Math.SQRT1_2);
+    expect(diagonal.intensity).toBe(1);
+  });
+
+  it('maps the gamepad horizontal axis to the same left/right movement', () => {
+    const left = getCharacterGamepadInput(-1, 0);
+    const right = getCharacterGamepadInput(1, 0);
+    expect(left.right).toBe(-1);
+    expect(left.forward).toBeCloseTo(0);
+    expect(left.intensity).toBe(1);
+    expect(right.right).toBe(1);
+    expect(right.forward).toBeCloseTo(0);
+    expect(right.intensity).toBe(1);
+  });
+
   it('normalizes digital diagonals and applies a smooth gamepad deadzone', () => {
     const digital = applyCharacterMovementDeadzone(1, 1, 0);
     expect(digital.intensity).toBe(1);
