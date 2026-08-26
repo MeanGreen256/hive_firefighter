@@ -3,6 +3,7 @@ export const CHARACTER_WALK_SPEED = 2.35;
 export const CHARACTER_RUN_SPEED = 4.6;
 export const CHARACTER_ACCELERATION = 12;
 export const CHARACTER_DECELERATION = 16;
+export const CHARACTER_TURN_SPEED_RADIANS_PER_SECOND = 2.8;
 export const CHARACTER_RUN_INPUT_THRESHOLD = 0.68;
 export const CHARACTER_STICK_DEADZONE = 0.18;
 
@@ -16,11 +17,6 @@ export interface CharacterPoint {
   readonly z: number;
 }
 
-/** Mutable hand-off used by the follow camera and the on-foot controller. */
-export interface CharacterMovementForwardRef {
-  current: CharacterPoint;
-}
-
 export interface CharacterObstacle {
   readonly minX: number;
   readonly maxX: number;
@@ -31,7 +27,8 @@ export interface CharacterObstacle {
 export type CharacterMovementBounds = CharacterObstacle;
 
 export interface CharacterMovementInput {
-  readonly right: number;
+  /** Positive turns left; negative turns right. */
+  readonly turn: number;
   readonly forward: number;
   readonly intensity: number;
 }
@@ -74,13 +71,13 @@ export function isCharacterMovementKey(key: string): boolean {
  * know the development keyboard layout to move in every direction.
  */
 export function getCharacterKeyboardInput(heldKeys: ReadonlySet<string>): CharacterMovementInput {
-  const right =
-    Number(heldKeys.has('d') || heldKeys.has('arrowright')) -
-    Number(heldKeys.has('a') || heldKeys.has('arrowleft'));
+  const turn =
+    Number(heldKeys.has('a') || heldKeys.has('arrowleft')) -
+    Number(heldKeys.has('d') || heldKeys.has('arrowright'));
   const forward =
     Number(heldKeys.has('w') || heldKeys.has('arrowup')) -
     Number(heldKeys.has('s') || heldKeys.has('arrowdown'));
-  return applyCharacterMovementDeadzone(right, forward, 0);
+  return { turn, forward, intensity: Math.max(Math.abs(turn), Math.abs(forward)) };
 }
 
 /** Maps the conventional gamepad left stick into the same movement contract. */
@@ -88,7 +85,7 @@ export function getCharacterGamepadInput(
   horizontalAxis: number,
   verticalAxis: number,
 ): CharacterMovementInput {
-  return applyCharacterMovementDeadzone(horizontalAxis, -verticalAxis);
+  return applyCharacterMovementDeadzone(-horizontalAxis, -verticalAxis);
 }
 
 function assertObstacle(obstacle: CharacterObstacle): void {
@@ -99,7 +96,7 @@ function assertObstacle(obstacle: CharacterObstacle): void {
 
 /** Applies a radial deadzone while preserving analogue direction and intensity. */
 export function applyCharacterMovementDeadzone(
-  right: number,
+  turn: number,
   forward: number,
   deadzone = CHARACTER_STICK_DEADZONE,
 ): CharacterMovementInput {
@@ -107,44 +104,32 @@ export function applyCharacterMovementDeadzone(
     throw new RangeError('A movement deadzone must be in the range [0, 1)');
   }
 
-  const rawMagnitude = Math.hypot(right, forward);
-  if (rawMagnitude <= deadzone) return { right: 0, forward: 0, intensity: 0 };
+  const rawMagnitude = Math.hypot(turn, forward);
+  if (rawMagnitude <= deadzone) return { turn: 0, forward: 0, intensity: 0 };
 
   const magnitude = Math.min(1, rawMagnitude);
   const intensity = (magnitude - deadzone) / (1 - deadzone);
   const directionScale = intensity / rawMagnitude;
   return {
-    right: right * directionScale,
+    turn: turn * directionScale,
     forward: forward * directionScale,
     intensity,
   };
 }
 
-/** Converts one movement stick into a horizontal world direction relative to the camera. */
-export function getCameraRelativeMovement(
+/** Converts forward/back input into a world direction relative to character facing. */
+export function getCharacterRelativeMovement(
   input: CharacterMovementInput,
-  cameraForward: CharacterPoint,
+  facingYawRadians: number,
 ): CharacterMovementVector {
-  if (input.intensity <= 0) return { x: 0, z: 0, intensity: 0 };
-
-  const cameraLength = Math.hypot(cameraForward.x, cameraForward.z);
-  if (cameraLength <= Number.EPSILON) {
-    throw new RangeError('Camera-relative movement requires a horizontal camera direction');
-  }
-
-  const forwardX = cameraForward.x / cameraLength;
-  const forwardZ = cameraForward.z / cameraLength;
-  const rightX = -forwardZ;
-  const rightZ = forwardX;
-  const worldX = forwardX * input.forward + rightX * input.right;
-  const worldZ = forwardZ * input.forward + rightZ * input.right;
-  const worldLength = Math.hypot(worldX, worldZ);
-  if (worldLength <= Number.EPSILON) return { x: 0, z: 0, intensity: 0 };
+  const forwardAmount = clamp(input.forward, -1, 1);
+  if (Math.abs(forwardAmount) <= Number.EPSILON) return { x: 0, z: 0, intensity: 0 };
+  const direction = Math.sign(forwardAmount);
 
   return {
-    x: worldX / worldLength,
-    z: worldZ / worldLength,
-    intensity: clamp(input.intensity, 0, 1),
+    x: -Math.sin(facingYawRadians) * direction,
+    z: -Math.cos(facingYawRadians) * direction,
+    intensity: Math.abs(forwardAmount),
   };
 }
 
@@ -189,38 +174,19 @@ export function stepCharacterVelocity(
   };
 }
 
-/**
- * Smoothly turns only while the player is asking to move forward. Backpedalling
- * and strafing deliberately keep the current body heading, which prevents a
- * camera that follows the body from feeding a lateral input back into another
- * turn.
- */
-export function stepCharacterFacingYaw(
+/** Turns in place or while moving; movement never owns or feeds back through the camera. */
+export function stepCharacterTurnYaw(
   currentYawRadians: number,
-  input: CharacterMovementInput,
-  movementForward: CharacterPoint,
-  damping: number,
+  turnInput: number,
+  turnSpeedRadiansPerSecond: number,
   deltaSeconds: number,
 ): number {
-  if (damping < 0 || deltaSeconds < 0) {
-    throw new RangeError('Character turn damping and delta time cannot be negative');
+  if (turnSpeedRadiansPerSecond < 0 || deltaSeconds < 0) {
+    throw new RangeError('Character turn speed and delta time cannot be negative');
   }
-  if (input.forward <= Number.EPSILON) return currentYawRadians;
-
-  const forwardLength = Math.hypot(movementForward.x, movementForward.z);
-  if (forwardLength <= Number.EPSILON) {
-    throw new RangeError('Character facing requires a horizontal movement-forward direction');
-  }
-
-  const desiredYaw = Math.atan2(
-    -movementForward.x / forwardLength,
-    -movementForward.z / forwardLength,
-  );
-  const yawDifference = Math.atan2(
-    Math.sin(desiredYaw - currentYawRadians),
-    Math.cos(desiredYaw - currentYawRadians),
-  );
-  return currentYawRadians + yawDifference * (1 - Math.exp(-damping * deltaSeconds));
+  const nextYaw =
+    currentYawRadians + clamp(turnInput, -1, 1) * turnSpeedRadiansPerSecond * deltaSeconds;
+  return Math.atan2(Math.sin(nextYaw), Math.cos(nextYaw));
 }
 
 export function getCharacterAnimationState(speed: number): CharacterAnimationState {

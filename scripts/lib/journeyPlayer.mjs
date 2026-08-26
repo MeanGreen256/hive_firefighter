@@ -289,10 +289,9 @@ export class JourneyPlayer {
   /**
    * Walk to a place on foot.
    *
-   * The movement keys are camera-relative, so the runner projects the direction
-   * it wants onto the movement basis the game publishes. Turning always keeps
-   * the throttle on, because the character only changes facing while walking
-   * forwards — the same reason a child circles rather than pivots.
+   * A/D turn the character and W/S move relative to its body. The runner uses
+   * the same published facing a player sees, pivots when the target is well off
+   * axis, and moves while making smaller corrections.
    */
   async walkTo(target, { arriveMeters = 6, timeoutMs = 45_000, label = 'the target' } = {}) {
     const deadline = Date.now() + timeoutMs;
@@ -502,45 +501,24 @@ export class JourneyPlayer {
 }
 
 /**
- * Which movement keys point the player at a world direction.
- *
- * The movement keys are read against the camera's heading, which the game
- * publishes as `moveForward`, so this is the same projection the game does in
- * reverse: take the direction we want to go, express it as forward and
- * sideways amounts, and hold the keys nearest to it. Eight directions, exactly
- * what a keyboard offers a player.
+ * Which tank-control keys turn and move the player toward a world position.
  */
 export function travelKeys(observation, target) {
-  const { forwardInput, rightInput } = projectOntoCamera(observation, target);
+  const headingError = headingErrorToward(observation, target);
   const keys = [];
-  if (forwardInput > 0.38) keys.push('w');
-  else if (forwardInput < -0.38) keys.push('s');
-  if (rightInput > 0.38) keys.push('d');
-  else if (rightInput < -0.38) keys.push('a');
+  if (headingError > 0.08) keys.push('a');
+  else if (headingError < -0.08) keys.push('d');
+  if (Math.abs(headingError) < Math.PI / 3) keys.unshift('w');
   return keys.length > 0 ? keys : ['w'];
 }
 
-/**
- * How far off the camera's heading something is.
- *
- * It matters because the firefighter only changes facing while walking
- * forwards: something behind the camera cannot be looked at by walking
- * straight at it, and has to be turned towards first.
- */
-export function projectOntoCamera(observation, target) {
-  const forward = observation.moveForward;
-  const forwardLength = Math.hypot(forward.x, forward.z) || 1;
-  const forwardX = forward.x / forwardLength;
-  const forwardZ = forward.z / forwardLength;
-  const offsetX = target.x - observation.player.x;
-  const offsetZ = target.z - observation.player.z;
-  const offsetLength = Math.hypot(offsetX, offsetZ) || 1;
-  const unitX = offsetX / offsetLength;
-  const unitZ = offsetZ / offsetLength;
-  return {
-    forwardInput: unitX * forwardX + unitZ * forwardZ,
-    rightInput: unitX * -forwardZ + unitZ * forwardX,
-  };
+/** Signed shortest turn from character facing to a world position. */
+export function headingErrorToward(observation, target) {
+  const desiredYaw = Math.atan2(
+    -(target.x - observation.player.x),
+    -(target.z - observation.player.z),
+  );
+  return normalizeAngle(desiredYaw - observation.playerYawRadians);
 }
 
 /**

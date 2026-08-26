@@ -42,6 +42,12 @@ describe('WorldHud quiet town', () => {
     expect(html).not.toContain('world-hud__action world-hud__adults-action');
   });
 
+  it('labels trackpad and mouse hose aiming as optional on foot', () => {
+    const html = renderQuietTown(true);
+    expect(html).toContain('right-drag to fine-aim the hose');
+    expect(html).toContain('both optional');
+  });
+
   it('leaves the restart out entirely when nothing is offering one', () => {
     expect(renderQuietTown(true)).not.toContain('Show the first-play guide again');
   });
