@@ -908,6 +908,8 @@ export default function FollowCameraScene() {
   useEffect(() => {
     if (debriefOpen) onboardingGuide.noteIncidentComplete();
   }, [debriefOpen]);
+  /** Keys physically down, kept across this effect's many re-subscriptions. */
+  const keysDown = useRef<Set<string>>(new Set());
   const pressAction = useCallback(() => {
     if (debriefOpen) return;
     const targetCaptured = firefighterRef.current?.userData.targetCaptured === true;
@@ -924,9 +926,28 @@ export default function FollowCameraScene() {
   }, [beginNextCall, canBoard, canStartNextCall, debriefOpen, mode, quietTown, transitionPlayer]);
 
   useEffect(() => {
+    /**
+     * A held key is not a stream of presses, whatever the browser says.
+     *
+     * `event.repeat` is meant to carry that, and some input pipelines never
+     * set it — Chrome's own automation repeats a held key thousands of times
+     * with `repeat === false` (see `@ui/heldKeys`). Holding the hose button
+     * would then fire the action over and over, hopping the firefighter in and
+     * out of the cab, so the latch is state here rather than a flag: a key does
+     * nothing again until it has been released.
+     *
+     * The set lives in a ref because this effect re-subscribes whenever the
+     * mode or the boarding range changes — several times a call. A set rebuilt
+     * on each of those would forget that the hose button was still down and let
+     * the very next repeat through.
+     */
+    const down = keysDown.current;
+    const handleKeyUp = (event: KeyboardEvent) => down.delete(event.key.toLowerCase());
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
       const key = event.key.toLowerCase();
+      if (down.has(key)) return;
+      down.add(key);
       if (key === ' ') {
         pressAction();
       } else if (key === 'e' && !debriefOpen && (mode === 'driving' || canBoard)) {
@@ -945,7 +966,11 @@ export default function FollowCameraScene() {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, [canBoard, debriefOpen, mode, pressAction, toggleSiren, transitionPlayer]);
 
   // Gamepad parity (rule 5). The sticks are read inside the Canvas by whichever
