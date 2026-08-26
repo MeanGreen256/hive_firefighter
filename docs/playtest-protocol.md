@@ -29,7 +29,9 @@ anonymised record.
 1. Choose one scenario below and copy the record template.
 2. Use the exact build named in the record. Start from a fresh browser profile or
    clear the game's local storage. Do not enable development shortcuts.
-3. Use a supported desktop browser, sound on, and either a keyboard or a gamepad.
+3. Use a desktop browser, sound on, and either a keyboard or a gamepad. This is
+   the observation setup, not a declaration of supported platforms: the product
+   matrix remains an open decision in [#215](https://github.com/MeanGreen256/hive_firefighter/issues/215).
    Put the chosen input device within easy reach. Do not switch input devices during
    the run unless the child asks.
 4. Open the game at its normal first screen. Do not pre-drive, dismiss onboarding,
