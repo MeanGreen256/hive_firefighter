@@ -4,11 +4,13 @@ import { MathUtils, Vector3, type Group } from 'three';
 import type { Style } from '@styles/styles';
 import { firstConnectedGamepad } from '@ui/gamepad';
 import {
-  applyCharacterMovementDeadzone,
   CHARACTER_RADIUS,
   getCameraRelativeMovement,
   getCharacterAnimationState,
+  getCharacterGamepadInput,
+  getCharacterKeyboardInput,
   getCharacterTargetSpeed,
+  isCharacterMovementKey,
   resolveCharacterMovement,
   stepCharacterFacingYaw,
   stepCharacterVelocity,
@@ -71,16 +73,10 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
-function readKeyboardInput(heldKeys: ReadonlySet<string>): CharacterMovementInput {
-  const right = Number(heldKeys.has('d')) - Number(heldKeys.has('a'));
-  const forward = Number(heldKeys.has('w')) - Number(heldKeys.has('s'));
-  return applyCharacterMovementDeadzone(right, forward, 0);
-}
-
 function readGamepadInput(): CharacterMovementInput {
   const gamepad = firstConnectedGamepad();
   if (!gamepad) return { right: 0, forward: 0, intensity: 0 };
-  return applyCharacterMovementDeadzone(gamepad.axes[0] ?? 0, -(gamepad.axes[1] ?? 0));
+  return getCharacterGamepadInput(gamepad.axes[0] ?? 0, gamepad.axes[1] ?? 0);
 }
 
 function chooseMovementInput(
@@ -199,7 +195,7 @@ export function FirefighterController({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return;
       const key = event.key.toLowerCase();
-      if (key !== 'w' && key !== 'a' && key !== 's' && key !== 'd') return;
+      if (!isCharacterMovementKey(key)) return;
       event.preventDefault();
       activeKeys.add(key);
     };
@@ -245,7 +241,7 @@ export function FirefighterController({
     if (!enabled) velocity.current.set(0, 0, 0);
 
     const input = enabled
-      ? chooseMovementInput(readKeyboardInput(heldKeys.current), readGamepadInput())
+      ? chooseMovementInput(getCharacterKeyboardInput(heldKeys.current), readGamepadInput())
       : { right: 0, forward: 0, intensity: 0 };
     const movement = getCameraRelativeMovement(input, {
       x: movementForwardRef.current.x,

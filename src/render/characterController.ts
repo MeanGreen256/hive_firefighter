@@ -52,6 +52,45 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+/** Keyboard names accepted for every direction of on-foot movement. */
+const CHARACTER_MOVEMENT_KEYS = new Set([
+  'w',
+  'a',
+  's',
+  'd',
+  'arrowup',
+  'arrowleft',
+  'arrowdown',
+  'arrowright',
+]);
+
+/** Lets the event boundary ignore keys that do not belong to movement. */
+export function isCharacterMovementKey(key: string): boolean {
+  return CHARACTER_MOVEMENT_KEYS.has(key.toLowerCase());
+}
+
+/**
+ * Reads both the letter cluster and arrow keys so a player never needs to
+ * know the development keyboard layout to move in every direction.
+ */
+export function getCharacterKeyboardInput(heldKeys: ReadonlySet<string>): CharacterMovementInput {
+  const right =
+    Number(heldKeys.has('d') || heldKeys.has('arrowright')) -
+    Number(heldKeys.has('a') || heldKeys.has('arrowleft'));
+  const forward =
+    Number(heldKeys.has('w') || heldKeys.has('arrowup')) -
+    Number(heldKeys.has('s') || heldKeys.has('arrowdown'));
+  return applyCharacterMovementDeadzone(right, forward, 0);
+}
+
+/** Maps the conventional gamepad left stick into the same movement contract. */
+export function getCharacterGamepadInput(
+  horizontalAxis: number,
+  verticalAxis: number,
+): CharacterMovementInput {
+  return applyCharacterMovementDeadzone(horizontalAxis, -verticalAxis);
+}
+
 function assertObstacle(obstacle: CharacterObstacle): void {
   if (obstacle.minX >= obstacle.maxX || obstacle.minZ >= obstacle.maxZ) {
     throw new RangeError('Character obstacles must have positive width and depth');
