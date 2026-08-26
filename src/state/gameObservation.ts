@@ -35,6 +35,15 @@ export interface GameObservationFirePoint extends GameObservationPoint {
   readonly y: number;
 }
 
+/** What the HUD's one speaker button is currently saying (#221). */
+export interface GameObservationAudio {
+  /** True only while an AudioContext is genuinely running. */
+  readonly enabled: boolean;
+  readonly muted: boolean;
+  /** The browser wants a gesture the automatic unlock could not supply. */
+  readonly gestureRequired: boolean;
+}
+
 export interface GameObservation {
   /** Bumped on every world sample, so a stalled render loop is visible. */
   readonly samples: number;
@@ -82,6 +91,7 @@ export interface GameObservation {
   readonly completedShiftCount: number;
   readonly completedQuestCount: number;
   readonly unlockedRewardCount: number;
+  readonly audio: GameObservationAudio;
 }
 
 const INITIAL: GameObservation = {
@@ -119,6 +129,7 @@ const INITIAL: GameObservation = {
   completedShiftCount: 0,
   completedQuestCount: 0,
   unlockedRewardCount: 0,
+  audio: { enabled: false, muted: false, gestureRequired: false },
 };
 
 let observation: GameObservation = INITIAL;

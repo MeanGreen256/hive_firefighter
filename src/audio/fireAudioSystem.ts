@@ -17,12 +17,28 @@ import {
   type AmbientAudioInput,
   type WorldReactionSound,
 } from './ambientAudioMix';
+import {
+  clampAudioVolume,
+  getBrowserAudioStorage,
+  readAudioPreferences,
+  writeAudioPreferences,
+} from './audioPreferences';
+import type { StorageLike } from '../state/personalBests';
 
 export interface FireAudioSnapshot {
   enabled: boolean;
   muted: boolean;
   volume: number;
   error: string | null;
+  /**
+   * Something wanted sound and the browser has not permitted it yet (#221).
+   *
+   * Set when the automatic unlock has run out of genuine gestures to spend, or
+   * when a gamepad-only player pressed a button no autoplay policy accepts.
+   * The HUD turns it into one wordless, pulsing speaker button; nothing about
+   * the game waits on it.
+   */
+  gestureRequired: boolean;
 }
 
 export type AudioContextFactory = () => AudioContext;
@@ -35,10 +51,6 @@ interface FireVoices {
   townAmbienceGain: GainNode;
   waterAmbienceGain: GainNode;
   birdAmbienceGain: GainNode;
-}
-
-function clampVolume(value: number): number {
-  return Math.min(1, Math.max(0, value));
 }
 
 function createNoiseBuffer(context: BaseAudioContext, seconds: number, seed: number): AudioBuffer {
@@ -70,12 +82,15 @@ function scheduleGain(gain: GainNode, value: number, now: number): void {
  */
 export function createFireAudioSystem(
   createContext: AudioContextFactory = () => new AudioContext(),
+  storage: StorageLike | null = null,
 ) {
+  const preferences = readAudioPreferences(storage);
   const store: StoreApi<FireAudioSnapshot> = createStore(() => ({
     enabled: false,
-    muted: false,
-    volume: 0.7,
+    muted: preferences.muted,
+    volume: preferences.volume,
     error: null,
+    gestureRequired: false,
   }));
   let context: AudioContext | null = null;
   let masterGain: GainNode | null = null;
@@ -234,9 +249,22 @@ export function createFireAudioSystem(
     }
   };
 
+  const persist = (): void => {
+    const snapshot = store.getState();
+    writeAudioPreferences(storage, { muted: snapshot.muted, volume: snapshot.volume });
+  };
+
   return {
     store,
-    /** Call only from a user interaction handler; this is the autoplay gate. */
+    /**
+     * Call only from a user interaction handler; this is the autoplay gate.
+     *
+     * Everything the mix has been told while the game was silent — the siren,
+     * the fire, the ambience, the adult's mute — is already held in this
+     * closure, and `initialize()` applies all of it before the first sample
+     * plays. Unlocking late therefore sounds like the moment it unlocked in,
+     * not like a session starting over (#221).
+     */
     enable: async (): Promise<boolean> => {
       try {
         if (!context) {
@@ -244,8 +272,13 @@ export function createFireAudioSystem(
           initialize();
         }
         if (context.state === 'suspended') await context.resume();
-        store.setState({ enabled: context.state === 'running', error: null });
-        return context.state === 'running';
+        const running = context.state === 'running';
+        store.setState({
+          enabled: running,
+          error: null,
+          ...(running ? { gestureRequired: false } : {}),
+        });
+        return running;
       } catch (error) {
         store.setState({
           error: error instanceof Error ? error.message : 'Audio could not start.',
@@ -253,13 +286,25 @@ export function createFireAudioSystem(
         return false;
       }
     },
+    /**
+     * The browser will not start audio without a gesture it has not had yet.
+     *
+     * Light the one wordless control that can supply one. Never a dialog, never
+     * a blocked game — a player who ignores it plays the whole shift in silence.
+     */
+    requestGesture: (): void => {
+      if (store.getState().enabled) return;
+      store.setState({ gestureRequired: true });
+    },
     setMuted: (muted: boolean): void => {
       store.setState({ muted });
       applyMasterGain();
+      persist();
     },
     setVolume: (volume: number): void => {
-      store.setState({ volume: clampVolume(volume) });
+      store.setState({ volume: clampAudioVolume(volume) });
       applyMasterGain();
+      persist();
     },
     setSirenActive: (active: boolean): void => {
       sirenActive = active;
@@ -322,4 +367,7 @@ export function createFireAudioSystem(
   };
 }
 
-export const fireAudioSystem = createFireAudioSystem();
+export const fireAudioSystem = createFireAudioSystem(
+  () => new AudioContext(),
+  getBrowserAudioStorage(),
+);

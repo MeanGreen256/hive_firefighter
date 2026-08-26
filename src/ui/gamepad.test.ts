@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createPressLatch,
   GAMEPAD_BUTTONS,
+  isAnyIntentHeld,
   isIntentHeld,
   readPress,
   type GamepadButtonSource,
@@ -33,6 +34,14 @@ describe('gamepad intents', () => {
     expect(isIntentHeld(null, 'action')).toBe(false);
     expect(isIntentHeld(pad(), 'siren')).toBe(false);
     expect(isIntentHeld({ buttons: [undefined] }, 'action')).toBe(false);
+  });
+
+  it('sees a pad in a child\u2019s hands whichever bound button they pressed', () => {
+    for (const indices of Object.values(GAMEPAD_BUTTONS)) {
+      for (const index of indices) expect(isAnyIntentHeld(pad(index))).toBe(true);
+    }
+    expect(isAnyIntentHeld(pad())).toBe(false);
+    expect(isAnyIntentHeld(null)).toBe(false);
   });
 });
 

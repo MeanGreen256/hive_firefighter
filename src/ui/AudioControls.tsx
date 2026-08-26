@@ -1,43 +1,48 @@
 import { useStore } from 'zustand';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
+import { SoundControlMode, getSoundControlPresentation } from './soundControl';
 
 /**
  * Sound on or off, and nothing else.
  *
- * Browsers will not start audio until somebody clicks, so this button has to
- * be reachable during play — but it is one press with an icon on it, not a
- * mixer. The mixer is `VolumeControl`, which lives in the grown-ups drawer
- * (#130).
+ * Since #221 the button is no longer how sound normally starts — the first key
+ * the child presses to drive, or the first tap on the screen, spends its user
+ * activation on the audio gate. What is left for this button is the two cases
+ * that automatic unlock cannot cover:
+ *
+ * - An adult turning the sound off, and having that remembered.
+ * - A browser that refused the automatic unlock, or a player who has only
+ *   touched a gamepad, which no autoplay policy accepts as consent. Then
+ *   `gestureRequired` pulses this button until somebody supplies a gesture the
+ *   browser will take. It is a wordless invitation, not a gate: ignoring it
+ *   costs sound and nothing else.
+ *
+ * One press with an icon on it, not a mixer. The mixer is `VolumeControl`,
+ * which lives in the grown-ups drawer (#130).
  */
 export function AudioControls() {
   const snapshot = useStore(fireAudioSystem.store);
-
-  if (!snapshot.enabled) {
-    return (
-      <button
-        type="button"
-        className="world-hud__action world-hud__action--enable"
-        aria-label="Turn sound on"
-        title="Turn sound on"
-        onClick={() => {
-          void fireAudioSystem.enable();
-        }}
-      >
-        <span aria-hidden="true">🔈</span>
-      </button>
-    );
-  }
+  const control = getSoundControlPresentation(snapshot);
 
   return (
     <button
       type="button"
-      className="world-hud__action"
-      aria-pressed={snapshot.muted}
-      aria-label={snapshot.muted ? 'Unmute' : 'Mute'}
-      title={snapshot.muted ? 'Unmute' : 'Mute'}
-      onClick={() => fireAudioSystem.setMuted(!snapshot.muted)}
+      className={control.className}
+      aria-label={control.label}
+      title={control.label}
+      {...(control.pressed === undefined ? {} : { 'aria-pressed': control.pressed })}
+      onClick={() => {
+        if (control.mode === SoundControlMode.Toggle) {
+          fireAudioSystem.setMuted(!snapshot.muted);
+          return;
+        }
+        // A click is a user activation, so this is the fallback for a browser
+        // that refused the automatic unlock — and the only route in for a
+        // player who has touched nothing but a gamepad.
+        void fireAudioSystem.enable();
+      }}
     >
-      <span aria-hidden="true">{snapshot.muted ? '🔇' : '🔊'}</span>
+      <span aria-hidden="true">{control.glyph}</span>
     </button>
   );
 }

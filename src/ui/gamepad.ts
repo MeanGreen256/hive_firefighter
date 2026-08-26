@@ -42,6 +42,20 @@ export function isIntentHeld(gamepad: GamepadButtonSource | null, intent: Gamepa
   return GAMEPAD_BUTTONS[intent].some((index) => gamepad.buttons[index]?.pressed === true);
 }
 
+/**
+ * Any button the game listens to, held right now.
+ *
+ * "There is a pad in this child's hands", which is a different question from
+ * "which control did they mean". #221 asks it because a gamepad press is the
+ * one input that proves a player is playing and still cannot start audio — no
+ * browser counts pad input as a user activation — so it is what turns the
+ * wordless speaker button into the only thing on the HUD asking for a tap.
+ */
+export function isAnyIntentHeld(gamepad: GamepadButtonSource | null): boolean {
+  const intents = Object.keys(GAMEPAD_BUTTONS) as GamepadIntent[];
+  return intents.some((intent) => isIntentHeld(gamepad, intent));
+}
+
 export interface PressLatch {
   held: boolean;
 }

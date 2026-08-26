@@ -11,6 +11,11 @@ import { Canvas, useFrame, type RootState } from '@react-three/fiber';
 import { useStore } from 'zustand';
 import type { DirectionalLight, Group } from 'three';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
+import {
+  AudioActivationSource,
+  getAudioActivationOutcome,
+  startAudioOnFirstInteraction,
+} from '../audio/audioActivation';
 import { DEFAULT_DISTRICT_ID, getDistrict, type DistrictQuestSite } from '@sim/districts';
 import { getQuest } from '@sim/quests';
 import type { ShellPoint } from '@sim/exteriorShell';
@@ -26,7 +31,13 @@ import { getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
 import { progressProfileStore } from '../state/progressProfile';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
-import { createPressLatch, firstConnectedGamepad, isIntentHeld, readPress } from '@ui/gamepad';
+import {
+  createPressLatch,
+  firstConnectedGamepad,
+  isAnyIntentHeld,
+  isIntentHeld,
+  readPress,
+} from '@ui/gamepad';
 import { DevTelemetry } from '@ui/DevTelemetry';
 import { OnboardingCoach } from '@ui/OnboardingCoach';
 import { WorldHud } from '@ui/WorldHud';
@@ -827,6 +838,32 @@ export default function FollowCameraScene() {
    */
   const debriefOpen = fireSnapshot.debrief !== null && questDirector.state.phase === 'celebrating';
   useEffect(() => installGameObservation(), []);
+  /**
+   * Sound starts when play starts (#221).
+   *
+   * The first key of the first drive, or the first tap on the canvas, is the
+   * user activation the browser wants; nothing has to be found first. This is
+   * mounted with the scene rather than the HUD because it is a property of the
+   * game being open, not of any control being on screen.
+   */
+  useEffect(() => startAudioOnFirstInteraction(fireAudioSystem, window), []);
+  // The audio half of the observation window: what the HUD's speaker button is
+  // showing, so the production journey can prove that a real key press starts
+  // sound in a real browser rather than trusting a unit test to say so.
+  useEffect(() => {
+    const publish = (): void => {
+      const audio = fireAudioSystem.store.getState();
+      reportGameObservation({
+        audio: {
+          enabled: audio.enabled,
+          muted: audio.muted,
+          gestureRequired: audio.gestureRequired,
+        },
+      });
+    };
+    publish();
+    return fireAudioSystem.store.subscribe(publish);
+  }, []);
   // The other half of the observation window: everything React owns rather than
   // the world, published when it changes rather than on a timer.
   useEffect(() => {
@@ -899,6 +936,13 @@ export default function FollowCameraScene() {
       } else if (key === 'l') {
         event.preventDefault();
         toggleSiren();
+      } else if (key === 'm') {
+        // The keyboard half of the wordless sound control (#221). This key is
+        // itself a user activation, so for a player who never touches the HUD
+        // it both starts audio and, from then on, toggles the mute.
+        event.preventDefault();
+        const audio = fireAudioSystem.store.getState();
+        if (audio.enabled) fireAudioSystem.setMuted(!audio.muted);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -913,6 +957,7 @@ export default function FollowCameraScene() {
       action: createPressLatch(),
       board: createPressLatch(),
       siren: createPressLatch(),
+      sound: createPressLatch(),
     };
     let frameId = requestAnimationFrame(function poll() {
       const gamepad = firstConnectedGamepad();
@@ -921,6 +966,15 @@ export default function FollowCameraScene() {
         if (!debriefOpen && (mode === 'driving' || canBoard)) transitionPlayer();
       }
       if (readPress(latches.siren, isIntentHeld(gamepad, 'siren'))) toggleSiren();
+      // A pad press proves somebody is playing, and is the one input no browser
+      // accepts as consent to make noise (#221). Rather than call resume() and
+      // collect a rejection, ask for a gesture that can work.
+      if (
+        readPress(latches.sound, isAnyIntentHeld(gamepad)) &&
+        getAudioActivationOutcome(AudioActivationSource.Gamepad) === 'prompt'
+      ) {
+        fireAudioSystem.requestGesture();
+      }
       frameId = requestAnimationFrame(poll);
     });
     return () => cancelAnimationFrame(frameId);

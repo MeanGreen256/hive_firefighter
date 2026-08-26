@@ -30,12 +30,16 @@ of everything that was checked.
 1. `npm run build`, then serves `dist/` with `vite preview`. No development
    server, no module graph, no `import.meta.env.DEV` branches.
 2. Opens `/` with no query string in a browser profile with nothing in it.
-3. Plays: drive to the smoke, press the action button to get out, walk to a
+3. Checks the build is silent until somebody interacts with it, then that the
+   first key of the first drive starts the sound (#221) — the autoplay gate is
+   a browser policy, so only a browser can prove the shipped bundle gets past
+   it.
+4. Plays: drive to the smoke, press the action button to get out, walk to a
    hosing distance, aim with the game's own free aim until the stream has the
    fire, hold the button, take the stars.
-4. Roams the fire-free town, drives to the firehouse, and starts the next call
+5. Roams the fire-free town, drives to the firehouse, and starts the next call
    from the one control that offers it.
-5. Refreshes mid-shift and checks the stars, rewards, slot, and finished guide
+6. Refreshes mid-shift and checks the stars, rewards, slot, and finished guide
    all came back.
 
 Every input is a key or a mouse drag a player has. Nothing calls into the game
@@ -86,6 +90,11 @@ finished without the hose being on it.
 - **The hose got weaker the slower your device.** Water was metered against the
   renderer's frame clamp while fire advanced by real time — see
   `src/render/hoseWater.ts`.
+- **One refused unlock is not a policy (#221).** Driving a reload in a
+  background tab showed Chrome refusing to resume an AudioContext in a hidden
+  document and then allowing the very next keypress. The retry budget in
+  `src/audio/audioActivation.ts` no longer spends an attempt on a refusal that
+  happened while the page was hidden.
 
 ## What it does not cover yet
 
@@ -93,7 +102,10 @@ finished without the hose being on it.
   simulating a pad means injecting a fake `navigator.getGamepads` — a shim, not
   the real input, and a green run against a shim would be worse than no run at
   all. Pad mapping is unit-tested in `src/ui/gamepad.test.ts`; a real pad is
-  part of the device matrix in #226.
+  part of the device matrix in #226. The same limit applies to the audio gate:
+  the run proves a key starts the sound, and that a pad press cannot is a
+  property of every engine's activation rules rather than something a run here
+  observes.
 - **Duplicate-completion protection and retry.** The runner takes the stars and
   moves on; replaying a call and re-scoring it is #231's territory.
 - **How it looks.** Visual acceptance stays with `npm run acceptance`, which
