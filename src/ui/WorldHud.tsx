@@ -75,6 +75,12 @@ export interface WorldHudProps {
    */
   readonly onRestartGuide?: (() => void) | undefined;
   readonly onNextCall?: () => void;
+  /**
+   * Stop the world (#218). Optional, like the siren: no incident needs it, and
+   * `PauseVeil` — not this button — is what a paused child presses to get
+   * going again, so pausing can never hide its own way out.
+   */
+  readonly onTogglePause?: (() => void) | undefined;
 }
 
 /**
@@ -110,6 +116,7 @@ export function WorldHud({
   nextCallAvailable = false,
   onRestartGuide,
   onNextCall,
+  onTogglePause,
 }: WorldHudProps) {
   const boardLabel = onFoot
     ? boardingAvailable
@@ -196,6 +203,17 @@ export function WorldHud({
           <span aria-hidden="true">{sirenOn ? '📢' : '🔕'}</span>
         </button>
         <AudioControls />
+        {onTogglePause ? (
+          <button
+            type="button"
+            className="world-hud__action"
+            onClick={onTogglePause}
+            aria-label="Pause the game"
+            title="Pause"
+          >
+            <span aria-hidden="true">⏸️</span>
+          </button>
+        ) : null}
       </div>
 
       {/* For the adult reading over the player's shoulder. Closed by default,

@@ -29,6 +29,7 @@ const KEYS = {
   s: { code: 'KeyS', virtualKeyCode: 83, text: 's' },
   d: { code: 'KeyD', virtualKeyCode: 68, text: 'd' },
   ' ': { code: 'Space', virtualKeyCode: 32, text: ' ' },
+  p: { code: 'KeyP', virtualKeyCode: 80, text: 'p' },
 };
 
 function normalizeAngle(angle) {

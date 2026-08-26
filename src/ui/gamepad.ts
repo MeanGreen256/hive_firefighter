@@ -19,6 +19,15 @@ export const GAMEPAD_BUTTONS = Object.freeze({
   board: Object.freeze([1, 2]),
   /** Optional: siren and lights. */
   siren: Object.freeze([3]),
+  /**
+   * Optional: stop the world (#218). Start and Select, because that is where
+   * every pad a family owns has already taught a child to look for it.
+   *
+   * It is not a second required verb under ADR-009 — no incident needs it, and
+   * `action` resumes as well, so a child who only knows one button can always
+   * get the game moving again.
+   */
+  pause: Object.freeze([8, 9]),
 });
 
 export type GamepadIntent = keyof typeof GAMEPAD_BUTTONS;

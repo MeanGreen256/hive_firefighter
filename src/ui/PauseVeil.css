@@ -1,0 +1,48 @@
+/* Dim rather than hide: the town stays visible behind the pause, so a child
+   can see the game is still there and waiting, not gone. */
+.pause-veil {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: color-mix(in srgb, var(--hud-panel) 62%, transparent);
+  cursor: pointer;
+}
+
+.pause-veil__glyph {
+  display: grid;
+  place-items: center;
+  width: clamp(96px, 22vmin, 176px);
+  height: clamp(96px, 22vmin, 176px);
+  border: 2px solid var(--hud-accent);
+  border-radius: 999px;
+  background: var(--hud-control);
+  font-size: clamp(44px, 10vmin, 84px);
+  line-height: 1;
+  animation: pause-veil-breathe 2.4s ease-in-out infinite;
+}
+
+.pause-veil:hover .pause-veil__glyph,
+.pause-veil:focus-visible .pause-veil__glyph {
+  border-color: var(--hud-text);
+}
+
+.pause-veil:focus-visible {
+  outline: none;
+}
+
+@keyframes pause-veil-breathe {
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pause-veil__glyph {
+    animation: none;
+  }
+}

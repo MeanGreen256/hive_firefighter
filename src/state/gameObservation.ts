@@ -92,6 +92,10 @@ export interface GameObservation {
   readonly completedQuestCount: number;
   readonly unlockedRewardCount: number;
   readonly audio: GameObservationAudio;
+  /** True while nothing simulates, moves, or sprays (#218). */
+  readonly paused: boolean;
+  /** `'player'`, `'away'`, or null — why, in the game's own words. */
+  readonly pauseReason: string | null;
 }
 
 const INITIAL: GameObservation = {
@@ -130,6 +134,8 @@ const INITIAL: GameObservation = {
   completedQuestCount: 0,
   unlockedRewardCount: 0,
   audio: { enabled: false, muted: false, gestureRequired: false },
+  paused: false,
+  pauseReason: null,
 };
 
 let observation: GameObservation = INITIAL;

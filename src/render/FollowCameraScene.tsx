@@ -44,6 +44,13 @@ import { WorldHud } from '@ui/WorldHud';
 import { ApproachBand, getApproachBand, getFireBand, type ApproachBandId } from '@ui/worldGuidance';
 import { onboardingGuide, type OnboardingWorldSample } from '../state/onboardingGuide';
 import { installGameObservation, reportGameObservation } from '../state/gameObservation';
+import {
+  isDocumentHidden,
+  PauseReason,
+  sessionLifecycle,
+  watchPageLifecycle,
+} from '../state/sessionLifecycle';
+import { PauseVeil } from '@ui/PauseVeil';
 import { QuestDebriefPanel } from '@ui/QuestDebriefPanel';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { StationCelebration, type StationCelebrationNotice } from '@ui/StationCelebration';
@@ -237,6 +244,8 @@ interface GameWorldProps {
   readonly visualStyle: Style;
   readonly starBoard: FirehouseStarBoardModel;
   readonly mode: PlayerMode;
+  /** Nothing moves, sprays, or burns while this is true (ADR-010). */
+  readonly paused: boolean;
   readonly sirenOn: boolean;
   readonly activeQuestSite: DistrictQuestSite;
   readonly beaconTarget: BeaconPoint | null;
@@ -261,6 +270,7 @@ function GameWorld({
   visualStyle,
   starBoard,
   mode,
+  paused,
   sirenOn,
   activeQuestSite,
   beaconTarget,
@@ -426,7 +436,7 @@ function GameWorld({
         targetRef={truckRef}
         visualStyle={visualStyle}
         bellUnlocked={starBoard.rewards.truckBell}
-        enabled={mode === 'driving'}
+        enabled={mode === 'driving' && !paused}
         sirenOn={sirenOn}
         obstacles={DISTRICT_LAYOUT.obstacles}
         movementBounds={DISTRICT_LAYOUT.movementBounds}
@@ -449,7 +459,7 @@ function GameWorld({
         hosePresentationRef={hosePresentationRef}
         visualStyle={visualStyle}
         helmetBadgeUnlocked={starBoard.rewards.helmetBadge}
-        enabled={mode === 'on-foot'}
+        enabled={mode === 'on-foot' && !paused}
         visible={mode === 'on-foot'}
         obstacles={DISTRICT_LAYOUT.obstacles}
         initialPosition={
@@ -464,7 +474,7 @@ function GameWorld({
       <AnchoredHoseEffects
         characterRef={firefighterRef}
         presentationRef={hosePresentationRef}
-        enabled={mode === 'on-foot'}
+        enabled={mode === 'on-foot' && !paused}
         visualStyle={visualStyle}
         fire={questFireController}
         surfaces={WORLD_SURFACES}
@@ -837,6 +847,20 @@ export default function FollowCameraScene() {
    */
   const debriefOpen = fireSnapshot.debrief !== null && questDirector.state.phase === 'celebrating';
   useEffect(() => installGameObservation(), []);
+  const lifecycle = useStore(sessionLifecycle.store);
+  const togglePause = useCallback(() => sessionLifecycle.togglePlayerPause(), []);
+  const resumeFromPause = useCallback(() => sessionLifecycle.resume(), []);
+  /**
+   * The page's own lifecycle, followed rather than guessed (#218).
+   *
+   * `requestAnimationFrame` already stops in most backgrounded tabs, which made
+   * this look unnecessary for a long time. It is not: the throttling is a
+   * browser's choice rather than a promise, mobile suspends documents without a
+   * visibility change first, and ADR-010 turns "the fire does not advance while
+   * a child is away" into something the game guarantees instead of something it
+   * happens to get.
+   */
+  useEffect(() => watchPageLifecycle(sessionLifecycle, window, { isHidden: isDocumentHidden }), []);
   /**
    * Sound starts when play starts (#221).
    *
@@ -846,6 +870,27 @@ export default function FollowCameraScene() {
    * game being open, not of any control being on screen.
    */
   useEffect(() => startAudioOnFirstInteraction(fireAudioSystem, window), []);
+  /**
+   * What being paused actually does to the running game.
+   *
+   * Deliberately a second effect rather than a condition inside the one that
+   * sets the quest: that effect re-lights the incident when its inputs change,
+   * so making it depend on the pause would restart the fire every time somebody
+   * pressed the button. `start()` and `stop()` are both idempotent, and `start`
+   * rebases its own clock, so nothing is owed catch-up when the game comes back.
+   */
+  useEffect(() => {
+    if (lifecycle.paused) {
+      questFireController.stop();
+      void fireAudioSystem.setSuspended(true);
+      return;
+    }
+    void fireAudioSystem.setSuspended(false);
+    // Everything that was not running before the pause stays not running: the
+    // quiet town has no fire, and the acceptance scenes pose a frozen one.
+    if (quietTown || PERFORMANCE_SCENE?.completeQuest || PERFORMANCE_SCENE?.freezeClock) return;
+    questFireController.start();
+  }, [lifecycle.paused, quietTown]);
   // The audio half of the observation window: what the HUD's speaker button is
   // showing, so the production journey can prove that a real key press starts
   // sound in a real browser rather than trusting a unit test to say so.
@@ -863,6 +908,11 @@ export default function FollowCameraScene() {
     publish();
     return fireAudioSystem.store.subscribe(publish);
   }, []);
+  // Being paused is something a player can see — the town stops and the veil is
+  // up — so the observation window carries it (#218).
+  useEffect(() => {
+    reportGameObservation({ paused: lifecycle.paused, pauseReason: lifecycle.reason });
+  }, [lifecycle.paused, lifecycle.reason]);
   // The other half of the observation window: everything React owns rather than
   // the world, published when it changes rather than on a timer.
   useEffect(() => {
@@ -926,7 +976,24 @@ export default function FollowCameraScene() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
+      // A browser shortcut is not a game input. Without this, Cmd+P pauses
+      // instead of printing — and Cmd+L has been toggling the siren instead of
+      // reaching the address bar since the siren key existed.
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
       const key = event.key.toLowerCase();
+      if (key === 'p') {
+        event.preventDefault();
+        togglePause();
+        return;
+      }
+      // Half of the anti-trap rule (#218): while the game is paused every key
+      // that normally does something does nothing except start it again, so a
+      // child mashing the only button they know is never stuck.
+      if (lifecycle.paused) {
+        event.preventDefault();
+        resumeFromPause();
+        return;
+      }
       if (key === ' ') {
         pressAction();
       } else if (key === 'e' && !debriefOpen && (mode === 'driving' || canBoard)) {
@@ -946,7 +1013,17 @@ export default function FollowCameraScene() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canBoard, debriefOpen, mode, pressAction, toggleSiren, transitionPlayer]);
+  }, [
+    canBoard,
+    debriefOpen,
+    lifecycle.paused,
+    mode,
+    pressAction,
+    resumeFromPause,
+    togglePause,
+    toggleSiren,
+    transitionPlayer,
+  ]);
 
   // Gamepad parity (rule 5). The sticks are read inside the Canvas by whichever
   // controller is driving; the buttons that are not movement are read here,
@@ -957,14 +1034,32 @@ export default function FollowCameraScene() {
       board: createPressLatch(),
       siren: createPressLatch(),
       sound: createPressLatch(),
+      pause: createPressLatch(),
     };
     let frameId = requestAnimationFrame(function poll() {
       const gamepad = firstConnectedGamepad();
-      if (readPress(latches.action, isIntentHeld(gamepad, 'action'))) pressAction();
-      if (readPress(latches.board, isIntentHeld(gamepad, 'board'))) {
+      const actionPressed = readPress(latches.action, isIntentHeld(gamepad, 'action'));
+      const pausePressed = readPress(latches.pause, isIntentHeld(gamepad, 'pause'));
+      const boardPressed = readPress(latches.board, isIntentHeld(gamepad, 'board'));
+      const sirenPressed = readPress(latches.siren, isIntentHeld(gamepad, 'siren'));
+      // Every latch is read every frame whether the game is paused or not, so a
+      // button held across the pause is not still held when it ends — the same
+      // fresh-press rule that stops a held hose skipping its own star screen.
+      if (sessionLifecycle.store.getState().paused) {
+        // The other half of the anti-trap rule (#218): the pad's pause button
+        // undoes itself, and so does the one button the whole game needs.
+        if (pausePressed || actionPressed || boardPressed || sirenPressed) {
+          sessionLifecycle.resume();
+        }
+        frameId = requestAnimationFrame(poll);
+        return;
+      }
+      if (pausePressed) sessionLifecycle.setPlayerPaused(true);
+      if (actionPressed) pressAction();
+      if (boardPressed) {
         if (!debriefOpen && (mode === 'driving' || canBoard)) transitionPlayer();
       }
-      if (readPress(latches.siren, isIntentHeld(gamepad, 'siren'))) toggleSiren();
+      if (sirenPressed) toggleSiren();
       // A pad press proves somebody is playing, and is the one input no browser
       // accepts as consent to make noise (#221). Rather than call resume() and
       // collect a rejection, ask for a gesture that can work.
@@ -1007,6 +1102,7 @@ export default function FollowCameraScene() {
             visualStyle={visualStyle}
             starBoard={starBoard}
             mode={mode}
+            paused={lifecycle.paused}
             sirenOn={sirenOn}
             activeQuestSite={worldQuestSite}
             beaconTarget={beaconTarget}
@@ -1038,6 +1134,7 @@ export default function FollowCameraScene() {
         nextCallAvailable={canStartNextCall}
         onNextCall={beginNextCall}
         onRestartGuide={restartOnboarding}
+        onTogglePause={togglePause}
       />
       {/* Hidden behind the star screen: one thing to look at at a time. */}
       {debriefOpen || !teaching ? null : (
@@ -1053,6 +1150,12 @@ export default function FollowCameraScene() {
       {stationCelebration && !debriefOpen ? (
         <StationCelebration key={stationCelebration.id} notice={stationCelebration} />
       ) : null}
+      {/* Over the HUD as well as the town, and last in document order so it
+          really is over them. A pause that left the "next call" button live
+          would be a pause in which the game could still change (#218). Only a
+          pause somebody chose draws anything: a backgrounded tab is running
+          again before there is anyone to show it to. */}
+      {lifecycle.reason === PauseReason.Player ? <PauseVeil onResume={resumeFromPause} /> : null}
       {import.meta.env.DEV ? (
         <>
           <PerfOverlay />

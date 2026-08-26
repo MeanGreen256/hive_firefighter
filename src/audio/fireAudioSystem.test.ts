@@ -51,7 +51,7 @@ function createRunningContextDouble(targetGains: number[]): AudioContext {
     start: () => undefined,
   });
 
-  return {
+  const context = {
     state: 'running',
     currentTime: 0,
     sampleRate: 10,
@@ -63,8 +63,14 @@ function createRunningContextDouble(targetGains: number[]): AudioContext {
     createBuffer: (_channels: number, frames: number) => ({
       getChannelData: () => new Float32Array(frames),
     }),
-    resume: async () => undefined,
-  } as unknown as AudioContext;
+    resume: async () => {
+      context.state = 'running';
+    },
+    suspend: async () => {
+      context.state = 'suspended';
+    },
+  };
+  return context as unknown as AudioContext;
 }
 
 describe('fire audio autoplay guard', () => {
@@ -231,5 +237,74 @@ describe('asking for the gesture a browser wants', () => {
     audio.requestGesture();
 
     expect(audio.store.getState().gestureRequired).toBe(false);
+  });
+});
+
+describe('going quiet while the game is not running', () => {
+  it('suspends the context rather than muting it, and comes back', async () => {
+    let context: AudioContext | null = null;
+    const audio = createFireAudioSystem(() => {
+      context = createRunningContextDouble([]);
+      return context;
+    });
+    await audio.enable();
+
+    await audio.setSuspended(true);
+    expect(context!.state).toBe('suspended');
+    // A pause is not the browser taking audio away, so the HUD must not go
+    // back to offering to turn the sound on.
+    expect(audio.store.getState()).toMatchObject({ enabled: true, gestureRequired: false });
+
+    await audio.setSuspended(false);
+    expect(context!.state).toBe('running');
+  });
+
+  it('does nothing at all before audio has ever been unlocked', async () => {
+    let contextCreations = 0;
+    const audio = createFireAudioSystem(() => {
+      contextCreations += 1;
+      throw new Error('pausing must not create audio');
+    });
+
+    await expect(audio.setSuspended(true)).resolves.toBeUndefined();
+
+    expect(contextCreations).toBe(0);
+  });
+
+  it('lands on the last thing it was asked for, however fast the toggling', async () => {
+    let context: AudioContext | null = null;
+    const audio = createFireAudioSystem(() => {
+      context = createRunningContextDouble([]);
+      return context;
+    });
+    await audio.enable();
+
+    await Promise.all([audio.setSuspended(true), audio.setSuspended(false)]);
+
+    expect(context!.state).toBe('running');
+  });
+
+  it('stays honest about a browser refusal even when unlocked while paused', async () => {
+    const audio = createFireAudioSystem(() => {
+      throw new Error('browser denied audio');
+    });
+
+    await audio.setSuspended(true);
+
+    await expect(audio.enable()).resolves.toBe(false);
+    expect(audio.store.getState()).toMatchObject({ enabled: false });
+  });
+
+  it('goes straight back to sleep when the unlocking gesture was the pause itself', async () => {
+    let context: AudioContext | null = null;
+    const audio = createFireAudioSystem(() => {
+      context = createRunningContextDouble([]);
+      return context;
+    });
+
+    await audio.setSuspended(true);
+    await expect(audio.enable()).resolves.toBe(true);
+
+    expect(context!.state).toBe('suspended');
   });
 });

@@ -167,6 +167,52 @@ async function runBuild() {
  * a thing that would be broken for a child rather than a thing that is
  * convenient to measure.
  */
+/**
+ * The pause contract, against a fire that is actually burning (#218, ADR-010).
+ *
+ * The promise is that being interrupted cannot cost a child property, and it is
+ * only worth anything if the fire really stops. So: pause, watch the page keep
+ * drawing frames while the fire does not move at all, then resume with the one
+ * action button — the anti-trap route a five-year-old finds by mashing it.
+ */
+async function checkPause(player) {
+  await player.press('p');
+  const paused = await player
+    .waitFor('the game to pause', (state) => state.paused === true, 5_000)
+    .catch(() => null);
+  check(paused !== null, 'pressing pause stops the game');
+  if (paused === null) return;
+  check(
+    paused.pauseReason === 'player',
+    `a pause somebody pressed is reported as theirs (saw ${paused.pauseReason})`,
+  );
+
+  const before = paused;
+  await wait(4_000);
+  const after = await player.observe();
+  check(
+    after.burningCellCount === before.burningCellCount &&
+      after.heatingCellCount === before.heatingCellCount &&
+      after.incidentStatus === before.incidentStatus,
+    `a paused fire does not advance (${before.burningCellCount} burning, ${before.heatingCellCount} heating, unchanged over 4 s)`,
+  );
+  check(
+    after.samples > before.samples,
+    'the page is still drawing while paused — the fire is stopped, not the browser',
+  );
+
+  // The single button the whole game needs is also the way out of a pause.
+  await player.press(' ');
+  const resumed = await player
+    .waitFor('the game to resume', (state) => state.paused === false, 5_000)
+    .catch(() => null);
+  check(resumed !== null, 'the one action button gets a paused child playing again');
+  check(
+    resumed !== null && resumed.mode === before.mode,
+    'resuming does not also spend the press on something else',
+  );
+}
+
 async function playIncident(player, session, sessionId, index) {
   const incident = await player.waitFor(
     'an incident to be dispatched',
@@ -185,6 +231,8 @@ async function playIncident(player, session, sessionId, index) {
     alight !== null,
     `incident ${index + 1} (${incident.questId}) starts with a fire to put out`,
   );
+
+  if (index === 0 && alight !== null) await checkPause(player);
 
   await player.driveTo(incident.questSite, {
     arriveMeters: 11,

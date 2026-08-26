@@ -41,6 +41,26 @@ site data, and #222 decides where that control appears. A restart rebases the
 hose's contact counter instead of reaching into the world to zero it, so the
 next player has to earn the hit again.
 
+## Pause and interruption
+
+`sessionLifecycle.ts` owns the one question everything else asks before it
+moves: is the game running? Two different things can stop it, and keeping them
+apart is the whole module. A backgrounded tab is paused with nobody to tell —
+coming back is the undo. A pause somebody pressed outlives the tab going away
+and back, because the person who pressed it meant it.
+
+It follows the document rather than inferring from events: `visibilitychange`
+covers a backgrounded tab, `pagehide`/`freeze` cover the mobile suspensions that
+never fire one, and every listener asks `document.visibilityState` rather than
+trusting which event arrived, because the order varies by engine.
+
+A pause is never persisted, so a reload always comes back running.
+[ADR-010](../../docs/adr/010-interruption-and-recovery.md) is why: a game that
+remembers it was paused is one a five-year-old can get permanently stuck in.
+The same ADR settles what a refresh restores — the shift, the slot, and the
+authored incident from its own seed, lit from the beginning. The live fire is
+not persisted at all, and an interrupted attempt scores nothing.
+
 ## Quest fire controller
 
 `questFireController.ts` is the M3 incident host (#91, #131, #135): one active
@@ -51,7 +71,10 @@ It drives itself with `requestAnimationFrame` and is started and stopped from a
 only the few numbers the HUD shows, and publishes only when one of them changes.
 
 A stall is capped rather than caught up on, so a backgrounded tab cannot come
-back to a city that burned down while nobody was watching. `applyWater` takes a
+back to a city that burned down while nobody was watching. Since #218 that is a
+guarantee rather than a side effect: the loop is stopped outright while the page
+is hidden or the game is paused, and `start()` rebases its own clock, so there
+is never catch-up work owed when a child comes back. `applyWater` takes a
 suppression target and returns the real `@sim/waterApplication` result. Fire
 targets address shell cells; a countdown adds its cylinder as another target,
 and water delivered to either cools a tank sharing that heat cell.

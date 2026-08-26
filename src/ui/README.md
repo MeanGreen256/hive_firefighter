@@ -96,6 +96,16 @@ that cannot be automatic: an adult muting the game, which `audioPreferences.ts`
 remembers across a reload, and a browser that refused. `soundControl.ts` decides
 which of its three faces the button is wearing, so a render never has to.
 
+`PauseVeil.tsx` is the paused game, and it is built around one rule:
+everything resumes. The whole veil is the button rather than a target inside it,
+and the scene keeps its keyboard and pad routes open behind it — any key, the
+one action button, and the pad's Start all land on `sessionLifecycle.resume()`.
+There is no combination of inputs that leaves a child looking at a frozen town.
+It draws only for a pause somebody chose; a backgrounded tab is running again
+before there is anyone to show a screen to. It sits last in document order, over
+the HUD as well as the town, because a pause in which the next-call button still
+worked would be a pause the game could change during.
+
 The refusal case is where the honesty matters. A gamepad press is the one input
 that proves a child is playing and still cannot start audio — no engine counts
 polled pad state as a user activation — so pressing a pad button while the game

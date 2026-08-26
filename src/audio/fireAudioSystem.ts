@@ -101,6 +101,8 @@ export function createFireAudioSystem(
     distanceToBird: Number.POSITIVE_INFINITY,
   };
   let sirenActive = false;
+  /** The pause the game last asked for; see `setSuspended`. */
+  let desiredSuspended = false;
   let nextWaterHissTime = 0;
   const nextWorldReactionTime = new Map<WorldReactionSound, number>();
   let nextPropanePulseTime = 0;
@@ -273,6 +275,11 @@ export function createFireAudioSystem(
         }
         if (context.state === 'suspended') await context.resume();
         const running = context.state === 'running';
+        // Unlocking while the game is paused is a real corner: pause, then
+        // press the key that both resumes and supplies the activation. The
+        // browser's answer is still the honest one — the context then goes
+        // straight back to sleep, before any gain has ramped up off zero.
+        if (running && desiredSuspended) await context.suspend();
         store.setState({
           enabled: running,
           error: null,
@@ -284,6 +291,38 @@ export function createFireAudioSystem(
           error: error instanceof Error ? error.message : 'Audio could not start.',
         });
         return false;
+      }
+    },
+    /**
+     * Go quiet while the game is not running, and come back (#218).
+     *
+     * Suspending the context rather than muting it is the difference between a
+     * paused game and a silent one: the siren stops where it was and picks up
+     * there, and a backgrounded tab is not still hissing in somebody's pocket.
+     * `enabled` deliberately stays true — the browser already granted this
+     * page audio, and a pause is not that permission being taken away, so the
+     * HUD must not go back to offering to turn sound on.
+     *
+     * Resuming is allowed without a fresh gesture because the activation this
+     * context was created under still stands. Latest call wins: a fast
+     * pause/resume cannot land the two awaits out of order.
+     */
+    setSuspended: async (suspended: boolean): Promise<void> => {
+      desiredSuspended = suspended;
+      if (!context) return;
+      try {
+        if (suspended) {
+          if (context.state === 'running') await context.suspend();
+        } else if (context.state === 'suspended') {
+          await context.resume();
+        }
+        if (context && desiredSuspended !== suspended) {
+          // Something changed its mind mid-await; that call is the real one.
+          if (desiredSuspended && context.state === 'running') await context.suspend();
+          else if (!desiredSuspended && context.state === 'suspended') await context.resume();
+        }
+      } catch {
+        // Audio that refuses to pause costs a pause, never the game.
       }
     },
     /**
