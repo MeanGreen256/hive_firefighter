@@ -105,8 +105,9 @@ rendering the wrong thing. See `docs/quest-preview-harness.md`.
 `sessionStats.ts` keeps fuel-mass, hazard, and par-time scoring pure so the UI
 only formats and presents store data. Property leads the first-pass star weights,
 every completed quest earns at least one star, and a scorched run always gets one
-encouraging star. `personalBests.ts` owns defensive v2 local-storage records keyed
-by scenario and seed; the old letter-grade records are intentionally not migrated.
+encouraging star. `personalBests.ts` owns defensive v3 local-storage records keyed
+by scenario and seed; incompatible weighted v2 and old letter-grade records are
+intentionally not migrated.
 
 ## Child-playtest observation toolkit
 
