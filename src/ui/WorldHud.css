@@ -122,6 +122,12 @@
   animation: world-hud-next-call 1.8s ease-in-out infinite;
 }
 
+/* A browser refused to start audio automatically (#221), so the one control
+   that can is the only thing on the HUD asking for attention. */
+.world-hud__action--wants-sound {
+  animation: world-hud-next-call 1.8s ease-in-out infinite;
+}
+
 @keyframes world-hud-next-call {
   50% {
     transform: scale(1.08);
@@ -220,7 +226,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .world-hud__action--next-call:not(:disabled) {
+  .world-hud__action--next-call:not(:disabled),
+  .world-hud__action--wants-sound {
     animation: none;
   }
 }

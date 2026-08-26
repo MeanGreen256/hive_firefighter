@@ -4,6 +4,18 @@ import { createFireSimulation, igniteCell } from '@sim/fireSimulation';
 import { createFireAudioSystem } from './fireAudioSystem';
 import { createHazardSimulation, IncidentEventType } from '@sim/hazards';
 import { createStructuralSimulation } from '@sim/structuralCollapse';
+import type { StorageLike } from '../state/personalBests';
+import { AUDIO_PREFERENCES_STORAGE_KEY } from './audioPreferences';
+
+function createMemoryStorage(): StorageLike {
+  const items = new Map<string, string>();
+  return {
+    getItem: (key) => items.get(key) ?? null,
+    setItem: (key, value) => {
+      items.set(key, value);
+    },
+  };
+}
 
 function createRunningContextDouble(targetGains: number[]): AudioContext {
   const createNode = () => ({
@@ -136,5 +148,88 @@ describe('fire audio autoplay guard', () => {
     expect(targetGains).toEqual([]);
     await expect(audio.enable()).resolves.toBe(true);
     expect(targetGains.some((gain) => gain > 0 && gain < 0.7)).toBe(true);
+  });
+});
+
+describe('remembered audio preferences', () => {
+  it('starts muted for a family that muted it last time, without touching audio to find out', () => {
+    const storage = createMemoryStorage();
+    let contextCreations = 0;
+
+    const first = createFireAudioSystem(() => createRunningContextDouble([]), storage);
+    first.setMuted(true);
+    first.setVolume(0.3);
+
+    const second = createFireAudioSystem(() => {
+      contextCreations += 1;
+      throw new Error('reading a preference must not create audio');
+    }, storage);
+
+    expect(contextCreations).toBe(0);
+    expect(second.store.getState()).toMatchObject({ enabled: false, muted: true, volume: 0.3 });
+  });
+
+  it('keeps a remembered mute silent when audio unlocks later', async () => {
+    const storage = createMemoryStorage();
+    createFireAudioSystem(() => createRunningContextDouble([]), storage).setMuted(true);
+
+    const targetGains: number[] = [];
+    const resumed = createFireAudioSystem(() => createRunningContextDouble(targetGains), storage);
+    await expect(resumed.enable()).resolves.toBe(true);
+
+    // The master gain is the first thing initialize() schedules.
+    expect(targetGains[0]).toBe(0);
+  });
+
+  it('does not persist a preference when storage is unavailable', () => {
+    const audio = createFireAudioSystem(() => createRunningContextDouble([]), null);
+
+    expect(() => audio.setMuted(true)).not.toThrow();
+    expect(audio.store.getState().muted).toBe(true);
+  });
+
+  it('writes one versioned record rather than a bare value', () => {
+    const storage = createMemoryStorage();
+
+    createFireAudioSystem(() => createRunningContextDouble([]), storage).setVolume(0.5);
+
+    expect(JSON.parse(storage.getItem(AUDIO_PREFERENCES_STORAGE_KEY) ?? 'null')).toEqual({
+      version: 1,
+      muted: false,
+      volume: 0.5,
+    });
+  });
+});
+
+describe('asking for the gesture a browser wants', () => {
+  it('lights the wordless control without starting or blocking anything', () => {
+    let contextCreations = 0;
+    const audio = createFireAudioSystem(() => {
+      contextCreations += 1;
+      throw new Error('requesting a gesture must not create audio');
+    });
+
+    audio.requestGesture();
+
+    expect(contextCreations).toBe(0);
+    expect(audio.store.getState().gestureRequired).toBe(true);
+  });
+
+  it('puts the control away once a gesture actually starts audio', async () => {
+    const audio = createFireAudioSystem(() => createRunningContextDouble([]));
+
+    audio.requestGesture();
+    await expect(audio.enable()).resolves.toBe(true);
+
+    expect(audio.store.getState()).toMatchObject({ enabled: true, gestureRequired: false });
+  });
+
+  it('stays quiet about a gesture once audio is already running', async () => {
+    const audio = createFireAudioSystem(() => createRunningContextDouble([]));
+
+    await expect(audio.enable()).resolves.toBe(true);
+    audio.requestGesture();
+
+    expect(audio.store.getState().gestureRequired).toBe(false);
   });
 });

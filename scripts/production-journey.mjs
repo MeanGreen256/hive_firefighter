@@ -506,6 +506,33 @@ try {
     `the first frame draws a real scene (${bootColors} distinct colours)`,
   );
 
+  // Sound starts because the child started playing (#221). The gate is a real
+  // browser policy, so a unit test can only prove the intent — this is the part
+  // that proves the shipped bundle actually gets through it. Both halves matter:
+  // silent until a gesture, running immediately after one.
+  check(
+    booted.audio !== undefined && booted.audio.enabled === false,
+    'the production build makes no sound before anybody has interacted with it',
+  );
+  await player.press('w');
+  const sounded = await player
+    .waitFor(
+      'sound to start on the first real key press',
+      (state) => state.audio?.enabled === true,
+      10_000,
+    )
+    .catch(() => null);
+  check(
+    sounded !== null,
+    'the first key of the first drive starts the sound, with nothing to find first',
+  );
+  if (sounded !== null) {
+    check(
+      !sounded.audio.gestureRequired && !sounded.audio.muted,
+      'a first-time player is not asked for a second gesture once sound is running',
+    );
+  }
+
   let refreshChecked = false;
   // Which incidents the shift actually dealt: #213's rotation claim is that a
   // roster is five different authored calls, not the same one five times.

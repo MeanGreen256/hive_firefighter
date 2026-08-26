@@ -52,7 +52,8 @@ primary action starts the already-determined next call. There is no mission
 picker, timer, or automatic ignition.
 
 `gamepad.ts` is the one place that knows a pad exists. It names the intents
-(`action`, `board`, `siren`) rather than the buttons, so no caller decides for
+(`action`, `board`, `siren`) rather than the buttons, and answers "is there a
+pad in this child's hands at all" for the audio gate, so no caller decides for
 itself what button 0 means, and it holds the press latch every non-movement
 binding uses: fresh presses only, and a button already held when the latch is
 made does not count. That second rule is why a player still holding the hose
@@ -84,9 +85,24 @@ replaced printed a distance computed once from where the truck spawns, which
 never moved however far anyone drove.
 
 The words that help an adult and the volume mixer live in a `<details>` drawer
-that starts closed. Sound has to stay reachable — browsers will not start audio
-without a click — but a mixer is not part of playing, so `AudioControls` is the
-one-press enable/mute icon and `VolumeControl` is the slider in the drawer.
+that starts closed. A mixer is not part of playing, so `AudioControls` is the
+one-press icon on the panel and `VolumeControl` is the slider in the drawer.
+
+Sound no longer waits to be found (#221). Browsers will not start audio without
+a user activation, so `audioActivation.ts` spends the first one the player was
+going to make anyway — the first key of the first drive, or the first tap — and
+`AudioControls` stops being the way in. What is left for it is the two cases
+that cannot be automatic: an adult muting the game, which `audioPreferences.ts`
+remembers across a reload, and a browser that refused. `soundControl.ts` decides
+which of its three faces the button is wearing, so a render never has to.
+
+The refusal case is where the honesty matters. A gamepad press is the one input
+that proves a child is playing and still cannot start audio — no engine counts
+polled pad state as a user activation — so pressing a pad button while the game
+is silent lights the speaker icon rather than calling `resume()` and collecting
+a rejection. `m` is the keyboard equivalent of that button, and is itself an
+activation. Nothing here gates play: a session where audio never unlocks is a
+silent one, and every quest still finishes.
 
 Everything that was really instrumentation — quest numbering, cell counts, the
 clock, metres — is in `DevTelemetry` behind `import.meta.env.DEV` and `K`. It
