@@ -85,7 +85,6 @@ import {
   createWorldReactionField,
   SIREN_DISTURBANCE_RADIUS_METERS,
 } from './worldReactions';
-import type { CharacterPoint } from './characterController';
 import {
   getActionIntent,
   getSafeDismountPose,
@@ -276,7 +275,6 @@ function GameWorld({
   onNextCallRangeChange,
 }: GameWorldProps) {
   const collisionRoot = useRef<Group>(null);
-  const movementForwardRef = useRef<CharacterPoint>({ x: 0, z: -1 });
   const hosePresentationRef = useRef(createHosePresentationState());
   // One field per world, written by the hose and the siren and read by the
   // props, the ambient layer, and the reaction renderer. It lives outside React
@@ -388,7 +386,10 @@ function GameWorld({
         ? { x: firefighter.position.x, z: firefighter.position.z }
         : { x: truck.position.x, z: truck.position.z },
       playerYawRadians: firefighter?.rotation.y ?? truck.rotation.y,
-      moveForward: { x: movementForwardRef.current.x, z: movementForwardRef.current.z },
+      moveForward: {
+        x: -Math.sin(firefighter?.rotation.y ?? truck.rotation.y),
+        z: -Math.cos(firefighter?.rotation.y ?? truck.rotation.y),
+      },
       distanceToQuestMeters,
       targetCaptured: firefighter?.userData.targetCaptured === true,
       spraying: firefighter?.userData.spraying === true,
@@ -417,7 +418,6 @@ function GameWorld({
       <FollowCameraRig
         target={activeTarget}
         profile={profile}
-        movementForwardRef={movementForwardRef}
         collisionRoot={collisionRoot}
         orbitEnabled={mode === 'driving'}
         speedRatio={truckSpeedRatio}
@@ -446,7 +446,6 @@ function GameWorld({
       />
       <FirefighterController
         targetRef={firefighterRef}
-        movementForwardRef={movementForwardRef}
         hosePresentationRef={hosePresentationRef}
         visualStyle={visualStyle}
         helmetBadgeUnlocked={starBoard.rewards.helmetBadge}

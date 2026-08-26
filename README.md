@@ -4,11 +4,14 @@ A browser-based third-person firefighting game for ages 5 and up,
 built on a cell-based fire simulation where every burnable thing in the world
 runs the same system.
 
-> **Status:** pre-alpha. M1 and M2 proved the fire simulation and incident loop.
-> M3's third-person drive-dismount-douse pivot has shipped and its follow-on
-> loop work (quest progression, rewards, town reactivity) is already landing;
-> the child-observation acceptance evidence for M3 is still outstanding. See
-> [Roadmap](#roadmap) and GitHub milestones/issues for current status.
+> **Status:** playable alpha in development. The third-person, one-action game
+> loop and Harbour Hill's rotating five-call shifts are implemented. Real-child
+> observation remains an open acceptance gate for [M3](https://github.com/MeanGreen256/hive_firefighter/issues/101)
+> and [M4](https://github.com/MeanGreen256/hive_firefighter/issues/170); verified
+> hosting and the supported device matrix remain open work in
+> [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216) and
+> [#215](https://github.com/MeanGreen256/hive_firefighter/issues/215). See the
+> [roadmap](#roadmap) and GitHub issues for the live status.
 
 ## The idea
 
@@ -39,6 +42,8 @@ The authoritative product constraints live in
 | **M3** | [Drive, Dismount, Douse](https://github.com/MeanGreen256/hive_firefighter/milestone/3) | Is putting out fires as a firefighter in a city fun for a five-year-old? |
 | **M4** | [The Loop](https://github.com/MeanGreen256/hive_firefighter/milestone/4)               | Do people come back for a second shift?                                  |
 | **M5** | [Content Scale](https://github.com/MeanGreen256/hive_firefighter/milestone/5)          | Can we ship a district without writing code?                             |
+| **M6** | [Playable Alpha](https://github.com/MeanGreen256/hive_firefighter/issues/210)          | Is the complete core loop ready for broader hands-on validation?         |
+| **M7** | [World Expansion](https://github.com/MeanGreen256/hive_firefighter/issues/211)         | Can more playable districts extend that proven loop?                     |
 
 ## Concept work
 
@@ -94,7 +99,12 @@ in [`docs/m1-closeout.md`](docs/m1-closeout.md).
 
 ## Stack
 
-Vite · TypeScript · Three.js via React Three Fiber · Zustand · deployed on Vercel.
+Vite · TypeScript · Three.js via React Three Fiber · Zustand.
+
+There is no verified public deployment URL or pull-request preview service yet.
+Those are explicit owner-coordinated delivery work in
+[#216](https://github.com/MeanGreen256/hive_firefighter/issues/216); do not
+assume Vercel or any other host is connected.
 
 One architectural rule worth stating up front: **the simulation never runs through React.** React owns the scene graph and the UI; the fire tick runs in plain modules with Zustand as the bridge. Re-rendering React at 10 Hz for sim state does not end well.
 
@@ -110,6 +120,12 @@ npm run check   # typecheck + lint
 npm run build   # production build
 npm run acceptance:production -- --incidents=1   # a browser plays the built game
 ```
+
+The commands verify local builds and deterministic/browser journeys. They do
+not replace real child-observation acceptance: follow
+[`docs/playtest-protocol.md`](docs/playtest-protocol.md) for that evidence.
+Platform support is not yet a product promise; #215 will define the supported
+browser, device, and input matrix.
 
 The game opens at `/`, and it is the only scene there is. The legacy M2 cutaway
 view and its `?scene=m2` route were retired in #100 once the exterior loop was

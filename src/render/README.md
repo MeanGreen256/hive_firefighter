@@ -40,11 +40,12 @@ position and shortens the boom before the first hit. A ground-height callback
 keeps the camera above terrain; flat ground at `y = 0` is the default.
 
 The scene opens at `/`, and it is the only one. WASD or the left stick drives the
-truck and moves the firefighter. The action input — space, left click, or the pad's
-A/right trigger — sprays, hops in and out of the cab, and carries on from the star
-screen; that one button plus a direction finishes the game (ADR-007). Everything
-else is optional: right-drag or the right stick orbits while driving and steers
-free aim on foot, `E` boards or dismounts, `L` toggles siren and lights.
+truck; on foot, W/S moves relative to the firefighter and A/D turns them in place or
+while walking (the Arrow keys mirror those controls). The action input — space, left
+click, or the pad's A/right trigger — sprays, hops in and out of the cab, and carries
+on from the star screen; that one button plus a direction finishes the game (ADR-007).
+Everything else is optional: right-drag or the right stick orbits while driving and
+steers free aim on foot, `E` boards or dismounts, `L` toggles siren and lights.
 
 After the star screen, the scene remains fire-free until the player returns on
 foot to the pulsing bell at the Firehouse Star Board and presses that same

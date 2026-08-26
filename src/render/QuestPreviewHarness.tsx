@@ -34,7 +34,6 @@ import { createHosePresentationState } from './hoseTargeting';
 import { createScorchRinseField } from './scorchRinse';
 import { getRuntimeVfxQuality } from './incidentVfx';
 import { buildWorldSurfaceIndex, createWorldReactionField } from './worldReactions';
-import type { CharacterPoint } from './characterController';
 
 /** Bake the static district shadow map once, same as the shipped scene. */
 function configureStaticShadows({ gl }: RootState) {
@@ -111,7 +110,6 @@ function PreviewWorld({
   const firefighterRef = useRef<Group>(null);
   const collisionRoot = useRef<Group>(null);
   const truckSpeedRatio = useRef(0);
-  const movementForwardRef = useRef<CharacterPoint>({ x: 0, z: -1 });
   const hosePresentationRef = useRef(createHosePresentationState());
   const layout = useMemo(() => buildDistrictLayout(district), [district]);
   const surfaces = useMemo(() => buildWorldSurfaceIndex(layout), [layout]);
@@ -144,7 +142,6 @@ function PreviewWorld({
       <FollowCameraRig
         target={target}
         profile={profile}
-        movementForwardRef={movementForwardRef}
         collisionRoot={collisionRoot}
         orbitEnabled={false}
         speedRatio={truckSpeedRatio}
@@ -164,7 +161,6 @@ function PreviewWorld({
       />
       <FirefighterController
         targetRef={firefighterRef}
-        movementForwardRef={movementForwardRef}
         hosePresentationRef={hosePresentationRef}
         visualStyle={visualStyle}
         enabled={false}

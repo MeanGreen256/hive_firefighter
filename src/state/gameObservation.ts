@@ -66,7 +66,7 @@ export interface GameObservation {
   readonly player: GameObservationPoint;
   /** Which way the firefighter is facing, and so where the hose points. */
   readonly playerYawRadians: number;
-  /** World direction the movement keys push towards; camera-relative on foot. */
+  /** World direction W/Up moves the active subject; character-relative on foot. */
   readonly moveForward: GameObservationPoint;
   readonly distanceToQuestMeters: number;
   /**
