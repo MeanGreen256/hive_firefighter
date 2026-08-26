@@ -17,7 +17,7 @@ npm run acceptance:production                      # a whole five-call shift
 npm run acceptance:production -- --incidents=1     # the first-play journey only
 npm run acceptance:production -- --skip-build      # reuse the existing dist/
 npm run acceptance:production -- --incident-seconds=900   # more time per call
-npm run acceptance:production -- --settle-seconds=60      # less patience for #239
+npm run acceptance:production -- --settle-seconds=20      # override the 10s settle budget
 JOURNEY_TRACE=1 npm run acceptance:production      # narrate every decision
 ```
 
@@ -78,12 +78,11 @@ finished without the hose being on it.
 
 ## What it has already found
 
-- **#239 — seven minutes between the last flame and the stars.** An incident
-  stays `active` while any cell is still warm, and warm cells cool at a floor of
-  0.2 heat a second, so even a fire doused in under a second leaves the child
-  waiting. Reproduced deterministically without a browser, in the issue. The
-  runner waits it out on a ten-minute settling grace and prints the measured gap
-  on every run; when #239 lands, both should drop to seconds.
+- **Seven minutes once separated the last flame from the stars (#239).** The
+  session used to stay `active` while any cell was merely warm. Containment now
+  follows the visible flame state, while a propane countdown remains an explicit
+  exception. The runner enforces a ten-second settle budget and still prints the
+  measured gap on every run.
 - **The hose got weaker the slower your device.** Water was metered against the
   renderer's frame clamp while fire advanced by real time — see
   `src/render/hoseWater.ts`.
@@ -108,9 +107,8 @@ finished without the hose being on it.
 An incident has two clocks, and the failure says which one ran out: still
 alight after the fight budget (`--incident-seconds`, default 600 — the runner
 could not put it out, or could not reach it), or last flame out and no star
-screen (`--settle-seconds`, default 600 — the game did not end an incident
-that is, visibly, over). They send you to different places, and the second one
-is #239 until #239 is fixed.
+screen (`--settle-seconds`, default 10 — the game did not end an incident that
+is visibly over). They send you to different places.
 
 The report names the step. `failure.png` shows where the player was standing.
 `JOURNEY_TRACE=1` prints every drive, walk, aim, and spray decision, which is
