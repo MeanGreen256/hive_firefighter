@@ -5,17 +5,17 @@ import type { Style } from '@styles/styles';
 import { firstConnectedGamepad } from '@ui/gamepad';
 import {
   CHARACTER_RADIUS,
-  getCameraRelativeMovement,
+  CHARACTER_TURN_SPEED_RADIANS_PER_SECOND,
   getCharacterAnimationState,
   getCharacterGamepadInput,
   getCharacterKeyboardInput,
+  getCharacterRelativeMovement,
   getCharacterTargetSpeed,
   isCharacterMovementKey,
   resolveCharacterMovement,
-  stepCharacterFacingYaw,
+  stepCharacterTurnYaw,
   stepCharacterVelocity,
   type CharacterAnimationState,
-  type CharacterMovementForwardRef,
   type CharacterMovementBounds,
   type CharacterMovementInput,
   type CharacterObstacle,
@@ -46,7 +46,6 @@ import {
 } from './heroGeometry';
 
 const MAX_FRAME_DELTA_SECONDS = 1 / 20;
-const CHARACTER_TURN_DAMPING = 14;
 const WALK_CYCLE_RATE = 8;
 const RUN_CYCLE_RATE = 11;
 /**
@@ -75,7 +74,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 function readGamepadInput(): CharacterMovementInput {
   const gamepad = firstConnectedGamepad();
-  if (!gamepad) return { right: 0, forward: 0, intensity: 0 };
+  if (!gamepad) return { turn: 0, forward: 0, intensity: 0 };
   return getCharacterGamepadInput(gamepad.axes[0] ?? 0, gamepad.axes[1] ?? 0);
 }
 
@@ -100,7 +99,6 @@ function readArmPivots(
 
 export interface FirefighterControllerProps {
   readonly targetRef: RefObject<Group | null>;
-  readonly movementForwardRef: CharacterMovementForwardRef;
   readonly hosePresentationRef: RefObject<HosePresentationState>;
   readonly visualStyle: Style;
   readonly enabled: boolean;
@@ -113,10 +111,9 @@ export interface FirefighterControllerProps {
   readonly helmetBadgeUnlocked?: boolean;
 }
 
-/** One forgiving, camera-relative firefighter subject for the M3 on-foot loop. */
+/** One forgiving, character-relative firefighter subject for the M3 on-foot loop. */
 export function FirefighterController({
   targetRef,
-  movementForwardRef,
   hosePresentationRef,
   visualStyle,
   enabled,
@@ -242,11 +239,14 @@ export function FirefighterController({
 
     const input = enabled
       ? chooseMovementInput(getCharacterKeyboardInput(heldKeys.current), readGamepadInput())
-      : { right: 0, forward: 0, intensity: 0 };
-    const movement = getCameraRelativeMovement(input, {
-      x: movementForwardRef.current.x,
-      z: movementForwardRef.current.z,
-    });
+      : { turn: 0, forward: 0, intensity: 0 };
+    subject.rotation.y = stepCharacterTurnYaw(
+      subject.rotation.y,
+      input.turn,
+      CHARACTER_TURN_SPEED_RADIANS_PER_SECOND,
+      delta,
+    );
+    const movement = getCharacterRelativeMovement(input, subject.rotation.y);
     const targetSpeed = getCharacterTargetSpeed(movement.intensity);
     const nextVelocity = stepCharacterVelocity(
       { x: velocity.current.x, z: velocity.current.z },
@@ -266,14 +266,6 @@ export function FirefighterController({
     subject.position.x = nextPosition.x;
     subject.position.z = nextPosition.z;
     subject.position.y = getGroundHeight(nextPosition.x, nextPosition.z);
-
-    subject.rotation.y = stepCharacterFacingYaw(
-      subject.rotation.y,
-      input,
-      movementForwardRef.current,
-      CHARACTER_TURN_DAMPING,
-      delta,
-    );
 
     const speed = Math.hypot(velocity.current.x, velocity.current.z);
 

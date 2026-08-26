@@ -3,15 +3,16 @@ import {
   applyCharacterMovementDeadzone,
   CHARACTER_ACCELERATION,
   CHARACTER_RUN_SPEED,
+  CHARACTER_TURN_SPEED_RADIANS_PER_SECOND,
   CHARACTER_WALK_SPEED,
-  getCameraRelativeMovement,
   getCharacterAnimationState,
   getCharacterGamepadInput,
   getCharacterKeyboardInput,
+  getCharacterRelativeMovement,
   getCharacterTargetSpeed,
   isCharacterMovementKey,
   resolveCharacterMovement,
-  stepCharacterFacingYaw,
+  stepCharacterTurnYaw,
   stepCharacterVelocity,
   type CharacterObstacle,
 } from './characterController';
@@ -19,88 +20,92 @@ import {
 const BUILDING: CharacterObstacle = { minX: 0, maxX: 2, minZ: -1, maxZ: 1 };
 
 describe('firefighter movement input and gait', () => {
-  it('accepts arrow keys for left/right movement alongside the letter controls', () => {
+  it('maps A/D and Left/Right to rotation while W/S and Up/Down move', () => {
     expect(isCharacterMovementKey('ArrowLeft')).toBe(true);
     expect(isCharacterMovementKey('ArrowRight')).toBe(true);
     expect(isCharacterMovementKey(' ')).toBe(false);
+    expect(getCharacterKeyboardInput(new Set(['a']))).toEqual({
+      turn: 1,
+      forward: 0,
+      intensity: 1,
+    });
+    expect(getCharacterKeyboardInput(new Set(['d']))).toEqual({
+      turn: -1,
+      forward: 0,
+      intensity: 1,
+    });
     expect(getCharacterKeyboardInput(new Set(['arrowleft']))).toEqual({
-      right: -1,
+      turn: 1,
       forward: 0,
       intensity: 1,
     });
     expect(getCharacterKeyboardInput(new Set(['arrowright']))).toEqual({
-      right: 1,
+      turn: -1,
       forward: 0,
       intensity: 1,
     });
-    const diagonal = getCharacterKeyboardInput(new Set(['arrowright', 'arrowup']));
-    expect(diagonal.right).toBeCloseTo(Math.SQRT1_2);
-    expect(diagonal.forward).toBeCloseTo(Math.SQRT1_2);
-    expect(diagonal.intensity).toBe(1);
+    expect(getCharacterKeyboardInput(new Set(['w', 'd']))).toEqual({
+      turn: -1,
+      forward: 1,
+      intensity: 1,
+    });
+    expect(getCharacterKeyboardInput(new Set(['arrowdown']))).toEqual({
+      turn: 0,
+      forward: -1,
+      intensity: 1,
+    });
   });
 
-  it('maps the gamepad horizontal axis to the same left/right movement', () => {
+  it('maps the gamepad left stick to equivalent movement and rotation', () => {
     const left = getCharacterGamepadInput(-1, 0);
     const right = getCharacterGamepadInput(1, 0);
-    expect(left.right).toBe(-1);
+    const forward = getCharacterGamepadInput(0, -1);
+    expect(left.turn).toBe(1);
     expect(left.forward).toBeCloseTo(0);
     expect(left.intensity).toBe(1);
-    expect(right.right).toBe(1);
+    expect(right.turn).toBe(-1);
     expect(right.forward).toBeCloseTo(0);
     expect(right.intensity).toBe(1);
+    expect(forward.turn).toBeCloseTo(0);
+    expect(forward.forward).toBe(1);
+    expect(forward.intensity).toBe(1);
   });
 
-  it('normalizes digital diagonals and applies a smooth gamepad deadzone', () => {
-    const digital = applyCharacterMovementDeadzone(1, 1, 0);
-    expect(digital.intensity).toBe(1);
-    expect(Math.hypot(digital.right, digital.forward)).toBeCloseTo(1);
+  it('applies a radial gamepad deadzone while preserving stick direction', () => {
+    const diagonal = applyCharacterMovementDeadzone(1, 1, 0);
+    expect(diagonal.intensity).toBe(1);
+    expect(Math.hypot(diagonal.turn, diagonal.forward)).toBeCloseTo(1);
     expect(applyCharacterMovementDeadzone(0.1, 0.1)).toEqual({
-      right: 0,
+      turn: 0,
       forward: 0,
       intensity: 0,
     });
     expect(() => applyCharacterMovementDeadzone(0, 0, 1)).toThrow(RangeError);
   });
 
-  it('turns stick input into camera-relative world movement', () => {
-    const forward = getCameraRelativeMovement(
-      { right: 0, forward: 1, intensity: 1 },
-      { x: 0, z: -1 },
-    );
-    const right = getCameraRelativeMovement(
-      { right: 1, forward: 0, intensity: 1 },
-      { x: 0, z: -1 },
-    );
-
-    expect(forward).toEqual({ x: 0, z: -1, intensity: 1 });
-    expect(right).toEqual({ x: 1, z: 0, intensity: 1 });
-  });
-
   it.each([0, Math.PI / 6, Math.PI / 2, Math.PI, -Math.PI / 2])(
-    'maps forward, reverse, strafes, and diagonals around the planar camera heading at yaw %p',
+    'moves forward and backward relative to character facing at yaw %p',
     (heading) => {
-      const cameraForward = { x: Math.sin(heading), z: -Math.cos(heading) };
-      const cameraRight = { x: -cameraForward.z, z: cameraForward.x };
-      const cases = [
-        { input: { right: 0, forward: 1, intensity: 1 }, forward: 1, right: 0 },
-        { input: { right: 0, forward: -1, intensity: 1 }, forward: -1, right: 0 },
-        { input: { right: -1, forward: 0, intensity: 1 }, forward: 0, right: -1 },
-        { input: { right: 1, forward: 0, intensity: 1 }, forward: 0, right: 1 },
-        { input: { right: 1, forward: 1, intensity: 1 }, forward: 1, right: 1 },
-      ] as const;
+      const forward = getCharacterRelativeMovement({ turn: 0, forward: 1, intensity: 1 }, heading);
+      const reverse = getCharacterRelativeMovement({ turn: 0, forward: -1, intensity: 1 }, heading);
+      const turnOnly = getCharacterRelativeMovement({ turn: 1, forward: 0, intensity: 1 }, heading);
 
-      for (const testCase of cases) {
-        const movement = getCameraRelativeMovement(testCase.input, cameraForward);
-        const expectedLength = Math.hypot(testCase.forward, testCase.right);
-        expect(movement.x).toBeCloseTo(
-          (cameraForward.x * testCase.forward + cameraRight.x * testCase.right) / expectedLength,
-        );
-        expect(movement.z).toBeCloseTo(
-          (cameraForward.z * testCase.forward + cameraRight.z * testCase.right) / expectedLength,
-        );
-      }
+      expect(forward.x).toBeCloseTo(-Math.sin(heading));
+      expect(forward.z).toBeCloseTo(-Math.cos(heading));
+      expect(reverse.x).toBeCloseTo(Math.sin(heading));
+      expect(reverse.z).toBeCloseTo(Math.cos(heading));
+      expect(turnOnly).toEqual({ x: 0, z: 0, intensity: 0 });
     },
   );
+
+  it('rotates left and right in place at the same bounded rate', () => {
+    const halfSecond = 0.5;
+    const left = stepCharacterTurnYaw(0, 1, CHARACTER_TURN_SPEED_RADIANS_PER_SECOND, halfSecond);
+    const right = stepCharacterTurnYaw(0, -1, CHARACTER_TURN_SPEED_RADIANS_PER_SECOND, halfSecond);
+    expect(left).toBeCloseTo(CHARACTER_TURN_SPEED_RADIANS_PER_SECOND * halfSecond);
+    expect(right).toBeCloseTo(-CHARACTER_TURN_SPEED_RADIANS_PER_SECOND * halfSecond);
+    expect(() => stepCharacterTurnYaw(0, 1, -1, halfSecond)).toThrow(RangeError);
+  });
 
   it('selects walk and run from intensity without a sprint action', () => {
     expect(getCharacterTargetSpeed(0)).toBe(0);
@@ -115,108 +120,6 @@ describe('firefighter movement input and gait', () => {
     expect(getCharacterAnimationState(0)).toBe('idle');
     expect(getCharacterAnimationState(2)).toBe('walk');
     expect(getCharacterAnimationState(4)).toBe('run');
-  });
-
-  it.each([0, Math.PI / 6, Math.PI / 2, Math.PI, -Math.PI / 2])(
-    'turns forward input toward the camera heading, but keeps reverse and strafing stable at yaw %p',
-    (heading) => {
-      const movementForward = { x: Math.sin(heading), z: -Math.cos(heading) };
-      const currentYaw = -0.4;
-      const forward = stepCharacterFacingYaw(
-        currentYaw,
-        { right: 0, forward: 1, intensity: 1 },
-        movementForward,
-        100,
-        1,
-      );
-      const expectedYaw = -heading;
-
-      expect(Math.sin(forward - expectedYaw)).toBeCloseTo(0);
-      expect(Math.cos(forward - expectedYaw)).toBeCloseTo(1);
-      for (const input of [
-        { right: -1, forward: 0, intensity: 1 },
-        { right: 1, forward: 0, intensity: 1 },
-        { right: 0, forward: -1, intensity: 1 },
-      ]) {
-        expect(stepCharacterFacingYaw(currentYaw, input, movementForward, 14, 0.05)).toBe(
-          currentYaw,
-        );
-      }
-    },
-  );
-
-  it('faces forward diagonals but keeps reverse diagonals and repeated D presses stable', () => {
-    const currentYaw = 0.3;
-    const forward = { x: 0, z: -1 };
-    const forwardDiagonal = stepCharacterFacingYaw(
-      currentYaw,
-      { right: 1, forward: 1, intensity: 1 },
-      forward,
-      100,
-      1,
-    );
-
-    expect(forwardDiagonal).toBeCloseTo(0);
-    expect(
-      stepCharacterFacingYaw(
-        currentYaw,
-        { right: 1, forward: -1, intensity: 1 },
-        forward,
-        14,
-        0.05,
-      ),
-    ).toBe(currentYaw);
-
-    let yaw = currentYaw;
-    for (const heading of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
-      yaw = stepCharacterFacingYaw(
-        yaw,
-        { right: 1, forward: 0, intensity: 1 },
-        { x: Math.sin(heading), z: -Math.cos(heading) },
-        14,
-        0.05,
-      );
-    }
-    expect(yaw).toBe(currentYaw);
-  });
-
-  it('uses a bounded shortest arc and holds it through quick forward-to-strafe transitions', () => {
-    const currentYaw = 3;
-    const targetYaw = -3;
-    const movementForward = { x: -Math.sin(targetYaw), z: -Math.cos(targetYaw) };
-    const nextYaw = stepCharacterFacingYaw(
-      currentYaw,
-      { right: 0, forward: 1, intensity: 1 },
-      movementForward,
-      14,
-      0.05,
-    );
-    const shortestGap = Math.atan2(
-      Math.sin(targetYaw - currentYaw),
-      Math.cos(targetYaw - currentYaw),
-    );
-
-    expect(nextYaw).toBeGreaterThan(currentYaw);
-    expect(nextYaw - currentYaw).toBeGreaterThan(0);
-    expect(nextYaw - currentYaw).toBeLessThan(Math.abs(shortestGap));
-    expect(
-      stepCharacterFacingYaw(
-        nextYaw,
-        { right: 1, forward: 0, intensity: 1 },
-        { x: 1, z: 0 },
-        14,
-        0.05,
-      ),
-    ).toBe(nextYaw);
-    expect(
-      stepCharacterFacingYaw(
-        nextYaw,
-        { right: 0, forward: -1, intensity: 1 },
-        { x: 1, z: 0 },
-        14,
-        0.05,
-      ),
-    ).toBe(nextYaw);
   });
 });
 

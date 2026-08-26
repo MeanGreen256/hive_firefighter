@@ -210,8 +210,9 @@ export function WorldHud({
           · <span aria-hidden="true">🚒</span> hop in and out
           <br />
           <small>
-            <span aria-hidden="true">📢</span> siren · <span aria-hidden="true">👀</span> right-drag
-            to look around — both optional
+            <span aria-hidden="true">📢</span> siren · <span aria-hidden="true">👀</span>{' '}
+            {onFoot ? 'right-drag to fine-aim the hose' : 'right-drag to look around'} — both
+            optional
             {quietTown ? (
               <>
                 {' '}
