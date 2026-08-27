@@ -8,19 +8,24 @@ export interface VfxCapabilities {
   readonly search?: string;
   readonly reducedMotion?: boolean;
   readonly logicalProcessors?: number;
+  /** Adult override from the grown-ups drawer. `system` is "follow the device". */
+  readonly preference?: 'system' | 'full' | 'reduced';
 }
 
 /**
- * A shareable query override wins; otherwise reduced motion and small CPUs get
- * the quieter plan. The fallback removes accents, never the incident signal.
+ * A shareable query override wins; an explicit adult choice is next; otherwise
+ * reduced motion and small CPUs get the quieter plan. The fallback removes
+ * accents, never the incident signal.
  */
 export function resolveVfxQuality({
   search = '',
   reducedMotion = false,
   logicalProcessors,
+  preference = 'system',
 }: VfxCapabilities = {}): VfxQuality {
   const requested = new URLSearchParams(search).get('vfx');
   if (requested === 'full' || requested === 'reduced') return requested;
+  if (preference === 'full' || preference === 'reduced') return preference;
   if (reducedMotion || (logicalProcessors !== undefined && logicalProcessors <= 4)) {
     return 'reduced';
   }

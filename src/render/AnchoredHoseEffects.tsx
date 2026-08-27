@@ -9,6 +9,7 @@ import {
   type Mesh,
   type MeshBasicMaterial,
 } from 'three';
+import { useStore } from 'zustand';
 import type { Style } from '@styles/styles';
 import type { ShellPoint } from '@sim/exteriorShell';
 import type { WaterApplicationResult } from '@sim/waterApplication';
@@ -18,7 +19,7 @@ import { fireAudioSystem } from '../audio/fireAudioSystem';
 import type { Vector3Tuple } from './worldUnits';
 import { applyRadialDeadzone } from './followCamera';
 import { getHoseFreeAimDirection, stepHoseFreeAim } from './hoseFreeAim';
-import { getRuntimeVfxQuality } from './incidentVfx';
+import { vfxPreferenceStore } from './vfxPreferences';
 import {
   WATER_PIECE_CAPACITY,
   getWaterVfxPlan,
@@ -109,7 +110,7 @@ export function AnchoredHoseEffects({
   const steamRemaining = useRef(0);
   const steamRef = useRef<Mesh>(null);
   const waterPiecesRef = useRef<InstancedMesh>(null);
-  const quality = useMemo(() => getRuntimeVfxQuality(), []);
+  const quality = useStore(vfxPreferenceStore, (state) => state.quality);
   const pieceMatrix = useMemo(() => new Matrix4(), []);
   const piecePosition = useMemo(() => new Vector3(), []);
   const pieceDirection = useMemo(() => new Vector3(), []);

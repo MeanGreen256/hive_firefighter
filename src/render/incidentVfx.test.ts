@@ -14,6 +14,8 @@ describe('incident VFX plans', () => {
     expect(resolveVfxQuality({ search: '?vfx=full', reducedMotion: true })).toBe('full');
     expect(resolveVfxQuality({ reducedMotion: true })).toBe('reduced');
     expect(resolveVfxQuality({ logicalProcessors: 4 })).toBe('reduced');
+    expect(resolveVfxQuality({ preference: 'reduced' })).toBe('reduced');
+    expect(resolveVfxQuality({ preference: 'full', reducedMotion: true })).toBe('full');
 
     const full = getFlameCellFrame('4,2,1', CellState.Burning, 1, 2.5, 'full');
     const reduced = getFlameCellFrame('4,2,1', CellState.Burning, 1, 2.5, 'reduced');

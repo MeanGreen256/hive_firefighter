@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { BackSide, Color, Matrix4, Vector3, type InstancedMesh } from 'three';
+import { useStore } from 'zustand';
 import { CellState } from '@sim/cellGrid';
 import { getShellCellWorldPosition } from '@sim/exteriorShell';
 import type { QuestFireController } from '../state/questFireController';
 import type { Style } from '@styles/styles';
-import { getFireAftermathFrame, getFlameCellFrame, getRuntimeVfxQuality } from './incidentVfx';
+import { getFireAftermathFrame, getFlameCellFrame } from './incidentVfx';
 import type { ScorchRinseField } from './scorchRinse';
+import { vfxPreferenceStore } from './vfxPreferences';
 
 const MARKER_STATES = [
   CellState.Burnt,
@@ -54,7 +56,7 @@ export function ExteriorFire({
   const outlineFlamesRef = useRef<InstancedMesh>(null);
   const sparksRef = useRef<InstancedMesh>(null);
   const steamRef = useRef<InstancedMesh>(null);
-  const quality = useMemo(() => getRuntimeVfxQuality(), []);
+  const quality = useStore(vfxPreferenceStore, (state) => state.quality);
   const scratchMatrix = useMemo(() => new Matrix4(), []);
   const scratchPosition = useMemo(() => new Vector3(), []);
   const scratchScale = useMemo(() => new Vector3(), []);

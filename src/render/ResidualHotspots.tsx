@@ -1,10 +1,11 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Matrix4, Vector3, type InstancedMesh } from 'three';
+import { useStore } from 'zustand';
 import { RESIDUAL_HOTSPOT_MAX_COUNT } from '@sim/residualHotspots';
 import type { QuestFireController } from '../state/questFireController';
 import type { Style } from '@styles/styles';
-import { getRuntimeVfxQuality } from './incidentVfx';
+import { vfxPreferenceStore } from './vfxPreferences';
 
 /**
  * The developer-only visual language for #180's residual-heat spike.
@@ -23,7 +24,7 @@ export function ResidualHotspots({
 }) {
   const emberRef = useRef<InstancedMesh>(null);
   const haloRef = useRef<InstancedMesh>(null);
-  const quality = useMemo(() => getRuntimeVfxQuality(), []);
+  const quality = useStore(vfxPreferenceStore, (state) => state.quality);
   const matrix = useMemo(() => new Matrix4(), []);
   const position = useMemo(() => new Vector3(), []);
   const scale = useMemo(() => new Vector3(), []);

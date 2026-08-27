@@ -1,5 +1,6 @@
 import { createStore } from 'zustand/vanilla';
 import { isStyleId, type StyleId } from './styles';
+import { getBrowserStyleStorage, resolveStyleId, writeStylePreference } from './stylePreferences';
 
 export const DEFAULT_STYLE_ID: StyleId = 'diorama';
 
@@ -31,11 +32,14 @@ export function createStyleStore(
     setActiveStyle: (activeStyleId) => {
       set({ activeStyleId });
       writeUrl(activeStyleId);
+      writeStylePreference(getBrowserStyleStorage(), activeStyleId);
     },
   }));
 }
 
 const initialStyleId =
-  typeof window === 'undefined' ? DEFAULT_STYLE_ID : styleIdFromSearch(window.location.search);
+  typeof window === 'undefined'
+    ? DEFAULT_STYLE_ID
+    : resolveStyleId(window.location.search, getBrowserStyleStorage());
 
 export const styleStore = createStyleStore(initialStyleId);

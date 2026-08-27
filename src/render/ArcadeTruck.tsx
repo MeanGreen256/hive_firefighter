@@ -6,7 +6,9 @@ import { firstConnectedGamepad } from '@ui/gamepad';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
 import {
   applyTruckInputDeadzone,
+  getTruckKeyboardInput,
   getTruckSpeedRatio,
+  isTruckMovementKey,
   stepTruck,
   type TruckInput,
   type TruckState,
@@ -23,10 +25,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 function readKeyboardInput(heldKeys: ReadonlySet<string>): TruckInput {
-  return {
-    throttle: Number(heldKeys.has('w')) - Number(heldKeys.has('s')),
-    steering: Number(heldKeys.has('a')) - Number(heldKeys.has('d')),
-  };
+  return getTruckKeyboardInput(heldKeys);
 }
 
 function readGamepadInput(): TruckInput {
@@ -98,7 +97,7 @@ export function ArcadeTruck({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return;
       const key = event.key.toLowerCase();
-      if (key !== 'w' && key !== 'a' && key !== 's' && key !== 'd') return;
+      if (!isTruckMovementKey(key)) return;
       event.preventDefault();
       activeKeys.add(key);
     };
