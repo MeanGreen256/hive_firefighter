@@ -131,6 +131,8 @@ function pageStateExpression() {
       starLabel: dialog?.querySelector('.debrief-stars')?.getAttribute('aria-label') ?? null,
       nextCallControls: nextCall.length,
       offeredNextCallControls: nextCall.filter((control) => !control.disabled).length,
+      fallbackVisible: Boolean(document.querySelector('.startup-fallback')),
+      fallbackRetries: document.querySelectorAll('.startup-fallback__retry').length,
       coachVisible: Boolean(coach),
       coachLabel: coach?.getAttribute('aria-label') ?? null,
       searchString: window.location.search
@@ -316,6 +318,72 @@ async function extinguish(player, incident, index) {
   }
 }
 
+/**
+ * Take the graphics context away and see the game come back (#223).
+ *
+ * A lost WebGL context is something a device does to a page — a laptop waking
+ * up, a driver resetting, another tab taking the GPU — so this is one of the
+ * two places the runner reaches past the keyboard, the same way it reaches for
+ * a reload. `WEBGL_lose_context` is the browser's own supported way to stage
+ * it, which is why this is a real event rather than a shim: the page receives
+ * exactly the `webglcontextlost` a driver reset would deliver.
+ *
+ * What is being proved is that the game notices, says so, and rebuilds itself
+ * with the child's progress intact — instead of freezing on the last frame it
+ * managed to draw, which is what it used to do.
+ */
+async function checkGraphicsRecovery(player, session, sessionId) {
+  const before = await player.observe();
+  const staged = await session.evaluate(
+    `(() => {
+      const canvas = document.querySelector('canvas');
+      const gl = canvas && (canvas.getContext('webgl2') || canvas.getContext('webgl'));
+      const lose = gl && gl.getExtension('WEBGL_lose_context');
+      if (!lose) return false;
+      lose.loseContext();
+      setTimeout(() => lose.restoreContext(), 250);
+      return true;
+    })()`,
+    sessionId,
+  );
+  if (!staged) {
+    note('graphics recovery: this browser offers no WEBGL_lose_context, skipped');
+    return;
+  }
+
+  const noticed = await player
+    .waitFor('the game to notice the picture went', (state) => state.renderer !== 'running', 5_000)
+    .catch(() => null);
+  check(
+    noticed !== null,
+    'a lost graphics context is noticed rather than frozen on the last frame',
+  );
+
+  const recovered = await player
+    .waitFor('the picture to come back', (state) => state.renderer === 'running', 45_000)
+    .catch(() => null);
+  check(recovered !== null, 'the game rebuilds itself after the graphics context comes back');
+  if (recovered === null) return;
+
+  check(
+    recovered.completedQuestCount === before.completedQuestCount &&
+      recovered.unlockedRewardCount === before.unlockedRewardCount &&
+      recovered.slot === before.slot,
+    'a graphics restart keeps the stars, rewards, and shift the child already earned',
+  );
+  const page = await session.evaluate(pageStateExpression(), sessionId);
+  check(!page.fallbackVisible, 'the fallback goes away once the picture is back');
+  const colors = await visibleFrameColorCount(
+    session,
+    sessionId,
+    await capture(session, sessionId, 'graphics-recovery'),
+  );
+  check(
+    colors >= MINIMUM_FRAME_COLORS,
+    `the rebuilt scene draws a real town again (${colors} distinct colours)`,
+  );
+}
+
 /** Take the stars and land in the quiet town the next call is started from. */
 async function leaveTheStarScreen(player) {
   await player.releaseAll();
@@ -494,6 +562,10 @@ try {
   );
   check(bootPage.developmentUi === 0, 'no development-only overlay ships in the production build');
   check(!bootPage.errorOverlay, 'no build or runtime error overlay is visible');
+  check(
+    !bootPage.fallbackVisible && booted.renderer === 'running',
+    `a clean boot shows the town rather than a fallback (renderer ${booted.renderer})`,
+  );
   check(bootPage.coachVisible, 'a first-time player is met by the wordless guide');
   check(
     booted.onboardingStep === 'drive',
@@ -535,6 +607,8 @@ try {
       'a first-time player is not asked for a second gesture once sound is running',
     );
   }
+
+  await checkGraphicsRecovery(player, session, sessionId);
 
   let refreshChecked = false;
   // Which incidents the shift actually dealt: #213's rotation claim is that a

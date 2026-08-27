@@ -44,6 +44,7 @@ import { WorldHud } from '@ui/WorldHud';
 import { ApproachBand, getApproachBand, getFireBand, type ApproachBandId } from '@ui/worldGuidance';
 import { onboardingGuide, type OnboardingWorldSample } from '../state/onboardingGuide';
 import { installGameObservation, reportGameObservation } from '../state/gameObservation';
+import { ContextLossGuard } from './ContextLossGuard';
 import { QuestDebriefPanel } from '@ui/QuestDebriefPanel';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { StationCelebration, type StationCelebrationNotice } from '@ui/StationCelebration';
@@ -1045,6 +1046,7 @@ export default function FollowCameraScene() {
             quietTown={quietTown}
             onNextCallRangeChange={setCanStartNextCall}
           />
+          <ContextLossGuard />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
       </div>
