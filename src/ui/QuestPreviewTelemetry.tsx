@@ -1,4 +1,5 @@
 import questPreviewTelemetryCss from './QuestPreviewTelemetry.css?inline';
+import type { QuestSightlineAdvisory } from '../content/questSightlineDiagnostics';
 import type { QuestDiagnosticMessage } from '@sim/questDiagnostics';
 
 export interface QuestPreviewTelemetryProps {
@@ -24,6 +25,8 @@ export interface QuestPreviewTelemetryProps {
   readonly authorDiagnostic: string;
   readonly authorHazardDiagnostic: string;
   readonly authorAdvisories: readonly QuestDiagnosticMessage[];
+  readonly sightlineSummary: string;
+  readonly sightlineAdvisories: readonly QuestSightlineAdvisory[];
 }
 
 /**
@@ -53,10 +56,18 @@ export function QuestPreviewTelemetry(props: QuestPreviewTelemetryProps) {
     ['WIND', props.windLine],
     ['ANALYSIS', props.authorDiagnostic],
     ['HAZARD ANALYSIS', props.authorHazardDiagnostic],
+    ['GROUND CHECK', props.sightlineSummary],
     ...props.authorAdvisories.map(
       (advisory, index) =>
         [
           `ADVICE ${index + 1}`,
+          `${advisory.source}: ${advisory.path} ${advisory.message}`,
+        ] as const,
+    ),
+    ...props.sightlineAdvisories.map(
+      (advisory, index) =>
+        [
+          `GROUND ADVICE ${index + 1}`,
           `${advisory.source}: ${advisory.path} ${advisory.message}`,
         ] as const,
     ),

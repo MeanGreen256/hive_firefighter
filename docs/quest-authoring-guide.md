@@ -372,6 +372,13 @@ to meet:
 - [ ] A child who does nothing for a minute loses property, not the game.
 - [ ] It works with sound off and with reading off.
 
+The development quest preview also runs the advisory ground/sightline check.
+It reports the exact `content/quests/<id>.json` field when a scoreable subject
+or propane cylinder has no connected ground point in the assisted-hose envelope,
+is obstructed, or is hidden from both the chase and shoulder profiles. Findings
+do not reject an experiment or change play; they are prompts for author review
+until child observation establishes a hard threshold.
+
 **Both art directions** — open the previews in `diorama` and `ink`. Every prop
 type and building use you referenced has to have an appearance in both, and the
 graph rejects any that does not.
