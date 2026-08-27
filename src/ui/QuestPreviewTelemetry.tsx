@@ -1,4 +1,5 @@
 import questPreviewTelemetryCss from './QuestPreviewTelemetry.css?inline';
+import type { QuestSightlineAdvisory } from '../content/questSightlineDiagnostics';
 
 export interface QuestPreviewTelemetryProps {
   readonly questId: string;
@@ -17,6 +18,8 @@ export interface QuestPreviewTelemetryProps {
   readonly hazardCountdownSeconds: number | null;
   readonly collapseWarningCount: number;
   readonly collapsedCellCount: number;
+  readonly sightlineSummary: string;
+  readonly sightlineAdvisories: readonly QuestSightlineAdvisory[];
 }
 
 /**
@@ -42,6 +45,14 @@ export function QuestPreviewTelemetry(props: QuestPreviewTelemetryProps) {
     ['FIRE', `${props.burningCellCount} alight · ${props.heatingCellCount} catching`],
     ['HAZARD', hazard],
     ['STRUCTURE', `${props.collapseWarningCount} warning · ${props.collapsedCellCount} collapsed`],
+    ['GROUND CHECK', props.sightlineSummary],
+    ...props.sightlineAdvisories.map(
+      (advisory, index) =>
+        [
+          `ADVICE ${index + 1}`,
+          `${advisory.source}: ${advisory.path} ${advisory.message}`,
+        ] as const,
+    ),
   ];
 
   return (
