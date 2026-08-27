@@ -306,18 +306,24 @@ The catalogue of stable cosmetic reward ids, keyed by id and validated by
 (`sessionStats.ts`) and unlock evaluation (`progressProfile.ts`) both use; it
 computes nothing itself.
 
-| Field              | What                                                            |
-| ------------------ | --------------------------------------------------------------- |
-| `kind`             | `station-dressing`, `truck-dressing`, or `firefighter-dressing` |
-| `icon`             | semantic token — `flag`, `bell`, `banner`, `helmet`             |
-| `requires.metric`  | `completed-shifts`, `total-best-stars`, or `mastery-quests`     |
-| `requires.atLeast` | positive integer count of that metric                           |
+| Field              | What                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| `kind`             | `station-dressing`, `truck-dressing`, `firefighter-dressing`, or `world-dressing`     |
+| `icon`             | semantic token — `flag`, `bunting`, `planter`, `bell`, `stripe`, `banner`, or `patch` |
+| `requires.metric`  | `completed-shifts`, `total-best-stars`, or `mastery-quests`                           |
+| `requires.atLeast` | positive integer count of that metric                                                 |
 
 Every kind is dressing. There is no kind that grants an ability, a resource, or
 a shortcut: stars are mastery feedback, not currency (ADR-008), and a reward
 that changed play would be a product decision rather than a content edit.
 Requirements may only read durable counts of completed work — elapsed time,
 water, and fuel are absent by construction.
+
+Harbour Hill's finite reward set deliberately paces optional visual variety
+across honest play: a first-shift flag, second-shift bunting, third-shift yard
+planters, a 10- and 15-star truck bell/stripe pair, then the five- and
+six-incident mastery banner/patch pair. None changes movement, extinguishing,
+or access to a quest.
 
 ## Cross-file acceptance
 

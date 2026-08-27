@@ -78,9 +78,13 @@ describe('Firehouse Star Board', () => {
       profile({
         unlockedRewardIds: [
           FIREHOUSE_COSMETIC_REWARDS.stationFlag,
+          FIREHOUSE_COSMETIC_REWARDS.stationBunting,
+          FIREHOUSE_COSMETIC_REWARDS.yardPlanters,
           FIREHOUSE_COSMETIC_REWARDS.truckBell,
           FIREHOUSE_COSMETIC_REWARDS.truckBell,
+          FIREHOUSE_COSMETIC_REWARDS.truckStripe,
           FIREHOUSE_COSMETIC_REWARDS.masteryBanner,
+          FIREHOUSE_COSMETIC_REWARDS.firefighterPatch,
         ],
         completedShiftCount: 2,
       }),
@@ -88,9 +92,13 @@ describe('Firehouse Star Board', () => {
 
     expect(board.rewards).toEqual({
       stationFlag: true,
+      stationBunting: true,
+      yardPlanters: true,
       truckBell: true,
+      truckStripe: true,
       masteryBanner: true,
       helmetBadge: true,
+      firefighterPatch: true,
     });
     expect(board.completedShiftCount).toBe(2);
   });

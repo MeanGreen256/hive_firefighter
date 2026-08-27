@@ -127,6 +127,7 @@ describe('progress profile', () => {
     expect(profile.unlockedRewardIds).toEqual<readonly RewardId[]>([
       'shift-1',
       'stars-10',
+      'stars-15',
       'mastery-5',
     ]);
     expect(
@@ -136,6 +137,34 @@ describe('progress profile', () => {
         seed: 5,
       }),
     ).toBe(profile);
+  });
+
+  it('paces the finite cosmetic set across the rotated second and third shifts', () => {
+    let profile = createEmptyProgressProfile();
+    const firstShift = ['quest-0', 'quest-1', 'quest-2', 'quest-3', 'quest-4'];
+    const secondShift = ['quest-0', 'quest-1', 'quest-2', 'quest-5', 'quest-4'];
+
+    for (const [shift, questIds] of [firstShift, secondShift, firstShift].entries()) {
+      for (const [slot, questId] of questIds.entries()) {
+        const incident = { ...atSlot(slot, questId), shift };
+        profile = recordQuestResult(profile, incident, {
+          ...debrief({ stars: 3, saved: 3 }),
+          scenarioId: questId,
+          seed: incident.seed,
+        });
+      }
+    }
+
+    expect(profile.completedShiftCount).toBe(3);
+    expect(profile.unlockedRewardIds).toEqual<readonly RewardId[]>([
+      'shift-1',
+      'shift-2',
+      'shift-3',
+      'stars-10',
+      'stars-15',
+      'mastery-5',
+      'mastery-6',
+    ]);
   });
 
   it('credits rotated catalogue incidents by durable shift identity without double-counting', () => {
