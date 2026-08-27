@@ -755,8 +755,20 @@ try {
       session.resetDiagnostics();
       await session.command('Page.navigate', { url: `${baseUrl}/` }, sessionId);
       const resumed = await player.waitFor(
-        'the game to come back after a refresh',
-        (state) => state.samples > 0 && state.districtId !== '',
+        'the quiet town to come back after a refresh',
+        // A canvas sample proves that React Three Fiber has drawn, not that
+        // the saved director state has made it through React's effects. The
+        // next step drives to the firehouse, so beginning it during that
+        // short restore window can steer into the newly mounted incident
+        // rather than the quiet town that was saved. Wait for the child-facing
+        // state the refresh contract actually promises.
+        (state) =>
+          state.samples > 0 &&
+          state.districtId !== '' &&
+          state.quietTown &&
+          state.questId === null &&
+          state.burningCellCount === 0 &&
+          !state.paused,
         45_000,
       );
       check(
