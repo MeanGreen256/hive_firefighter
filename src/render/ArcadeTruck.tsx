@@ -52,6 +52,8 @@ export interface ArcadeTruckProps {
   readonly speedRatioRef?: RefObject<number>;
   /** A visual-only mastery reward; never changes movement or hose behavior. */
   readonly bellUnlocked?: boolean;
+  /** A visual-only earned stripe; never changes movement or hose behavior. */
+  readonly stripeUnlocked?: boolean;
 }
 
 /** A forgiving, non-physical arcade truck that owns its persistent transform. */
@@ -66,6 +68,7 @@ export function ArcadeTruck({
   initialYaw = 0,
   speedRatioRef,
   bellUnlocked = false,
+  stripeUnlocked = false,
 }: ArcadeTruckProps) {
   const heldKeys = useRef(new Set<string>());
   const truckState = useRef<TruckState>({
@@ -158,6 +161,16 @@ export function ArcadeTruck({
             <sphereGeometry args={[0.05, 8, 6]} />
             <meshStandardMaterial color={visualStyle.heroes.truck.roofGear} />
           </mesh>
+        </group>
+      ) : null}
+      {stripeUnlocked ? (
+        <group name="reward-truck-stripe">
+          {[-1.04, 1.04].map((z) => (
+            <mesh key={z} position={[0, 0.82, z]}>
+              <boxGeometry args={[1.3, 0.12, 0.045]} />
+              <meshBasicMaterial color={visualStyle.city.questMarker} toneMapped={false} />
+            </mesh>
+          ))}
         </group>
       ) : null}
       <group ref={beaconRef} position={[0, 1.82, -0.88]} visible={sirenOn}>

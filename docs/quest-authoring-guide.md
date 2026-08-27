@@ -275,6 +275,12 @@ Adding a reward *row* is content. Wiring a new reward id to a visible cosmetic
 is code (`FIREHOUSE_COSMETIC_REWARDS` in `src/render/firehouseStarBoard.ts`),
 so it is a product decision, not part of authoring an incident.
 
+The shipped Harbour Hill set remains small and finite: first/second/third
+completed shifts dress the station and yard; 10 and 15 durable best stars dress
+the truck; five and six mastered incidents dress the station and firefighter.
+These are optional visual discoveries only — they never unlock a verb, a route,
+or stronger equipment.
+
 ## 8. Look at it
 
 The preview harness opens any authored quest in any of nine states, in either

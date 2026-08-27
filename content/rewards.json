@@ -4,14 +4,34 @@
     "icon": "flag",
     "requires": { "metric": "completed-shifts", "atLeast": 1 }
   },
+  "shift-2": {
+    "kind": "station-dressing",
+    "icon": "bunting",
+    "requires": { "metric": "completed-shifts", "atLeast": 2 }
+  },
+  "shift-3": {
+    "kind": "world-dressing",
+    "icon": "planter",
+    "requires": { "metric": "completed-shifts", "atLeast": 3 }
+  },
   "stars-10": {
     "kind": "truck-dressing",
     "icon": "bell",
     "requires": { "metric": "total-best-stars", "atLeast": 10 }
   },
+  "stars-15": {
+    "kind": "truck-dressing",
+    "icon": "stripe",
+    "requires": { "metric": "total-best-stars", "atLeast": 15 }
+  },
   "mastery-5": {
     "kind": "station-dressing",
     "icon": "banner",
     "requires": { "metric": "mastery-quests", "atLeast": 5 }
+  },
+  "mastery-6": {
+    "kind": "firefighter-dressing",
+    "icon": "patch",
+    "requires": { "metric": "mastery-quests", "atLeast": 6 }
   }
 }
