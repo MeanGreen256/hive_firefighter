@@ -41,6 +41,30 @@ site data, and #222 decides where that control appears. A restart rebases the
 hose's contact counter instead of reaching into the world to zero it, so the
 next player has to earn the hit again.
 
+## Whether the picture is up
+
+`rendererStatus.ts` owns the five states between opening the page and playing:
+starting, running, restarting, failed, and unsupported. They are one type rather
+than a handful of booleans because they owe a family different things — and the
+one that matters most is that **unsupported is not failed**. A browser that
+cannot draw the game will not start drawing it on the second try, so offering a
+retry there sends an adult round a loop with no end in it. "Would retrying help"
+is a property of the state, decided once.
+
+Recovery from a lost graphics context is a rebuild, not a repair.
+`webglcontextrestored` looks like the signal to wait for and never arrives: it is
+delivered to the canvas element, and the canvas is taken down the moment the
+context is lost so that nothing renders into a dead one and throws. Mounting a
+fresh Canvas — which is what the generation counter forces — asks the browser for
+a new context outright. Progression is untouched by any of it, because
+progression is in the profile on disk rather than in the scene.
+
+`shouldTimeOutStartup` is worth reading before changing the startup clock. React
+Three Fiber waits for a measured, painted container, and a backgrounded tab never
+paints one, so a game opened in a background tab sits at `starting` through no
+fault of its own. Running the clock there would tell a family the game could not
+start when it starts the moment they look at it.
+
 ## Quest fire controller
 
 `questFireController.ts` is the M3 incident host (#91, #131, #135): one active

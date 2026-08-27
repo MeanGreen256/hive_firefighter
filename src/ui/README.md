@@ -51,6 +51,21 @@ only enables within its forgiving interaction range; at the board, the same
 primary action starts the already-determined next call. There is no mission
 picker, timer, or automatic ignition.
 
+`StartupFallback.tsx` is what a family sees instead of a blank page (#223), and
+it is the one screen in the game written for two people at once. The glyph is
+the child's half and carries all they need — something is happening, or something
+has stopped. The sentence is for the adult who came over to see why the firetruck
+is not there, because they are the only person in the room who can act on it.
+What it never shows is a stack trace: a crash dump helps nobody on a sofa and
+carries build paths that are not theirs to read, so the details go to the
+console. `startupState.ts` keeps the choice of what to say a pure function of
+which phase `@state/rendererStatus` reports.
+
+`AppErrorBoundary.tsx` is the last thing between a thrown error and that blank
+page. Its `onError` is where the caller stops the world — a fallback drawn over a
+simulation still ticking would be the worst outcome of the lot: an invisible
+fire, burning a town nobody can see, in a tab that looks broken.
+
 `heldKeys.ts` answers "is this key down right now" from state rather than from
 `KeyboardEvent.repeat`. The flag is meant to carry that and some input
 pipelines never set it: Chrome's automation pipeline repeats a held key without

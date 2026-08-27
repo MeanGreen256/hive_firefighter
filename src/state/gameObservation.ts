@@ -92,6 +92,12 @@ export interface GameObservation {
   readonly completedQuestCount: number;
   readonly unlockedRewardCount: number;
   readonly audio: GameObservationAudio;
+  /**
+   * Whether the picture is up (#223): `starting`, `running`, `restarting`,
+   * `failed`, or `unsupported`. Anything but `running` means a family is
+   * looking at the fallback rather than at the town.
+   */
+  readonly renderer: string;
 }
 
 const INITIAL: GameObservation = {
@@ -130,6 +136,7 @@ const INITIAL: GameObservation = {
   completedQuestCount: 0,
   unlockedRewardCount: 0,
   audio: { enabled: false, muted: false, gestureRequired: false },
+  renderer: 'starting',
 };
 
 let observation: GameObservation = INITIAL;
