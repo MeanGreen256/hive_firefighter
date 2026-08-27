@@ -52,6 +52,8 @@ const FREE_AIM_MAX_PITCH_RADIANS = (45 * Math.PI) / 180;
 
 export class JourneyPlayer {
   held = new Set();
+  /** Tail of the serialized `hold` queue; see `hold`. */
+  holding = Promise.resolve();
 
   constructor(session, sessionId, viewport = { width: 854, height: 480 }) {
     this.session = session;
@@ -114,6 +116,17 @@ export class JourneyPlayer {
     return this.observe();
   }
 
+  /**
+   * One key event, dispatched once.
+   *
+   * Worth knowing when reading this file: a key held down here does not stay a
+   * single event. Chrome's input pipeline delivers a stream of further
+   * `keydown` events for it, with no `keyup` between them and none of them
+   * flagged `repeat`. That is a property of the browser rather than of this
+   * runner, and the game is what has to be robust to it — see
+   * `src/ui/heldKeys.ts`. What this file owes it is honest bookkeeping: one
+   * keydown per press, and a keyup before the next one.
+   */
   async key(type, key) {
     const descriptor = KEYS[key];
     if (!descriptor) throw new Error(`No production control is bound to ${JSON.stringify(key)}`);
@@ -131,20 +144,33 @@ export class JourneyPlayer {
     );
   }
 
-  /** Hold exactly this set of keys, releasing whatever else was down. */
-  async hold(keys) {
+  /**
+   * Hold exactly this set of keys, releasing whatever else was down.
+   *
+   * `held` is updated before the dispatch is awaited rather than after. Two
+   * overlapping calls used to be able to both read "not held" across the same
+   * await and both send a fresh keydown — the doubled presses milliseconds
+   * apart that a failing run's key trace showed.
+   */
+  hold(keys) {
+    // Serialized: `hold` awaits a CDP round trip per key, and two overlapping
+    // calls interleaving across those awaits is what let the runner send two
+    // fresh keydowns milliseconds apart for one held button.
+    this.holding = this.holding.then(() => this.#hold(keys)).catch(() => {});
+    return this.holding;
+  }
+
+  async #hold(keys) {
     const wanted = new Set(keys);
-    for (const key of this.held) {
-      if (!wanted.has(key)) {
-        await this.key('keyUp', key);
-        this.held.delete(key);
-      }
+    for (const key of [...this.held]) {
+      if (wanted.has(key)) continue;
+      this.held.delete(key);
+      await this.key('keyUp', key);
     }
     for (const key of wanted) {
-      if (!this.held.has(key)) {
-        await this.key('keyDown', key);
-        this.held.add(key);
-      }
+      if (this.held.has(key)) continue;
+      this.held.add(key);
+      await this.key('keyDown', key);
     }
   }
 
@@ -154,6 +180,14 @@ export class JourneyPlayer {
 
   /** One fresh press of one button, which is the whole control floor (ADR-007). */
   async press(key = ' ') {
+    // A press of a key the runner is already holding is not a press. Let go
+    // first, through the same queue, so what the game receives is what a
+    // player's hand would produce rather than a second keydown with no keyup.
+    if (this.held.has(key)) {
+      await this.hold([...this.held].filter((current) => current !== key));
+      await wait(60);
+    }
+    await this.holding;
     await this.key('keyDown', key);
     await wait(60);
     await this.key('keyUp', key);

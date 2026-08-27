@@ -90,6 +90,18 @@ finished without the hose being on it.
 - **The hose got weaker the slower your device.** Water was metered against the
   renderer's frame clamp while fire advanced by real time — see
   `src/render/hoseWater.ts`.
+- **A held key is not a stream of presses, and `repeat` does not prove it.**
+  About one run in three ended with the incident finished, the quest recorded,
+  the town quiet — and the star screen gone before anyone could see it. The
+  cause is not in the runner, which sent one `keyDown` and no more: the key
+  trace from a failing run shows a steady stream of further `keydown` events
+  arriving about twice a second with no `keyup` between them, every one of them
+  claiming `repeat === false`. The game read that flag to tell a held hose
+  button from a fresh press, so one of those phantom presses dismissed the star
+  screen the moment it opened. The gamepad had always used a press latch for
+  exactly this; the keyboard now does too — `src/ui/heldKeys.ts`. Remote
+  desktops and virtual keyboards drop the flag the same way, so this was never
+  only a headless problem.
 - **One refused unlock is not a policy (#221).** Driving a reload in a
   background tab showed Chrome refusing to resume an AudioContext in a hidden
   document and then allowing the very next keypress. The retry budget in

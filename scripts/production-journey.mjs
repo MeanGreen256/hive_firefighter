@@ -295,7 +295,10 @@ async function extinguish(player, incident, index) {
       await player.releaseAll();
       const stalled = await player.observe();
       throw new Error(
-        `Incident ${index + 1} (${incident.questId}) put its last flame out but never finished within ${options.settleSeconds} s: ${stalled.heatingCellCount} cells still warm, status ${stalled.incidentStatus}`,
+        `Incident ${index + 1} (${incident.questId}) put its last flame out but never finished within ${options.settleSeconds} s: ${stalled.heatingCellCount} cells still warm, status ${stalled.incidentStatus}, quiet town ${stalled.quietTown}, ${stalled.completedQuestCount} calls recorded` +
+          (stalled.quietTown
+            ? ' — the incident finished and the star screen was skipped, not missed'
+            : ''),
       );
     }
 

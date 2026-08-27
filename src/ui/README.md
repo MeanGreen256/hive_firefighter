@@ -51,6 +51,13 @@ only enables within its forgiving interaction range; at the board, the same
 primary action starts the already-determined next call. There is no mission
 picker, timer, or automatic ignition.
 
+`heldKeys.ts` answers "is this key down right now" from state rather than from
+`KeyboardEvent.repeat`. The flag is meant to carry that and some input
+pipelines never set it: Chrome's automation pipeline repeats a held key without
+it, and remote desktops and virtual keyboards do the same. That was enough to dismiss a star screen with the very button that earned
+it, roughly one production-journey run in three. The pad had always been safe
+because it uses a press latch; the keyboard now gets the same guarantee.
+
 `gamepad.ts` is the one place that knows a pad exists. It names the intents
 (`action`, `board`, `siren`) rather than the buttons, and answers "is there a
 pad in this child's hands at all" for the audio gate, so no caller decides for

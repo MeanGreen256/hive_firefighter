@@ -13,6 +13,7 @@ import {
 } from './CelebrationIcons';
 import { getObjectSnapshotStates } from './celebrationPresentation';
 import { createPressLatch, firstConnectedGamepad, isIntentHeld, readPress } from './gamepad';
+import { heldKeys } from './heldKeys';
 import './SessionHud.css';
 
 function StarReveal({ stars }: { readonly stars: SessionDebrief['stars'] }) {
@@ -61,6 +62,9 @@ function ObjectSnapshot({ debrief }: { readonly debrief: SessionDebrief }) {
     </section>
   );
 }
+
+/** The one action button, and the key a dialog conventionally confirms with. */
+const DISMISS_KEYS: readonly string[] = [' ', 'Enter'];
 
 export interface DebriefScenarioOption {
   readonly id: string;
@@ -112,17 +116,28 @@ export function SessionDebriefPanel({
   /**
    * The result has the same fresh-press floor as the rest of the game: held
    * hose input cannot skip it, and action works from both keyboard and pad.
+   *
+   * Both halves are latches now. The pad's has always been one; the keyboard
+   * used to rely on `KeyboardEvent.repeat`, which is not a promise every input
+   * pipeline keeps — see `heldKeys.ts`. A key that was already down when the
+   * stars appeared is the button that earned them, so it is engaged from the
+   * start and does nothing until the player lets go and presses again.
    */
   useEffect(() => {
     if (!debrief) return;
 
+    const engaged = new Set(DISMISS_KEYS.filter((key) => heldKeys.isHeld(key)));
+    const handleKeyUp = (event: KeyboardEvent) => engaged.delete(event.key);
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
-      if (event.key !== ' ' && event.key !== 'Enter') return;
+      if (!DISMISS_KEYS.includes(event.key)) return;
       event.preventDefault();
+      // Still the press that was underway when the stars arrived.
+      if (engaged.has(event.key)) return;
       advance();
     };
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     const latch = createPressLatch(isIntentHeld(firstConnectedGamepad(), 'action'));
     let frameId = requestAnimationFrame(function poll() {
@@ -132,6 +147,7 @@ export function SessionDebriefPanel({
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
       cancelAnimationFrame(frameId);
     };
   }, [advance, debrief]);
