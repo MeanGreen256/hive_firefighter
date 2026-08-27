@@ -165,6 +165,51 @@ function MasteryBanner({ visualStyle }: { readonly visualStyle: Style }) {
   );
 }
 
+/** A gentle second-shift landmark: colour and shape, never a new interaction. */
+function StationBunting({ visualStyle }: { readonly visualStyle: Style }) {
+  const colors = [
+    visualStyle.city.routes.civic.primary,
+    visualStyle.city.questMarker,
+    visualStyle.city.landmarkAccent,
+  ];
+  return (
+    <group name="reward-station-bunting" position={[0, 0.76, 0.16]}>
+      <mesh rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.018, 0.018, 5.55, 6]} />
+        <meshLambertMaterial color={visualStyle.hud.mutedText} />
+      </mesh>
+      {[-2.1, -1.05, 0, 1.05, 2.1].map((x, index) => (
+        <mesh key={x} position={[x, -0.18, 0.05]} rotation={[0, 0, Math.PI]}>
+          <coneGeometry args={[0.19, 0.32, 3]} />
+          <meshLambertMaterial color={colors[index % colors.length]!} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** A third-shift, non-blocking bit of colour at the station's return point. */
+function YardPlanters({ visualStyle }: { readonly visualStyle: Style }) {
+  return (
+    <group name="reward-yard-planters" position={[0, -0.74, 0.23]}>
+      {[-2.62, 2.62].map((x) => (
+        <group key={x} position={[x, 0, 0]}>
+          <mesh>
+            <boxGeometry args={[0.56, 0.24, 0.28]} />
+            <meshLambertMaterial color={visualStyle.city.routes.civic.primary} />
+          </mesh>
+          {[-0.14, 0.14].map((offset) => (
+            <mesh key={offset} position={[offset, 0.22, 0]}>
+              <sphereGeometry args={[0.13, 8, 6]} />
+              <meshLambertMaterial color={visualStyle.city.landmarkAccent} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
 /** A pulsing, wordless station bell marks where the next authored call begins. */
 function NextCallBell({ visualStyle }: { readonly visualStyle: Style }) {
   const cueRef = useRef<Group>(null);
@@ -284,7 +329,9 @@ export function FirehouseStarBoard({
       )}
 
       {model.rewards.stationFlag ? <StationFlag visualStyle={visualStyle} /> : null}
+      {model.rewards.stationBunting ? <StationBunting visualStyle={visualStyle} /> : null}
       {model.rewards.masteryBanner ? <MasteryBanner visualStyle={visualStyle} /> : null}
+      {model.rewards.yardPlanters ? <YardPlanters visualStyle={visualStyle} /> : null}
       {nextCallAvailable ? <NextCallBell visualStyle={visualStyle} /> : null}
     </group>
   );

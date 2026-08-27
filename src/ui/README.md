@@ -109,6 +109,10 @@ never moved however far anyone drove.
 The words that help an adult and the volume mixer live in a `<details>` drawer
 that starts closed. A mixer is not part of playing, so `AudioControls` is the
 one-press icon on the panel and `VolumeControl` is the slider in the drawer.
+The same drawer is the grown-ups settings surface (#222): art-direction choice,
+reduced-effects preference, tutorial restart, and a confirm-before-reset for
+local progress. None of those are required to finish a quest. Movement accepts
+arrow keys as well as WASD; a gamepad stick is unchanged.
 
 Sound no longer waits to be found (#221). Browsers will not start audio without
 a user activation, so `audioActivation.ts` spends the first one the player was

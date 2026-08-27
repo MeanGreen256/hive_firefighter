@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { WorldHud } from './WorldHud';
 import { ApproachBand, FireBand } from './worldGuidance';
 
-function renderQuietTown(nextCallAvailable: boolean, onRestartGuide?: () => void): string {
+function renderQuietTown(
+  nextCallAvailable: boolean,
+  extras: { onRestartGuide?: () => void; onResetProgress?: () => void } = {},
+): string {
   return renderToStaticMarkup(
     <WorldHud
       districtName="Harbour Hill"
@@ -18,7 +21,8 @@ function renderQuietTown(nextCallAvailable: boolean, onRestartGuide?: () => void
       quietTown
       nextCallAvailable={nextCallAvailable}
       onNextCall={vi.fn()}
-      onRestartGuide={onRestartGuide}
+      onRestartGuide={extras.onRestartGuide}
+      onResetProgress={extras.onResetProgress}
     />,
   );
 }
@@ -33,7 +37,7 @@ describe('WorldHud quiet town', () => {
   });
 
   it('keeps the tutorial restart in the grown-ups drawer, not the play area (#214)', () => {
-    const html = renderQuietTown(true, vi.fn());
+    const html = renderQuietTown(true, { onRestartGuide: vi.fn() });
     expect(html).toContain('aria-label="Show the first-play guide again"');
     // Inside the closed `details`, so it is somewhere an adult goes looking and
     // a child does not meet, and it is never one of the play controls.
@@ -42,10 +46,22 @@ describe('WorldHud quiet town', () => {
     expect(html).not.toContain('world-hud__action world-hud__adults-action');
   });
 
+  it('keeps look, motion, and confirm-to-reset inside the grown-ups drawer (#222)', () => {
+    const html = renderQuietTown(true, { onResetProgress: vi.fn() });
+    const drawer = html.slice(html.indexOf('world-hud__adults'));
+    expect(drawer).toContain('Use Toy diorama look');
+    expect(drawer).toContain('Use Ink look');
+    expect(drawer).toContain('Reduced effects');
+    expect(drawer).toContain('Reset progress…');
+    expect(drawer).not.toContain('Yes, erase stars');
+    expect(html).not.toContain('world-hud__action world-hud__adults-action');
+  });
+
   it('labels trackpad and mouse hose aiming as optional on foot', () => {
     const html = renderQuietTown(true);
     expect(html).toContain('right-drag to fine-aim the hose');
     expect(html).toContain('both optional');
+    expect(html).toContain('WASD or arrows move');
   });
 
   it('leaves the restart out entirely when nothing is offering one', () => {

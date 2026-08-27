@@ -107,6 +107,13 @@ without a caption. `J` opens the shared performance overlay for draw-call and
 FPS numbers at that same frame; `< 80` draws and `< 2000` particles is the
 budget everywhere in this game, preview included.
 
+The panel's **ANALYSIS** row is a bounded, deterministic author readout from
+the same renderer-independent fire simulation: first adjacent spread, vertical
+climb, and the number of disconnected starting fronts. The source-backed,
+advisory findings (including propane countdown exposure or a deliberate
+no-hazard incident) appear below it, with their exact quest-file path and
+field. They never change a player session, progression, stars, or rewards.
+
 To compare a quest across both styles, open the same `previewQuest` and
 `previewState` once with `style=diorama` and once with `style=ink`.
 

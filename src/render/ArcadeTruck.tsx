@@ -6,7 +6,9 @@ import { firstConnectedGamepad } from '@ui/gamepad';
 import type { CharacterMovementBounds, CharacterObstacle } from './characterController';
 import {
   applyTruckInputDeadzone,
+  getTruckKeyboardInput,
   getTruckSpeedRatio,
+  isTruckMovementKey,
   stepTruck,
   type TruckInput,
   type TruckState,
@@ -23,10 +25,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 function readKeyboardInput(heldKeys: ReadonlySet<string>): TruckInput {
-  return {
-    throttle: Number(heldKeys.has('w')) - Number(heldKeys.has('s')),
-    steering: Number(heldKeys.has('a')) - Number(heldKeys.has('d')),
-  };
+  return getTruckKeyboardInput(heldKeys);
 }
 
 function readGamepadInput(): TruckInput {
@@ -53,6 +52,8 @@ export interface ArcadeTruckProps {
   readonly speedRatioRef?: RefObject<number>;
   /** A visual-only mastery reward; never changes movement or hose behavior. */
   readonly bellUnlocked?: boolean;
+  /** A visual-only earned stripe; never changes movement or hose behavior. */
+  readonly stripeUnlocked?: boolean;
 }
 
 /** A forgiving, non-physical arcade truck that owns its persistent transform. */
@@ -67,6 +68,7 @@ export function ArcadeTruck({
   initialYaw = 0,
   speedRatioRef,
   bellUnlocked = false,
+  stripeUnlocked = false,
 }: ArcadeTruckProps) {
   const heldKeys = useRef(new Set<string>());
   const truckState = useRef<TruckState>({
@@ -95,7 +97,7 @@ export function ArcadeTruck({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return;
       const key = event.key.toLowerCase();
-      if (key !== 'w' && key !== 'a' && key !== 's' && key !== 'd') return;
+      if (!isTruckMovementKey(key)) return;
       event.preventDefault();
       activeKeys.add(key);
     };
@@ -159,6 +161,16 @@ export function ArcadeTruck({
             <sphereGeometry args={[0.05, 8, 6]} />
             <meshStandardMaterial color={visualStyle.heroes.truck.roofGear} />
           </mesh>
+        </group>
+      ) : null}
+      {stripeUnlocked ? (
+        <group name="reward-truck-stripe">
+          {[-1.04, 1.04].map((z) => (
+            <mesh key={z} position={[0, 0.82, z]}>
+              <boxGeometry args={[1.3, 0.12, 0.045]} />
+              <meshBasicMaterial color={visualStyle.city.questMarker} toneMapped={false} />
+            </mesh>
+          ))}
         </group>
       ) : null}
       <group ref={beaconRef} position={[0, 1.82, -0.88]} visible={sirenOn}>

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { CharacterObstacle } from './characterController';
 import {
   applyTruckInputDeadzone,
+  getTruckKeyboardInput,
   getTruckSpeedRatio,
   getTruckSteerRate,
+  isTruckMovementKey,
   stepTruck,
   TRUCK_HIGH_SPEED_STEER_RATE,
   TRUCK_LOW_SPEED_STEER_RATE,
@@ -16,6 +18,20 @@ const IDLE: TruckState = { x: 0, z: 0, yaw: 0, speed: 0 };
 const BUILDING: CharacterObstacle = { minX: -1, maxX: 1, minZ: -5, maxZ: -3 };
 
 describe('arcade truck input and handling', () => {
+  it('maps WASD and arrow keys to the same steering contract', () => {
+    expect(isTruckMovementKey('ArrowUp')).toBe(true);
+    expect(isTruckMovementKey(' ')).toBe(false);
+    expect(getTruckKeyboardInput(new Set(['w']))).toEqual({ throttle: 1, steering: 0 });
+    expect(getTruckKeyboardInput(new Set(['arrowup']))).toEqual({ throttle: 1, steering: 0 });
+    expect(getTruckKeyboardInput(new Set(['a']))).toEqual({ throttle: 0, steering: 1 });
+    expect(getTruckKeyboardInput(new Set(['arrowleft']))).toEqual({ throttle: 0, steering: 1 });
+    expect(getTruckKeyboardInput(new Set(['s', 'd']))).toEqual({ throttle: -1, steering: -1 });
+    expect(getTruckKeyboardInput(new Set(['arrowdown', 'arrowright']))).toEqual({
+      throttle: -1,
+      steering: -1,
+    });
+  });
+
   it('smooths analogue axes and rejects an invalid deadzone', () => {
     expect(applyTruckInputDeadzone(0.1, -0.1)).toEqual({ throttle: 0, steering: 0 });
     expect(applyTruckInputDeadzone(1, -1)).toEqual({ throttle: 1, steering: -1 });

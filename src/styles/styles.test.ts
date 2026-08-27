@@ -105,4 +105,14 @@ describe('runtime styles', () => {
     expect(canvas).toEqual({ rendererId: 'shared-canvas', cameraTarget: [0, 2, 0] });
     expect(grid).toEqual({ id: 'same-burn' });
   });
+
+  it('keeps URL and grown-ups style choice in sync (#222)', () => {
+    const writeUrl = vi.fn();
+    const store = createStyleStore('diorama', writeUrl);
+    store.getState().setActiveStyle('ink');
+    expect(writeUrl).toHaveBeenCalledWith('ink');
+    expect(store.getState().activeStyleId).toBe('ink');
+    store.getState().setActiveStyle('diorama');
+    expect(writeUrl).toHaveBeenLastCalledWith('diorama');
+  });
 });

@@ -109,6 +109,8 @@ export interface FirefighterControllerProps {
   readonly getGroundHeight?: (x: number, z: number) => number;
   /** A cosmetic mastery pin; it never changes the character controller. */
   readonly helmetBadgeUnlocked?: boolean;
+  /** A cosmetic mastery patch; it never changes the character controller. */
+  readonly shoulderPatchUnlocked?: boolean;
 }
 
 /** One forgiving, character-relative firefighter subject for the M3 on-foot loop. */
@@ -123,6 +125,7 @@ export function FirefighterController({
   movementBounds,
   getGroundHeight = flatGroundHeight,
   helmetBadgeUnlocked = false,
+  shoulderPatchUnlocked = false,
 }: FirefighterControllerProps) {
   const heldKeys = useRef(new Set<string>());
   const velocity = useRef(new Vector3());
@@ -370,6 +373,12 @@ export function FirefighterController({
           <mesh name="firefighter-turnout-body" geometry={bodyGeometry}>
             <meshStandardMaterial vertexColors roughness={0.78} />
           </mesh>
+          {shoulderPatchUnlocked ? (
+            <mesh name="reward-firefighter-shoulder-patch" position={[0.31, 1.16, -0.16]}>
+              <circleGeometry args={[0.105, 5]} />
+              <meshBasicMaterial color={visualStyle.city.questMarker} toneMapped={false} />
+            </mesh>
+          ) : null}
 
           <FirefighterArm
             shoulderRef={leftShoulder}

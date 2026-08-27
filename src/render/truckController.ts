@@ -17,6 +17,18 @@ export const TRUCK_STICK_DEADZONE = 0.16;
 
 const MIN_STEERING_SPEED = 0.08;
 
+/** Keyboard names accepted for every direction of truck movement (#222). */
+const TRUCK_MOVEMENT_KEYS = new Set([
+  'w',
+  'a',
+  's',
+  'd',
+  'arrowup',
+  'arrowleft',
+  'arrowdown',
+  'arrowright',
+]);
+
 export interface TruckInput {
   readonly throttle: number;
   readonly steering: number;
@@ -45,6 +57,26 @@ function moveToward(current: number, target: number, maximumChange: number): num
 
 function normalizeAngle(angle: number): number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
+}
+
+/** Lets the event boundary ignore keys that do not belong to driving. */
+export function isTruckMovementKey(key: string): boolean {
+  return TRUCK_MOVEMENT_KEYS.has(key.toLowerCase());
+}
+
+/**
+ * Reads both WASD and arrow keys so a child never needs the development
+ * keyboard layout to steer. Gamepad axes stay a separate reader.
+ */
+export function getTruckKeyboardInput(heldKeys: ReadonlySet<string>): TruckInput {
+  return {
+    throttle:
+      Number(heldKeys.has('w') || heldKeys.has('arrowup')) -
+      Number(heldKeys.has('s') || heldKeys.has('arrowdown')),
+    steering:
+      Number(heldKeys.has('a') || heldKeys.has('arrowleft')) -
+      Number(heldKeys.has('d') || heldKeys.has('arrowright')),
+  };
 }
 
 /** Applies a smooth deadzone independently to the steering and pedal axes. */

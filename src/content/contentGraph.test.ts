@@ -288,11 +288,11 @@ describe('cross-file authored content graph', () => {
     const backwards = {
       ...current.rewards[0]!,
       id: 'late-flag' as RewardDefinition['id'],
-      icon: 'helmet' as const,
+      icon: 'patch' as const,
       requires: { ...current.rewards[0]!.requires, atLeast: 1 },
     };
     expect(() => assertContentGraph(graph({ rewards: [...current.rewards, backwards] }))).toThrow(
-      /must be greater than 1.*already occupies that progression step/,
+      /must be greater than 3.*already occupies that progression step/,
     );
   });
 

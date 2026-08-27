@@ -275,6 +275,12 @@ Adding a reward *row* is content. Wiring a new reward id to a visible cosmetic
 is code (`FIREHOUSE_COSMETIC_REWARDS` in `src/render/firehouseStarBoard.ts`),
 so it is a product decision, not part of authoring an incident.
 
+The shipped Harbour Hill set remains small and finite: first/second/third
+completed shifts dress the station and yard; 10 and 15 durable best stars dress
+the truck; five and six mastered incidents dress the station and firefighter.
+These are optional visual discoveries only — they never unlock a verb, a route,
+or stronger equipment.
+
 ## 8. Look at it
 
 The preview harness opens any authored quest in any of nine states, in either
@@ -365,6 +371,13 @@ to meet:
 - [ ] The incident is readable in one glance: one place, one growing fire.
 - [ ] A child who does nothing for a minute loses property, not the game.
 - [ ] It works with sound off and with reading off.
+
+The development quest preview also runs the advisory ground/sightline check.
+It reports the exact `content/quests/<id>.json` field when a scoreable subject
+or propane cylinder has no connected ground point in the assisted-hose envelope,
+is obstructed, or is hidden from both the chase and shoulder profiles. Findings
+do not reject an experiment or change play; they are prompts for author review
+until child observation establishes a hard threshold.
 
 **Both art directions** — open the previews in `diorama` and `ink`. Every prop
 type and building use you referenced has to have an appearance in both, and the

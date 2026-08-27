@@ -34,6 +34,7 @@ import {
 } from '@sim/questShifts';
 import { QUESTS, getQuestContent, questSourcePath, type QuestContent } from '@sim/quests';
 import { STYLES, STYLE_IDS, type Style } from '@styles/styles';
+import { diagnoseQuestSightlines, type QuestSightlineAdvisory } from './questSightlineDiagnostics';
 
 type PropPartCatalogue = Readonly<Partial<Record<DistrictPropType, readonly PropPart[]>>>;
 type PropVariantCatalogue = Readonly<
@@ -371,6 +372,17 @@ export function collectContentGraphProblems(graph: ContentGraph): string[] {
   validateRewards(graph, activeQuestIds, problems);
   validateStyleAssets(graph, problems);
   return problems;
+}
+
+/**
+ * Readability findings deliberately travel beside, rather than into, hard
+ * content validation. Authors can review them in the preview or CI without a
+ * promising experiment being rejected before child observation sets a gate.
+ */
+export function collectContentGraphAdvisories(
+  graph: ContentGraph = createAuthoredContentGraph(),
+): QuestSightlineAdvisory[] {
+  return graph.quests.flatMap((content) => diagnoseQuestSightlines(content.definition).advisories);
 }
 
 /** Called before React boots; also available to deterministic acceptance checks. */

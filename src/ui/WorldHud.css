@@ -188,6 +188,38 @@
   cursor: pointer;
 }
 
+.world-hud__adults-settings {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.world-hud__adults-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.world-hud__adults-fieldset legend {
+  padding: 0;
+  color: var(--hud-muted);
+}
+
+.world-hud__adults-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.world-hud__adults-action--current {
+  border-color: var(--hud-accent);
+  color: var(--hud-accent);
+}
+
+.world-hud__adults-action--danger {
+  border-color: var(--hud-accent);
+}
+
 .world-hud__volume {
   margin-top: 8px;
 }

@@ -4,6 +4,15 @@ import { useStore } from 'zustand';
 import type { DirectionalLight, Group } from 'three';
 import { getDistrict, type DistrictDefinition, type DistrictQuestSite } from '@sim/districts';
 import { QUESTS, type QuestDefinition } from '@sim/quests';
+import {
+  diagnoseQuestSightlines,
+  summarizeQuestSightlines,
+} from '../content/questSightlineDiagnostics';
+import {
+  diagnoseQuest,
+  summarizeQuestDiagnostics,
+  summarizeQuestHazards,
+} from '@sim/questDiagnostics';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import { PerfOverlay } from '@ui/PerfOverlay';
@@ -285,6 +294,8 @@ function ResolvedQuestPreview({ request, rebuildToken, onRebuild }: ResolvedPrev
   const activeStyleId = useStore(styleStore, (storeState) => storeState.activeStyleId);
   const visualStyle = STYLES[activeStyleId];
   const fireSnapshot = useStore(activeController.store);
+  const sightlines = useMemo(() => diagnoseQuestSightlines(request.quest), [request.quest]);
+  const diagnostics = useMemo(() => diagnoseQuest(request.quest), [request.quest]);
   // Some preview states (`quiet-site`) mutate the grid directly without
   // publishing, on purpose — see `questPreviewSetup.ts`. Reading live counts
   // rather than the snapshot keeps the telemetry panel honest either way.
@@ -341,6 +352,13 @@ function ResolvedQuestPreview({ request, rebuildToken, onRebuild }: ResolvedPrev
         hazardCountdownSeconds={fireSnapshot.hazardCountdownSeconds}
         collapseWarningCount={fireSnapshot.collapseWarningCount}
         collapsedCellCount={fireSnapshot.collapsedCellCount}
+        initialIgnitionCellIds={diagnostics.initialIgnitionCellIds}
+        windLine={diagnostics.windLine}
+        authorDiagnostic={summarizeQuestDiagnostics(diagnostics)}
+        authorHazardDiagnostic={summarizeQuestHazards(diagnostics)}
+        authorAdvisories={diagnostics.advisories}
+        sightlineSummary={summarizeQuestSightlines(sightlines)}
+        sightlineAdvisories={sightlines.advisories}
       />
       <PerfOverlay />
       <SessionDebriefPanel
