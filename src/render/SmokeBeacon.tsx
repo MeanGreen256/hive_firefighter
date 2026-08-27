@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Color, Matrix4, Vector3, type InstancedMesh, type MeshBasicMaterial } from 'three';
+import { useStore } from 'zustand';
 import { getFireSignal } from '@sim/fireSignal';
 import { CellState } from '@sim/cellGrid';
 import { getShellCellWorldPosition } from '@sim/exteriorShell';
@@ -13,7 +14,7 @@ import {
   getSmokeColumnPlan,
   type BeaconPoint,
 } from './questBeacon';
-import { getRuntimeVfxQuality } from './incidentVfx';
+import { vfxPreferenceStore } from './vfxPreferences';
 
 /**
  * The smoke column over the active quest (#92).
@@ -43,7 +44,7 @@ export function SmokeBeacon({
   const scratchColor = useMemo(() => new Color(), []);
   const beaconColor = useMemo(() => new Color(), []);
   const appliedTint = useRef<string | null>(null);
-  const quality = useMemo(() => getRuntimeVfxQuality(), []);
+  const quality = useStore(vfxPreferenceStore, (state) => state.quality);
 
   useFrame(({ clock }) => {
     const mesh = meshRef.current;
