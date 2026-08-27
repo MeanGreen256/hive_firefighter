@@ -535,6 +535,20 @@ export class JourneyPlayer {
 }
 
 /**
+ * Whether the quiet-town runner should walk to the truck or already drive.
+ *
+ * A refresh restores progress but boots the player in the cab. Treating that
+ * as "must walk and board" is how the five-call shift used to fail after a
+ * perfectly good first incident: `walkTo` threw because the player was already
+ * driving. The observation window already says which mode is on screen.
+ */
+export function quietTownTravelPlan(state) {
+  if (state.mode === 'driving') return 'drive';
+  if (state.mode === 'on-foot') return 'board';
+  throw new Error(`Quiet town resumed in unsupported player mode ${String(state.mode)}`);
+}
+
+/**
  * Which tank-control keys turn and move the player toward a world position.
  */
 export function travelKeys(observation, target) {

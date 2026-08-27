@@ -126,6 +126,10 @@ finished without the hose being on it.
   #133, #156, #170) need real, consented, anonymised child observation, and
   nothing here substitutes for them.
 
+Pull requests block on the first-incident journey (drive, douse, stars, quiet
+town, refresh, next call). The five-call roster blocks nightly. A refresh that
+puts the player back in the cab is a valid resume, not a reason to walk.
+
 ## When it fails
 
 An incident has two clocks, and the failure says which one ran out: still
