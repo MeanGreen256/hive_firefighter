@@ -1,0 +1,68 @@
+/*
+ * The pre-game screen (#223). It uses the global palette rather than the HUD
+ * tokens, because it has to be able to draw when the scene that sets those
+ * never mounted.
+ */
+
+.startup-fallback {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 24px;
+  background: var(--bg);
+  color: var(--ink);
+  text-align: center;
+}
+
+.startup-fallback__glyph {
+  font-size: clamp(56px, 14vmin, 108px);
+  line-height: 1;
+}
+
+.startup-fallback__glyph--busy {
+  animation: startup-fallback-busy 1.6s ease-in-out infinite;
+}
+
+.startup-fallback__message {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.startup-fallback__retry {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 2px solid var(--ember);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.startup-fallback__retry:hover,
+.startup-fallback__retry:focus-visible {
+  border-color: var(--ink);
+  outline: none;
+}
+
+@keyframes startup-fallback-busy {
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .startup-fallback__glyph--busy {
+    animation: none;
+  }
+}

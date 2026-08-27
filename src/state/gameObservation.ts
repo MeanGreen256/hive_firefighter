@@ -96,6 +96,12 @@ export interface GameObservation {
   readonly paused: boolean;
   /** `'player'`, `'away'`, or null — why, in the game's own words. */
   readonly pauseReason: string | null;
+  /**
+   * Whether the picture is up (#223): `starting`, `running`, `restarting`,
+   * `failed`, or `unsupported`. Anything but `running` means a family is
+   * looking at the fallback rather than at the town.
+   */
+  readonly renderer: string;
 }
 
 const INITIAL: GameObservation = {
@@ -136,6 +142,7 @@ const INITIAL: GameObservation = {
   audio: { enabled: false, muted: false, gestureRequired: false },
   paused: false,
   pauseReason: null,
+  renderer: 'starting',
 };
 
 let observation: GameObservation = INITIAL;

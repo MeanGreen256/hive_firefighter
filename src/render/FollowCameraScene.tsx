@@ -51,6 +51,7 @@ import {
   watchPageLifecycle,
 } from '../state/sessionLifecycle';
 import { PauseVeil } from '@ui/PauseVeil';
+import { ContextLossGuard } from './ContextLossGuard';
 import { QuestDebriefPanel } from '@ui/QuestDebriefPanel';
 import { PerfOverlay } from '@ui/PerfOverlay';
 import { StationCelebration, type StationCelebrationNotice } from '@ui/StationCelebration';
@@ -1145,6 +1146,7 @@ export default function FollowCameraScene() {
             quietTown={quietTown}
             onNextCallRangeChange={setCanStartNextCall}
           />
+          <ContextLossGuard />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
         </Canvas>
       </div>
