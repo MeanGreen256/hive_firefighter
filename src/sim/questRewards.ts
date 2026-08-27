@@ -29,11 +29,24 @@ const SOURCE = 'content/rewards.json';
 export type RewardId = keyof typeof rewardsJson;
 
 /** Cosmetic families only. Where the reward shows up, never what it grants. */
-export const REWARD_KINDS = ['station-dressing', 'truck-dressing', 'firefighter-dressing'] as const;
+export const REWARD_KINDS = [
+  'station-dressing',
+  'truck-dressing',
+  'firefighter-dressing',
+  'world-dressing',
+] as const;
 export type RewardKind = (typeof REWARD_KINDS)[number];
 
 /** Semantic icon tokens; the active style decides shape, colour, and material. */
-export const REWARD_ICONS = ['flag', 'bell', 'banner', 'helmet'] as const;
+export const REWARD_ICONS = [
+  'flag',
+  'bunting',
+  'planter',
+  'bell',
+  'stripe',
+  'banner',
+  'patch',
+] as const;
 export type RewardIcon = (typeof REWARD_ICONS)[number];
 
 /**

@@ -427,6 +427,7 @@ function GameWorld({
         targetRef={truckRef}
         visualStyle={visualStyle}
         bellUnlocked={starBoard.rewards.truckBell}
+        stripeUnlocked={starBoard.rewards.truckStripe}
         enabled={mode === 'driving'}
         sirenOn={sirenOn}
         obstacles={DISTRICT_LAYOUT.obstacles}
@@ -450,6 +451,7 @@ function GameWorld({
         hosePresentationRef={hosePresentationRef}
         visualStyle={visualStyle}
         helmetBadgeUnlocked={starBoard.rewards.helmetBadge}
+        shoulderPatchUnlocked={starBoard.rewards.firefighterPatch}
         enabled={mode === 'on-foot'}
         visible={mode === 'on-foot'}
         obstacles={DISTRICT_LAYOUT.obstacles}

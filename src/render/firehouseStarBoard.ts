@@ -12,8 +12,12 @@ export type { QuestBadgeShape } from '@sim/quests';
 /** These ids are earned by the progression ledger; they never grant player power. */
 export const FIREHOUSE_COSMETIC_REWARDS = Object.freeze({
   stationFlag: 'shift-1',
+  stationBunting: 'shift-2',
+  yardPlanters: 'shift-3',
   truckBell: 'stars-10',
+  truckStripe: 'stars-15',
   masteryBanner: 'mastery-5',
+  firefighterPatch: 'mastery-6',
 } as const satisfies Readonly<Record<string, RewardId>>);
 
 /** Generous enough for a child to use the board without precise positioning. */
@@ -53,9 +57,13 @@ export interface FirehouseStarBoardModel {
   readonly completedShiftCount: number;
   readonly rewards: Readonly<{
     stationFlag: boolean;
+    stationBunting: boolean;
+    yardPlanters: boolean;
     truckBell: boolean;
+    truckStripe: boolean;
     masteryBanner: boolean;
     helmetBadge: boolean;
+    firefighterPatch: boolean;
   }>;
 }
 
@@ -101,9 +109,13 @@ export function buildFirehouseStarBoard(
     completedShiftCount: profile.completedShiftCount,
     rewards: Object.freeze({
       stationFlag: unlocked.has(FIREHOUSE_COSMETIC_REWARDS.stationFlag),
+      stationBunting: unlocked.has(FIREHOUSE_COSMETIC_REWARDS.stationBunting),
+      yardPlanters: unlocked.has(FIREHOUSE_COSMETIC_REWARDS.yardPlanters),
       truckBell: unlocked.has(FIREHOUSE_COSMETIC_REWARDS.truckBell),
+      truckStripe: unlocked.has(FIREHOUSE_COSMETIC_REWARDS.truckStripe),
       masteryBanner: unlocked.has(FIREHOUSE_COSMETIC_REWARDS.masteryBanner),
       helmetBadge: unlocked.has(FIREHOUSE_COSMETIC_REWARDS.masteryBanner),
+      firefighterPatch: unlocked.has(FIREHOUSE_COSMETIC_REWARDS.firefighterPatch),
     }),
   });
 }
