@@ -1,10 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { headingErrorToward, JourneyPlayer, travelKeys } from './journeyPlayer.mjs';
+import {
+  headingErrorToward,
+  JourneyPlayer,
+  quietTownTravelPlan,
+  travelKeys,
+} from './journeyPlayer.mjs';
 
 const facingNorth = {
   player: { x: 0, z: 0 },
   playerYawRadians: 0,
 };
+
+describe('quiet-town travel after a refresh', () => {
+  it('drives from the cab when a refresh already put the player in the truck', () => {
+    expect(quietTownTravelPlan({ mode: 'driving' })).toBe('drive');
+  });
+
+  it('walks to the truck when the player is still on foot between calls', () => {
+    expect(quietTownTravelPlan({ mode: 'on-foot' })).toBe('board');
+  });
+
+  it('refuses a mode the game does not actually have', () => {
+    expect(() => quietTownTravelPlan({ mode: 'flying' })).toThrow(/unsupported player mode flying/);
+  });
+});
 
 describe('production journey tank controls', () => {
   it('walks forward when aligned and pivots toward targets on either side', () => {
