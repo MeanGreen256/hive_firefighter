@@ -135,6 +135,8 @@ function pageStateExpression() {
       fallbackRetries: document.querySelectorAll('.startup-fallback__retry').length,
       coachVisible: Boolean(coach),
       coachLabel: coach?.getAttribute('aria-label') ?? null,
+      pauseOverlay: Boolean(document.querySelector('.pause-overlay')),
+      pauseButton: Boolean(document.querySelector('[aria-label="Pause the game"]')),
       searchString: window.location.search
     };
   })()`;
@@ -316,6 +318,111 @@ async function extinguish(player, incident, index) {
     // stream keeps going somewhere the fire is not.
     await player.sweepSprayAt(fire, { timeoutMs: 45_000 });
   }
+}
+
+/**
+ * Hidden tabs and the adult pause must freeze the fire without trapping a child (#218).
+ *
+ * The runner cannot actually background this tab — Chrome would also freeze
+ * `requestAnimationFrame`, which would make "the fire stopped" indistinguishable
+ * from "the browser stopped". Spoofing `visibilityState` and dispatching the
+ * same event the browser sends is the device event, the same way graphics
+ * recovery stages `webglcontextlost`. Adult pause is a real click on the
+ * grown-ups control; resume is the same action button a child already has.
+ */
+async function checkInterruptionRecovery(player, session, sessionId) {
+  const before = await player.observe();
+  check(
+    !before.paused && before.pauseReason === 'none',
+    'the game is running when nobody asked it to stop',
+  );
+  const controls = await session.evaluate(pageStateExpression(), sessionId);
+  check(controls.pauseButton, 'pause lives in the grown-ups drawer of the production build');
+  check(!controls.pauseOverlay, 'nothing is paused at the start of a shift');
+
+  await session.evaluate(
+    `(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => 'hidden',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    })()`,
+    sessionId,
+  );
+  const hidden = await player.waitFor(
+    'a hidden tab to freeze the fire',
+    (state) => state.paused && state.pauseReason === 'hidden',
+    5_000,
+  );
+  check(
+    hidden.paused && hidden.pauseReason === 'hidden',
+    'a hidden tab is reported as hidden, not as an adult pause',
+  );
+  const hiddenPage = await session.evaluate(pageStateExpression(), sessionId);
+  check(!hiddenPage.pauseOverlay, 'a hidden tab does not trap the child behind a card');
+
+  const burning = hidden.burningCellCount;
+  const heating = hidden.heatingCellCount;
+  const samples = hidden.samples;
+  await wait(4_000);
+  const stillHidden = await player.observe();
+  check(
+    stillHidden.burningCellCount === burning && stillHidden.heatingCellCount === heating,
+    `a hidden tab does not advance the fire (${burning} burning, ${heating} heating, unchanged over 4 s)`,
+  );
+  check(
+    stillHidden.samples > samples,
+    'the page is still drawing while hidden — the fire is stopped, not the browser',
+  );
+
+  await session.evaluate(
+    `(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => 'visible',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    })()`,
+    sessionId,
+  );
+  await player.waitFor(
+    'the game to continue after looking again',
+    (state) => !state.paused && state.pauseReason === 'none',
+    5_000,
+  );
+
+  await session.evaluate(
+    `(() => {
+      document.querySelector('.world-hud__adults')?.setAttribute('open', '');
+      document.querySelector('[aria-label="Pause the game"]')?.click();
+    })()`,
+    sessionId,
+  );
+  const adult = await player.waitFor(
+    'an adult pause to freeze the fire',
+    (state) => state.paused && state.pauseReason === 'adult',
+    5_000,
+  );
+  check(adult.pauseReason === 'adult', 'a pause somebody pressed is reported as theirs');
+  const pausedPage = await session.evaluate(pageStateExpression(), sessionId);
+  check(pausedPage.pauseOverlay, 'the overlay only appears for an adult who asked');
+
+  await player.press(' ');
+  const resumed = await player.waitFor(
+    'the one action button to get a paused child playing again',
+    (state) => !state.paused,
+    5_000,
+  );
+  check(resumed.mode === before.mode, 'resuming does not also spend the press on something else');
+  await session.evaluate(
+    `(() => {
+      document.querySelector('.world-hud__adults')?.removeAttribute('open');
+    })()`,
+    sessionId,
+  );
+  const closed = await session.evaluate(pageStateExpression(), sessionId);
+  check(!closed.pauseOverlay, 'the overlay is gone once the fire is moving again');
 }
 
 /**
@@ -609,6 +716,7 @@ try {
   }
 
   await checkGraphicsRecovery(player, session, sessionId);
+  await checkInterruptionRecovery(player, session, sessionId);
 
   let refreshChecked = false;
   // Which incidents the shift actually dealt: #213's rotation claim is that a

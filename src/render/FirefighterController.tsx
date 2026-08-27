@@ -105,6 +105,7 @@ export interface FirefighterControllerProps {
   readonly visible?: boolean;
   readonly obstacles: readonly CharacterObstacle[];
   readonly initialPosition?: readonly [number, number, number];
+  readonly initialYaw?: number;
   readonly movementBounds?: CharacterMovementBounds;
   readonly getGroundHeight?: (x: number, z: number) => number;
   /** A cosmetic mastery pin; it never changes the character controller. */
@@ -122,6 +123,7 @@ export function FirefighterController({
   visible = true,
   obstacles,
   initialPosition = [0, 0, 0],
+  initialYaw = 0,
   movementBounds,
   getGroundHeight = flatGroundHeight,
   helmetBadgeUnlocked = false,
@@ -345,7 +347,12 @@ export function FirefighterController({
   });
 
   return (
-    <group ref={targetRef} position={initialPosition} visible={visible}>
+    <group
+      ref={targetRef}
+      position={initialPosition}
+      rotation={[0, initialYaw, 0]}
+      visible={visible}
+    >
       <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[0.52, 0.72, 1]}>
         <circleGeometry args={[1, 20]} />
         <meshBasicMaterial
