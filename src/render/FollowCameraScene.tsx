@@ -29,6 +29,7 @@ import {
 } from '../state/questDirector';
 import { getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
 import { progressProfileStore } from '../state/progressProfile';
+import { getBrowserPersonalBestStorage, PERSONAL_BESTS_STORAGE_KEY } from '../state/personalBests';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
 import {
@@ -80,7 +81,7 @@ import {
 } from './firehouseStarBoard';
 import { createHosePresentationState } from './hoseTargeting';
 import { createScorchRinseField } from './scorchRinse';
-import { getRuntimeVfxQuality } from './incidentVfx';
+import { vfxPreferenceStore } from './vfxPreferences';
 import {
   buildWorldSurfaceIndex,
   createWorldReactionField,
@@ -277,12 +278,13 @@ function GameWorld({
 }: GameWorldProps) {
   const collisionRoot = useRef<Group>(null);
   const hosePresentationRef = useRef(createHosePresentationState());
+  const vfxQuality = useStore(vfxPreferenceStore, (state) => state.quality);
   // One field per world, written by the hose and the siren and read by the
   // props, the ambient layer, and the reaction renderer. It lives outside React
   // because it changes every frame and none of it belongs in a render pass.
   const worldReactions = useMemo(
-    () => createWorldReactionField({ quality: getRuntimeVfxQuality() }),
-    [],
+    () => createWorldReactionField({ quality: vfxQuality }),
+    [vfxQuality],
   );
   const scorchRinse = useMemo(() => createScorchRinseField(), []);
   const lastCanBoard = useRef(false);
@@ -799,8 +801,15 @@ export default function FollowCameraScene() {
 
   const toggleSiren = useCallback(() => setSirenOn((current) => !current), []);
   const resetProgress = useCallback(() => {
-    if (!window.confirm('Reset all quest progress and cosmetic rewards?')) return;
     progressProfileStore.getState().reset();
+    try {
+      getBrowserPersonalBestStorage()?.setItem(
+        PERSONAL_BESTS_STORAGE_KEY,
+        JSON.stringify({ version: 3, records: {} }),
+      );
+    } catch {
+      // A blocked storage still resets the live profile.
+    }
     // A profile with no history is somebody's first play again.
     onboardingGuide.restart();
     celebratedRewardIds.current = [];
@@ -1065,6 +1074,7 @@ export default function FollowCameraScene() {
         nextCallAvailable={canStartNextCall}
         onNextCall={beginNextCall}
         onRestartGuide={restartOnboarding}
+        onResetProgress={PERFORMANCE_SCENE ? undefined : resetProgress}
       />
       {/* Hidden behind the star screen: one thing to look at at a time. */}
       {debriefOpen || !teaching ? null : (

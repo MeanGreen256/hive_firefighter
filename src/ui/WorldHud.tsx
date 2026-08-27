@@ -1,4 +1,13 @@
+import { useState } from 'react';
+import { useStore } from 'zustand';
 import { AudioControls, VolumeControl } from './AudioControls';
+import { styleStore } from '@styles/styleStore';
+import { STYLE_IDS, type StyleId } from '@styles/styles';
+import {
+  REDUCED_EFFECTS_PREFERENCE_IDS,
+  vfxPreferenceStore,
+  type ReducedEffectsPreference,
+} from '@render/vfxPreferences';
 import {
   ApproachBand,
   FireBand,
@@ -74,6 +83,11 @@ export interface WorldHudProps {
    * because a child cannot lose anything by pressing it.
    */
   readonly onRestartGuide?: (() => void) | undefined;
+  /**
+   * Wipes local quest progress after an adult confirms (#222). Never a child
+   * play control — it lives in the closed grown-ups drawer.
+   */
+  readonly onResetProgress?: (() => void) | undefined;
   readonly onNextCall?: () => void;
 }
 
@@ -109,6 +123,7 @@ export function WorldHud({
   quietTown = false,
   nextCallAvailable = false,
   onRestartGuide,
+  onResetProgress,
   onNextCall,
 }: WorldHudProps) {
   const boardLabel = onFoot
@@ -219,20 +234,118 @@ export function WorldHud({
                 · <span aria-hidden="true">🔔</span> next call at the firehouse board
               </>
             ) : null}
+            <br />
+            WASD or arrows move. A gamepad stick is the same idea.
           </small>
         </p>
-        <VolumeControl />
-        {onRestartGuide ? (
+        <GrownUpsSettings onRestartGuide={onRestartGuide} onResetProgress={onResetProgress} />
+      </details>
+    </div>
+  );
+}
+
+const STYLE_LABELS: Readonly<Record<StyleId, string>> = {
+  diorama: 'Toy diorama',
+  ink: 'Ink',
+};
+
+const EFFECTS_LABELS: Readonly<Record<ReducedEffectsPreference, string>> = {
+  system: 'Follow device',
+  full: 'Full effects',
+  reduced: 'Reduced effects',
+};
+
+function GrownUpsSettings({
+  onRestartGuide,
+  onResetProgress,
+}: {
+  readonly onRestartGuide?: (() => void) | undefined;
+  readonly onResetProgress?: (() => void) | undefined;
+}) {
+  const styleId = useStore(styleStore, (state) => state.activeStyleId);
+  const effectsPreference = useStore(vfxPreferenceStore, (state) => state.preference);
+  const [resetArmed, setResetArmed] = useState(false);
+
+  return (
+    <div className="world-hud__adults-settings">
+      <fieldset className="world-hud__adults-fieldset">
+        <legend>Look</legend>
+        <div className="world-hud__adults-choices">
+          {STYLE_IDS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={
+                id === styleId
+                  ? 'world-hud__adults-action world-hud__adults-action--current'
+                  : 'world-hud__adults-action'
+              }
+              aria-pressed={id === styleId}
+              aria-label={`Use ${STYLE_LABELS[id]} look`}
+              onClick={() => styleStore.getState().setActiveStyle(id)}
+            >
+              {STYLE_LABELS[id]}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="world-hud__adults-fieldset">
+        <legend>Motion</legend>
+        <div className="world-hud__adults-choices">
+          {REDUCED_EFFECTS_PREFERENCE_IDS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={
+                id === effectsPreference
+                  ? 'world-hud__adults-action world-hud__adults-action--current'
+                  : 'world-hud__adults-action'
+              }
+              aria-pressed={id === effectsPreference}
+              aria-label={EFFECTS_LABELS[id]}
+              onClick={() => vfxPreferenceStore.getState().setPreference(id)}
+            >
+              {EFFECTS_LABELS[id]}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <VolumeControl />
+      {onRestartGuide ? (
+        <button
+          type="button"
+          className="world-hud__adults-action"
+          aria-label="Show the first-play guide again"
+          onClick={onRestartGuide}
+        >
+          <span aria-hidden="true">🕹</span> Show the guide again
+        </button>
+      ) : null}
+      {onResetProgress ? (
+        resetArmed ? (
+          <button
+            type="button"
+            className="world-hud__adults-action world-hud__adults-action--danger"
+            aria-label="Confirm reset of local progress on this device"
+            onClick={() => {
+              onResetProgress();
+              setResetArmed(false);
+            }}
+            onBlur={() => setResetArmed(false)}
+          >
+            Yes, erase stars and rewards on this device
+          </button>
+        ) : (
           <button
             type="button"
             className="world-hud__adults-action"
-            aria-label="Show the first-play guide again"
-            onClick={onRestartGuide}
+            aria-label="Reset local progress on this device"
+            onClick={() => setResetArmed(true)}
           >
-            <span aria-hidden="true">🕹</span> Show the guide again
+            Reset progress…
           </button>
-        ) : null}
-      </details>
+        )
+      ) : null}
     </div>
   );
 }
