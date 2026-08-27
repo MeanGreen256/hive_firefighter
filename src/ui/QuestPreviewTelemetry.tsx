@@ -1,4 +1,5 @@
 import questPreviewTelemetryCss from './QuestPreviewTelemetry.css?inline';
+import type { QuestDiagnosticMessage } from '@sim/questDiagnostics';
 
 export interface QuestPreviewTelemetryProps {
   readonly questId: string;
@@ -17,6 +18,12 @@ export interface QuestPreviewTelemetryProps {
   readonly hazardCountdownSeconds: number | null;
   readonly collapseWarningCount: number;
   readonly collapsedCellCount: number;
+  /** Bounded, read-only author analysis of this quest's actual sim seed. */
+  readonly initialIgnitionCellIds: readonly string[];
+  readonly windLine: string;
+  readonly authorDiagnostic: string;
+  readonly authorHazardDiagnostic: string;
+  readonly authorAdvisories: readonly QuestDiagnosticMessage[];
 }
 
 /**
@@ -42,6 +49,17 @@ export function QuestPreviewTelemetry(props: QuestPreviewTelemetryProps) {
     ['FIRE', `${props.burningCellCount} alight · ${props.heatingCellCount} catching`],
     ['HAZARD', hazard],
     ['STRUCTURE', `${props.collapseWarningCount} warning · ${props.collapsedCellCount} collapsed`],
+    ['IGNITION', props.initialIgnitionCellIds.join(', ')],
+    ['WIND', props.windLine],
+    ['ANALYSIS', props.authorDiagnostic],
+    ['HAZARD ANALYSIS', props.authorHazardDiagnostic],
+    ...props.authorAdvisories.map(
+      (advisory, index) =>
+        [
+          `ADVICE ${index + 1}`,
+          `${advisory.source}: ${advisory.path} ${advisory.message}`,
+        ] as const,
+    ),
   ];
 
   return (
