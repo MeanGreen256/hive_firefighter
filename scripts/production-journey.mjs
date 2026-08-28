@@ -69,6 +69,12 @@ const HOSE_REACH_METERS = 9;
 const DEFAULT_SETTLE_SECONDS = 10;
 /** Seconds of fighting one incident gets, before the settle grace above. */
 const DEFAULT_INCIDENT_SECONDS = 600;
+/**
+ * Software WebGL can defer the context-lost event while its driver drains a
+ * frame. The recovered canvas is still a strong signal that it happened, so
+ * give the notification the same patient window as the rebuild itself.
+ */
+const GRAPHICS_RECOVERY_TIMEOUT_MS = 45_000;
 
 const options = parseOptions(process.argv.slice(2));
 const problems = [];
@@ -236,7 +242,7 @@ async function extinguish(player, incident, index) {
   const fightDeadline = Date.now() + options.incidentSeconds * 1_000;
   let settleDeadline = null;
   let flamesOutAt = null;
-  let onTargetSamples = 0;
+  let wateredBurningCell = false;
 
   for (;;) {
     const now = Date.now();
@@ -271,7 +277,7 @@ async function extinguish(player, incident, index) {
       // out while the runner wandered would end on a star screen too, and that
       // is not what is being claimed here.
       check(
-        onTargetSamples >= 3,
+        wateredBurningCell,
         `incident ${index + 1} was fought with the hose rather than watched`,
       );
       return state;
@@ -279,7 +285,20 @@ async function extinguish(player, incident, index) {
 
     if (state.targetCaptured) {
       await player.hold([' ']);
-      if (state.spraying) onTargetSamples += 1;
+      // `state` was read before the key went down. On a software-rendered CI
+      // frame an extinguished one-cell fire can move directly to its stars
+      // before the next outer-loop sample, falsely claiming the runner only
+      // watched it. Wait for the rendered sample that says the held hose is
+      // actually hitting a burning cell instead.
+      const watering = await player
+        .waitFor(
+          'water to land on the burning fire',
+          (sample) =>
+            sample.starScreenOpen || (sample.spraying === true && sample.targetCaptured === true),
+          5_000,
+        )
+        .catch(() => null);
+      wateredBurningCell ||= Boolean(watering?.spraying && watering.targetCaptured);
       if (process.env.JOURNEY_TRACE === '1') {
         console.log(
           `    spray: ${state.burningCellCount} burning, ${state.heatingCellCount} heating`,
@@ -459,7 +478,11 @@ async function checkGraphicsRecovery(player, session, sessionId) {
   }
 
   const noticed = await player
-    .waitFor('the game to notice the picture went', (state) => state.renderer !== 'running', 5_000)
+    .waitFor(
+      'the game to notice the picture went',
+      (state) => state.renderer !== 'running',
+      GRAPHICS_RECOVERY_TIMEOUT_MS,
+    )
     .catch(() => null);
   check(
     noticed !== null,
@@ -467,7 +490,11 @@ async function checkGraphicsRecovery(player, session, sessionId) {
   );
 
   const recovered = await player
-    .waitFor('the picture to come back', (state) => state.renderer === 'running', 45_000)
+    .waitFor(
+      'the picture to come back',
+      (state) => state.renderer === 'running',
+      GRAPHICS_RECOVERY_TIMEOUT_MS,
+    )
     .catch(() => null);
   check(recovered !== null, 'the game rebuilds itself after the graphics context comes back');
   if (recovered === null) return;
