@@ -10,9 +10,10 @@ runs the same system.
 > and [M4](https://github.com/MeanGreen256/hive_firefighter/issues/170); verified
 > hosting remains open work in
 > [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216) (public
-> Vercel URL, anyone with the link; the project is not connected yet) and the
-> supported device matrix in
-> [#215](https://github.com/MeanGreen256/hive_firefighter/issues/215). See the
+> Vercel URL, anyone with the link; the project is not connected yet). The
+> game is designed for a family laptop in Chrome (keyboard or gamepad). A
+> virtual stick for phones and tablets is later work —
+> [ADR-011](docs/adr/011-supported-platform-matrix.md). See the
 > [roadmap](#roadmap) and GitHub issues for the live status.
 
 ## The idea
@@ -94,6 +95,13 @@ Open them in a browser; they're self-contained pages.
 - **Interruption recovery.** A hidden tab freezes the live fire; a refresh
   restarts the same directed incident from authored ignition and puts the player
   back where they were. See [ADR-010](docs/adr/010-interruption-recovery.md).
+- **Family laptop in Chrome; phone and tablet stick later.** Designed for
+  Chrome on a Windows or Mac laptop, keyboard or a standard-mapping gamepad.
+  Edge rides along as the same engine. Firefox and Safari desktop stay
+  compatible, not design targets. A virtual stick is later work and is not an
+  alpha gate. Until it exists, a phone gets an “open on a computer” screen
+  rather than an unplayable WASD scene. See
+  [ADR-011](docs/adr/011-supported-platform-matrix.md).
 - **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md) and the [M3 street-level benchmark](docs/art/m3-visual-benchmark.md).
 - **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
 
@@ -130,8 +138,12 @@ npm run acceptance:production -- --incidents=1   # a browser plays the built gam
 The commands verify local builds and deterministic/browser journeys. They do
 not replace real child-observation acceptance: follow
 [`docs/playtest-protocol.md`](docs/playtest-protocol.md) for that evidence.
-Platform support is not yet a product promise; #215 will define the supported
-browser, device, and input matrix.
+Supported play for the alpha is a **family laptop in Chrome** (Edge is the
+same engine) with a keyboard or a standard gamepad. Firefox and Safari
+desktop should still work; they are not the design target. Phones and tablets
+get a computer glyph until the virtual stick in
+[#220](https://github.com/MeanGreen256/hive_firefighter/issues/220) ships —
+[ADR-011](docs/adr/011-supported-platform-matrix.md).
 
 The game opens at `/`, and it is the only scene there is. The legacy M2 cutaway
 view and its `?scene=m2` route were retired in #100 once the exterior loop was

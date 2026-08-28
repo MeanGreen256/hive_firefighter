@@ -118,6 +118,11 @@ finished without the hose being on it.
   the run proves a key starts the sound, and that a pad press cannot is a
   property of every engine's activation rules rather than something a run here
   observes.
+- **Firefox, WebKit, and touch devices.** This runner is Chrome + keyboard on
+  a desktop window, which ADR-011 names as the designed-for surface. #226 may
+  add Firefox/WebKit desktop later as compatible guests; #220's virtual stick
+  is low-priority and not an alpha blocker. Phone viewports must not be added
+  as passing CI targets until that stick exists.
 - **Duplicate-completion protection and retry.** The runner takes the stars and
   moves on; replaying a call and re-scoring it is #231's territory.
 - **How it looks.** Visual acceptance stays with `npm run acceptance`, which

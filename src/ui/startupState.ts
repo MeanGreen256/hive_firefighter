@@ -56,6 +56,20 @@ const PRESENTATIONS: Readonly<Partial<Record<StartupPhaseId, StartupPresentation
   },
 );
 
+/**
+ * Touch-primary phone or tablet, before the virtual stick exists (ADR-011).
+ *
+ * Not `unsupported`: the device can draw WebGL. Not `failed`: reloading the
+ * same phone cannot help. The glyph is for the child; the sentence is for the
+ * adult who can walk to a computer.
+ */
+export const COMPUTER_PLAY_PRESENTATION: StartupPresentation = Object.freeze({
+  glyph: '🖥️',
+  message: 'Open this on a computer to play.',
+  canRetry: false,
+  busy: false,
+});
+
 /** Null while the game is running: that is the game, not a screen about it. */
 export function getStartupPresentation(phase: StartupPhaseId): StartupPresentation | null {
   return PRESENTATIONS[phase] ?? null;

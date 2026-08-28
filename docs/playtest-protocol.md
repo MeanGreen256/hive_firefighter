@@ -29,11 +29,14 @@ anonymised record.
 1. Choose one scenario below and copy the record template.
 2. Use the exact build named in the record. Start from a fresh browser profile or
    clear the game's local storage. Do not enable development shortcuts.
-3. Use a desktop browser, sound on, and either a keyboard or a gamepad. This is
-   the observation setup, not a declaration of supported platforms: the product
-   matrix remains an open decision in [#215](https://github.com/MeanGreen256/hive_firefighter/issues/215).
-   Put the chosen input device within easy reach. Do not switch input devices during
-   the run unless the child asks.
+3. Use a **family laptop in Chrome**, sound on, and either a keyboard or a
+   gamepad — the designed-for surface in
+   [ADR-011](adr/011-supported-platform-matrix.md). Put the chosen input
+   device within easy reach. Do not switch input devices during the run unless
+   the child asks. Do not observe on a phone or tablet until the virtual stick
+   in [#220](https://github.com/MeanGreen256/hive_firefighter/issues/220) has
+   shipped. Do not default a cohort to Firefox or Safari.
+
 4. Open the game at its normal first screen. Do not pre-drive, dismiss onboarding,
    point the camera at the objective, or explain the controls.
 5. Set a silent 20-minute session timer. The child may stop at any time.

@@ -1,5 +1,9 @@
 import type { StartupPhaseId } from '../state/rendererStatus';
-import { getStartupPresentation } from './startupState';
+import {
+  COMPUTER_PLAY_PRESENTATION,
+  getStartupPresentation,
+  type StartupPresentation,
+} from './startupState';
 import './StartupFallback.css';
 
 /**
@@ -16,12 +20,14 @@ import './StartupFallback.css';
  * page was built. The console keeps the details for whoever is debugging.
  */
 export interface StartupFallbackProps {
-  readonly phase: StartupPhaseId;
+  readonly phase?: StartupPhaseId;
+  /** When set, used instead of looking up `phase`. The phone-gate card. */
+  readonly presentation?: StartupPresentation;
   readonly onRetry: () => void;
 }
 
-export function StartupFallback({ phase, onRetry }: StartupFallbackProps) {
-  const presentation = getStartupPresentation(phase);
+export function StartupFallback({ phase, presentation: override, onRetry }: StartupFallbackProps) {
+  const presentation = override ?? (phase ? getStartupPresentation(phase) : null);
   if (!presentation) return null;
 
   return (
@@ -49,4 +55,9 @@ export function StartupFallback({ phase, onRetry }: StartupFallbackProps) {
       ) : null}
     </div>
   );
+}
+
+/** ADR-011: a touch-primary device, before the virtual stick exists. */
+export function ComputerPlayGate() {
+  return <StartupFallback presentation={COMPUTER_PLAY_PRESENTATION} onRetry={() => undefined} />;
 }
