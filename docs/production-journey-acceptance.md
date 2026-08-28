@@ -19,11 +19,21 @@ npm run acceptance:production -- --skip-build      # reuse the existing dist/
 npm run acceptance:production -- --incident-seconds=900   # more time per call
 npm run acceptance:production -- --settle-seconds=20      # override the 10s settle budget
 JOURNEY_TRACE=1 npm run acceptance:production      # narrate every decision
+ACCEPTANCE_BROWSER=edge BROWSER_PATH=/path/to/edge npm run acceptance:production -- --incidents=1
 ```
 
 `ACCEPTANCE_ARTIFACT_DIR` collects screenshots — the first frame, each star
 screen, each quiet town, and the last frame of a failed run — plus the timeline
 of everything that was checked.
+
+`ACCEPTANCE_BROWSER` defaults to `chrome`, the required CI target. Set it to
+`edge` only for a local release check using a real Edge executable; the runner
+verifies the browser product through DevTools so an accidental Chrome run cannot
+be recorded as the Edge row. `BROWSER_PATH` takes precedence over the standard
+machine lookup; `CHROME_PATH` and `EDGE_PATH` are target-specific alternatives.
+Firefox and Safari use the manual compatibility rows in
+[`docs/browser-acceptance-matrix.md`](browser-acceptance-matrix.md): the
+Chromium DevTools harness does not claim to test engines it never launched.
 
 ## What it actually does
 
