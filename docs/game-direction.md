@@ -111,6 +111,20 @@ new ADR says otherwise.
 - City: colourful, legible, and worth looking at. Landmarks a child can navigate by,
   parks and greenery, and things that are simply pleasant to drive past.
 
+## Supported platforms
+
+The game is a **desktop and landscape-tablet** browser product. Phones are out
+of scope. Every supported surface uses the same two inputs — analogue movement
+and one contextual action — whether those come from a keyboard, a standard
+gamepad, or (on a tablet) a large virtual stick plus one large action control.
+
+Play is landscape. The minimum playable viewport is 1024×640 CSS pixels. WebGL
+is required. A first-time child must be able to finish an incident without
+reading on each explicitly listed combination in
+[ADR-011](adr/011-supported-platform-matrix.md). Do not add a phone layout,
+portrait play, pinch-to-aim, or a second required touch gesture without a new
+ADR that supersedes that one.
+
 ## Why the player walks
 
 On-foot movement is not a tactical system. Exterior fire does not chase the player
@@ -149,6 +163,7 @@ exterior fire, receive stars, and want to take the next quest.
 The controlling decisions are [ADR-005](adr/005-third-person-apparatus-control.md),
 [ADR-006](adr/006-arcade-tone-for-younger-players.md),
 [ADR-007](adr/007-ages-5-plus-control-floor.md),
-[ADR-008](adr/008-quest-outcomes-and-countable-stars.md), and
-[ADR-009](adr/009-no-second-required-verb.md). The implementation plan is
+[ADR-008](adr/008-quest-outcomes-and-countable-stars.md),
+[ADR-009](adr/009-no-second-required-verb.md), and
+[ADR-011](adr/011-supported-platform-matrix.md). The implementation plan is
 [M3 — Drive, Dismount, Douse](m3-pivot-issues.md).

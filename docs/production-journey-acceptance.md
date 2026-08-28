@@ -118,6 +118,10 @@ finished without the hose being on it.
   the run proves a key starts the sound, and that a pad press cannot is a
   property of every engine's activation rules rather than something a run here
   observes.
+- **Firefox, WebKit, and landscape tablets.** This runner is Chromium +
+  keyboard. ADR-011 commits those other surfaces; #226 extends this journey to
+  the approved engines, and #220 supplies the tablet two-input path before any
+  touch case belongs here. Phone viewports are out of scope.
 - **Duplicate-completion protection and retry.** The runner takes the stars and
   moves on; replaying a call and re-scoring it is #231's territory.
 - **How it looks.** Visual acceptance stays with `npm run acceptance`, which

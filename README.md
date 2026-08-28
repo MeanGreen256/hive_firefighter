@@ -8,9 +8,10 @@ runs the same system.
 > loop and Harbour Hill's rotating five-call shifts are implemented. Real-child
 > observation remains an open acceptance gate for [M3](https://github.com/MeanGreen256/hive_firefighter/issues/101)
 > and [M4](https://github.com/MeanGreen256/hive_firefighter/issues/170); verified
-> hosting and the supported device matrix remain open work in
-> [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216) and
-> [#215](https://github.com/MeanGreen256/hive_firefighter/issues/215). See the
+> hosting remains open work in
+> [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216). The
+> supported product is desktop browsers plus landscape tablets; phones are out
+> of scope — [ADR-011](docs/adr/011-supported-platform-matrix.md). See the
 > [roadmap](#roadmap) and GitHub issues for the live status.
 
 ## The idea
@@ -89,6 +90,9 @@ Open them in a browser; they're self-contained pages.
 - **An ages 5+ control floor.** Two-input completion, automatic camera, assisted aim,
   no modal state, gamepad parity, and nothing that depends on reading. See
   [ADR-007](docs/adr/007-ages-5-plus-control-floor.md).
+- **Desktop and landscape tablets; phones out of scope.** Keyboard, standard-mapping
+  gamepad, and (on a tablet) a large virtual stick plus one action. See
+  [ADR-011](docs/adr/011-supported-platform-matrix.md).
 - **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md) and the [M3 street-level benchmark](docs/art/m3-visual-benchmark.md).
 - **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
 
@@ -124,8 +128,12 @@ npm run acceptance:production -- --incidents=1   # a browser plays the built gam
 The commands verify local builds and deterministic/browser journeys. They do
 not replace real child-observation acceptance: follow
 [`docs/playtest-protocol.md`](docs/playtest-protocol.md) for that evidence.
-Platform support is not yet a product promise; #215 will define the supported
-browser, device, and input matrix.
+Supported play is desktop Chromium / Firefox / Safari plus landscape iPad
+Safari and Android-tablet Chrome, with keyboard, a standard gamepad, or the
+tablet two-input touch contract in
+[ADR-011](docs/adr/011-supported-platform-matrix.md). Phones are not a product
+promise. Tablet implementation is [#220](https://github.com/MeanGreen256/hive_firefighter/issues/220);
+engine coverage beyond Chromium is [#226](https://github.com/MeanGreen256/hive_firefighter/issues/226).
 
 The game opens at `/`, and it is the only scene there is. The legacy M2 cutaway
 view and its `?scene=m2` route were retired in #100 once the exterior loop was
