@@ -27,14 +27,19 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   availablePort,
+  browserExecutable,
   chromeDebugUrl,
-  chromeExecutable,
   ChromeSession,
   stopChild,
   visibleFrameColorCount,
   wait,
   waitForServer,
 } from './lib/browserHarness.mjs';
+import {
+  browserProductProblem,
+  browserTargetFromEnvironment,
+  executableCandidatesForTarget,
+} from './lib/browserTargets.mjs';
 import { JourneyPlayer, quietTownTravelPlan } from './lib/journeyPlayer.mjs';
 
 const rootDirectory = fileURLToPath(new URL('..', import.meta.url));
@@ -77,6 +82,7 @@ const DEFAULT_INCIDENT_SECONDS = 600;
 const GRAPHICS_RECOVERY_TIMEOUT_MS = 45_000;
 
 const options = parseOptions(process.argv.slice(2));
+const browserTarget = browserTargetFromEnvironment();
 const problems = [];
 const timeline = [];
 
@@ -603,7 +609,10 @@ async function roamAndStartNextCall(player, session, sessionId, index) {
   );
 }
 
-const chromePath = chromeExecutable();
+const chromePath = browserExecutable(
+  executableCandidatesForTarget(browserTarget),
+  browserTarget.label,
+);
 if (options.build) await runBuild();
 const port = await availablePort();
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -658,6 +667,13 @@ try {
     { cwd: rootDirectory, stdio: ['ignore', 'pipe', 'pipe'] },
   );
   session = await ChromeSession.connect(await chromeDebugUrl(chrome));
+  const browserVersion = await session.command('Browser.getVersion');
+  const productProblem = browserProductProblem(browserTarget, browserVersion.product ?? 'unknown');
+  check(
+    productProblem === null,
+    productProblem ?? `${browserTarget.label} identifies itself through DevTools`,
+  );
+  note(`browser target: ${browserTarget.id}; product: ${browserVersion.product ?? 'unknown'}`);
   const target = await session.command('Target.createTarget', { url: 'about:blank' });
   const attachment = await session.command('Target.attachToTarget', {
     targetId: target.targetId,
