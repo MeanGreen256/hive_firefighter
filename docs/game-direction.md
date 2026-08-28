@@ -113,17 +113,16 @@ new ADR says otherwise.
 
 ## Supported platforms
 
-The game is a **desktop and landscape-tablet** browser product. Phones are out
-of scope. Every supported surface uses the same two inputs — analogue movement
-and one contextual action — whether those come from a keyboard, a standard
-gamepad, or (on a tablet) a large virtual stick plus one large action control.
+Playable alpha is a **desktop web-browser** product: keyboard and a
+standard-mapping gamepad, landscape window, WebGL required. A virtual stick on
+phones and tablets is later, low-priority work — the same two inputs, not a new
+scheme — and does not block the alpha. See
+[ADR-011](adr/011-supported-platform-matrix.md).
 
-Play is landscape. The minimum playable viewport is 1024×640 CSS pixels. WebGL
-is required. A first-time child must be able to finish an incident without
-reading on each explicitly listed combination in
-[ADR-011](adr/011-supported-platform-matrix.md). Do not add a phone layout,
-portrait play, pinch-to-aim, or a second required touch gesture without a new
-ADR that supersedes that one.
+Until that stick exists, a touch-primary device (phone or tablet without a
+mouse) must not tick the fire. It gets a computer glyph and one adult sentence,
+not a WASD scene the child cannot drive. Do not add a required second touch
+gesture, pinch-to-aim, or a phone-only verb without a new ADR.
 
 ## Why the player walks
 

@@ -20,11 +20,10 @@ children.
 
 3. Use the same commit, normal game entry, and browser for the whole cohort.
 4. Before every child starts, use a fresh browser profile or clear game storage.
-   Start with sound on and one supported input from
-   [ADR-011](../adr/011-supported-platform-matrix.md): a keyboard, a gamepad, or
-   (after [#220](https://github.com/MeanGreen256/hive_firefighter/issues/220)) a
-   landscape tablet. Keep that device for the whole cohort; do not observe on a
-   phone.
+   Start with sound on and one desktop keyboard or gamepad
+   ([ADR-011](../adr/011-supported-platform-matrix.md)). Keep that device for
+   the whole cohort; do not observe on a phone or tablet until
+   [#220](https://github.com/MeanGreen256/hive_firefighter/issues/220) ships.
 5. Handle guardian consent privately, outside this repository, before writing
    down any observation. Stop immediately if a child is distressed or asks to
    stop. Follow the adult script in [`../playtest-protocol.md`](../playtest-protocol.md).
