@@ -8,9 +8,12 @@ runs the same system.
 > loop and Harbour Hill's rotating five-call shifts are implemented. Real-child
 > observation remains an open acceptance gate for [M3](https://github.com/MeanGreen256/hive_firefighter/issues/101)
 > and [M4](https://github.com/MeanGreen256/hive_firefighter/issues/170); verified
-> hosting and the supported device matrix remain open work in
-> [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216) and
-> [#215](https://github.com/MeanGreen256/hive_firefighter/issues/215). See the
+> hosting remains open work in
+> [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216) (public
+> Vercel URL, anyone with the link; the project is not connected yet). The
+> game is designed for a family laptop in Chrome (keyboard or gamepad). A
+> virtual stick for phones and tablets is later work —
+> [ADR-011](docs/adr/011-supported-platform-matrix.md). See the
 > [roadmap](#roadmap) and GitHub issues for the live status.
 
 ## The idea
@@ -88,12 +91,22 @@ Open them in a browser; they're self-contained pages.
 - **An ages 5+ control floor.** Two-input completion, automatic camera, assisted aim,
   no modal state, gamepad parity, and nothing that depends on reading. See
   [ADR-007](docs/adr/007-ages-5-plus-control-floor.md).
-- **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md) and the [M3 street-level benchmark](docs/art/m3-visual-benchmark.md).
-- **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
+- **Interruption recovery.** A hidden tab freezes the live fire; a refresh
+  restarts the same directed incident from authored ignition and puts the player
+  back where they were. See [ADR-010](docs/adr/010-interruption-recovery.md).
+- **Family laptop in Chrome; phone and tablet stick later.** Designed for
+  Chrome on a Windows or Mac laptop, keyboard or a standard-mapping gamepad.
+  Edge rides along as the same engine. Firefox and Safari desktop stay
+  compatible, not design targets. A virtual stick is later work and is not an
+  alpha gate. Until it exists, a phone gets an “open on a computer” screen
+  rather than an unplayable WASD scene. See
+  [ADR-011](docs/adr/011-supported-platform-matrix.md).
 - **An open continuous multi-district world.** Every district is explorable from
   the start; two calls stay in each district before smoke and the arrow lead to
   the next. Firehouses hold local progress while globally owned cosmetics travel
-  with the firefighter. See [ADR-011](docs/adr/011-open-district-world-and-home-bases.md).
+  with the firefighter. See [ADR-012](docs/adr/012-open-district-world-and-home-bases.md).
+- **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md) and the [M3 street-level benchmark](docs/art/m3-visual-benchmark.md).
+- **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
 
 Decision records live in `docs/adr/`.
 
@@ -104,10 +117,11 @@ in [`docs/m1-closeout.md`](docs/m1-closeout.md).
 
 Vite · TypeScript · Three.js via React Three Fiber · Zustand.
 
-There is no verified public deployment URL or pull-request preview service yet.
-Those are explicit owner-coordinated delivery work in
-[#216](https://github.com/MeanGreen256/hive_firefighter/issues/216); do not
-assume Vercel or any other host is connected.
+There is no verified playable URL yet. Production will be a **public Vercel
+deployment** — anyone with the link, no account — once an owner imports this
+repo in Vercel. Steps, rollback, and the blank to fill live in
+[`docs/hosting.md`](docs/hosting.md)
+([#216](https://github.com/MeanGreen256/hive_firefighter/issues/216)).
 
 One architectural rule worth stating up front: **the simulation never runs through React.** React owns the scene graph and the UI; the fire tick runs in plain modules with Zustand as the bridge. Re-rendering React at 10 Hz for sim state does not end well.
 
@@ -127,8 +141,12 @@ npm run acceptance:production -- --incidents=1   # a browser plays the built gam
 The commands verify local builds and deterministic/browser journeys. They do
 not replace real child-observation acceptance: follow
 [`docs/playtest-protocol.md`](docs/playtest-protocol.md) for that evidence.
-Platform support is not yet a product promise; #215 will define the supported
-browser, device, and input matrix.
+Supported play for the alpha is a **family laptop in Chrome** (Edge is the
+same engine) with a keyboard or a standard gamepad. Firefox and Safari
+desktop should still work; they are not the design target. Phones and tablets
+get a computer glyph until the virtual stick in
+[#220](https://github.com/MeanGreen256/hive_firefighter/issues/220) ships —
+[ADR-011](docs/adr/011-supported-platform-matrix.md).
 
 The game opens at `/`, and it is the only scene there is. The legacy M2 cutaway
 view and its `?scene=m2` route were retired in #100 once the exterior loop was
