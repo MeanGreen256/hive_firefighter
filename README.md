@@ -25,10 +25,9 @@ The player follows smoke to one active quest, drives a firetruck across a colour
 free-roam city, parks, hops out, and directly controls a firefighter. Fires appear only
 on exteriors — facades, roofs, porches, trees, park features, outdoor props — and the
 player never enters a building. There is nobody to rescue and nothing can hurt the
-player. Hose
-play is intentionally simple: point and hold to spray unlimited water, put out
-the visible flames, earn 1–3 stars, free-roam with nothing burning, and ring the
-Firehouse Star Board bell when ready for the already-determined next call.
+player. Hose play is intentionally simple: point and hold to spray unlimited
+water, put out the visible flames, earn 1–3 stars, and keep exploring during the
+ten-second calm interval before the next call appears.
 
 The authoritative product constraints live in
 [`docs/game-direction.md`](docs/game-direction.md).
@@ -91,6 +90,10 @@ Open them in a browser; they're self-contained pages.
   [ADR-007](docs/adr/007-ages-5-plus-control-floor.md).
 - **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md) and the [M3 street-level benchmark](docs/art/m3-visual-benchmark.md).
 - **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
+- **An open continuous multi-district world.** Every district is explorable from
+  the start; two calls stay in each district before smoke and the arrow lead to
+  the next. Firehouses hold local progress while globally owned cosmetics travel
+  with the firefighter. See [ADR-011](docs/adr/011-open-district-world-and-home-bases.md).
 
 Decision records live in `docs/adr/`.
 
