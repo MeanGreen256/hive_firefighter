@@ -2,14 +2,11 @@
 #
 # It lives outside `ci.yml` for one reason: CI has no GPU, so the game runs on
 # Chrome's software rasterizer at a few frames a second, and a whole shift takes
-# longer than every other gate put together. Pull requests get the first-incident
-# journey; this runs nightly and on demand, and is the gate that says every
-# authored incident in the rotation is still reachable and completable.
-name: Production shift
+# longer than every other gate put together. Pull requests get a production
+# boot smoke; this runs on demand for release candidates and investigations.
+name: Production journey (manual)
 
 on:
-  schedule:
-    - cron: '0 4 * * *'
   workflow_dispatch:
     inputs:
       incidents:
@@ -41,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # A nightly whole-shift complement to the one-call pull-request journey.
+      # Deliberately manual until the robot driver is deterministic.
       - name: Play a whole shift of the production build
         run: npm run acceptance:production -- --incidents=${{ inputs.incidents || '5' }}
         env:
