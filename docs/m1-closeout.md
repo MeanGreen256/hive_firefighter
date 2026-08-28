@@ -31,15 +31,13 @@ original readability advantage. Ink remains a supported alternate style.
 
 ## Current delivery status
 
-Do not add a guessed `vercel.json` or invent a deployment URL. An authorized
-owner must connect the intended host, verify a shareable production build, and
-enable normal pull-request previews under [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216).
-Once that work produces verifiable evidence, document the canonical URL and
-ownership there rather than backfilling it into this historical M1 record.
+Do not invent a deployment URL in this historical record. Hosting is a public
+Vercel URL, decided under [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216);
+the owner-connect steps live in [`hosting.md`](hosting.md). Once that work
+produces a live production URL, document it there rather than backfilling it
+into this M1 record.
 
-**Reverified 2026-08-21:** the repository still has no `vercel.json`, no
-deploy step in `.github/workflows/ci.yml`, and no other in-repo evidence of a
-connected Vercel project. Whether a hosted preview now exists depends on
-Vercel's dashboard state, which is not visible from git history — that check
-requires the owner. This observation is not a claim that Vercel is the chosen
-host, only why the repository alone cannot verify one.
+**Reverified 2026-08-28:** `vercel.json` is in the tree and Vercel is the chosen
+host ([`hosting.md`](hosting.md)). A live production URL still requires the
+owner to import this repository in Vercel. This record does not claim that
+import has happened.
