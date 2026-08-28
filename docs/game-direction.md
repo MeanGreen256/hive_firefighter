@@ -111,6 +111,20 @@ new ADR says otherwise.
 - City: colourful, legible, and worth looking at. Landmarks a child can navigate by,
   parks and greenery, and things that are simply pleasant to drive past.
 
+## Supported platforms
+
+The game is **designed for a family laptop running Google Chrome**, with a
+keyboard or a standard-mapping gamepad. Edge is the same engine. Firefox and
+Safari desktop must not be broken; they are not the surface we compose against.
+A virtual stick on phones and tablets is later, low-priority work — the same
+two inputs, not a new scheme — and does not block the alpha. See
+[ADR-011](adr/011-supported-platform-matrix.md).
+
+Until that stick exists, a touch-primary device (phone or tablet without a
+mouse) must not tick the fire. It gets a computer glyph and one adult sentence,
+not a WASD scene the child cannot drive. Do not add a required second touch
+gesture, pinch-to-aim, or a phone-only verb without a new ADR.
+
 ## Why the player walks
 
 On-foot movement is not a tactical system. Exterior fire does not chase the player
@@ -149,6 +163,7 @@ exterior fire, receive stars, and want to take the next quest.
 The controlling decisions are [ADR-005](adr/005-third-person-apparatus-control.md),
 [ADR-006](adr/006-arcade-tone-for-younger-players.md),
 [ADR-007](adr/007-ages-5-plus-control-floor.md),
-[ADR-008](adr/008-quest-outcomes-and-countable-stars.md), and
-[ADR-009](adr/009-no-second-required-verb.md). The implementation plan is
+[ADR-008](adr/008-quest-outcomes-and-countable-stars.md),
+[ADR-009](adr/009-no-second-required-verb.md), and
+[ADR-011](adr/011-supported-platform-matrix.md). The implementation plan is
 [M3 — Drive, Dismount, Douse](m3-pivot-issues.md).

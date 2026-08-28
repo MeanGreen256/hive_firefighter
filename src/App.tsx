@@ -1,10 +1,12 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import FollowCameraScene from '@render/FollowCameraScene';
 import QuestPreviewHarness from '@render/QuestPreviewHarness';
 import { detectBrowserGraphicsSupport, GraphicsSupport } from '@render/webglSupport';
 import { AppErrorBoundary } from '@ui/AppErrorBoundary';
-import { StartupFallback } from '@ui/StartupFallback';
+import { firstConnectedGamepad } from '@ui/gamepad';
+import { ComputerPlayGate, StartupFallback } from '@ui/StartupFallback';
+import { detectTouchPrimarySurface, isComputerPlayKey } from '@ui/playSurface';
 import { isQuestPreviewRequested } from './perf/questPreviewScene';
 import { reportGameObservation } from './state/gameObservation';
 import { playPause } from './state/playPause';
@@ -39,6 +41,11 @@ export default function App() {
 
 function Game() {
   const status = useStore(rendererStatus.store);
+  const [needsComputer, setNeedsComputer] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    if (firstConnectedGamepad()) return false;
+    return detectTouchPrimarySurface(window.matchMedia.bind(window));
+  });
   const pageHidden = useStore(playPause.store, (state) => state.hidden);
 
   // Asked once, before the renderer is given a chance to fail in a way nobody
@@ -53,16 +60,36 @@ function Game() {
   useEffect(() => playPause.attach(document, window), []);
 
   /**
+   * A phone or tablet without a mouse, before the virtual stick exists
+   * (ADR-011). A key or a pad means a computer input actually arrived, so
+   * the card can go away for this session.
+   */
+  useEffect(() => {
+    if (!needsComputer) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (isComputerPlayKey(event.key)) setNeedsComputer(false);
+    };
+    const onPad = () => setNeedsComputer(false);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('gamepadconnected', onPad);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('gamepadconnected', onPad);
+    };
+  }, [needsComputer]);
+
+  /**
    * A boot that never finishes is still a failure, and it is the one that
    * otherwise waits forever. The clock only runs while the game is genuinely
    * still trying and somebody is actually looking — see `shouldTimeOutStartup`
    * for why a hidden tab is not a failed one.
    */
   useEffect(() => {
+    if (needsComputer) return;
     if (!shouldTimeOutStartup(status.phase, !pageHidden)) return;
     const timer = setTimeout(() => rendererStatus.reportFailed(), STARTUP_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [pageHidden, status.phase, status.generation]);
+  }, [needsComputer, pageHidden, status.phase, status.generation]);
 
   /**
    * Nothing simulates behind a fallback.
@@ -73,8 +100,8 @@ function Game() {
    * stopped for every phase that is not the game itself.
    */
   useEffect(() => {
-    if (status.phase !== StartupPhase.Running) questFireController.stop();
-  }, [status.phase]);
+    if (needsComputer || status.phase !== StartupPhase.Running) questFireController.stop();
+  }, [needsComputer, status.phase]);
 
   // Whether the picture is up is something a player can see, so the shipped
   // observation window carries it (#219) and a browser can prove a clean boot.
@@ -111,6 +138,9 @@ function Game() {
   if (status.phase === StartupPhase.Unsupported || status.phase === StartupPhase.Failed) {
     return fallback;
   }
+  // A touch-primary phone can draw WebGL; it just cannot drive yet. Do not
+  // mount the town or start a 30-second boot clock behind this card.
+  if (needsComputer) return <ComputerPlayGate />;
   // The picture is gone. The scene comes down with it — a scene left rendering
   // into a dead context throws, and that throw would be reported to the family
   // as a crash instead of as the ordinary device event this is.
