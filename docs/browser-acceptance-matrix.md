@@ -9,16 +9,17 @@ Firefox, and Safari rows remain human checks rather than a fake browser shim.
 
 The pull-request CI job runs the production bundle against a fresh Chrome
 profile at 854×480. That smaller desktop viewport is intentional: GitHub-hosted
-Linux renders WebGL in software, while the journey must prove that a child can
-complete the game rather than infer laptop frame rate. The runner checks a
-first-play keyboard journey, audio unlock after a legitimate key, WebGL startup
-and recovery, hidden-tab pause/resume, focus-safe interruption, blocked/corrupt
-storage fallbacks, refresh, quiet roaming, and retained progress. It records the
-DevTools browser product and fails if it is not the requested target.
+Linux renders WebGL in software. The fast smoke checks the built entry point,
+first sampled frame, blank/fallback state, browser and network errors, initial
+incident, and audio unlock after a legitimate key. The manual journey adds
+WebGL recovery, hidden-tab pause/resume, refresh, quiet roaming, and retained
+progress. Both record the DevTools browser product and fail if it is not the
+requested target.
 
 | Surface | Browser/input | Production proof | Gate |
 | --- | --- | --- | --- |
-| Designed for | Chrome desktop, keyboard | `npm run acceptance:production -- --incidents=1` | Pull request |
+| Designed for | Chrome desktop, production boot | `npm run acceptance:production:smoke -- --skip-build` | Pull request |
+| Designed for | Chrome desktop, keyboard journey | `npm run acceptance:production -- --incidents=1` | Release candidate / investigation |
 | Same engine | Edge desktop, keyboard | `ACCEPTANCE_BROWSER=edge BROWSER_PATH=/path/to/edge npm run acceptance:production -- --incidents=1` | Release candidate |
 | Designed for | Chrome desktop, standard-mapping USB/Bluetooth gamepad | Physical check below | Release candidate |
 
@@ -28,7 +29,7 @@ Run the five-incident version before a hosted release:
 npm run acceptance:production
 ```
 
-The nightly GitHub workflow runs that longer rotation. It is intentionally
+The manual GitHub workflow runs that longer rotation. It is intentionally
 separate from visual regression (`npm run acceptance`), which renders
 deterministic development fixtures rather than driving the shipped game.
 
