@@ -10,8 +10,8 @@ runs the same system.
 > and [M4](https://github.com/MeanGreen256/hive_firefighter/issues/170); verified
 > hosting remains open work in
 > [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216). The
-> alpha is a desktop web browser (keyboard or gamepad). A virtual stick for
-> phones and tablets is later work —
+> game is designed for a family laptop in Chrome (keyboard or gamepad). A
+> virtual stick for phones and tablets is later work —
 > [ADR-011](docs/adr/011-supported-platform-matrix.md). See the
 > [roadmap](#roadmap) and GitHub issues for the live status.
 
@@ -91,10 +91,12 @@ Open them in a browser; they're self-contained pages.
 - **An ages 5+ control floor.** Two-input completion, automatic camera, assisted aim,
   no modal state, gamepad parity, and nothing that depends on reading. See
   [ADR-007](docs/adr/007-ages-5-plus-control-floor.md).
-- **Desktop web alpha; phone and tablet stick later.** Keyboard and a
-  standard-mapping gamepad on a desktop browser. A virtual stick is accepted
-  later work and is not an alpha gate. Until it exists, a phone gets a
-  “open on a computer” screen rather than an unplayable WASD scene. See
+- **Family laptop in Chrome; phone and tablet stick later.** Designed for
+  Chrome on a Windows or Mac laptop, keyboard or a standard-mapping gamepad.
+  Edge rides along as the same engine. Firefox and Safari desktop stay
+  compatible, not design targets. A virtual stick is later work and is not an
+  alpha gate. Until it exists, a phone gets an “open on a computer” screen
+  rather than an unplayable WASD scene. See
   [ADR-011](docs/adr/011-supported-platform-matrix.md).
 - **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md) and the [M3 street-level benchmark](docs/art/m3-visual-benchmark.md).
 - **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
@@ -131,9 +133,10 @@ npm run acceptance:production -- --incidents=1   # a browser plays the built gam
 The commands verify local builds and deterministic/browser journeys. They do
 not replace real child-observation acceptance: follow
 [`docs/playtest-protocol.md`](docs/playtest-protocol.md) for that evidence.
-Supported play for the alpha is a desktop Chromium / Firefox / Safari window
-with a keyboard or a standard gamepad. Phones and tablets get a computer
-glyph until the virtual stick in
+Supported play for the alpha is a **family laptop in Chrome** (Edge is the
+same engine) with a keyboard or a standard gamepad. Firefox and Safari
+desktop should still work; they are not the design target. Phones and tablets
+get a computer glyph until the virtual stick in
 [#220](https://github.com/MeanGreen256/hive_firefighter/issues/220) ships —
 [ADR-011](docs/adr/011-supported-platform-matrix.md).
 

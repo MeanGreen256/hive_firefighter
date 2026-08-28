@@ -21,8 +21,18 @@ still ticking.
 
 ## Decision
 
-**Playable alpha is a desktop web-browser game.** Keyboard and a standard-mapping
-gamepad are the supported inputs. That is the surface M6 has to be good on.
+**The game is designed for a family laptop running Google Chrome.** A parent
+opens a URL, a child sits at that machine with a keyboard or a USB/Bluetooth
+gamepad, and the town fills the window. That is the picture every control,
+camera, audio, and performance choice is composed against. Edge is the same
+Chromium engine, so it rides along. It is not a second design target.
+
+**Playable alpha is that desktop Chrome (or Edge) game.** Keyboard and a
+standard-mapping gamepad are the supported inputs. That is the surface M6 has
+to be good on.
+
+**Firefox and Safari desktop must not be broken.** They are compatible guests,
+not the surface we compose against, and not alpha blockers.
 
 **A virtual stick on phones and tablets is accepted later work, not an alpha
 gate.** It is the same two ADR-007 inputs — analogue move, one contextual
@@ -35,21 +45,29 @@ nudge the camera to aim the hose. That is optional assistance, the same way
 desktop orbit is optional. It is never required to finish a quest. It is not
 scheduled with the stick.
 
-### What playable alpha supports
+### Designed for
 
-Play is a landscape desktop window.
+Play is a landscape window on a family laptop.
 
-| Surface | OS | Browser | Input | Representative hardware |
+| Role | Surface | Browser | Input | Representative hardware |
 | --- | --- | --- | --- | --- |
-| Desktop | Windows 10 22H2+, macOS 13+, current ChromeOS | Latest two majors of Chrome or Edge (Chromium), Firefox, and Safari | Keyboard (WASD or arrows + Space), USB/Bluetooth gamepad with the W3C standard mapping, optional mouse for aim/orbit | 2019+ integrated-GPU laptop at 1920×1080 (Intel UHD 620, Apple M1, AMD Vega 8 class) |
+| **Designed for** | Windows 10 22H2+ or macOS 13+ laptop | Latest two majors of **Google Chrome** | Keyboard (WASD or arrows + Space), USB/Bluetooth gamepad with the W3C standard mapping, optional mouse for aim/orbit | 2019+ integrated-GPU family laptop at 1920×1080 (Intel UHD 620, Apple M1, AMD Vega 8 class) |
+| Same engine | Same laptops | Latest two majors of **Edge** | Same | Same |
+
+### Compatible (don't break; don't design for)
+
+| Surface | Browser | Notes |
+| --- | --- | --- |
+| Same family laptops | Latest two majors of Firefox or Safari | Must load, steer, spray, and keep progress. Not an observation default. Not an alpha blocker. |
+| Current ChromeOS | Chrome | Chromium, laptop-shaped. Compatible, not the picture we compose against. |
 
 WebGL is required. The existing probe in `src/render/webglSupport.ts` already
 treats WebGL 2 as preferred and WebGL 1 as sufficient, and treats "no WebGL"
 as unsupported rather than failed.
 
-Chromium desktop keyboard remains the pull-request blocker
-([#219](https://github.com/MeanGreen256/hive_firefighter/issues/219)). Firefox
-and Safari desktop are supported targets, not alpha blockers.
+Chrome desktop keyboard remains the pull-request blocker
+([#219](https://github.com/MeanGreen256/hive_firefighter/issues/219)). Child
+observation defaults to a family laptop in Chrome with a keyboard or a gamepad.
 
 ### Later, low priority — virtual stick (#220)
 
@@ -123,24 +141,26 @@ On the **desktop alpha** these already exist and do not change:
 
 | Work | M6 |
 | --- | --- |
-| Chromium desktop keyboard production journey (#219) | **Required** (already blocking). |
-| Firefox / WebKit desktop journeys (#226) | Supported targets; not an alpha blocker. |
+| Chrome (Chromium) desktop keyboard production journey (#219) | **Required** (already blocking). This is the designed-for surface. |
+| Firefox / WebKit desktop journeys (#226) | Compatible guests; not an alpha blocker. |
 | [#220](https://github.com/MeanGreen256/hive_firefighter/issues/220) virtual stick | **Not required.** Low priority after alpha. |
 | Right-finger aim | **Not required.** Super low priority. |
 | Phone / tablet Playwright, phone viewports as passing CI | **Out of scope** until the stick exists. |
 | Real iPad / Android in GitHub-hosted Ubuntu CI | **Not promised.** |
 | In-app webviews, IE, legacy Edge, consoles, VR | **Out of scope.** |
 
-Child-observation sessions stay on a desktop keyboard or gamepad for a whole
-cohort until the stick ships. Do not observe on a phone.
+Child-observation sessions stay on a **family laptop in Chrome** with a
+keyboard or a gamepad for a whole cohort until the stick ships. Do not observe
+on a phone. Do not default a cohort to Firefox or Safari.
 
 ## Consequences
 
 **What gets easier**
 
-- Playable alpha has one surface: a desktop browser. Hosting (#216), pause
-  (#218), and journeys (#219) can finish without waiting on a control scheme
-  that does not exist.
+- Playable alpha has one picture: a family laptop in Chrome. Hosting (#216),
+  pause (#218), and journeys (#219) can finish without waiting on a control
+  scheme that does not exist, and without pretending Firefox or iPad Safari
+  are the design target.
 - A phone stops being a silent broken demo. The parent gets a sentence they
   can act on; the fire does not advance.
 - #220 can be a small, honest stick later instead of a fake M6 gate.
@@ -177,6 +197,10 @@ cohort until the stick ships. Do not observe on a phone.
   diagnosis, no useful action.
 - **Close #220 as not planned.** Rejected. A virtual stick on a phone is the
   right later shape for this audience. It is just not the alpha.
+- **Treat every desktop browser as an equal design target.** Rejected. Chrome
+  on a family laptop is where this game is going. Edge is the same engine.
+  Firefox and Safari desktop stay compatible so a family that only has them
+  is not locked out; they do not set camera, HUD, or performance taste.
 - **Ship twin-stick aim with the stick.** Rejected as scope. Move-plus-action
   is the floor; right-finger aim is optional assistance and can wait.
 

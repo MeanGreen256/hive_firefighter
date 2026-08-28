@@ -13,6 +13,6 @@ One file per significant decision — the kind where a different answer would me
 | [007](007-ages-5-plus-control-floor.md)            | Ages 5+ control and readability floor | Accepted                           |
 | [008](008-quest-outcomes-and-countable-stars.md)  | Completed quests and countable-world-object stars | Accepted                |
 | [009](009-no-second-required-verb.md)              | No second firefighting verb or required elevated traversal | Accepted       |
-| [011](011-supported-platform-matrix.md)            | Desktop web alpha; phone/tablet stick later | Accepted             |
+| [011](011-supported-platform-matrix.md)            | Family laptop in Chrome; phone/tablet stick later | Accepted             |
 
 A settled question from the [decision issue form](../../.github/ISSUE_TEMPLATE/decision.yml) becomes an ADR here once it's answered. Number sequentially, never reuse or renumber; a reversal is a new ADR that supersedes the old one, not an edit to it.

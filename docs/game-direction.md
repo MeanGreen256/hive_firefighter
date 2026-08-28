@@ -113,10 +113,11 @@ new ADR says otherwise.
 
 ## Supported platforms
 
-Playable alpha is a **desktop web-browser** product: keyboard and a
-standard-mapping gamepad, landscape window, WebGL required. A virtual stick on
-phones and tablets is later, low-priority work — the same two inputs, not a new
-scheme — and does not block the alpha. See
+The game is **designed for a family laptop running Google Chrome**, with a
+keyboard or a standard-mapping gamepad. Edge is the same engine. Firefox and
+Safari desktop must not be broken; they are not the surface we compose against.
+A virtual stick on phones and tablets is later, low-priority work — the same
+two inputs, not a new scheme — and does not block the alpha. See
 [ADR-011](adr/011-supported-platform-matrix.md).
 
 Until that stick exists, a touch-primary device (phone or tablet without a

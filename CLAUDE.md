@@ -28,8 +28,9 @@ controls, content, UI, or milestones; it is the product-direction authority.
 - Design for ages 5+: mechanics must work without required reading, precise aim,
   resource arithmetic, lethal outcomes, or hard failure screens. The game must be
   completable with _move_ and _spray_ alone, on a gamepad, by a non-reader — see
-  ADR-007 for the full control floor. Playable alpha is a desktop web browser;
-  a phone/tablet virtual stick is later work, not an alpha gate — see ADR-011.
+  ADR-007 for the full control floor. Designed for a family laptop in Chrome
+  (keyboard or gamepad); a phone/tablet virtual stick is later work, not an
+  alpha gate — see ADR-011.
 - Free roam is a pillar, not transit. The city is worth driving around with nothing
   on fire; completing a call must leave an unlimited quiet-town interval until
   the player explicitly starts the queued next call. Never shorten or skip the
