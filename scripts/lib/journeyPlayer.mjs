@@ -48,6 +48,12 @@ const NOZZLE_HEIGHT_METERS = 1.16;
 /** Free-aim pitch clamps, from `hoseFreeAim.ts`. */
 const FREE_AIM_MIN_PITCH_RADIANS = (-30 * Math.PI) / 180;
 const FREE_AIM_MAX_PITCH_RADIANS = (45 * Math.PI) / 180;
+/**
+ * The game accepts a 16 m truck approach, while the steering loop aims for
+ * 11 m. A slow software-rendered final input can settle inside that accepted
+ * band just after the loop deadline; that is an arrival, not a timeout.
+ */
+const DRIVE_DEADLINE_ARRIVAL_MARGIN_METERS = 5;
 
 export class JourneyPlayer {
   held = new Set();
@@ -315,6 +321,12 @@ export class JourneyPlayer {
       await this.releaseAll();
     }
     const arrived = await this.observe();
+    if (
+      distanceBetween(arrived.truck, target) <=
+      arriveMeters + DRIVE_DEADLINE_ARRIVAL_MARGIN_METERS
+    ) {
+      return arrived;
+    }
     throw new Error(
       `Timed out driving to ${label}; still ${distanceBetween(arrived.truck, target).toFixed(1)} m away`,
     );

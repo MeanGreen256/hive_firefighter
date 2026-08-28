@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { StartupPhase, type StartupPhaseId } from '../state/rendererStatus';
-import { StartupFallback } from './StartupFallback';
-import { getStartupPresentation } from './startupState';
+import { ComputerPlayGate, StartupFallback } from './StartupFallback';
+import { COMPUTER_PLAY_PRESENTATION, getStartupPresentation } from './startupState';
 
 function render(phase: StartupPhaseId): string {
   return renderToStaticMarkup(<StartupFallback phase={phase} onRetry={vi.fn()} />);
@@ -66,5 +66,17 @@ describe('what a family is told instead of a blank page', () => {
       expect(html).not.toContain('.tsx');
       expect(html).not.toContain('http');
     }
+  });
+});
+
+describe('the computer-play card (ADR-011)', () => {
+  it('tells the adult to open a computer and does not offer a retry', () => {
+    const html = renderToStaticMarkup(<ComputerPlayGate />);
+
+    expect(html).toContain(COMPUTER_PLAY_PRESENTATION.message);
+    expect(html).toContain(COMPUTER_PLAY_PRESENTATION.glyph);
+    expect(html).not.toContain('aria-label="Try again"');
+    expect(html).not.toMatch(/hardware graphics/i);
+    expect(COMPUTER_PLAY_PRESENTATION.glyph).not.toMatch(/[a-z]/i);
   });
 });

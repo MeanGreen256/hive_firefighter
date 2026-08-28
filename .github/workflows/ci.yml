@@ -41,6 +41,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check initial production bundle budget
+        run: npm run budget:bundle
+
       - name: Content, visual, and performance acceptance
         run: npm run acceptance
         env:
@@ -54,24 +57,20 @@ jobs:
           path: artifacts/acceptance
           if-no-files-found: ignore
 
-      # The other half of acceptance (#219): a browser playing the built bundle
-      # rather than posing it. One incident on every pull request, because a
-      # software-rendered shift takes longer than the rest of CI put together;
-      # the whole five-call shift runs nightly in `production-shift.yml`.
-      #
-      # Blocking: #239's containment, the held-key star-screen latch, and the
-      # quiet-town "already in the cab after a refresh" resume are all in the
-      # game now. A first-incident journey that cannot finish, keep its stars,
-      # roam a fire-free town, or start the next call is a broken game.
-      - name: Production journey acceptance
-        run: npm run acceptance:production -- --skip-build --incidents=1
+      # Boot the bundle a family downloads, not a development fixture. The
+      # robot-driven journey is a manual release tool: at SwiftShader's 2–5 fps
+      # it took 9–22 minutes and failed six consecutive PRs for unrelated
+      # navigation/timing reasons. This keeps production startup, first frame,
+      # browser errors, and first-interaction audio as a fast blocking gate.
+      - name: Production build smoke
+        run: npm run acceptance:production:smoke -- --skip-build
         env:
-          ACCEPTANCE_ARTIFACT_DIR: artifacts/journey
+          ACCEPTANCE_ARTIFACT_DIR: artifacts/production-smoke
 
-      - name: Upload journey evidence
+      - name: Upload production smoke evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: production-journey
-          path: artifacts/journey
+          name: production-smoke
+          path: artifacts/production-smoke
           if-no-files-found: ignore

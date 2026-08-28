@@ -29,20 +29,23 @@ export async function availablePort() {
   return port;
 }
 
-export function chromeExecutable() {
-  const candidates = [
-    process.env.CHROME_PATH,
-    'google-chrome',
-    'google-chrome-stable',
-    'chromium',
-    'chromium-browser',
-  ].filter(Boolean);
+export function browserExecutable(candidates, label = 'Google Chrome or Chromium') {
   for (const candidate of candidates) {
     const result = spawnSync(candidate, ['--version'], { encoding: 'utf8', timeout: 5_000 });
     if (result.status === 0) return candidate;
   }
-  throw new Error(
-    'Browser acceptance requires Google Chrome or Chromium. Set CHROME_PATH to its executable; GitHub ubuntu-latest includes google-chrome.',
+  throw new Error(`Browser acceptance requires ${label}. Set BROWSER_PATH to its executable.`);
+}
+
+export function chromeExecutable() {
+  return browserExecutable(
+    [
+      process.env.CHROME_PATH,
+      'google-chrome',
+      'google-chrome-stable',
+      'chromium',
+      'chromium-browser',
+    ].filter(Boolean),
   );
 }
 

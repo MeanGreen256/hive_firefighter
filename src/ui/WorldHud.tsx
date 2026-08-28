@@ -88,6 +88,11 @@ export interface WorldHudProps {
    * play control — it lives in the closed grown-ups drawer.
    */
   readonly onResetProgress?: (() => void) | undefined;
+  /**
+   * Freezes the live fire until an adult (or the action button) resumes
+   * (#218). Grown-ups drawer only: a child must not be able to enter it.
+   */
+  readonly onPause?: (() => void) | undefined;
   readonly onNextCall?: () => void;
 }
 
@@ -124,6 +129,7 @@ export function WorldHud({
   nextCallAvailable = false,
   onRestartGuide,
   onResetProgress,
+  onPause,
   onNextCall,
 }: WorldHudProps) {
   const boardLabel = onFoot
@@ -238,7 +244,11 @@ export function WorldHud({
             WASD or arrows move. A gamepad stick is the same idea.
           </small>
         </p>
-        <GrownUpsSettings onRestartGuide={onRestartGuide} onResetProgress={onResetProgress} />
+        <GrownUpsSettings
+          onRestartGuide={onRestartGuide}
+          onResetProgress={onResetProgress}
+          onPause={onPause}
+        />
       </details>
     </div>
   );
@@ -258,9 +268,11 @@ const EFFECTS_LABELS: Readonly<Record<ReducedEffectsPreference, string>> = {
 function GrownUpsSettings({
   onRestartGuide,
   onResetProgress,
+  onPause,
 }: {
   readonly onRestartGuide?: (() => void) | undefined;
   readonly onResetProgress?: (() => void) | undefined;
+  readonly onPause?: (() => void) | undefined;
 }) {
   const styleId = useStore(styleStore, (state) => state.activeStyleId);
   const effectsPreference = useStore(vfxPreferenceStore, (state) => state.preference);
@@ -311,6 +323,16 @@ function GrownUpsSettings({
         </div>
       </fieldset>
       <VolumeControl />
+      {onPause ? (
+        <button
+          type="button"
+          className="world-hud__adults-action"
+          aria-label="Pause the game"
+          onClick={onPause}
+        >
+          <span aria-hidden="true">⏸</span> Pause
+        </button>
+      ) : null}
       {onRestartGuide ? (
         <button
           type="button"
