@@ -8,8 +8,10 @@ runs the same system.
 > loop and Harbour Hill's rotating five-call shifts are implemented. Real-child
 > observation remains an open acceptance gate for [M3](https://github.com/MeanGreen256/hive_firefighter/issues/101)
 > and [M4](https://github.com/MeanGreen256/hive_firefighter/issues/170); verified
-> hosting and the supported device matrix remain open work in
-> [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216) and
+> hosting remains open work in
+> [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216) (public
+> Vercel URL, anyone with the link; the project is not connected yet) and the
+> supported device matrix in
 > [#215](https://github.com/MeanGreen256/hive_firefighter/issues/215). See the
 > [roadmap](#roadmap) and GitHub issues for the live status.
 
@@ -101,10 +103,11 @@ in [`docs/m1-closeout.md`](docs/m1-closeout.md).
 
 Vite · TypeScript · Three.js via React Three Fiber · Zustand.
 
-There is no verified public deployment URL or pull-request preview service yet.
-Those are explicit owner-coordinated delivery work in
-[#216](https://github.com/MeanGreen256/hive_firefighter/issues/216); do not
-assume Vercel or any other host is connected.
+There is no verified playable URL yet. Production will be a **public Vercel
+deployment** — anyone with the link, no account — once an owner imports this
+repo in Vercel. Steps, rollback, and the blank to fill live in
+[`docs/hosting.md`](docs/hosting.md)
+([#216](https://github.com/MeanGreen256/hive_firefighter/issues/216)).
 
 One architectural rule worth stating up front: **the simulation never runs through React.** React owns the scene graph and the UI; the fire tick runs in plain modules with Zustand as the bridge. Re-rendering React at 10 Hz for sim state does not end well.
 
