@@ -18,6 +18,7 @@ See `docs/game-direction.md`, ADR-006, and ADR-007 for the control floor.
 - The gamepad half of the control floor (#106) — `gamepad.ts`
 - The wordless guided first quest (#107) — `onboardingSteps.ts`, `OnboardingCoach.tsx`
 - The permanent play HUD (#130) — `worldGuidance.ts`, `WorldHud.tsx`
+- Child-safe pause (#218) — `PauseOverlay.tsx`, grown-ups drawer only
 - Star debrief, retry, and personal bests (#96, #99)
 - Performance overlay (#4) — `J` in development
 - Quest telemetry (#130) — `K` in development
@@ -110,8 +111,11 @@ The words that help an adult and the volume mixer live in a `<details>` drawer
 that starts closed. A mixer is not part of playing, so `AudioControls` is the
 one-press icon on the panel and `VolumeControl` is the slider in the drawer.
 The same drawer is the grown-ups settings surface (#222): art-direction choice,
-reduced-effects preference, tutorial restart, and a confirm-before-reset for
-local progress. None of those are required to finish a quest. Movement accepts
+reduced-effects preference, tutorial restart, a confirm-before-reset for
+local progress, and the pause button (#218). None of those are required to
+finish a quest. Pause is not on the play bar, because a five-year-old must not
+be able to enter a modal by accident. The overlay it opens is dismissed by the
+existing action button. Movement accepts
 arrow keys as well as WASD; a gamepad stick is unchanged.
 
 Sound no longer waits to be found (#221). Browsers will not start audio without

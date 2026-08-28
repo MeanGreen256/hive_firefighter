@@ -422,4 +422,23 @@ describe('quest fire controller', () => {
     controller.restartWithNewSeed();
     expect(controller.getFire()?.state.seed).not.toBe(originalSeed);
   });
+
+  it('freezes the live fire while paused so a hidden tab cannot burn a street down (#218)', () => {
+    const controller = controllerFor('bakery-awning');
+    const before = controller.store.getState();
+    const burningBefore = controller.getLiveCellCounts().burning;
+
+    controller.setPaused(true);
+    expect(controller.advance(10)).toBe(0);
+    expect(controller.applyWater(`cell:${controller.getBurningCells()[0]?.cellId}`, 20)).toBeNull();
+    expect(controller.getLiveCellCounts().burning).toBe(burningBefore);
+    expect(controller.store.getState().elapsedSeconds).toBe(before.elapsedSeconds);
+    expect(controller.store.getState().burningCellCount).toBe(before.burningCellCount);
+
+    controller.setPaused(false);
+    let ticks = 0;
+    for (let step = 0; step < 8; step += 1) ticks += controller.advance(0.25);
+    expect(ticks).toBeGreaterThan(0);
+    expect(controller.store.getState().elapsedSeconds).toBeGreaterThan(before.elapsedSeconds);
+  });
 });

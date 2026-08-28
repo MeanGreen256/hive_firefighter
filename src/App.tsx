@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useStore } from 'zustand';
 import FollowCameraScene from '@render/FollowCameraScene';
 import QuestPreviewHarness from '@render/QuestPreviewHarness';
@@ -7,6 +7,7 @@ import { AppErrorBoundary } from '@ui/AppErrorBoundary';
 import { StartupFallback } from '@ui/StartupFallback';
 import { isQuestPreviewRequested } from './perf/questPreviewScene';
 import { reportGameObservation } from './state/gameObservation';
+import { playPause } from './state/playPause';
 import { questFireController } from './state/questFireController';
 import {
   GRAPHICS_RECOVERY_DELAY_MS,
@@ -36,22 +37,9 @@ export default function App() {
   return <Game />;
 }
 
-/** Whether anybody is looking at this tab right now. */
-function usePageVisible(): boolean {
-  const [visible, setVisible] = useState(
-    () => typeof document === 'undefined' || document.visibilityState !== 'hidden',
-  );
-  useEffect(() => {
-    const sync = () => setVisible(document.visibilityState !== 'hidden');
-    document.addEventListener('visibilitychange', sync);
-    sync();
-    return () => document.removeEventListener('visibilitychange', sync);
-  }, []);
-  return visible;
-}
-
 function Game() {
   const status = useStore(rendererStatus.store);
+  const pageHidden = useStore(playPause.store, (state) => state.hidden);
 
   // Asked once, before the renderer is given a chance to fail in a way nobody
   // can read. A device without WebGL is not a crash and must not be reported
@@ -62,7 +50,7 @@ function Game() {
     }
   }, []);
 
-  const pageVisible = usePageVisible();
+  useEffect(() => playPause.attach(document, window), []);
 
   /**
    * A boot that never finishes is still a failure, and it is the one that
@@ -71,10 +59,10 @@ function Game() {
    * for why a hidden tab is not a failed one.
    */
   useEffect(() => {
-    if (!shouldTimeOutStartup(status.phase, pageVisible)) return;
+    if (!shouldTimeOutStartup(status.phase, !pageHidden)) return;
     const timer = setTimeout(() => rendererStatus.reportFailed(), STARTUP_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [pageVisible, status.phase, status.generation]);
+  }, [pageHidden, status.phase, status.generation]);
 
   /**
    * Nothing simulates behind a fallback.
