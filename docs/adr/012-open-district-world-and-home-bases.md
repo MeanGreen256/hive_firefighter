@@ -91,15 +91,16 @@ profile: Firehouse spawn, ten quiet seconds, then the first call.
 An authored district must provide its bounds, connected transition links,
 Firehouse metadata, roads, safe spawn, local Star Board placement, wardrobe
 placement, collision and camera data, both visual-style support, ambient-resource
-ownership, smoke sightlines, and a valid deterministic quest roster. Resource
+ownership, smoke sightlines, a valid deterministic five-incident local shift
+roster, and the content-preview data needed to inspect those incidents. Resource
 ownership must allow a district to load and unload without stale collision,
 render, audio, or fire resources.
 
 Implementation and CI must cover first entry; walking and driving across a
 boundary; leaving an active incident behind; the two-call district cycle;
 automatic ten-second dispatch; restart at the correct Firehouse; district-local
-boards; the global wardrobe; migration; and the invariant that only one fire is
-ever active.
+boards; the global wardrobe; migration; authored five-incident preview coverage;
+and the invariant that only one fire is ever active.
 
 ## Consequences
 
@@ -150,5 +151,7 @@ ever active.
   progression, and cosmetic-reward semantics.
 - [ADR-009](009-no-second-required-verb.md) — ordinary-ground traversal and no
   additional required control.
+- [ADR-010](010-interruption-recovery.md) — the single-district restart behavior
+  this decision supersedes for a multi-district world.
 - [`docs/game-direction.md`](../game-direction.md) — the product-direction
   contract this decision expands.
