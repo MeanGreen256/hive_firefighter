@@ -1,7 +1,8 @@
 # Production journey acceptance
 
-Issue #219. Everything else in CI proves the game is correct; this proves it can
-be played.
+Issue #219. The fast production smoke proves the shipped bundle boots on every
+pull request; this longer tool proves a browser robot can play a representative
+journey when a release or gameplay investigation needs that evidence.
 
 `npm run acceptance` opens `?previewQuest=…`, a development-only harness that
 poses each quest state for a screenshot, and `npm test` exercises the modules
@@ -13,6 +14,8 @@ fixtures pointing at the wrong quest.
 ## Commands
 
 ```sh
+npm run acceptance:production:smoke                # fast production boot gate
+npm run acceptance:production:smoke -- --skip-build
 npm run acceptance:production                      # a whole five-call shift
 npm run acceptance:production -- --incidents=1     # the first-play journey only
 npm run acceptance:production -- --skip-build      # reuse the existing dist/
@@ -72,11 +75,17 @@ a window and not a door:
 
 ## Frame rate is the constraint
 
-CI has no GPU. The game runs on Chrome's software rasterizer at a handful of
-frames a second, and two things follow:
+GitHub-hosted CI has no GPU. The game runs on Chrome's software rasterizer at a
+handful of frames a second, and two things follow:
 
-- A whole shift takes far longer than the rest of CI. Pull requests play the
-  first incident; `production-shift.yml` plays all five nightly and on demand.
+- A robot-driven incident took 9–22 minutes and failed six consecutive pull
+  requests for unrelated navigation, graphics-timing, refresh, and onboarding
+  reasons. Pull requests therefore run `acceptance:production:smoke`, which
+  checks the built entry point, real first frame, browser/network errors, and
+  first-interaction audio without navigating the district.
+- `production-shift.yml` keeps the full journey available on demand for release
+  candidates and investigations. It is not scheduled or merge-blocking until
+  the driver is deterministic.
 - Everything metered per frame has to be metered against the same ceiling as
   the simulation, or the game gets harder the slower the device. The hose used
   to take its water from the renderer's fiftieth-of-a-second frame clamp while
@@ -136,9 +145,10 @@ finished without the hose being on it.
   #133, #156, #170) need real, consented, anonymised child observation, and
   nothing here substitutes for them.
 
-Pull requests block on the first-incident journey (drive, douse, stars, quiet
-town, refresh, next call). The five-call roster blocks nightly. A refresh that
-puts the player back in the cab is a valid resume, not a reason to walk.
+Pull requests block on the production smoke, deterministic content/visual
+acceptance, unit tests, and the build/bundle gates. The robot journey is manual
+release evidence. A refresh that puts the player back in the cab is a valid
+resume, not a reason to walk.
 
 ## When it fails
 
