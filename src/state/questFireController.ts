@@ -119,6 +119,12 @@ export interface QuestFireController {
   readonly store: StoreApi<QuestFireSnapshot>;
   start(): void;
   stop(): void;
+  /**
+   * Freeze the live fire without tearing it down (#218). A hidden tab or an
+   * adult pause must not tick, spray, or catch up. `start()`/`stop()` still
+   * own whether the clock is wanted at all (quiet town, unmount).
+   */
+  setPaused(paused: boolean): void;
   /** Swap in a quest and light it. Safe to call while running. */
   setQuest(quest: QuestDefinition): void;
   restart(): void;
@@ -223,6 +229,8 @@ export function createQuestFireController(
     import.meta.env.DEV && (options.residualHotspotSpike ?? isResidualHotspotSpikeEnabled());
   let pendingSimulationEvents: QuestSimulationEvent[] = [];
   let animationFrameId: number | null = null;
+  let wantsClock = false;
+  let paused = false;
   const personalBests = createPersonalBestStore(
     options.personalBestStorage === undefined
       ? getBrowserPersonalBestStorage()
@@ -457,7 +465,13 @@ export function createQuestFireController(
     },
 
     applyWater: (targetId, litres) => {
-      if (!fire || !runner || litres <= 0 || store.getState().status !== SessionStatus.Active) {
+      if (
+        paused ||
+        !fire ||
+        !runner ||
+        litres <= 0 ||
+        store.getState().status !== SessionStatus.Active
+      ) {
         return null;
       }
       const hotspotId = targetId.startsWith('hotspot:') ? targetId.slice('hotspot:'.length) : null;
@@ -485,7 +499,7 @@ export function createQuestFireController(
     },
 
     advance: (rawElapsedSeconds) => {
-      if (!runner || store.getState().status !== SessionStatus.Active) return 0;
+      if (paused || !runner || store.getState().status !== SessionStatus.Active) return 0;
       const elapsed = Math.min(Math.max(rawElapsedSeconds, 0), MAX_ADVANCE_SECONDS);
       const startedAt = performance.now();
       const ticks = runner.advance(elapsed);
@@ -534,7 +548,8 @@ export function createQuestFireController(
     },
 
     start: () => {
-      if (animationFrameId !== null) return;
+      wantsClock = true;
+      if (paused || animationFrameId !== null) return;
       let previous = performance.now();
       const frame = (now: number) => {
         controller.advance((now - previous) / 1000);
@@ -545,9 +560,21 @@ export function createQuestFireController(
     },
 
     stop: () => {
+      wantsClock = false;
       if (animationFrameId === null) return;
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
+    },
+
+    setPaused: (next) => {
+      paused = next;
+      if (paused) {
+        if (animationFrameId === null) return;
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+        return;
+      }
+      if (wantsClock) controller.start();
     },
   };
 

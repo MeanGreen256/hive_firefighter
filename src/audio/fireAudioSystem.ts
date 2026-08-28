@@ -364,6 +364,28 @@ export function createFireAudioSystem(
       playNoiseBurst(1450, 0.09, 0.26);
       playNoiseBurst(2150, 0.11, 0.24, 0.13);
     },
+    /**
+     * A hidden tab or an adult pause must not keep the mix running (#218).
+     *
+     * Does not change `enabled`: the HUD should not think audio died. Coming
+     * back calls `resumePlayback`, which is not a new autoplay grant.
+     */
+    suspendPlayback: async (): Promise<void> => {
+      if (!context || context.state !== 'running') return;
+      try {
+        await context.suspend();
+      } catch {
+        // Already stopped, or the browser is about to freeze the page anyway.
+      }
+    },
+    resumePlayback: async (): Promise<void> => {
+      if (!context || context.state !== 'suspended') return;
+      try {
+        await context.resume();
+      } catch {
+        // No user activation; a silent continue is better than a prompt trap.
+      }
+    },
   };
 }
 

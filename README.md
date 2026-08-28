@@ -9,7 +9,8 @@ runs the same system.
 > observation remains an open acceptance gate for [M3](https://github.com/MeanGreen256/hive_firefighter/issues/101)
 > and [M4](https://github.com/MeanGreen256/hive_firefighter/issues/170); verified
 > hosting remains open work in
-> [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216). The
+> [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216) (public
+> Vercel URL, anyone with the link; the project is not connected yet). The
 > game is designed for a family laptop in Chrome (keyboard or gamepad). A
 > virtual stick for phones and tablets is later work —
 > [ADR-011](docs/adr/011-supported-platform-matrix.md). See the
@@ -91,6 +92,9 @@ Open them in a browser; they're self-contained pages.
 - **An ages 5+ control floor.** Two-input completion, automatic camera, assisted aim,
   no modal state, gamepad parity, and nothing that depends on reading. See
   [ADR-007](docs/adr/007-ages-5-plus-control-floor.md).
+- **Interruption recovery.** A hidden tab freezes the live fire; a refresh
+  restarts the same directed incident from authored ignition and puts the player
+  back where they were. See [ADR-010](docs/adr/010-interruption-recovery.md).
 - **Family laptop in Chrome; phone and tablet stick later.** Designed for
   Chrome on a Windows or Mac laptop, keyboard or a standard-mapping gamepad.
   Edge rides along as the same engine. Firefox and Safari desktop stay
@@ -110,10 +114,11 @@ in [`docs/m1-closeout.md`](docs/m1-closeout.md).
 
 Vite · TypeScript · Three.js via React Three Fiber · Zustand.
 
-There is no verified public deployment URL or pull-request preview service yet.
-Those are explicit owner-coordinated delivery work in
-[#216](https://github.com/MeanGreen256/hive_firefighter/issues/216); do not
-assume Vercel or any other host is connected.
+There is no verified playable URL yet. Production will be a **public Vercel
+deployment** — anyone with the link, no account — once an owner imports this
+repo in Vercel. Steps, rollback, and the blank to fill live in
+[`docs/hosting.md`](docs/hosting.md)
+([#216](https://github.com/MeanGreen256/hive_firefighter/issues/216)).
 
 One architectural rule worth stating up front: **the simulation never runs through React.** React owns the scene graph and the UI; the fire tick runs in plain modules with Zustand as the bridge. Re-rendering React at 10 Hz for sim state does not end well.
 

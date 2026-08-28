@@ -98,6 +98,12 @@ export interface GameObservation {
    * looking at the fallback rather than at the town.
    */
   readonly renderer: string;
+  /**
+   * Whether the live fire and movement are frozen (#218). A hidden tab is
+   * silent; an adult pause is the overlay a grown-up asked for.
+   */
+  readonly paused: boolean;
+  readonly pauseReason: 'none' | 'hidden' | 'adult';
 }
 
 const INITIAL: GameObservation = {
@@ -137,6 +143,8 @@ const INITIAL: GameObservation = {
   unlockedRewardCount: 0,
   audio: { enabled: false, muted: false, gestureRequired: false },
   renderer: 'starting',
+  paused: false,
+  pauseReason: 'none',
 };
 
 let observation: GameObservation = INITIAL;

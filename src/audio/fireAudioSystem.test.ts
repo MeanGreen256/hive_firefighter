@@ -51,8 +51,8 @@ function createRunningContextDouble(targetGains: number[]): AudioContext {
     start: () => undefined,
   });
 
-  return {
-    state: 'running',
+  const context = {
+    state: 'running' as AudioContextState,
     currentTime: 0,
     sampleRate: 10,
     destination: createNode(),
@@ -63,8 +63,15 @@ function createRunningContextDouble(targetGains: number[]): AudioContext {
     createBuffer: (_channels: number, frames: number) => ({
       getChannelData: () => new Float32Array(frames),
     }),
-    resume: async () => undefined,
-  } as unknown as AudioContext;
+    resume: async () => {
+      context.state = 'running';
+    },
+    suspend: async () => {
+      context.state = 'suspended';
+    },
+  };
+
+  return context as unknown as AudioContext;
 }
 
 describe('fire audio autoplay guard', () => {
@@ -186,6 +193,18 @@ describe('remembered audio preferences', () => {
 
     expect(() => audio.setMuted(true)).not.toThrow();
     expect(audio.store.getState().muted).toBe(true);
+  });
+
+  it('suspends a running mix without pretending audio was turned off (#218)', async () => {
+    const audio = createFireAudioSystem(() => createRunningContextDouble([]));
+    await expect(audio.enable()).resolves.toBe(true);
+    expect(audio.store.getState().enabled).toBe(true);
+
+    await audio.suspendPlayback();
+    expect(audio.store.getState().enabled).toBe(true);
+
+    await audio.resumePlayback();
+    expect(audio.store.getState().enabled).toBe(true);
   });
 
   it('writes one versioned record rather than a bare value', () => {

@@ -29,6 +29,19 @@ import {
 } from '../state/questDirector';
 import { getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
 import { progressProfileStore } from '../state/progressProfile';
+import {
+  isSimulationFrozen,
+  pauseReasonFor,
+  playPause,
+  shouldShowPauseOverlay,
+} from '../state/playPause';
+import {
+  clearSessionPlacement,
+  createSessionPlacement,
+  getBrowserSessionPlacementStorage,
+  loadSessionPlacement,
+  saveSessionPlacement,
+} from '../state/sessionPlacement';
 import { getBrowserPersonalBestStorage, PERSONAL_BESTS_STORAGE_KEY } from '../state/personalBests';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
@@ -42,6 +55,7 @@ import {
 import { DevTelemetry } from '@ui/DevTelemetry';
 import { OnboardingCoach } from '@ui/OnboardingCoach';
 import { WorldHud } from '@ui/WorldHud';
+import { PauseOverlay } from '@ui/PauseOverlay';
 import { ApproachBand, getApproachBand, getFireBand, type ApproachBandId } from '@ui/worldGuidance';
 import { onboardingGuide, type OnboardingWorldSample } from '../state/onboardingGuide';
 import { installGameObservation, reportGameObservation } from '../state/gameObservation';
@@ -113,6 +127,10 @@ const PERFORMANCE_SCENE = import.meta.env.DEV
  * reached. Ordinary play always reads the authored district shift.
  */
 const SHIFT_ORDER = PERFORMANCE_SCENE ? getPerformanceBenchmarkShiftOrder() : QUEST_SHIFT_ORDER;
+const SESSION_PLACEMENT_STORAGE = PERFORMANCE_SCENE ? null : getBrowserSessionPlacementStorage();
+const RESTORED_PLACEMENT = PERFORMANCE_SCENE
+  ? null
+  : loadSessionPlacement(SESSION_PLACEMENT_STORAGE);
 function initialDirectorSlot(): number {
   return PERFORMANCE_SCENE ? getPerformanceSceneIncident(PERFORMANCE_SCENE).slot : 0;
 }
@@ -252,6 +270,8 @@ interface GameWorldProps {
   readonly performanceScene: PerformanceAcceptanceScene | null;
   readonly quietTown: boolean;
   readonly onNextCallRangeChange: (available: boolean) => void;
+  readonly playFrozen: boolean;
+  readonly restoredPlacement: ReturnType<typeof loadSessionPlacement>;
 }
 
 export interface ApproachSample {
@@ -275,6 +295,8 @@ function GameWorld({
   performanceScene,
   quietTown,
   onNextCallRangeChange,
+  playFrozen,
+  restoredPlacement,
 }: GameWorldProps) {
   const collisionRoot = useRef<Group>(null);
   const hosePresentationRef = useRef(createHosePresentationState());
@@ -293,12 +315,19 @@ function GameWorld({
   const worldSamples = useRef(0);
   const lastApproachBand = useRef<ApproachBandId | null>(null);
   const telemetryElapsed = useRef(0);
+  const placementElapsed = useRef(0);
   const approachTruckPosition: readonly [number, number, number] = [activeQuestSite.x - 28, 0, 0];
   const incidentTruckPosition: readonly [number, number, number] = [
     activeQuestSite.x - 5,
     0,
     activeQuestSite.z + 9,
   ];
+  const restoredTruckPosition: readonly [number, number, number] | null = restoredPlacement
+    ? [restoredPlacement.truck.x, 0, restoredPlacement.truck.z]
+    : null;
+  const restoredPlayerPosition: readonly [number, number, number] | null = restoredPlacement
+    ? [restoredPlacement.player.x, 0, restoredPlacement.player.z]
+    : null;
 
   // A new quest starts the approach over, so the next sample always publishes.
   useEffect(() => {
@@ -312,7 +341,7 @@ function GameWorld({
     // foliage it passes, and startles birds off the roofs near it. Cosmetic
     // only — nothing scatters into a target, a counter, or an objective.
     const sirenSource = truckRef.current;
-    if (sirenOn && sirenSource) {
+    if (sirenOn && sirenSource && !playFrozen) {
       const pulsed = worldReactions.noteSiren(
         [sirenSource.position.x, sirenSource.position.y, sirenSource.position.z],
         clock.elapsedTime,
@@ -398,19 +427,35 @@ function GameWorld({
       spraying: firefighter?.userData.spraying === true,
     });
 
-    if (!onOnboardingSample) return;
-    const [startX, , startZ] = DISTRICT_LAYOUT.truckStart.position;
-    // Reported every sample; the guide decides what has changed and publishes
-    // to React only when the prompt itself does.
-    onOnboardingSample({
-      truckMovedMeters: Math.hypot(truck.position.x - startX, truck.position.z - startZ),
-      distanceToQuestMeters,
-      onFoot: mode === 'on-foot',
-      fireContactSeconds:
-        typeof firefighter?.userData.fireContactSeconds === 'number'
-          ? firefighter.userData.fireContactSeconds
-          : 0,
-    });
+    if (onOnboardingSample) {
+      const [startX, , startZ] = DISTRICT_LAYOUT.truckStart.position;
+      // Reported every sample; the guide decides what has changed and publishes
+      // to React only when the prompt itself does.
+      onOnboardingSample({
+        truckMovedMeters: Math.hypot(truck.position.x - startX, truck.position.z - startZ),
+        distanceToQuestMeters,
+        onFoot: mode === 'on-foot',
+        fireContactSeconds:
+          typeof firefighter?.userData.fireContactSeconds === 'number'
+            ? firefighter.userData.fireContactSeconds
+            : 0,
+      });
+    }
+
+    if (playFrozen || !SESSION_PLACEMENT_STORAGE) return;
+    placementElapsed.current += 0.1;
+    if (placementElapsed.current < 1) return;
+    placementElapsed.current = 0;
+    saveSessionPlacement(
+      SESSION_PLACEMENT_STORAGE,
+      createSessionPlacement(
+        mode,
+        { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
+        firefighter
+          ? { x: firefighter.position.x, z: firefighter.position.z, yaw: firefighter.rotation.y }
+          : { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
+      ),
+    );
   });
 
   return (
@@ -430,7 +475,7 @@ function GameWorld({
         visualStyle={visualStyle}
         bellUnlocked={starBoard.rewards.truckBell}
         stripeUnlocked={starBoard.rewards.truckStripe}
-        enabled={mode === 'driving'}
+        enabled={mode === 'driving' && !playFrozen}
         sirenOn={sirenOn}
         obstacles={DISTRICT_LAYOUT.obstacles}
         movementBounds={DISTRICT_LAYOUT.movementBounds}
@@ -439,12 +484,12 @@ function GameWorld({
             ? approachTruckPosition
             : performanceScene?.cameraStage === 'incident'
               ? incidentTruckPosition
-              : DISTRICT_LAYOUT.truckStart.position
+              : (restoredTruckPosition ?? DISTRICT_LAYOUT.truckStart.position)
         }
         initialYaw={
           performanceScene?.cameraStage === 'approach'
             ? -Math.PI / 2
-            : DISTRICT_LAYOUT.truckStart.yaw
+            : (restoredPlacement?.truck.yaw ?? DISTRICT_LAYOUT.truckStart.yaw)
         }
         speedRatioRef={truckSpeedRatio}
       />
@@ -454,7 +499,7 @@ function GameWorld({
         visualStyle={visualStyle}
         helmetBadgeUnlocked={starBoard.rewards.helmetBadge}
         shoulderPatchUnlocked={starBoard.rewards.firefighterPatch}
-        enabled={mode === 'on-foot'}
+        enabled={mode === 'on-foot' && !playFrozen}
         visible={mode === 'on-foot'}
         obstacles={DISTRICT_LAYOUT.obstacles}
         initialPosition={
@@ -462,14 +507,15 @@ function GameWorld({
             ? [activeQuestSite.x, 0, activeQuestSite.z + 10]
             : performanceScene?.cameraStage === 'approach'
               ? approachTruckPosition
-              : DISTRICT_LAYOUT.truckStart.position
+              : (restoredPlayerPosition ?? DISTRICT_LAYOUT.truckStart.position)
         }
+        initialYaw={restoredPlacement?.player.yaw ?? DISTRICT_LAYOUT.truckStart.yaw}
         movementBounds={DISTRICT_LAYOUT.movementBounds}
       />
       <AnchoredHoseEffects
         characterRef={firefighterRef}
         presentationRef={hosePresentationRef}
-        enabled={mode === 'on-foot'}
+        enabled={mode === 'on-foot' && !playFrozen}
         visualStyle={visualStyle}
         fire={questFireController}
         surfaces={WORLD_SURFACES}
@@ -522,7 +568,9 @@ function GameWorld({
 
 /** The shipped M3 drive, dismount, and hose-control game scene. */
 export default function FollowCameraScene() {
-  const [mode, setMode] = useState<PlayerMode>(PERFORMANCE_SCENE?.onFoot ? 'on-foot' : 'driving');
+  const [mode, setMode] = useState<PlayerMode>(
+    PERFORMANCE_SCENE?.onFoot ? 'on-foot' : (RESTORED_PLACEMENT?.mode ?? 'driving'),
+  );
   const [sirenOn, setSirenOn] = useState(true);
   const [canBoard, setCanBoard] = useState(false);
   const [canStartNextCall, setCanStartNextCall] = useState(false);
@@ -536,6 +584,9 @@ export default function FollowCameraScene() {
   const truckSpeedRatio = useRef(0);
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
   const progressProfile = useStore(progressProfileStore, (state) => state.profile);
+  const pauseState = useStore(playPause.store);
+  const frozen = isSimulationFrozen(pauseState);
+  const showPauseOverlay = shouldShowPauseOverlay(pauseState);
   const celebratedRewardIds = useRef(progressProfile.unlockedRewardIds);
   const celebratedShiftCount = useRef(progressProfile.completedShiftCount);
   const visualStyle = STYLES[activeStyleId];
@@ -777,6 +828,18 @@ export default function FollowCameraScene() {
     return () => questFireController.stop();
   }, [directedIncident.questId, directedIncident.seed, quietTown]);
 
+  useEffect(() => {
+    questFireController.setPaused(frozen);
+  }, [frozen]);
+
+  useEffect(() => {
+    if (frozen) {
+      void fireAudioSystem.suspendPlayback();
+      return;
+    }
+    void fireAudioSystem.resumePlayback();
+  }, [frozen]);
+
   const transitionPlayer = useCallback(() => {
     const truck = truckRef.current;
     const firefighter = firefighterRef.current;
@@ -804,6 +867,7 @@ export default function FollowCameraScene() {
   const toggleSiren = useCallback(() => setSirenOn((current) => !current), []);
   const resetProgress = useCallback(() => {
     progressProfileStore.getState().reset();
+    clearSessionPlacement(SESSION_PLACEMENT_STORAGE);
     try {
       getBrowserPersonalBestStorage()?.setItem(
         PERSONAL_BESTS_STORAGE_KEY,
@@ -821,6 +885,37 @@ export default function FollowCameraScene() {
     questFireController.restart();
     setQuestDirector(createQuestDirector(SHIFT_ORDER).start());
   }, []);
+
+  useEffect(() => {
+    if (PERFORMANCE_SCENE || !SESSION_PLACEMENT_STORAGE) return;
+    const flush = (): void => {
+      const truck = truckRef.current;
+      const firefighter = firefighterRef.current;
+      if (!truck) return;
+      saveSessionPlacement(
+        SESSION_PLACEMENT_STORAGE,
+        createSessionPlacement(
+          mode,
+          { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
+          firefighter
+            ? {
+                x: firefighter.position.x,
+                z: firefighter.position.z,
+                yaw: firefighter.rotation.y,
+              }
+            : { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
+        ),
+      );
+    };
+    const unsub = playPause.store.subscribe((state, previous) => {
+      if (state.hidden && !previous.hidden) flush();
+    });
+    window.addEventListener('pagehide', flush);
+    return () => {
+      unsub();
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [mode]);
 
   useEffect(() => {
     fireAudioSystem.setSirenActive(sirenOn);
@@ -902,6 +997,8 @@ export default function FollowCameraScene() {
       completedShiftCount: progressProfile.completedShiftCount,
       completedQuestCount: Object.keys(progressProfile.quests).length,
       unlockedRewardCount: progressProfile.unlockedRewardIds.length,
+      paused: frozen,
+      pauseReason: pauseReasonFor(pauseState),
     });
   }, [
     canBoard,
@@ -913,6 +1010,8 @@ export default function FollowCameraScene() {
     onboarding.step,
     progressProfile,
     quietTown,
+    frozen,
+    pauseState,
   ]);
   // Stars on the screen are the readable half of "you put the fire out" (#214).
   // Together with a real hit they are what finishes the guide; either alone
@@ -923,7 +1022,11 @@ export default function FollowCameraScene() {
   /** Keys physically down, kept across this effect's many re-subscriptions. */
   const keysDown = useRef<Set<string>>(new Set());
   const pressAction = useCallback(() => {
-    if (debriefOpen) return;
+    if (pauseState.adultPaused) {
+      playPause.resume();
+      return;
+    }
+    if (frozen || debriefOpen) return;
     const targetCaptured = firefighterRef.current?.userData.targetCaptured === true;
     if (quietTown && mode === 'on-foot' && canStartNextCall && !targetCaptured) {
       beginNextCall();
@@ -935,7 +1038,17 @@ export default function FollowCameraScene() {
       targetCaptured,
     });
     if (intent === 'transition') transitionPlayer();
-  }, [beginNextCall, canBoard, canStartNextCall, debriefOpen, mode, quietTown, transitionPlayer]);
+  }, [
+    beginNextCall,
+    canBoard,
+    canStartNextCall,
+    debriefOpen,
+    frozen,
+    mode,
+    pauseState.adultPaused,
+    quietTown,
+    transitionPlayer,
+  ]);
 
   useEffect(() => {
     /**
@@ -960,6 +1073,10 @@ export default function FollowCameraScene() {
       const key = event.key.toLowerCase();
       if (down.has(key)) return;
       down.add(key);
+      if (frozen) {
+        if (pauseState.adultPaused && key === ' ') pressAction();
+        return;
+      }
       if (key === ' ') {
         pressAction();
       } else if (key === 'e' && !debriefOpen && (mode === 'driving' || canBoard)) {
@@ -983,7 +1100,16 @@ export default function FollowCameraScene() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [canBoard, debriefOpen, mode, pressAction, toggleSiren, transitionPlayer]);
+  }, [
+    canBoard,
+    debriefOpen,
+    frozen,
+    mode,
+    pauseState.adultPaused,
+    pressAction,
+    toggleSiren,
+    transitionPlayer,
+  ]);
 
   // Gamepad parity (rule 5). The sticks are read inside the Canvas by whichever
   // controller is driving; the buttons that are not movement are read here,
@@ -998,6 +1124,10 @@ export default function FollowCameraScene() {
     let frameId = requestAnimationFrame(function poll() {
       const gamepad = firstConnectedGamepad();
       if (readPress(latches.action, isIntentHeld(gamepad, 'action'))) pressAction();
+      if (frozen) {
+        frameId = requestAnimationFrame(poll);
+        return;
+      }
       if (readPress(latches.board, isIntentHeld(gamepad, 'board'))) {
         if (!debriefOpen && (mode === 'driving' || canBoard)) transitionPlayer();
       }
@@ -1014,7 +1144,7 @@ export default function FollowCameraScene() {
       frameId = requestAnimationFrame(poll);
     });
     return () => cancelAnimationFrame(frameId);
-  }, [canBoard, debriefOpen, mode, pressAction, toggleSiren, transitionPlayer]);
+  }, [canBoard, debriefOpen, frozen, mode, pressAction, toggleSiren, transitionPlayer]);
 
   const sceneCssVariables: SceneCssVariables = {
     '--scene-saturation': visualStyle.postProcessing.saturation,
@@ -1056,6 +1186,8 @@ export default function FollowCameraScene() {
             performanceScene={PERFORMANCE_SCENE}
             quietTown={quietTown}
             onNextCallRangeChange={setCanStartNextCall}
+            playFrozen={frozen}
+            restoredPlacement={RESTORED_PLACEMENT}
           />
           <ContextLossGuard />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
@@ -1077,7 +1209,9 @@ export default function FollowCameraScene() {
         onNextCall={beginNextCall}
         onRestartGuide={restartOnboarding}
         onResetProgress={PERFORMANCE_SCENE ? undefined : resetProgress}
+        onPause={PERFORMANCE_SCENE ? undefined : () => playPause.pauseForAdult()}
       />
+      {showPauseOverlay ? <PauseOverlay onResume={() => playPause.resume()} /> : null}
       {/* Hidden behind the star screen: one thing to look at at a time. */}
       {debriefOpen || !teaching ? null : (
         <OnboardingCoach step={onboarding.step} onSkip={skipOnboarding} />

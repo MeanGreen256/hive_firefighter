@@ -9,6 +9,7 @@ import { ComputerPlayGate, StartupFallback } from '@ui/StartupFallback';
 import { detectTouchPrimarySurface, isComputerPlayKey } from '@ui/playSurface';
 import { isQuestPreviewRequested } from './perf/questPreviewScene';
 import { reportGameObservation } from './state/gameObservation';
+import { playPause } from './state/playPause';
 import { questFireController } from './state/questFireController';
 import {
   GRAPHICS_RECOVERY_DELAY_MS,
@@ -38,20 +39,6 @@ export default function App() {
   return <Game />;
 }
 
-/** Whether anybody is looking at this tab right now. */
-function usePageVisible(): boolean {
-  const [visible, setVisible] = useState(
-    () => typeof document === 'undefined' || document.visibilityState !== 'hidden',
-  );
-  useEffect(() => {
-    const sync = () => setVisible(document.visibilityState !== 'hidden');
-    document.addEventListener('visibilitychange', sync);
-    sync();
-    return () => document.removeEventListener('visibilitychange', sync);
-  }, []);
-  return visible;
-}
-
 function Game() {
   const status = useStore(rendererStatus.store);
   const [needsComputer, setNeedsComputer] = useState(() => {
@@ -59,6 +46,7 @@ function Game() {
     if (firstConnectedGamepad()) return false;
     return detectTouchPrimarySurface(window.matchMedia.bind(window));
   });
+  const pageHidden = useStore(playPause.store, (state) => state.hidden);
 
   // Asked once, before the renderer is given a chance to fail in a way nobody
   // can read. A device without WebGL is not a crash and must not be reported
@@ -69,7 +57,7 @@ function Game() {
     }
   }, []);
 
-  const pageVisible = usePageVisible();
+  useEffect(() => playPause.attach(document, window), []);
 
   /**
    * A phone or tablet without a mouse, before the virtual stick exists
@@ -98,10 +86,10 @@ function Game() {
    */
   useEffect(() => {
     if (needsComputer) return;
-    if (!shouldTimeOutStartup(status.phase, pageVisible)) return;
+    if (!shouldTimeOutStartup(status.phase, !pageHidden)) return;
     const timer = setTimeout(() => rendererStatus.reportFailed(), STARTUP_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [needsComputer, pageVisible, status.phase, status.generation]);
+  }, [needsComputer, pageHidden, status.phase, status.generation]);
 
   /**
    * Nothing simulates behind a fallback.

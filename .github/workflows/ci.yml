@@ -41,6 +41,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check initial production bundle budget
+        run: npm run budget:bundle
+
       - name: Content, visual, and performance acceptance
         run: npm run acceptance
         env:
