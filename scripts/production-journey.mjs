@@ -69,6 +69,12 @@ const HOSE_REACH_METERS = 9;
 const DEFAULT_SETTLE_SECONDS = 10;
 /** Seconds of fighting one incident gets, before the settle grace above. */
 const DEFAULT_INCIDENT_SECONDS = 600;
+/**
+ * Software WebGL can defer the context-lost event while its driver drains a
+ * frame. The recovered canvas is still a strong signal that it happened, so
+ * give the notification the same patient window as the rebuild itself.
+ */
+const GRAPHICS_RECOVERY_TIMEOUT_MS = 45_000;
 
 const options = parseOptions(process.argv.slice(2));
 const problems = [];
@@ -135,6 +141,8 @@ function pageStateExpression() {
       fallbackRetries: document.querySelectorAll('.startup-fallback__retry').length,
       coachVisible: Boolean(coach),
       coachLabel: coach?.getAttribute('aria-label') ?? null,
+      pauseOverlay: Boolean(document.querySelector('.pause-overlay')),
+      pauseButton: Boolean(document.querySelector('[aria-label="Pause the game"]')),
       searchString: window.location.search
     };
   })()`;
@@ -234,7 +242,7 @@ async function extinguish(player, incident, index) {
   const fightDeadline = Date.now() + options.incidentSeconds * 1_000;
   let settleDeadline = null;
   let flamesOutAt = null;
-  let onTargetSamples = 0;
+  let wateredBurningCell = false;
 
   for (;;) {
     const now = Date.now();
@@ -269,7 +277,7 @@ async function extinguish(player, incident, index) {
       // out while the runner wandered would end on a star screen too, and that
       // is not what is being claimed here.
       check(
-        onTargetSamples >= 3,
+        wateredBurningCell,
         `incident ${index + 1} was fought with the hose rather than watched`,
       );
       return state;
@@ -277,7 +285,20 @@ async function extinguish(player, incident, index) {
 
     if (state.targetCaptured) {
       await player.hold([' ']);
-      if (state.spraying) onTargetSamples += 1;
+      // `state` was read before the key went down. On a software-rendered CI
+      // frame an extinguished one-cell fire can move directly to its stars
+      // before the next outer-loop sample, falsely claiming the runner only
+      // watched it. Wait for the rendered sample that says the held hose is
+      // actually hitting a burning cell instead.
+      const watering = await player
+        .waitFor(
+          'water to land on the burning fire',
+          (sample) =>
+            sample.starScreenOpen || (sample.spraying === true && sample.targetCaptured === true),
+          5_000,
+        )
+        .catch(() => null);
+      wateredBurningCell ||= Boolean(watering?.spraying && watering.targetCaptured);
       if (process.env.JOURNEY_TRACE === '1') {
         console.log(
           `    spray: ${state.burningCellCount} burning, ${state.heatingCellCount} heating`,
@@ -319,6 +340,111 @@ async function extinguish(player, incident, index) {
 }
 
 /**
+ * Hidden tabs and the adult pause must freeze the fire without trapping a child (#218).
+ *
+ * The runner cannot actually background this tab — Chrome would also freeze
+ * `requestAnimationFrame`, which would make "the fire stopped" indistinguishable
+ * from "the browser stopped". Spoofing `visibilityState` and dispatching the
+ * same event the browser sends is the device event, the same way graphics
+ * recovery stages `webglcontextlost`. Adult pause is a real click on the
+ * grown-ups control; resume is the same action button a child already has.
+ */
+async function checkInterruptionRecovery(player, session, sessionId) {
+  const before = await player.observe();
+  check(
+    !before.paused && before.pauseReason === 'none',
+    'the game is running when nobody asked it to stop',
+  );
+  const controls = await session.evaluate(pageStateExpression(), sessionId);
+  check(controls.pauseButton, 'pause lives in the grown-ups drawer of the production build');
+  check(!controls.pauseOverlay, 'nothing is paused at the start of a shift');
+
+  await session.evaluate(
+    `(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => 'hidden',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    })()`,
+    sessionId,
+  );
+  const hidden = await player.waitFor(
+    'a hidden tab to freeze the fire',
+    (state) => state.paused && state.pauseReason === 'hidden',
+    5_000,
+  );
+  check(
+    hidden.paused && hidden.pauseReason === 'hidden',
+    'a hidden tab is reported as hidden, not as an adult pause',
+  );
+  const hiddenPage = await session.evaluate(pageStateExpression(), sessionId);
+  check(!hiddenPage.pauseOverlay, 'a hidden tab does not trap the child behind a card');
+
+  const burning = hidden.burningCellCount;
+  const heating = hidden.heatingCellCount;
+  const samples = hidden.samples;
+  await wait(4_000);
+  const stillHidden = await player.observe();
+  check(
+    stillHidden.burningCellCount === burning && stillHidden.heatingCellCount === heating,
+    `a hidden tab does not advance the fire (${burning} burning, ${heating} heating, unchanged over 4 s)`,
+  );
+  check(
+    stillHidden.samples > samples,
+    'the page is still drawing while hidden — the fire is stopped, not the browser',
+  );
+
+  await session.evaluate(
+    `(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => 'visible',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    })()`,
+    sessionId,
+  );
+  await player.waitFor(
+    'the game to continue after looking again',
+    (state) => !state.paused && state.pauseReason === 'none',
+    5_000,
+  );
+
+  await session.evaluate(
+    `(() => {
+      document.querySelector('.world-hud__adults')?.setAttribute('open', '');
+      document.querySelector('[aria-label="Pause the game"]')?.click();
+    })()`,
+    sessionId,
+  );
+  const adult = await player.waitFor(
+    'an adult pause to freeze the fire',
+    (state) => state.paused && state.pauseReason === 'adult',
+    5_000,
+  );
+  check(adult.pauseReason === 'adult', 'a pause somebody pressed is reported as theirs');
+  const pausedPage = await session.evaluate(pageStateExpression(), sessionId);
+  check(pausedPage.pauseOverlay, 'the overlay only appears for an adult who asked');
+
+  await player.press(' ');
+  const resumed = await player.waitFor(
+    'the one action button to get a paused child playing again',
+    (state) => !state.paused,
+    5_000,
+  );
+  check(resumed.mode === before.mode, 'resuming does not also spend the press on something else');
+  await session.evaluate(
+    `(() => {
+      document.querySelector('.world-hud__adults')?.removeAttribute('open');
+    })()`,
+    sessionId,
+  );
+  const closed = await session.evaluate(pageStateExpression(), sessionId);
+  check(!closed.pauseOverlay, 'the overlay is gone once the fire is moving again');
+}
+
+/**
  * Take the graphics context away and see the game come back (#223).
  *
  * A lost WebGL context is something a device does to a page — a laptop waking
@@ -352,7 +478,11 @@ async function checkGraphicsRecovery(player, session, sessionId) {
   }
 
   const noticed = await player
-    .waitFor('the game to notice the picture went', (state) => state.renderer !== 'running', 5_000)
+    .waitFor(
+      'the game to notice the picture went',
+      (state) => state.renderer !== 'running',
+      GRAPHICS_RECOVERY_TIMEOUT_MS,
+    )
     .catch(() => null);
   check(
     noticed !== null,
@@ -360,7 +490,11 @@ async function checkGraphicsRecovery(player, session, sessionId) {
   );
 
   const recovered = await player
-    .waitFor('the picture to come back', (state) => state.renderer === 'running', 45_000)
+    .waitFor(
+      'the picture to come back',
+      (state) => state.renderer === 'running',
+      GRAPHICS_RECOVERY_TIMEOUT_MS,
+    )
     .catch(() => null);
   check(recovered !== null, 'the game rebuilds itself after the graphics context comes back');
   if (recovered === null) return;
@@ -614,6 +748,7 @@ try {
   }
 
   await checkGraphicsRecovery(player, session, sessionId);
+  await checkInterruptionRecovery(player, session, sessionId);
 
   let refreshChecked = false;
   // Which incidents the shift actually dealt: #213's rotation claim is that a
@@ -647,8 +782,20 @@ try {
       session.resetDiagnostics();
       await session.command('Page.navigate', { url: `${baseUrl}/` }, sessionId);
       const resumed = await player.waitFor(
-        'the game to come back after a refresh',
-        (state) => state.samples > 0 && state.districtId !== '',
+        'the quiet town to come back after a refresh',
+        // A canvas sample proves that React Three Fiber has drawn, not that
+        // the saved director state has made it through React's effects. The
+        // next step drives to the firehouse, so beginning it during that
+        // short restore window can steer into the newly mounted incident
+        // rather than the quiet town that was saved. Wait for the child-facing
+        // state the refresh contract actually promises.
+        (state) =>
+          state.samples > 0 &&
+          state.districtId !== '' &&
+          state.quietTown &&
+          state.questId === null &&
+          state.burningCellCount === 0 &&
+          !state.paused,
         45_000,
       );
       check(

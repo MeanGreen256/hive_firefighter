@@ -5,7 +5,11 @@ import { ApproachBand, FireBand } from './worldGuidance';
 
 function renderQuietTown(
   nextCallAvailable: boolean,
-  extras: { onRestartGuide?: () => void; onResetProgress?: () => void } = {},
+  extras: {
+    onRestartGuide?: () => void;
+    onResetProgress?: () => void;
+    onPause?: () => void;
+  } = {},
 ): string {
   return renderToStaticMarkup(
     <WorldHud
@@ -23,6 +27,7 @@ function renderQuietTown(
       onNextCall={vi.fn()}
       onRestartGuide={extras.onRestartGuide}
       onResetProgress={extras.onResetProgress}
+      onPause={extras.onPause}
     />,
   );
 }
@@ -55,6 +60,15 @@ describe('WorldHud quiet town', () => {
     expect(drawer).toContain('Reset progress…');
     expect(drawer).not.toContain('Yes, erase stars');
     expect(html).not.toContain('world-hud__action world-hud__adults-action');
+  });
+
+  it('keeps pause in the grown-ups drawer, never on the play bar (#218)', () => {
+    const html = renderQuietTown(true, { onPause: vi.fn() });
+    const drawer = html.slice(html.indexOf('world-hud__adults'));
+    expect(drawer).toContain('aria-label="Pause the game"');
+    expect(html).not.toContain('world-hud__action world-hud__adults-action');
+    const playBar = html.slice(0, html.indexOf('world-hud__adults'));
+    expect(playBar).not.toContain('Pause the game');
   });
 
   it('labels trackpad and mouse hose aiming as optional on foot', () => {

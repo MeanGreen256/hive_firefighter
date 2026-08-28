@@ -65,6 +65,21 @@ paints one, so a game opened in a background tab sits at `starting` through no
 fault of its own. Running the clock there would tell a family the game could not
 start when it starts the moment they look at it.
 
+## Pause and interruption recovery
+
+`playPause.ts` is the policy for #218 and ADR-010. A hidden tab, `pagehide`, or
+Page Lifecycle `freeze` stops the live fire so a street cannot burn down while
+nobody is looking. That freeze is silent: there is no overlay, and coming back
+continues the same in-memory fire. Adult pause is a different door — it lives in
+the grown-ups drawer, shows a wordless card, and the existing action button
+dismisses it. It does not survive a refresh.
+
+`sessionPlacement.ts` stores the last truck and firefighter pose in session
+storage. It is not a fire checkpoint. A reload restores that pose and restarts
+the directed incident from authored ignition; the live cell grid stays in memory
+only. Closing the tab forgets the pose. Corrupt, oversized, or blocked storage
+falls back to the district spawn.
+
 ## Quest fire controller
 
 `questFireController.ts` is the M3 incident host (#91, #131, #135): one active
@@ -75,7 +90,9 @@ It drives itself with `requestAnimationFrame` and is started and stopped from a
 only the few numbers the HUD shows, and publishes only when one of them changes.
 
 A stall is capped rather than caught up on, so a backgrounded tab cannot come
-back to a city that burned down while nobody was watching. `applyWater` takes a
+back to a city that burned down while nobody was watching. `setPaused` is the
+explicit freeze for a hidden tab or an adult pause: `advance` and `applyWater`
+become no-ops and the animation loop does not run. `applyWater` takes a
 suppression target and returns the real `@sim/waterApplication` result. Fire
 targets address shell cells; a countdown adds its cylinder as another target,
 and water delivered to either cools a tank sharing that heat cell.

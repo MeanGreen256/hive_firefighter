@@ -89,6 +89,9 @@ Open them in a browser; they're self-contained pages.
 - **An ages 5+ control floor.** Two-input completion, automatic camera, assisted aim,
   no modal state, gamepad parity, and nothing that depends on reading. See
   [ADR-007](docs/adr/007-ages-5-plus-control-floor.md).
+- **Interruption recovery.** A hidden tab freezes the live fire; a refresh
+  restarts the same directed incident from authored ignition and puts the player
+  back where they were. See [ADR-010](docs/adr/010-interruption-recovery.md).
 - **Toy diorama is the primary art direction.** The live comparison kept cel-shaded ink as a supported secondary style for high-contrast play, regression testing, and marketing frames. See [ADR-002](docs/adr/002-art-direction.md) and the [M3 street-level benchmark](docs/art/m3-visual-benchmark.md).
 - **Cell-based fire simulation** as the core system, renderer-agnostic and data-driven.
 

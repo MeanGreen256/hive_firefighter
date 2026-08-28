@@ -19,6 +19,8 @@ describe('game observation window', () => {
     expect(observation.districtId).toBe('');
     expect(observation.questId).toBeNull();
     expect(observation.samples).toBe(0);
+    expect(observation.paused).toBe(false);
+    expect(observation.pauseReason).toBe('none');
   });
 
   it('lets the world and the scene publish their own fields without erasing each other', () => {
