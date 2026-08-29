@@ -35,9 +35,12 @@ without remounting the camera. Chase distance also reads the truck's normalized
 speed and pulls back modestly as it accelerates; shoulder distance ignores it.
 
 Optional collision input is another object ref whose descendants are camera
-obstacles. The rig raycasts from its damped target pivot to the desired camera
-position and shortens the boom before the first hit. A ground-height callback
-keeps the camera above terrain; flat ground at `y = 0` is the default.
+obstacles. The production scene and quest preview supply
+`CameraCollisionProxies` — authored boxes for buildings and solid props —
+instead of the rendered `CityDistrict` tree. Water is a movement edge, not a
+camera volume. The rig raycasts from its damped target pivot to the desired
+camera position and shortens the boom before the first hit. A ground-height
+callback keeps the camera above terrain; flat ground at `y = 0` is the default.
 
 The scene opens at `/`, and it is the only one. WASD or the left stick drives the
 truck; on foot, W/S moves relative to the firefighter and A/D turns them in place or

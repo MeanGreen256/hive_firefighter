@@ -30,6 +30,7 @@ import { AnchoredHoseEffects } from './AnchoredHoseEffects';
 import { WorldReactions } from './WorldReactionsLayer';
 import { PerformanceSampler } from './PerformanceSampler';
 import { CityDistrict } from './CityDistrict';
+import { CameraCollisionProxies } from './CameraCollisionProxies';
 import { ExteriorFire } from './ExteriorFire';
 import { ExteriorIncidentEffects } from './ExteriorIncidentEffects';
 import { SmokeBeacon } from './SmokeBeacon';
@@ -155,6 +156,7 @@ function PreviewWorld({
         orbitEnabled={false}
         speedRatio={truckSpeedRatio}
       />
+      <CameraCollisionProxies layout={layout} proxyRef={collisionRoot} />
       <ArcadeTruck
         targetRef={truckRef}
         visualStyle={visualStyle}
@@ -205,15 +207,13 @@ function PreviewWorld({
       />
       <SmokeBeacon controller={controller} target={beaconTarget} visualStyle={visualStyle} />
       <WaypointArrow subjectRef={target} target={beaconTarget} visualStyle={visualStyle} />
-      <group ref={collisionRoot}>
-        <CityDistrict
-          layout={layout}
-          visualStyle={visualStyle}
-          activeQuestSite={questSite}
-          incidentCameraActive={state.onFoot}
-          reactions={worldReactions}
-        />
-      </group>
+      <CityDistrict
+        layout={layout}
+        visualStyle={visualStyle}
+        activeQuestSite={questSite}
+        incidentCameraActive={state.onFoot}
+        reactions={worldReactions}
+      />
     </>
   );
 }

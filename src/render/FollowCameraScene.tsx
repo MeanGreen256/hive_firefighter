@@ -40,8 +40,11 @@ import {
   createSessionPlacement,
   getBrowserSessionPlacementStorage,
   loadSessionPlacement,
-  saveSessionPlacement,
 } from '../state/sessionPlacement';
+import {
+  createBrowserSessionPlacementSaveScheduler,
+  createSessionPlacementSaver,
+} from '../state/sessionPlacementSaver';
 import { getBrowserPersonalBestStorage, PERSONAL_BESTS_STORAGE_KEY } from '../state/personalBests';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
@@ -77,6 +80,7 @@ import { AmbientDistrict } from './AmbientDistrict';
 import { WorldReactions } from './WorldReactionsLayer';
 import { PerformanceSampler } from './PerformanceSampler';
 import { CityDistrict } from './CityDistrict';
+import { CameraCollisionProxies } from './CameraCollisionProxies';
 import { ExteriorFire } from './ExteriorFire';
 import { ExteriorIncidentEffects } from './ExteriorIncidentEffects';
 import { SmokeBeacon } from './SmokeBeacon';
@@ -315,7 +319,16 @@ function GameWorld({
   const worldSamples = useRef(0);
   const lastApproachBand = useRef<ApproachBandId | null>(null);
   const telemetryElapsed = useRef(0);
-  const placementElapsed = useRef(0);
+  const placementSaver = useMemo(
+    () =>
+      SESSION_PLACEMENT_STORAGE
+        ? createSessionPlacementSaver(
+            SESSION_PLACEMENT_STORAGE,
+            createBrowserSessionPlacementSaveScheduler(),
+          )
+        : null,
+    [],
+  );
   const approachTruckPosition: readonly [number, number, number] = [activeQuestSite.x - 28, 0, 0];
   const incidentTruckPosition: readonly [number, number, number] = [
     activeQuestSite.x - 5,
@@ -447,12 +460,8 @@ function GameWorld({
       });
     }
 
-    if (playFrozen || !SESSION_PLACEMENT_STORAGE) return;
-    placementElapsed.current += 0.1;
-    if (placementElapsed.current < 1) return;
-    placementElapsed.current = 0;
-    saveSessionPlacement(
-      SESSION_PLACEMENT_STORAGE,
+    if (playFrozen || !placementSaver) return;
+    placementSaver.note(
       createSessionPlacement(
         mode,
         { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
@@ -462,6 +471,41 @@ function GameWorld({
       ),
     );
   });
+
+  useEffect(() => {
+    if (!placementSaver) return undefined;
+
+    const flushLive = (): void => {
+      const liveTruck = truckRef.current;
+      const liveFirefighter = firefighterRef.current;
+      if (liveTruck) {
+        placementSaver.note(
+          createSessionPlacement(
+            mode,
+            { x: liveTruck.position.x, z: liveTruck.position.z, yaw: liveTruck.rotation.y },
+            liveFirefighter
+              ? {
+                  x: liveFirefighter.position.x,
+                  z: liveFirefighter.position.z,
+                  yaw: liveFirefighter.rotation.y,
+                }
+              : { x: liveTruck.position.x, z: liveTruck.position.z, yaw: liveTruck.rotation.y },
+          ),
+        );
+      }
+      placementSaver.flush();
+    };
+
+    const unsub = playPause.store.subscribe((state, previous) => {
+      if (state.hidden && !previous.hidden) flushLive();
+    });
+    window.addEventListener('pagehide', flushLive);
+    return () => {
+      unsub();
+      window.removeEventListener('pagehide', flushLive);
+      placementSaver.dispose();
+    };
+  }, [placementSaver, mode, truckRef, firefighterRef]);
 
   return (
     <>
@@ -475,6 +519,7 @@ function GameWorld({
         orbitEnabled={mode === 'driving'}
         speedRatio={truckSpeedRatio}
       />
+      <CameraCollisionProxies layout={DISTRICT_LAYOUT} proxyRef={collisionRoot} />
       <ArcadeTruck
         targetRef={truckRef}
         visualStyle={visualStyle}
@@ -546,15 +591,13 @@ function GameWorld({
         visualStyle={visualStyle}
       />
       <WaypointArrow subjectRef={activeTarget} target={beaconTarget} visualStyle={visualStyle} />
-      <group ref={collisionRoot}>
-        <CityDistrict
-          layout={DISTRICT_LAYOUT}
-          visualStyle={visualStyle}
-          activeQuestSite={activeQuestSite}
-          incidentCameraActive={mode === 'on-foot'}
-          reactions={worldReactions}
-        />
-      </group>
+      <CityDistrict
+        layout={DISTRICT_LAYOUT}
+        visualStyle={visualStyle}
+        activeQuestSite={activeQuestSite}
+        incidentCameraActive={mode === 'on-foot'}
+        reactions={worldReactions}
+      />
       <AmbientDistrict
         district={DISTRICT}
         visualStyle={visualStyle}
@@ -897,37 +940,6 @@ export default function FollowCameraScene() {
     questFireController.restart();
     setQuestDirector(createQuestDirector(SHIFT_ORDER).start());
   }, []);
-
-  useEffect(() => {
-    if (PERFORMANCE_SCENE || !SESSION_PLACEMENT_STORAGE) return;
-    const flush = (): void => {
-      const truck = truckRef.current;
-      const firefighter = firefighterRef.current;
-      if (!truck) return;
-      saveSessionPlacement(
-        SESSION_PLACEMENT_STORAGE,
-        createSessionPlacement(
-          mode,
-          { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
-          firefighter
-            ? {
-                x: firefighter.position.x,
-                z: firefighter.position.z,
-                yaw: firefighter.rotation.y,
-              }
-            : { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
-        ),
-      );
-    };
-    const unsub = playPause.store.subscribe((state, previous) => {
-      if (state.hidden && !previous.hidden) flush();
-    });
-    window.addEventListener('pagehide', flush);
-    return () => {
-      unsub();
-      window.removeEventListener('pagehide', flush);
-    };
-  }, [mode]);
 
   useEffect(() => {
     fireAudioSystem.setSirenActive(sirenOn);
