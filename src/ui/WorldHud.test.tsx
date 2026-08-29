@@ -4,7 +4,6 @@ import { WorldHud } from './WorldHud';
 import { ApproachBand, FireBand } from './worldGuidance';
 
 function renderQuietTown(
-  nextCallAvailable: boolean,
   extras: {
     onRestartGuide?: () => void;
     onResetProgress?: () => void;
@@ -23,8 +22,6 @@ function renderQuietTown(
       sirenOn={false}
       onToggleSiren={vi.fn()}
       quietTown
-      nextCallAvailable={nextCallAvailable}
-      onNextCall={vi.fn()}
       onRestartGuide={extras.onRestartGuide}
       onResetProgress={extras.onResetProgress}
       onPause={extras.onPause}
@@ -33,16 +30,19 @@ function renderQuietTown(
 }
 
 describe('WorldHud quiet town', () => {
-  it('removes fire guidance and shows a wordless next-call affordance', () => {
-    const html = renderQuietTown(true);
+  it('removes fire guidance and never offers a next-call picker', () => {
+    const html = renderQuietTown();
     expect(html).toContain('Quiet town — no active fire');
-    expect(html).toContain('aria-label="Start the next fire call"');
     expect(html).not.toContain('follow the smoke');
     expect(html).not.toContain('A big fire');
+    expect(html).not.toContain('world-hud__action--next-call');
+    expect(html).not.toContain('Start the next fire call');
+    expect(html).not.toContain('Visit the firehouse bell');
+    expect(html).not.toContain('Choose fire');
   });
 
   it('keeps the tutorial restart in the grown-ups drawer, not the play area (#214)', () => {
-    const html = renderQuietTown(true, { onRestartGuide: vi.fn() });
+    const html = renderQuietTown({ onRestartGuide: vi.fn() });
     expect(html).toContain('aria-label="Show the first-play guide again"');
     // Inside the closed `details`, so it is somewhere an adult goes looking and
     // a child does not meet, and it is never one of the play controls.
@@ -52,7 +52,7 @@ describe('WorldHud quiet town', () => {
   });
 
   it('keeps look, motion, and confirm-to-reset inside the grown-ups drawer (#222)', () => {
-    const html = renderQuietTown(true, { onResetProgress: vi.fn() });
+    const html = renderQuietTown({ onResetProgress: vi.fn() });
     const drawer = html.slice(html.indexOf('world-hud__adults'));
     expect(drawer).toContain('Use Toy diorama look');
     expect(drawer).toContain('Use Ink look');
@@ -63,7 +63,7 @@ describe('WorldHud quiet town', () => {
   });
 
   it('keeps pause in the grown-ups drawer, never on the play bar (#218)', () => {
-    const html = renderQuietTown(true, { onPause: vi.fn() });
+    const html = renderQuietTown({ onPause: vi.fn() });
     const drawer = html.slice(html.indexOf('world-hud__adults'));
     expect(drawer).toContain('aria-label="Pause the game"');
     expect(html).not.toContain('world-hud__action world-hud__adults-action');
@@ -72,20 +72,13 @@ describe('WorldHud quiet town', () => {
   });
 
   it('labels trackpad and mouse hose aiming as optional on foot', () => {
-    const html = renderQuietTown(true);
+    const html = renderQuietTown();
     expect(html).toContain('right-drag to fine-aim the hose');
     expect(html).toContain('both optional');
     expect(html).toContain('WASD or arrows move');
   });
 
   it('leaves the restart out entirely when nothing is offering one', () => {
-    expect(renderQuietTown(true)).not.toContain('Show the first-play guide again');
-  });
-
-  it('points to the firehouse without enabling a remote incident picker', () => {
-    const html = renderQuietTown(false);
-    expect(html).toContain('aria-label="Visit the firehouse bell"');
-    expect(html).toMatch(/world-hud__action--next-call" disabled=""/);
-    expect(html).not.toContain('Choose fire');
+    expect(renderQuietTown()).not.toContain('Show the first-play guide again');
   });
 });

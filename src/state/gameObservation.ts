@@ -54,7 +54,7 @@ export interface GameObservation {
   readonly questName: string;
   readonly questSiteId: string | null;
   readonly questSite: GameObservationPoint | null;
-  /** The firehouse star board: where the next call is started from (#212). */
+  /** The firehouse home base: safe spawn, local Star Board, and shared wardrobe. */
   readonly firehouse: GameObservationPoint;
   /** 1-based slot in the current five-call shift. */
   readonly slot: number;

@@ -12,6 +12,8 @@ import {
   getActiveQuestSite,
   getBuildingRect,
   getDistrict,
+  getFirehouseBuilding,
+  getFirehouseSpawn,
   getNextQuestIndex,
   getPropRect,
   getQuestSiteDistanceFromStart,
@@ -498,5 +500,37 @@ describe('one active quest at a time', () => {
       district.questSites[0],
     );
     expect(() => getActiveQuestSite(district, -1)).toThrow(RangeError);
+  });
+});
+
+describe('Firehouse home bases', () => {
+  it('authors a civic station, yard spawn, local board, and wardrobe', () => {
+    const district = validHarbourHill();
+    const building = getFirehouseBuilding(district);
+    expect(building.use).toBe('civic');
+    expect(getFirehouseSpawn(district)).toEqual(district.truckStart);
+    expect(district.firehouse.roadId).toBe('west-avenue');
+    expect(district.firehouse.starBoard).not.toEqual(district.firehouse.wardrobe);
+  });
+
+  it('rejects a Firehouse whose spawn is not on its named road', () => {
+    const stranded = cloneHarbourHill();
+    (stranded.firehouse as Record<string, unknown>).spawn = { x: 20, z: 20, yawDegrees: 0 };
+    stranded.truckStart = { x: 20, z: 20, yawDegrees: 0 };
+    expect(() => validateDistrictDefinition(stranded, 'stranded-station')).toThrow(
+      /firehouse\.spawn must sit on/,
+    );
+  });
+
+  it('rejects a wardrobe parked inside the station or out in the street', () => {
+    const inside = cloneHarbourHill();
+    (inside.firehouse as Record<string, unknown>).wardrobe = {
+      x: -18,
+      z: -18,
+      yawDegrees: 0,
+    };
+    expect(() => validateDistrictDefinition(inside, 'inside-wardrobe')).toThrow(
+      /wardrobe is inside the station/,
+    );
   });
 });

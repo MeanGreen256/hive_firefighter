@@ -95,7 +95,9 @@ space, `+x` east and `+z` south — not simulation cells.
 
 Each district declares:
 
-- a display `name`, playable `bounds`, and the `truckStart` pose;
+- a display `name`, playable `bounds`, the `truckStart` pose, and a `firehouse`
+  home base (ADR-012): civic `buildingId`, yard `spawn` matching `truckStart`,
+  nearby `roadId`, local `starBoard` placement, and a visible `wardrobe`;
 - `roads`, each an axis-aligned strip: the `axis` it runs along, its `offset` on
   the other axis, the `from`/`to` span, and a `width`;
 - `buildings` as footprints with a `use` (`house`, `shop`, `civic`, `workshop`,

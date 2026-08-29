@@ -2,6 +2,13 @@
   "name": "Harbour Hill",
   "bounds": { "minX": -64, "maxX": 64, "minZ": -64, "maxZ": 64 },
   "truckStart": { "x": -33, "z": -12, "yawDegrees": 180 },
+  "firehouse": {
+    "buildingId": "firehouse",
+    "spawn": { "x": -33, "z": -12, "yawDegrees": 180 },
+    "roadId": "west-avenue",
+    "starBoard": { "x": -18, "z": -12.36, "yawDegrees": 0 },
+    "wardrobe": { "x": -10.5, "z": -14, "yawDegrees": 90 }
+  },
   "roads": [
     {
       "id": "main-street",

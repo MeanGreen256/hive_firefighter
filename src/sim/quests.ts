@@ -417,6 +417,11 @@ export function hasQuest(questId: string): boolean {
   return CONTENT_BY_ID.has(questId);
 }
 
+/** Authored incidents that belong to one district's local Star Board. */
+export function getQuestsForDistrict(districtId: string): readonly QuestDefinition[] {
+  return QUESTS.filter((quest) => quest.districtId === districtId);
+}
+
 export function getQuestContent(questId: string): QuestContent {
   const content = CONTENT_BY_ID.get(questId);
   if (!content) throw new Error(`No quest is authored as ${JSON.stringify(questId)}`);

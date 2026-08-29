@@ -8,7 +8,7 @@ A browser-based, third-person arcade firefighting game for ages 5 and up, design
 around what a five- to seven-year-old can do. At most one quest incident is active at a time: follow the smoke, drive the
 firetruck to the location, dismount as one firefighter, point and hold the hose
 at visible exterior flames, earn 1–3 stars, then free-roam in a fire-free town
-until the player starts the already-determined next call at the station. Players
+until the already-determined next call dispatches automatically. Players
 never enter buildings. Read `docs/game-direction.md` before planning gameplay,
 controls, content, UI, or milestones; it is the product-direction authority.
 
@@ -33,7 +33,7 @@ controls, content, UI, or milestones; it is the product-direction authority.
   alpha gate — see ADR-011.
 - Free roam is a pillar, not transit. The city is worth driving around with nothing
   on fire; completing a call must leave an unlimited quiet-town interval until
-  the player explicitly starts the queued next call. Never shorten or skip the
+  the already-authored next call dispatches automatically. Never shorten or skip the
   drive to reach the fire faster.
 - The cell-based propagation model remains the technical core. Supporting code,
   including code under `src/sim/`, may change for exterior authoring and the new

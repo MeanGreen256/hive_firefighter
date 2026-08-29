@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getDistrict } from '@sim/districts';
+import { getQuestsForDistrict } from '@sim/quests';
 import { getQuestPresentation } from '@sim/quests';
 import { getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
 import {
@@ -8,6 +9,7 @@ import {
   FIREHOUSE_NEXT_CALL_RANGE_METERS,
   getFirehouseStarBoardPosition,
   isWithinFirehouseNextCallRange,
+  isWithinFirehouseWardrobeRange,
   type FirehouseProgressView,
 } from './firehouseStarBoard';
 
@@ -137,6 +139,13 @@ describe('Firehouse Star Board', () => {
     ).toBe(false);
   });
 
+  it('opens the wardrobe from a similarly forgiving station-yard range', () => {
+    const wardrobe = { x: -10.5, z: -14 };
+    expect(isWithinFirehouseWardrobeRange({ x: -10.5, z: -14 }, wardrobe)).toBe(true);
+    expect(isWithinFirehouseWardrobeRange({ x: -10.5 + 6, z: -14 }, wardrobe)).toBe(true);
+    expect(isWithinFirehouseWardrobeRange({ x: -10.5 + 6.01, z: -14 }, wardrobe)).toBe(false);
+  });
+
   it('rejects duplicate or unillustrated authored quest entries', () => {
     expect(() => buildFirehouseStarBoard(['meadow-picnic', 'meadow-picnic'], profile())).toThrow(
       /unique authored quest ids/,
@@ -144,5 +153,22 @@ describe('Firehouse Star Board', () => {
     expect(() => buildFirehouseStarBoard(['missing-quest'], profile())).toThrow(
       /no illustrated badge/,
     );
+  });
+
+  it('shows only the district’s own quests even when the profile holds foreign history', () => {
+    const districtIds = getQuestsForDistrict('harbour-hill').map((quest) => quest.id);
+    const board = buildFirehouseStarBoard(
+      districtIds,
+      profile({
+        quests: {
+          'meadow-picnic': { bestStars: 3, completedCount: 1 },
+          'other-district-blaze': { bestStars: 3, completedCount: 4 },
+        },
+      }),
+    );
+
+    expect(board.badges.every((badge) => districtIds.includes(badge.questId))).toBe(true);
+    expect(board.badges.some((badge) => badge.questId === 'other-district-blaze')).toBe(false);
+    expect(board.badges.find((badge) => badge.questId === 'meadow-picnic')?.stars).toBe(3);
   });
 });

@@ -70,4 +70,23 @@ describe('the one action button', () => {
       'spray',
     );
   });
+
+  it('opens the Firehouse wardrobe with the same action when nothing is burning', () => {
+    expect(
+      getActionIntent({
+        mode: 'on-foot',
+        canBoard: false,
+        targetCaptured: false,
+        canUseWardrobe: true,
+      }),
+    ).toBe('wardrobe');
+    expect(
+      getActionIntent({
+        mode: 'on-foot',
+        canBoard: true,
+        targetCaptured: true,
+        canUseWardrobe: true,
+      }),
+    ).toBe('spray');
+  });
 });

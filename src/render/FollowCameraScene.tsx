@@ -17,7 +17,7 @@ import {
   startAudioOnFirstInteraction,
 } from '../audio/audioActivation';
 import { DEFAULT_DISTRICT_ID, getDistrict, type DistrictQuestSite } from '@sim/districts';
-import { getQuest } from '@sim/quests';
+import { getQuest, getQuestsForDistrict } from '@sim/quests';
 import type { ShellPoint } from '@sim/exteriorShell';
 import { CellState } from '@sim/cellGrid';
 import { PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
@@ -30,6 +30,11 @@ import {
 import { getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
 import { progressProfileStore } from '../state/progressProfile';
 import {
+  resolveFirefighterCosmetics,
+  wardrobeLoadoutStore,
+  type FirefighterEquipSlot,
+} from '../state/wardrobeLoadout';
+import {
   isSimulationFrozen,
   pauseReasonFor,
   playPause,
@@ -39,7 +44,6 @@ import {
   clearSessionPlacement,
   createSessionPlacement,
   getBrowserSessionPlacementStorage,
-  loadSessionPlacement,
 } from '../state/sessionPlacement';
 import {
   createBrowserSessionPlacementSaveScheduler,
@@ -87,13 +91,15 @@ import { SmokeBeacon } from './SmokeBeacon';
 import { WaypointArrow } from './WaypointArrow';
 import { getBeaconTarget } from './questBeacon';
 import { FirefighterController } from './FirefighterController';
-import { FirehouseStarBoard } from './FirehouseStarBoardView';
+import { DistrictFirehouseHome } from './FirehouseStarBoardView';
 import { FollowCameraRig } from './FollowCameraRig';
 import { ArcadeTruck } from './ArcadeTruck';
 import { buildDistrictLayout } from './districtLayout';
 import {
   buildFirehouseStarBoard,
+  getFirehouseRestartSpawn,
   getFirehouseStarBoardPosition,
+  isWithinFirehouseWardrobeRange,
   type FirehouseStarBoardModel,
 } from './firehouseStarBoard';
 import { createHosePresentationState } from './hoseTargeting';
@@ -116,6 +122,8 @@ import { resolveGameplayDpr } from './renderResolution';
 const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
 const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
 const FIREHOUSE_BOARD_POSITION = getFirehouseStarBoardPosition(DISTRICT);
+const FIREHOUSE_SPAWN = getFirehouseRestartSpawn(DISTRICT);
+const DISTRICT_QUEST_IDS = getQuestsForDistrict(DISTRICT.id).map((quest) => quest.id);
 /** What the hose can land on when nothing in front of the player is alight (#181). */
 const WORLD_SURFACES = buildWorldSurfaceIndex(DISTRICT_LAYOUT);
 /** Where the siren has an audience worth hearing scatter. */
@@ -132,9 +140,6 @@ const PERFORMANCE_SCENE = import.meta.env.DEV
  */
 const SHIFT_ORDER = PERFORMANCE_SCENE ? getPerformanceBenchmarkShiftOrder() : QUEST_SHIFT_ORDER;
 const SESSION_PLACEMENT_STORAGE = PERFORMANCE_SCENE ? null : getBrowserSessionPlacementStorage();
-const RESTORED_PLACEMENT = PERFORMANCE_SCENE
-  ? null
-  : loadSessionPlacement(SESSION_PLACEMENT_STORAGE);
 function initialDirectorSlot(): number {
   return PERFORMANCE_SCENE ? getPerformanceSceneIncident(PERFORMANCE_SCENE).slot : 0;
 }
@@ -268,6 +273,7 @@ interface GameWorldProps {
   readonly firefighterRef: RefObject<Group | null>;
   readonly truckSpeedRatio: RefObject<number>;
   readonly onBoardingRangeChange: (canBoard: boolean) => void;
+  readonly onWardrobeRangeChange: (inRange: boolean) => void;
   /** Null once the player has been taught, so nothing is sampled for nobody. */
   readonly onOnboardingSample: ((sample: OnboardingWorldSample) => void) | null;
   readonly onApproachChange: (approach: ApproachSample) => void;
@@ -275,7 +281,9 @@ interface GameWorldProps {
   readonly quietTown: boolean;
   readonly onQuietTownSecondsElapsed: (seconds: number) => void;
   readonly playFrozen: boolean;
-  readonly restoredPlacement: ReturnType<typeof loadSessionPlacement>;
+  readonly wardrobeInRange: boolean;
+  readonly equippedFirefighter: ReturnType<typeof resolveFirefighterCosmetics>;
+  readonly wardrobeSlot: FirefighterEquipSlot;
 }
 
 export interface ApproachSample {
@@ -294,13 +302,16 @@ function GameWorld({
   firefighterRef,
   truckSpeedRatio,
   onBoardingRangeChange,
+  onWardrobeRangeChange,
   onOnboardingSample,
   onApproachChange,
   performanceScene,
   quietTown,
   onQuietTownSecondsElapsed,
   playFrozen,
-  restoredPlacement,
+  wardrobeInRange,
+  equippedFirefighter,
+  wardrobeSlot,
 }: GameWorldProps) {
   const collisionRoot = useRef<Group>(null);
   const hosePresentationRef = useRef(createHosePresentationState());
@@ -314,6 +325,7 @@ function GameWorld({
   );
   const scorchRinse = useMemo(() => createScorchRinseField(), []);
   const lastCanBoard = useRef(false);
+  const lastWardrobeInRange = useRef(false);
   const quietTownElapsed = useRef(0);
   const boardingCheckElapsed = useRef(0);
   const worldSamples = useRef(0);
@@ -335,12 +347,6 @@ function GameWorld({
     0,
     activeQuestSite.z + 9,
   ];
-  const restoredTruckPosition: readonly [number, number, number] | null = restoredPlacement
-    ? [restoredPlacement.truck.x, 0, restoredPlacement.truck.z]
-    : null;
-  const restoredPlayerPosition: readonly [number, number, number] | null = restoredPlacement
-    ? [restoredPlacement.player.x, 0, restoredPlacement.player.z]
-    : null;
 
   // A new quest starts the approach over, so the next sample always publishes.
   useEffect(() => {
@@ -395,6 +401,14 @@ function GameWorld({
     if (canBoard !== lastCanBoard.current) {
       lastCanBoard.current = canBoard;
       onBoardingRangeChange(canBoard);
+    }
+    const canUseWardrobe =
+      mode === 'on-foot' &&
+      firefighter !== null &&
+      isWithinFirehouseWardrobeRange(firefighter.position, DISTRICT.firehouse.wardrobe);
+    if (canUseWardrobe !== lastWardrobeInRange.current) {
+      lastWardrobeInRange.current = canUseWardrobe;
+      onWardrobeRangeChange(canUseWardrobe);
     }
 
     // The HUD and the coach both read the world at the same 10 Hz the boarding
@@ -534,12 +548,10 @@ function GameWorld({
             ? approachTruckPosition
             : performanceScene?.cameraStage === 'incident'
               ? incidentTruckPosition
-              : (restoredTruckPosition ?? DISTRICT_LAYOUT.truckStart.position)
+              : FIREHOUSE_SPAWN.position
         }
         initialYaw={
-          performanceScene?.cameraStage === 'approach'
-            ? -Math.PI / 2
-            : (restoredPlacement?.truck.yaw ?? DISTRICT_LAYOUT.truckStart.yaw)
+          performanceScene?.cameraStage === 'approach' ? -Math.PI / 2 : FIREHOUSE_SPAWN.yaw
         }
         speedRatioRef={truckSpeedRatio}
       />
@@ -547,8 +559,8 @@ function GameWorld({
         targetRef={firefighterRef}
         hosePresentationRef={hosePresentationRef}
         visualStyle={visualStyle}
-        helmetBadgeUnlocked={starBoard.rewards.helmetBadge}
-        shoulderPatchUnlocked={starBoard.rewards.firefighterPatch}
+        helmetBadgeUnlocked={equippedFirefighter.helmet}
+        shoulderPatchUnlocked={equippedFirefighter.patch}
         enabled={mode === 'on-foot' && !playFrozen}
         visible={mode === 'on-foot'}
         obstacles={DISTRICT_LAYOUT.obstacles}
@@ -557,9 +569,9 @@ function GameWorld({
             ? [activeQuestSite.x, 0, activeQuestSite.z + 10]
             : performanceScene?.cameraStage === 'approach'
               ? approachTruckPosition
-              : (restoredPlayerPosition ?? DISTRICT_LAYOUT.truckStart.position)
+              : FIREHOUSE_SPAWN.position
         }
-        initialYaw={restoredPlacement?.player.yaw ?? DISTRICT_LAYOUT.truckStart.yaw}
+        initialYaw={FIREHOUSE_SPAWN.yaw}
         movementBounds={DISTRICT_LAYOUT.movementBounds}
       />
       <AnchoredHoseEffects
@@ -604,11 +616,12 @@ function GameWorld({
         listenerRef={activeTarget}
         reactions={worldReactions}
       />
-      <FirehouseStarBoard
+      <DistrictFirehouseHome
+        district={DISTRICT}
         model={starBoard}
-        position={FIREHOUSE_BOARD_POSITION}
         visualStyle={visualStyle}
-        nextCallAvailable={false}
+        wardrobeInRange={wardrobeInRange}
+        equipped={wardrobeSlot}
       />
     </>
   );
@@ -616,11 +629,10 @@ function GameWorld({
 
 /** The shipped M3 drive, dismount, and hose-control game scene. */
 export default function FollowCameraScene() {
-  const [mode, setMode] = useState<PlayerMode>(
-    PERFORMANCE_SCENE?.onFoot ? 'on-foot' : (RESTORED_PLACEMENT?.mode ?? 'driving'),
-  );
+  const [mode, setMode] = useState<PlayerMode>(PERFORMANCE_SCENE?.onFoot ? 'on-foot' : 'driving');
   const [sirenOn, setSirenOn] = useState(true);
   const [canBoard, setCanBoard] = useState(false);
+  const [wardrobeInRange, setWardrobeInRange] = useState(false);
   const [questDirector, setQuestDirector] = useState<QuestDirector>(initialQuestDirector);
   const [latestBadgeId, setLatestBadgeId] = useState<string | null>(initialLatestQuestBadge);
   const [stationCelebration, setStationCelebration] = useState<StationCelebrationNotice | null>(
@@ -631,6 +643,7 @@ export default function FollowCameraScene() {
   const truckSpeedRatio = useRef(0);
   const activeStyleId = useStore(styleStore, (state) => state.activeStyleId);
   const progressProfile = useStore(progressProfileStore, (state) => state.profile);
+  const wardrobeLoadout = useStore(wardrobeLoadoutStore, (state) => state.loadout);
   const pauseState = useStore(playPause.store);
   const frozen = isSimulationFrozen(pauseState);
   const showPauseOverlay = shouldShowPauseOverlay(pauseState);
@@ -701,19 +714,19 @@ export default function FollowCameraScene() {
     );
   }, [questDirector]);
   const fireSnapshot = useStore(questFireController.store);
-  const shiftBadgeQuestIds = useMemo(
-    () => getQuestShiftSlots(SHIFT_ORDER, directedIncident.shift).map((slot) => slot.questId),
-    [directedIncident.shift],
-  );
   const starBoard = useMemo(
     () =>
       buildFirehouseStarBoard(
-        shiftBadgeQuestIds,
+        DISTRICT_QUEST_IDS,
         progressProfile,
         fireSnapshot.debrief?.scenarioId ?? latestBadgeId,
       ),
-    [fireSnapshot.debrief?.scenarioId, latestBadgeId, progressProfile, shiftBadgeQuestIds],
+    [fireSnapshot.debrief?.scenarioId, latestBadgeId, progressProfile],
   );
+  const equippedFirefighter = resolveFirefighterCosmetics(wardrobeLoadout, {
+    helmet: starBoard.rewards.helmetBadge,
+    patch: starBoard.rewards.firefighterPatch,
+  });
 
   // The controller supplies simulation outcomes; the director turns each one
   // into the completed → celebration lifecycle exactly once. Both contained
@@ -922,6 +935,7 @@ export default function FollowCameraScene() {
   const toggleSiren = useCallback(() => setSirenOn((current) => !current), []);
   const resetProgress = useCallback(() => {
     progressProfileStore.getState().reset();
+    wardrobeLoadoutStore.getState().reset();
     clearSessionPlacement(SESSION_PLACEMENT_STORAGE);
     try {
       getBrowserPersonalBestStorage()?.setItem(
@@ -1084,9 +1098,27 @@ export default function FollowCameraScene() {
       mode,
       canBoard,
       targetCaptured,
+      canUseWardrobe: wardrobeInRange,
     });
+    if (intent === 'wardrobe') {
+      wardrobeLoadoutStore.getState().cycleFirefighter({
+        helmet: starBoard.rewards.helmetBadge,
+        patch: starBoard.rewards.firefighterPatch,
+      });
+      return;
+    }
     if (intent === 'transition') transitionPlayer();
-  }, [canBoard, debriefOpen, frozen, mode, pauseState.adultPaused, transitionPlayer]);
+  }, [
+    canBoard,
+    debriefOpen,
+    frozen,
+    mode,
+    pauseState.adultPaused,
+    starBoard.rewards.firefighterPatch,
+    starBoard.rewards.helmetBadge,
+    transitionPlayer,
+    wardrobeInRange,
+  ]);
 
   useEffect(() => {
     /**
@@ -1219,13 +1251,16 @@ export default function FollowCameraScene() {
             firefighterRef={firefighterRef}
             truckSpeedRatio={truckSpeedRatio}
             onBoardingRangeChange={setCanBoard}
+            onWardrobeRangeChange={setWardrobeInRange}
             onOnboardingSample={teaching && !quietTown ? reportOnboarding : null}
             onApproachChange={setApproach}
             performanceScene={PERFORMANCE_SCENE}
             quietTown={quietTown}
             onQuietTownSecondsElapsed={advanceQuietTown}
             playFrozen={frozen}
-            restoredPlacement={RESTORED_PLACEMENT}
+            wardrobeInRange={wardrobeInRange}
+            equippedFirefighter={equippedFirefighter}
+            wardrobeSlot={wardrobeLoadout.firefighter}
           />
           <ContextLossGuard />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
