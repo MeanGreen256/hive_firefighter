@@ -11,7 +11,7 @@ const START = createSessionPlacement('driving', { x: 0, z: 0, yaw: 0 }, { x: 0, 
 
 function fixture() {
   let now = 0;
-  const queued: (() => void)[] = [];
+  const queued: { at: number; callback: () => void }[] = [];
   const storage: StorageLike & { writes: number } = {
     writes: 0,
     getItem: () => null,
@@ -22,11 +22,11 @@ function fixture() {
   const scheduler: SessionPlacementSaveScheduler = {
     now: () => now,
     defer: (callback) => {
-      queued.push(callback);
+      queued.push({ at: now, callback });
       return () => undefined;
     },
-    delay: (callback) => {
-      queued.push(callback);
+    delay: (callback, milliseconds) => {
+      queued.push({ at: now + milliseconds, callback });
       return () => undefined;
     },
   };
@@ -35,7 +35,9 @@ function fixture() {
     saver: createSessionPlacementSaver(storage, scheduler),
     advance: (milliseconds: number) => {
       now += milliseconds;
-      queued.splice(0).forEach((callback) => callback());
+      const due = queued.filter((entry) => entry.at <= now);
+      queued.splice(0, queued.length, ...queued.filter((entry) => entry.at > now));
+      due.forEach((entry) => entry.callback());
     },
   };
 }
@@ -58,6 +60,13 @@ describe('session placement saver', () => {
     const { saver, storage } = fixture();
     saver.note(START);
     saver.flush();
+    expect(storage.writes).toBe(1);
+  });
+
+  it('flushes a pending write on dispose so unmount cannot drop the last pose', () => {
+    const { saver, storage } = fixture();
+    saver.note(START);
+    saver.dispose();
     expect(storage.writes).toBe(1);
   });
 });

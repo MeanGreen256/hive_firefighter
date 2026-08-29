@@ -53,18 +53,22 @@ export function createSessionPlacementSaver(
     );
     cancel = remaining === 0 ? scheduler.defer(commit) : scheduler.delay(commit, remaining);
   };
+  const flush = () => {
+    cancel?.();
+    cancel = null;
+    commit();
+  };
   return {
     note: (placement) => {
       if (!materiallyChanged(pending ?? saved, placement)) return;
       pending = placement;
       schedule();
     },
-    flush: () => {
-      cancel?.();
-      cancel = null;
-      commit();
-    },
-    dispose: () => cancel?.(),
+    flush,
+    // Unmount and page-exit must not drop a dirty pose. Cancel-only dispose
+    // would lose the last few seconds of movement whenever React tore the
+    // world down without a separate flush.
+    dispose: flush,
   };
 }
 

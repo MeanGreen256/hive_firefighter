@@ -40,7 +40,6 @@ import {
   createSessionPlacement,
   getBrowserSessionPlacementStorage,
   loadSessionPlacement,
-  saveSessionPlacement,
 } from '../state/sessionPlacement';
 import {
   createBrowserSessionPlacementSaveScheduler,
@@ -473,7 +472,40 @@ function GameWorld({
     );
   });
 
-  useEffect(() => () => placementSaver?.dispose(), [placementSaver]);
+  useEffect(() => {
+    if (!placementSaver) return undefined;
+
+    const flushLive = (): void => {
+      const liveTruck = truckRef.current;
+      const liveFirefighter = firefighterRef.current;
+      if (liveTruck) {
+        placementSaver.note(
+          createSessionPlacement(
+            mode,
+            { x: liveTruck.position.x, z: liveTruck.position.z, yaw: liveTruck.rotation.y },
+            liveFirefighter
+              ? {
+                  x: liveFirefighter.position.x,
+                  z: liveFirefighter.position.z,
+                  yaw: liveFirefighter.rotation.y,
+                }
+              : { x: liveTruck.position.x, z: liveTruck.position.z, yaw: liveTruck.rotation.y },
+          ),
+        );
+      }
+      placementSaver.flush();
+    };
+
+    const unsub = playPause.store.subscribe((state, previous) => {
+      if (state.hidden && !previous.hidden) flushLive();
+    });
+    window.addEventListener('pagehide', flushLive);
+    return () => {
+      unsub();
+      window.removeEventListener('pagehide', flushLive);
+      placementSaver.dispose();
+    };
+  }, [placementSaver, mode, truckRef, firefighterRef]);
 
   return (
     <>
@@ -908,37 +940,6 @@ export default function FollowCameraScene() {
     questFireController.restart();
     setQuestDirector(createQuestDirector(SHIFT_ORDER).start());
   }, []);
-
-  useEffect(() => {
-    if (PERFORMANCE_SCENE || !SESSION_PLACEMENT_STORAGE) return;
-    const flush = (): void => {
-      const truck = truckRef.current;
-      const firefighter = firefighterRef.current;
-      if (!truck) return;
-      saveSessionPlacement(
-        SESSION_PLACEMENT_STORAGE,
-        createSessionPlacement(
-          mode,
-          { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
-          firefighter
-            ? {
-                x: firefighter.position.x,
-                z: firefighter.position.z,
-                yaw: firefighter.rotation.y,
-              }
-            : { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
-        ),
-      );
-    };
-    const unsub = playPause.store.subscribe((state, previous) => {
-      if (state.hidden && !previous.hidden) flush();
-    });
-    window.addEventListener('pagehide', flush);
-    return () => {
-      unsub();
-      window.removeEventListener('pagehide', flush);
-    };
-  }, [mode]);
 
   useEffect(() => {
     fireAudioSystem.setSirenActive(sirenOn);
