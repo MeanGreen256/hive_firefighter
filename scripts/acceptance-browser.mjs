@@ -53,6 +53,20 @@ function performanceSnapshotExpression() {
   })()`;
 }
 
+function renderResolutionExpression() {
+  return `(() => {
+    const canvas = document.querySelector('canvas');
+    const bounds = canvas?.getBoundingClientRect();
+    return {
+      devicePixelRatio: window.devicePixelRatio,
+      drawingWidth: canvas?.width ?? 0,
+      drawingHeight: canvas?.height ?? 0,
+      cssWidth: bounds?.width ?? 0,
+      cssHeight: bounds?.height ?? 0
+    };
+  })()`;
+}
+
 async function waitForFrame(session, sessionId, scenario) {
   const deadline = Date.now() + frameTimeoutMs;
   while (Date.now() < deadline) {
@@ -96,7 +110,11 @@ async function loadAcceptanceContracts() {
     server: { middlewareMode: true },
   });
   try {
-    return await server.ssrLoadModule('/src/perf/contentAcceptance.ts');
+    const [acceptance, resolution] = await Promise.all([
+      server.ssrLoadModule('/src/perf/contentAcceptance.ts'),
+      server.ssrLoadModule('/src/render/renderResolution.ts'),
+    ]);
+    return { ...acceptance, ...resolution };
   } finally {
     await server.close();
   }
@@ -169,6 +187,62 @@ try {
       sessionId,
     ),
   ]);
+
+  // A high-density laptop must not turn a 1080p CSS window into a 4K WebGL
+  // drawing buffer. Exercise the real Canvas at DPR 2 before the ordinary
+  // matrix resets the browser to the hosted-runner DPR (#260).
+  await session.command(
+    'Emulation.setDeviceMetricsOverride',
+    {
+      width: contracts.ACCEPTANCE_BUDGETS.viewportWidth,
+      height: contracts.ACCEPTANCE_BUDGETS.viewportHeight,
+      deviceScaleFactor: 2,
+      mobile: false,
+    },
+    sessionId,
+  );
+  session.resetDiagnostics();
+  await session.command(
+    'Page.navigate',
+    { url: `${baseUrl}${performanceMatrix[0].url}` },
+    sessionId,
+  );
+  await waitForPerformanceFrame(session, sessionId, performanceMatrix[0]);
+  const resolution = await session.evaluate(renderResolutionExpression(), sessionId);
+  const maxDrawingWidth = Math.ceil(resolution.cssWidth * contracts.MAX_GAMEPLAY_DPR);
+  const maxDrawingHeight = Math.ceil(resolution.cssHeight * contracts.MAX_GAMEPLAY_DPR);
+  if (resolution.devicePixelRatio < 1.9) {
+    throw new Error(
+      `High-density render check requested DPR 2 but observed ${resolution.devicePixelRatio}`,
+    );
+  }
+  if (
+    resolution.drawingWidth <= 0 ||
+    resolution.drawingHeight <= 0 ||
+    resolution.drawingWidth > maxDrawingWidth ||
+    resolution.drawingHeight > maxDrawingHeight
+  ) {
+    throw new Error(
+      `DPR ${resolution.devicePixelRatio} produced ${resolution.drawingWidth}x${resolution.drawingHeight} ` +
+        `drawing pixels for ${resolution.cssWidth}x${resolution.cssHeight} CSS pixels; ` +
+        `gameplay DPR must stay at or below ${contracts.MAX_GAMEPLAY_DPR}`,
+    );
+  }
+  if (session.errors.length > 0) throw new Error(session.errors.join('\n'));
+  process.stdout.write(
+    `High-density render cap passed: DPR ${resolution.devicePixelRatio}, ` +
+      `${resolution.drawingWidth}x${resolution.drawingHeight} drawing pixels.\n`,
+  );
+  await session.command(
+    'Emulation.setDeviceMetricsOverride',
+    {
+      width: contracts.ACCEPTANCE_BUDGETS.viewportWidth,
+      height: contracts.ACCEPTANCE_BUDGETS.viewportHeight,
+      deviceScaleFactor: 1,
+      mobile: false,
+    },
+    sessionId,
+  );
 
   for (const scenario of matrix) {
     const key = contracts.previewAcceptanceKey(scenario);
