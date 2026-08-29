@@ -41,7 +41,7 @@ import {
   browserTargetFromEnvironment,
   executableCandidatesForTarget,
 } from './lib/browserTargets.mjs';
-import { JourneyPlayer } from './lib/journeyPlayer.mjs';
+import { JourneyPlayer, quietTownTravelPlan } from './lib/journeyPlayer.mjs';
 
 const rootDirectory = fileURLToPath(new URL('..', import.meta.url));
 const artifactDirectory = process.env.ACCEPTANCE_ARTIFACT_DIR;
@@ -541,6 +541,25 @@ async function leaveTheStarScreen(player) {
 }
 
 /**
+ * A completed call leaves the firefighter beside the hose, not magically in
+ * the cab. Re-board with the same one action a child uses before asking the
+ * next call to be driven, while a refresh that already restored the cab stays
+ * a no-op.
+ */
+async function returnToCabForNextCall(player) {
+  const state = await player.observe();
+  if (quietTownTravelPlan(state) === 'drive') return state;
+  await player.walkTo(state.truck, { arriveMeters: 4, label: 'the fire truck between calls' });
+  await player.waitFor('the fire truck boarding range', (sample) => sample.canBoard, 5_000);
+  await player.press(' ');
+  return player.waitFor(
+    'the firefighter to board the truck',
+    (sample) => sample.mode === 'driving',
+    10_000,
+  );
+}
+
+/**
  * Free roam with nothing on fire, then verify the deterministic automatic
  * dispatch. The game must not hide a bell, menu, or extra input in the gap.
  */
@@ -804,7 +823,10 @@ try {
       );
     }
 
-    if (index === 1) {
+    const hasNextCall = index < options.incidents - 1;
+    if (hasNextCall) await returnToCabForNextCall(player);
+
+    if (index === 1 && hasNextCall) {
       check(
         quiet.districtId === 'harbour-hill' && quiet.districtCompletedQuestCount >= 2,
         'Harbour Hill keeps its own two completed station badges before travel',
@@ -825,7 +847,7 @@ try {
         (state) => !state.quietTown && state.questId !== null,
         QUIET_TOWN_DISPATCH_TIMEOUT_MS,
       );
-    } else if (index < options.incidents - 1) {
+    } else if (hasNextCall) {
       await roamUntilAutomaticDispatch(player, session, sessionId, index);
     }
   }
