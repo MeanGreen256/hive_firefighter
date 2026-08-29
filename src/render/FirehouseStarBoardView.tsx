@@ -9,7 +9,11 @@ import type {
   FirehouseStarBoardModel,
   QuestBadgeShape,
 } from './firehouseStarBoard';
-import { getFirehouseStarBoardPosition, getFirehouseWardrobePosition } from './firehouseStarBoard';
+import {
+  getFirehousePoseYawRadians,
+  getFirehouseStarBoardPosition,
+  getFirehouseWardrobePosition,
+} from './firehouseStarBoard';
 import type { FirefighterEquipSlot } from '../state/wardrobeLoadout';
 
 const BADGE_SPACING = 1.16;
@@ -471,17 +475,23 @@ export function DistrictFirehouseHome({
 }) {
   const boardPosition = getFirehouseStarBoardPosition(district);
   const wardrobePosition = getFirehouseWardrobePosition(district);
+  const boardYaw = getFirehousePoseYawRadians(district.firehouse.starBoard);
+  const wardrobeYaw = getFirehousePoseYawRadians(district.firehouse.wardrobe);
   return (
-    <group name={`firehouse-home:${district.id}`}>
-      <FirehouseStarBoard model={model} position={boardPosition} visualStyle={visualStyle} />
-      <FirehouseWardrobe
-        position={wardrobePosition}
-        visualStyle={visualStyle}
-        inRange={wardrobeInRange}
-        equipped={equipped}
-        helmetUnlocked={model.rewards.helmetBadge}
-        patchUnlocked={model.rewards.firefighterPatch}
-      />
+    <group key={district.id} name={`firehouse-home:${district.id}`}>
+      <group position={boardPosition} rotation={[0, boardYaw, 0]}>
+        <FirehouseStarBoard model={model} position={[0, 0, 0]} visualStyle={visualStyle} />
+      </group>
+      <group position={wardrobePosition} rotation={[0, wardrobeYaw, 0]}>
+        <FirehouseWardrobe
+          position={[0, 0, 0]}
+          visualStyle={visualStyle}
+          inRange={wardrobeInRange}
+          equipped={equipped}
+          helmetUnlocked={model.rewards.helmetBadge}
+          patchUnlocked={model.rewards.firefighterPatch}
+        />
+      </group>
     </group>
   );
 }

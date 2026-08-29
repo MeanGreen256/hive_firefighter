@@ -1,4 +1,4 @@
-import type { DistrictDefinition } from '@sim/districts';
+import type { DistrictDefinition, DistrictPose } from '@sim/districts';
 import { getQuestPresentation, type QuestBadgeShape } from '@sim/quests';
 import type { RewardId } from '../state/progressProfile';
 
@@ -146,6 +146,11 @@ export function getFirehouseWardrobePosition(
   return [pose.x, 0, pose.z];
 }
 
+/** District content uses degrees; Three's scene graph uses radians. */
+export function getFirehousePoseYawRadians(pose: DistrictPose): number {
+  return (pose.yawDegrees * Math.PI) / 180;
+}
+
 export function getFirehouseRestartSpawn(district: DistrictDefinition): {
   readonly position: readonly [number, number, number];
   readonly yaw: number;
@@ -153,6 +158,6 @@ export function getFirehouseRestartSpawn(district: DistrictDefinition): {
   const pose = district.firehouse.spawn;
   return {
     position: [pose.x, 0, pose.z],
-    yaw: (pose.yawDegrees * Math.PI) / 180,
+    yaw: getFirehousePoseYawRadians(pose),
   };
 }

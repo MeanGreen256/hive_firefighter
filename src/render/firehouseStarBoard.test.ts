@@ -7,6 +7,7 @@ import {
   buildFirehouseStarBoard,
   FIREHOUSE_COSMETIC_REWARDS,
   FIREHOUSE_NEXT_CALL_RANGE_METERS,
+  getFirehousePoseYawRadians,
   getFirehouseStarBoardPosition,
   isWithinFirehouseNextCallRange,
   isWithinFirehouseWardrobeRange,
@@ -123,6 +124,13 @@ describe('Firehouse Star Board', () => {
     expect(height).toBeGreaterThan(2);
     expect(z).toBeGreaterThan(firehouse.z + firehouse.depth / 2);
     expect(z).toBeLessThan(firehouse.z + firehouse.depth / 2 + 0.5);
+  });
+
+  it('honors each authored Firehouse yaw when placing visible yard furniture', () => {
+    const district = getDistrict('harbour-hill');
+
+    expect(getFirehousePoseYawRadians(district.firehouse.starBoard)).toBeCloseTo(0);
+    expect(getFirehousePoseYawRadians(district.firehouse.wardrobe)).toBeCloseTo(Math.PI / 2);
   });
 
   it('offers the next call from a forgiving, horizontal station-board range', () => {
