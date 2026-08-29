@@ -104,6 +104,16 @@ async function waitForAudio(session, sessionId) {
   return null;
 }
 
+async function waitForAutomaticCall(session, sessionId) {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const snapshot = await session.evaluate(pageSnapshotExpression(), sessionId);
+    if (snapshot.state?.quietTown === false && snapshot.state?.questId !== null) return snapshot;
+    await wait(120);
+  }
+  return null;
+}
+
 if (!skipBuild) await runBuild();
 if (artifactDirectory) await mkdir(artifactDirectory, { recursive: true });
 
@@ -190,7 +200,10 @@ try {
   check(!booted.errorOverlay, 'no build or runtime error overlay is visible');
   check(!booted.fallbackVisible, 'the production scene starts instead of a fallback');
   check(booted.developmentUi === 0, 'no development-only UI ships in the production bundle');
-  check(booted.state.questId !== null, 'a fresh profile receives one authored incident');
+  check(
+    booted.state.quietTown && booted.state.questId === null && booted.state.burningCellCount === 0,
+    `a fresh profile begins at the Firehouse in a genuinely fire-free quiet interval (quiet ${String(booted.state.quietTown)}, quest ${String(booted.state.questId)}, ${String(booted.state.burningCellCount)} burning)`,
+  );
   check(
     booted.state.audio?.enabled === false,
     'the production build is silent before a legitimate interaction',
@@ -216,6 +229,11 @@ try {
   );
   const sounded = await waitForAudio(session, sessionId);
   check(sounded !== null, 'the first gameplay key activates the production audio system');
+  const dispatched = await waitForAutomaticCall(session, sessionId);
+  check(
+    dispatched !== null,
+    'the first authored incident dispatches automatically after the quiet interval',
+  );
   check(session.errors.length === 0, 'the production boot emits no browser or network errors');
   timeline.push(`  ·  first sampled frame in ${Date.now() - startedAt} ms`);
 } catch (error) {

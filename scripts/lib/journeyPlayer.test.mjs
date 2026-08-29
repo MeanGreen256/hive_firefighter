@@ -49,7 +49,7 @@ describe('production journey tank controls', () => {
  * every command take a turn of the event loop — which is where the doubled
  * keydowns came from.
  */
-function createSession() {
+function createSession({ evaluate = async () => null } = {}) {
   const events = [];
   return {
     events,
@@ -59,7 +59,7 @@ function createSession() {
       events.push({ method, ...params });
       return {};
     },
-    evaluate: async () => null,
+    evaluate,
   };
 }
 
@@ -138,5 +138,36 @@ describe('holding a key the way a keyboard holds it', () => {
     const ups = session.keyEvents().filter((event) => event.type === 'keyUp');
     expect(ups.map((event) => event.key).sort()).toEqual([' ', 'w']);
     expect(player.held.size).toBe(0);
+  });
+});
+
+describe('crossing an authored district boundary', () => {
+  it('steers through the boundary with player inputs and releases them after the new board appears', async () => {
+    let observations = 0;
+    const session = createSession({
+      evaluate: async () => {
+        observations += 1;
+        return {
+          districtId: observations === 1 ? 'honeycomb-hills' : 'sunflower-valley',
+          mode: 'driving',
+          truck: { x: 0, z: 0 },
+          truckYawRadians: 0,
+        };
+      },
+    });
+    const player = new JourneyPlayer(session, 'session-1');
+
+    const destination = await player.driveAcrossDistrictBoundary(
+      { x: 72, z: 0 },
+      { destinationDistrictId: 'sunflower-valley', timeoutMs: 500 },
+    );
+
+    expect(destination.districtId).toBe('sunflower-valley');
+    expect(session.keyEvents().map((event) => `${event.type}:${event.key}`)).toEqual([
+      'keyDown:w',
+      'keyDown:d',
+      'keyUp:w',
+      'keyUp:d',
+    ]);
   });
 });

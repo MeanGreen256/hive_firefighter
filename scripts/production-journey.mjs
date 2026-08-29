@@ -55,8 +55,8 @@ const artifactDirectory = process.env.ACCEPTANCE_ARTIFACT_DIR;
  * not how it looks, which `npm run acceptance` already checks at 1280x720.
  */
 const viewport = { width: 854, height: 480 };
-/** A whole authored shift, because "every incident is reachable" is the claim. */
-const DEFAULT_INCIDENTS = 5;
+/** Two Harbour Hill calls, a road crossing, then Sunflower Valley's first call. */
+const DEFAULT_INCIDENTS = 3;
 /**
  * Distinct colours a real frame of this game has. A blank canvas, a failed
  * WebGL context, or a lost context collapses well below it.
@@ -112,8 +112,10 @@ function parseOptions(argv) {
       parsed.incidentSeconds = seconds;
     } else if (argument.startsWith('--incidents=')) {
       const count = Number(argument.slice('--incidents='.length));
-      if (!Number.isInteger(count) || count < 1) {
-        throw new Error(`--incidents needs a whole number of incidents, not ${argument}`);
+      if (!Number.isInteger(count) || count < 1 || count > DEFAULT_INCIDENTS) {
+        throw new Error(
+          `--incidents needs a whole number from 1 to ${DEFAULT_INCIDENTS}, not ${argument}`,
+        );
       }
       parsed.incidents = count;
     } else throw new Error(`Unknown option ${argument}`);
@@ -688,6 +690,10 @@ try {
     booted.onboardingStep === 'drive',
     `the guide starts by teaching driving (saw ${booted.onboardingStep})`,
   );
+  check(
+    booted.quietTown && booted.questId === null && booted.burningCellCount === 0,
+    'a new family begins at Harbour Hill Firehouse with a real fire-free exploration interval',
+  );
   const bootColors = await visibleFrameColorCount(
     session,
     sessionId,
@@ -729,12 +735,8 @@ try {
   await checkInterruptionRecovery(player, session, sessionId);
 
   let refreshChecked = false;
-  // Which incidents the shift actually dealt: #213's rotation claim is that a
-  // roster is five different authored calls, not the same one five times.
-  const playedQuestIds = new Set();
   for (let index = 0; index < options.incidents; index += 1) {
     const finished = await playIncident(player, session, sessionId, index);
-    if (finished.questId !== null) playedQuestIds.add(finished.questId);
     if (index === 0) {
       // The guide ends on a real success rather than the first squirt (#214),
       // and the stars are the second half of that: water on the fire, then a
@@ -754,7 +756,7 @@ try {
       `call ${index + 1} is recorded against the profile`,
     );
 
-    if (!refreshChecked) {
+    if (!refreshChecked && index === 2) {
       refreshChecked = true;
       const before = await player.observe();
       session.resetDiagnostics();
@@ -784,6 +786,10 @@ try {
       );
       check(resumed.slot === before.slot, 'a refresh resumes the same slot of the same shift');
       check(
+        resumed.districtId === 'sunflower-valley' && resumed.districtCompletedQuestCount >= 1,
+        'a refresh returns to the active district Firehouse with its local Star Board intact',
+      );
+      check(
         resumed.onboardingStep === 'done',
         'a taught player is not taught again after a refresh',
       );
@@ -798,20 +804,29 @@ try {
       );
     }
 
-    const last = index === options.incidents - 1;
-    const next = await roamUntilAutomaticDispatch(player, session, sessionId, index);
-    // Only a run that played a whole roster can say anything about the shift
-    // wrapping; a one-incident run is a smoke test of the same journey.
-    if (last && options.incidents >= next.slotCount) {
+    if (index === 1) {
       check(
-        next.completedShiftCount >= 1,
-        `finishing a roster of ${next.slotCount} calls completes a shift (${next.completedShiftCount})`,
+        quiet.districtId === 'harbour-hill' && quiet.districtCompletedQuestCount >= 2,
+        'Harbour Hill keeps its own two completed station badges before travel',
+      );
+      const crossed = await player.driveAcrossDistrictBoundary(
+        { x: 72, z: 0 },
+        {
+          destinationDistrictId: 'sunflower-valley',
+          label: 'Harbour Hill Main Street into Sunflower Valley',
+        },
       );
       check(
-        playedQuestIds.size === next.slotCount,
-        `every call in the shift was a different authored incident (${[...playedQuestIds].join(', ')})`,
+        crossed.districtId === 'sunflower-valley' && crossed.districtCompletedQuestCount === 0,
+        'crossing an ordinary road loads Sunflower Valley with an independent empty Star Board',
       );
-      note(`the next shift opens on ${next.questName} (${next.questId})`);
+      await player.waitFor(
+        'Sunflower Valley’s first automatic call',
+        (state) => !state.quietTown && state.questId !== null,
+        QUIET_TOWN_DISPATCH_TIMEOUT_MS,
+      );
+    } else if (index < options.incidents - 1) {
+      await roamUntilAutomaticDispatch(player, session, sessionId, index);
     }
   }
 
