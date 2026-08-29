@@ -3,16 +3,28 @@ import { Instance, Instances } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { Shape, type Group } from 'three';
 import type { Style } from '@styles/styles';
+import type { DistrictDefinition } from '@sim/districts';
 import type {
   FirehouseBadge,
   FirehouseStarBoardModel,
   QuestBadgeShape,
 } from './firehouseStarBoard';
+import {
+  getFirehousePoseYawRadians,
+  getFirehouseStarBoardPosition,
+  getFirehouseWardrobePosition,
+} from './firehouseStarBoard';
+import type { FirefighterEquipSlot } from '../state/wardrobeLoadout';
 
 const BADGE_SPACING = 1.16;
 const BADGE_CENTER_Y = 0.18;
 const STAR_CENTER_Y = -0.48;
 const BOARD_WIDTH = 6.35;
+
+function badgeLayout(count: number): { readonly spacing: number; readonly origin: number } {
+  const spacing = count <= 1 ? 0 : Math.min(BADGE_SPACING, (BOARD_WIDTH - 0.9) / (count - 1));
+  return { spacing, origin: -((count - 1) * spacing) / 2 };
+}
 
 function createStarShape(): Shape {
   const shape = new Shape();
@@ -252,16 +264,17 @@ export function FirehouseStarBoard({
   readonly nextCallAvailable?: boolean;
 }) {
   const civic = visualStyle.city.buildings.civic;
+  const layout = badgeLayout(model.badges.length);
   const stars = useMemo(
     () =>
       model.badges.flatMap((badge, badgeIndex) =>
         [0, 1, 2].map((starIndex) => ({
           id: `${badge.questId}:star:${starIndex}`,
-          x: (badgeIndex - 2) * BADGE_SPACING + (starIndex - 1) * 0.255,
+          x: layout.origin + badgeIndex * layout.spacing + (starIndex - 1) * 0.255,
           earned: starIndex < badge.stars,
         })),
       ),
-    [model.badges],
+    [layout.origin, layout.spacing, model.badges],
   );
 
   return (
@@ -285,7 +298,7 @@ export function FirehouseStarBoard({
         {model.badges.map((badge, index) => (
           <Instance
             key={badge.questId}
-            position={[(index - 2) * BADGE_SPACING, BADGE_CENTER_Y, 0.14]}
+            position={[layout.origin + index * layout.spacing, BADGE_CENTER_Y, 0.14]}
             color={
               badge.completed ? visualStyle.city.routes.civic.primary : visualStyle.hud.control
             }
@@ -296,7 +309,7 @@ export function FirehouseStarBoard({
       {model.badges.map((badge, index) => (
         <group
           key={`${badge.questId}:symbol`}
-          position={[(index - 2) * BADGE_SPACING, BADGE_CENTER_Y, 0.17]}
+          position={[layout.origin + index * layout.spacing, BADGE_CENTER_Y, 0.17]}
         >
           <BadgeSymbol
             shape={badge.shape}
@@ -322,7 +335,7 @@ export function FirehouseStarBoard({
           <LatestBadgeRing
             key={`${badge.questId}:newest`}
             badge={badge}
-            positionX={(index - 2) * BADGE_SPACING}
+            positionX={layout.origin + index * layout.spacing}
             visualStyle={visualStyle}
           />
         ) : null,
@@ -333,6 +346,152 @@ export function FirehouseStarBoard({
       {model.rewards.masteryBanner ? <MasteryBanner visualStyle={visualStyle} /> : null}
       {model.rewards.yardPlanters ? <YardPlanters visualStyle={visualStyle} /> : null}
       {nextCallAvailable ? <NextCallBell visualStyle={visualStyle} /> : null}
+    </group>
+  );
+}
+
+function WardrobeToken({
+  kind,
+  color,
+}: {
+  readonly kind: 'helmet' | 'patch';
+  readonly color: string;
+}) {
+  if (kind === 'helmet') {
+    return (
+      <group>
+        <mesh position={[0, 0.04, 0]}>
+          <sphereGeometry args={[0.16, 10, 8]} />
+          <meshLambertMaterial color={color} />
+        </mesh>
+        <mesh position={[0, -0.08, 0.04]}>
+          <boxGeometry args={[0.28, 0.06, 0.18]} />
+          <meshLambertMaterial color={color} />
+        </mesh>
+      </group>
+    );
+  }
+  return (
+    <mesh>
+      <circleGeometry args={[0.16, 5]} />
+      <meshBasicMaterial color={color} toneMapped={false} />
+    </mesh>
+  );
+}
+
+/**
+ * A large, wordless cabinet of earned looks. The existing action cycles which
+ * one the firefighter is wearing; nothing here can be bought or read.
+ */
+export function FirehouseWardrobe({
+  position,
+  visualStyle,
+  inRange = false,
+  equipped,
+  helmetUnlocked,
+  patchUnlocked,
+}: {
+  readonly position: readonly [number, number, number];
+  readonly visualStyle: Style;
+  readonly inRange?: boolean;
+  readonly equipped: FirefighterEquipSlot;
+  readonly helmetUnlocked: boolean;
+  readonly patchUnlocked: boolean;
+}) {
+  const cueRef = useRef<Group>(null);
+  const reducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+  const civic = visualStyle.city.buildings.civic;
+
+  useFrame(({ clock }) => {
+    if (!cueRef.current || reducedMotion || !inRange) {
+      if (cueRef.current && !inRange) cueRef.current.scale.setScalar(1);
+      return;
+    }
+    cueRef.current.scale.setScalar(1 + Math.sin(clock.elapsedTime * 3.2) * 0.08);
+  });
+
+  const helmetActive = equipped === 'helmet' || (equipped === 'all' && helmetUnlocked);
+  const patchActive = equipped === 'patch' || (equipped === 'all' && patchUnlocked);
+
+  return (
+    <group
+      ref={cueRef}
+      name="firehouse-wardrobe"
+      position={position}
+      userData={{ nonBlocking: true, cosmeticOnly: true, wardrobe: true }}
+    >
+      <mesh position={[0, 1.05, 0]}>
+        <boxGeometry args={[1.35, 2.1, 0.55]} />
+        <meshLambertMaterial color={civic.trim} />
+      </mesh>
+      <mesh position={[0, 1.05, 0.22]}>
+        <boxGeometry args={[1.12, 1.86, 0.12]} />
+        <meshLambertMaterial color={visualStyle.hud.panel} />
+      </mesh>
+      {helmetUnlocked ? (
+        <group position={[0, 1.45, 0.34]}>
+          <WardrobeToken
+            kind="helmet"
+            color={helmetActive ? visualStyle.city.landmarkAccent : visualStyle.hud.mutedText}
+          />
+        </group>
+      ) : null}
+      {patchUnlocked ? (
+        <group position={[0, 0.7, 0.34]}>
+          <WardrobeToken
+            kind="patch"
+            color={patchActive ? visualStyle.city.questMarker : visualStyle.hud.mutedText}
+          />
+        </group>
+      ) : null}
+      {inRange ? (
+        <mesh position={[0, 2.28, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.22, 0.3, 16]} />
+          <meshBasicMaterial color={visualStyle.hud.accent} toneMapped={false} />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
+
+/**
+ * District-owned Firehouse world content. Mounting under a district id means a
+ * later district swap unmounts the board, wardrobe, and their GPU resources.
+ */
+export function DistrictFirehouseHome({
+  district,
+  model,
+  visualStyle,
+  wardrobeInRange = false,
+  equipped,
+}: {
+  readonly district: DistrictDefinition;
+  readonly model: FirehouseStarBoardModel;
+  readonly visualStyle: Style;
+  readonly wardrobeInRange?: boolean;
+  readonly equipped: FirefighterEquipSlot;
+}) {
+  const boardPosition = getFirehouseStarBoardPosition(district);
+  const wardrobePosition = getFirehouseWardrobePosition(district);
+  const boardYaw = getFirehousePoseYawRadians(district.firehouse.starBoard);
+  const wardrobeYaw = getFirehousePoseYawRadians(district.firehouse.wardrobe);
+  return (
+    <group key={district.id} name={`firehouse-home:${district.id}`}>
+      <group position={boardPosition} rotation={[0, boardYaw, 0]}>
+        <FirehouseStarBoard model={model} position={[0, 0, 0]} visualStyle={visualStyle} />
+      </group>
+      <group position={wardrobePosition} rotation={[0, wardrobeYaw, 0]}>
+        <FirehouseWardrobe
+          position={[0, 0, 0]}
+          visualStyle={visualStyle}
+          inRange={wardrobeInRange}
+          equipped={equipped}
+          helmetUnlocked={model.rewards.helmetBadge}
+          patchUnlocked={model.rewards.firefighterPatch}
+        />
+      </group>
     </group>
   );
 }

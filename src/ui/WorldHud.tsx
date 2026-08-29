@@ -76,7 +76,6 @@ export interface WorldHudProps {
   readonly sirenOn: boolean;
   readonly onToggleSiren: () => void;
   readonly quietTown?: boolean;
-  readonly nextCallAvailable?: boolean;
   /**
    * Puts the wordless guide back for the next player (#214). It lives in the
    * grown-ups drawer because an adult decides whether a tutorial replays, and
@@ -93,7 +92,6 @@ export interface WorldHudProps {
    * (#218). Grown-ups drawer only: a child must not be able to enter it.
    */
   readonly onPause?: (() => void) | undefined;
-  readonly onNextCall?: () => void;
 }
 
 /**
@@ -126,11 +124,9 @@ export function WorldHud({
   sirenOn,
   onToggleSiren,
   quietTown = false,
-  nextCallAvailable = false,
   onRestartGuide,
   onResetProgress,
   onPause,
-  onNextCall,
 }: WorldHudProps) {
   const boardLabel = onFoot
     ? boardingAvailable
@@ -184,18 +180,6 @@ export function WorldHud({
       </div>
 
       <div className="world-hud__actions">
-        {quietTown && onNextCall ? (
-          <button
-            type="button"
-            className="world-hud__action world-hud__action--next-call"
-            onClick={onNextCall}
-            disabled={!nextCallAvailable}
-            aria-label={nextCallAvailable ? 'Start the next fire call' : 'Visit the firehouse bell'}
-            title={nextCallAvailable ? 'Start next call' : 'Visit the firehouse bell'}
-          >
-            <span aria-hidden="true">🔔</span>
-          </button>
-        ) : null}
         <button
           type="button"
           className="world-hud__action"
@@ -234,12 +218,6 @@ export function WorldHud({
             <span aria-hidden="true">📢</span> siren · <span aria-hidden="true">👀</span>{' '}
             {onFoot ? 'right-drag to fine-aim the hose' : 'right-drag to look around'} — both
             optional
-            {quietTown ? (
-              <>
-                {' '}
-                · <span aria-hidden="true">🔔</span> next call at the firehouse board
-              </>
-            ) : null}
             <br />
             WASD or arrows move. A gamepad stick is the same idea.
           </small>

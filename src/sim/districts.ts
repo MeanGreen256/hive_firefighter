@@ -325,11 +325,24 @@ export interface DistrictQuestSite {
   readonly anchorId: string;
 }
 
+/**
+ * Local home base for one district (ADR-012 / #256). Spawn, board, and wardrobe
+ * are authored positions, not derived from a single Harbour Hill building id.
+ */
+export interface DistrictFirehouse {
+  readonly buildingId: string;
+  readonly spawn: DistrictPose;
+  readonly roadId: string;
+  readonly starBoard: DistrictPose;
+  readonly wardrobe: DistrictPose;
+}
+
 export interface DistrictDefinition {
   readonly id: string;
   readonly name: string;
   readonly bounds: DistrictBounds;
   readonly truckStart: DistrictPose;
+  readonly firehouse: DistrictFirehouse;
   readonly roads: readonly DistrictRoad[];
   readonly buildings: readonly DistrictBuilding[];
   readonly parks: readonly DistrictPark[];
@@ -355,6 +368,7 @@ const ROOT_FIELDS = [
   'name',
   'bounds',
   'truckStart',
+  'firehouse',
   'roads',
   'buildings',
   'parks',
@@ -362,6 +376,9 @@ const ROOT_FIELDS = [
   'props',
   'questSites',
 ] as const;
+
+/** Board and wardrobe must sit in the station yard, not across town. */
+export const FIREHOUSE_AMENITY_MAX_DISTANCE = 16;
 
 /** An axis-aligned XZ rectangle. Everything solid in a district reduces to one. */
 export interface DistrictRect {
@@ -486,6 +503,31 @@ function readPose(value: unknown, path: string, problems: string[]): DistrictPos
   };
 }
 
+function posesMatch(left: DistrictPose, right: DistrictPose): boolean {
+  return left.x === right.x && left.z === right.z && left.yawDegrees === right.yawDegrees;
+}
+
+function readFirehouse(value: unknown, path: string, problems: string[]): DistrictFirehouse {
+  const object = readObject(value, path, problems);
+  if (!object) {
+    return {
+      buildingId: '',
+      spawn: { x: 0, z: 0, yawDegrees: 0 },
+      roadId: '',
+      starBoard: { x: 0, z: 0, yawDegrees: 0 },
+      wardrobe: { x: 0, z: 0, yawDegrees: 0 },
+    };
+  }
+  checkFields(object, path, ['buildingId', 'spawn', 'roadId', 'starBoard', 'wardrobe'], problems);
+  return {
+    buildingId: readString(object.buildingId, `${path}.buildingId`, problems),
+    spawn: readPose(object.spawn, `${path}.spawn`, problems),
+    roadId: readString(object.roadId, `${path}.roadId`, problems),
+    starBoard: readPose(object.starBoard, `${path}.starBoard`, problems),
+    wardrobe: readPose(object.wardrobe, `${path}.wardrobe`, problems),
+  };
+}
+
 const FACADE_USE: Readonly<Record<FacadeVariant, BuildingUse>> = {
   'house-garden': 'house',
   'house-bay': 'house',
@@ -592,6 +634,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   const name = readString(root.name, `${id}.name`, problems);
   const bounds = readBounds(root.bounds, `${id}.bounds`, problems);
   const truckStart = readPose(root.truckStart, `${id}.truckStart`, problems);
+  const firehouse = readFirehouse(root.firehouse, `${id}.firehouse`, problems);
 
   const roads = readPlacementArray(
     root.roads,
@@ -1031,6 +1074,62 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     problems.push(`${id}.truckStart must be on a road`);
   }
 
+  const firehouseBuilding = buildings.find((building) => building.id === firehouse.buildingId);
+  if (!firehouseBuilding) {
+    problems.push(
+      `${id}.firehouse.buildingId ${JSON.stringify(firehouse.buildingId)} names no building`,
+    );
+  } else if (firehouseBuilding.use !== 'civic') {
+    problems.push(
+      `${id}.firehouse.buildingId ${JSON.stringify(firehouse.buildingId)} must be a civic station, got ${firehouseBuilding.use}`,
+    );
+  }
+
+  const firehouseRoad = roads.find((road) => road.id === firehouse.roadId);
+  if (!firehouseRoad) {
+    problems.push(`${id}.firehouse.roadId ${JSON.stringify(firehouse.roadId)} names no road`);
+  } else if (
+    !rectsOverlap(rectFromCenter(firehouse.spawn, 0.01, 0.01), getRoadRect(firehouseRoad))
+  ) {
+    problems.push(`${id}.firehouse.spawn must sit on ${JSON.stringify(firehouse.roadId)}`);
+  }
+
+  if (!posesMatch(firehouse.spawn, truckStart)) {
+    problems.push(
+      `${id}.firehouse.spawn must match truckStart so a new profile and a restart share one home`,
+    );
+  }
+
+  if (firehouseBuilding) {
+    const station = { x: firehouseBuilding.x, z: firehouseBuilding.z };
+    const amenities: readonly { readonly name: string; readonly pose: DistrictPose }[] = [
+      { name: 'starBoard', pose: firehouse.starBoard },
+      { name: 'wardrobe', pose: firehouse.wardrobe },
+    ];
+    for (const amenity of amenities) {
+      const distance = Math.hypot(amenity.pose.x - station.x, amenity.pose.z - station.z);
+      if (distance > FIREHOUSE_AMENITY_MAX_DISTANCE) {
+        problems.push(
+          `${id}.firehouse.${amenity.name} is ${distance.toFixed(1)}m from the station; keep it in the yard`,
+        );
+      }
+      if (isPointInsideRect(amenity.pose, getBuildingRect(firehouseBuilding))) {
+        problems.push(
+          `${id}.firehouse.${amenity.name} is inside the station; home-base props stay outdoors`,
+        );
+      }
+      if (onRoad(rectFromCenter(amenity.pose, 0.2, 0.2))) {
+        problems.push(`${id}.firehouse.${amenity.name} sits in a road`);
+      }
+    }
+    if (
+      firehouse.starBoard.x === firehouse.wardrobe.x &&
+      firehouse.starBoard.z === firehouse.wardrobe.z
+    ) {
+      problems.push(`${id}.firehouse.wardrobe must not occupy the same point as starBoard`);
+    }
+  }
+
   if (questSites.length < MINIMUM_QUEST_SITES) {
     problems.push(
       `${id}.questSites must contain at least ${String(MINIMUM_QUEST_SITES)} sites, got ${String(questSites.length)}`,
@@ -1073,6 +1172,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     name,
     bounds,
     truckStart,
+    firehouse,
     roads,
     buildings,
     parks,
@@ -1149,4 +1249,29 @@ export function getQuestSiteDistanceFromStart(
   site: DistrictQuestSite,
 ): number {
   return Math.hypot(site.x - district.truckStart.x, site.z - district.truckStart.z);
+}
+
+export function getFirehouseBuilding(district: DistrictDefinition): DistrictBuilding {
+  const building = district.buildings.find(
+    (candidate) => candidate.id === district.firehouse.buildingId,
+  );
+  if (!building) {
+    throw new Error(
+      `District ${district.id} has no Firehouse building ${JSON.stringify(district.firehouse.buildingId)}`,
+    );
+  }
+  return building;
+}
+
+/** Safe restart pose: the authored Firehouse spawn, never a restored street pose. */
+export function getFirehouseSpawn(district: DistrictDefinition): DistrictPose {
+  return district.firehouse.spawn;
+}
+
+export function getFirehouseStarBoardPose(district: DistrictDefinition): DistrictPose {
+  return district.firehouse.starBoard;
+}
+
+export function getFirehouseWardrobePose(district: DistrictDefinition): DistrictPose {
+  return district.firehouse.wardrobe;
 }

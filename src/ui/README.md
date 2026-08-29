@@ -46,11 +46,9 @@ deterministic new fire, and the next quest. Its primary button
 is whatever the action input does, so pressing a button and clicking agree.
 
 Continuing now dismisses the debrief into quiet town (#212), not directly into
-another fire. The permanent HUD replaces both incident meters with a wordless
-town-at-rest cue. A bell button mirrors the pulsing Firehouse Star Board cue and
-only enables within its forgiving interaction range; at the board, the same
-primary action starts the already-determined next call. There is no mission
-picker, timer, or automatic ignition.
+another fire. The next incident dispatches automatically after the quiet
+interval (ADR-012). The Firehouse is a local home base and wardrobe, not a
+bell the child must find to start the next call.
 
 `StartupFallback.tsx` is what a family sees instead of a blank page (#223), and
 it is the one screen in the game written for two people at once. The glyph is

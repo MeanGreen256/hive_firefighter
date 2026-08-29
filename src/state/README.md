@@ -74,11 +74,12 @@ continues the same in-memory fire. Adult pause is a different door — it lives 
 the grown-ups drawer, shows a wordless card, and the existing action button
 dismisses it. It does not survive a refresh.
 
-`sessionPlacement.ts` stores the last truck and firefighter pose in session
-storage. It is not a fire checkpoint. A reload restores that pose and restarts
-the directed incident from authored ignition; the live cell grid stays in memory
-only. Closing the tab forgets the pose. Corrupt, oversized, or blocked storage
-falls back to the district spawn.
+`sessionPlacement.ts` still records the last truck and firefighter pose in
+session storage so a hide/exit can flush an honest snapshot, but ADR-012
+supersedes pose restoration: a refresh or reopen starts the player at the
+Firehouse in the active incident's district. Corrupt, oversized, or blocked
+storage is ignored, which is the same Harbour Hill Firehouse spawn a new
+profile already uses. Closing the tab forgets the pose.
 
 ## Quest fire controller
 

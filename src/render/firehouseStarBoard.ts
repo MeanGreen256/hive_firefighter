@@ -1,4 +1,4 @@
-import type { DistrictDefinition } from '@sim/districts';
+import type { DistrictDefinition, DistrictPose } from '@sim/districts';
 import { getQuestPresentation, type QuestBadgeShape } from '@sim/quests';
 import type { RewardId } from '../state/progressProfile';
 
@@ -20,8 +20,10 @@ export const FIREHOUSE_COSMETIC_REWARDS = Object.freeze({
   firefighterPatch: 'mastery-6',
 } as const satisfies Readonly<Record<string, RewardId>>);
 
-/** Generous enough for a child to use the board without precise positioning. */
+/** Generous enough for a child to use the board or wardrobe without precise positioning. */
 export const FIREHOUSE_NEXT_CALL_RANGE_METERS = 6;
+export const FIREHOUSE_WARDROBE_RANGE_METERS = 6;
+export const FIREHOUSE_STAR_BOARD_HEIGHT = 3.1;
 
 export function isWithinFirehouseNextCallRange(
   subject: { readonly x: number; readonly z: number },
@@ -30,6 +32,15 @@ export function isWithinFirehouseNextCallRange(
   return (
     Math.hypot(subject.x - boardPosition[0], subject.z - boardPosition[2]) <=
     FIREHOUSE_NEXT_CALL_RANGE_METERS
+  );
+}
+
+export function isWithinFirehouseWardrobeRange(
+  subject: { readonly x: number; readonly z: number },
+  wardrobe: { readonly x: number; readonly z: number },
+): boolean {
+  return (
+    Math.hypot(subject.x - wardrobe.x, subject.z - wardrobe.z) <= FIREHOUSE_WARDROBE_RANGE_METERS
   );
 }
 
@@ -124,7 +135,29 @@ export function buildFirehouseStarBoard(
 export function getFirehouseStarBoardPosition(
   district: DistrictDefinition,
 ): readonly [number, number, number] {
-  const firehouse = district.buildings.find((building) => building.id === 'firehouse');
-  if (!firehouse) throw new Error('A Firehouse Star Board needs an authored firehouse building');
-  return [firehouse.x, 3.1, firehouse.z + firehouse.depth / 2 + 0.14];
+  const pose = district.firehouse.starBoard;
+  return [pose.x, FIREHOUSE_STAR_BOARD_HEIGHT, pose.z];
+}
+
+export function getFirehouseWardrobePosition(
+  district: DistrictDefinition,
+): readonly [number, number, number] {
+  const pose = district.firehouse.wardrobe;
+  return [pose.x, 0, pose.z];
+}
+
+/** District content uses degrees; Three's scene graph uses radians. */
+export function getFirehousePoseYawRadians(pose: DistrictPose): number {
+  return (pose.yawDegrees * Math.PI) / 180;
+}
+
+export function getFirehouseRestartSpawn(district: DistrictDefinition): {
+  readonly position: readonly [number, number, number];
+  readonly yaw: number;
+} {
+  const pose = district.firehouse.spawn;
+  return {
+    position: [pose.x, 0, pose.z],
+    yaw: getFirehousePoseYawRadians(pose),
+  };
 }

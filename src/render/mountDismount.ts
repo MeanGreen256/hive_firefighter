@@ -16,6 +16,8 @@ export interface ActionContext {
   readonly canBoard: boolean;
   /** Whether aim assist currently holds a burning cell. */
   readonly targetCaptured: boolean;
+  /** Standing at a Firehouse wardrobe with the existing action (#256). */
+  readonly canUseWardrobe?: boolean;
 }
 
 /**
@@ -24,11 +26,14 @@ export interface ActionContext {
  * There is no third input to spend on getting in and out of the truck, so the
  * button that sprays also drives the transition — but only where spraying is
  * not what the player meant. The hose is dead in the cab, and a captured
- * target beats the truck standing next to you.
+ * target beats the truck standing next to you. A wardrobe in the station yard
+ * uses that same action when nothing is on fire under the hose.
  */
-export function getActionIntent(context: ActionContext): 'transition' | 'spray' {
+export function getActionIntent(context: ActionContext): 'transition' | 'spray' | 'wardrobe' {
   if (context.mode === 'driving') return 'transition';
-  if (context.canBoard && !context.targetCaptured) return 'transition';
+  if (context.targetCaptured) return 'spray';
+  if (context.canUseWardrobe === true) return 'wardrobe';
+  if (context.canBoard) return 'transition';
   return 'spray';
 }
 
