@@ -19,16 +19,17 @@ able to complete an incident without reading instructions.
 ## Core loop
 
 1. Exactly **one quest incident is active at a time**.
-2. A large smoke column and simple waypoint show where the quest is.
-3. The player drives the firetruck across a free-roam city map to the location,
-   exploring as much or as little as they like on the way.
+2. A large smoke column and simple direction arrow show where the quest is,
+   including when it is in another district.
+3. The player drives the firetruck across an open, continuous free-roam world to
+   the location, exploring as much or as little as they like on the way.
 4. The player parks, dismounts, and controls one firefighter in third person.
 5. The player points the hose at fire and holds one input to spray water.
-6. The fire goes out, the player receives 1–3 stars and positive feedback, and the
-   already-determined next quest is queued.
-7. The player can dismiss the result into an unlimited quiet-town interval with
-   no active fire, then use the same simple action at the Firehouse Star Board to
-   begin that queued quest.
+6. The fire goes out, the player receives 1–3 stars and positive feedback, and
+   the next quest is determined by the world route.
+7. The player can dismiss the result into a ten-second quiet interval with no
+   active fire. The next quest then starts automatically; the player may keep
+   exploring instead of following it.
 
 "Quest location" means the location of the active fire incident. It does not
 mean a quiz or educational-question mechanic.
@@ -39,9 +40,9 @@ Every terminal incident is a completed quest, whether its fire is `contained` or
 its authored objects end up `scorched`. Completion always earns at least one star,
 advances progression exactly once, and makes continuing into quiet town the
 primary action. Replaying the same fire or a new seed is always optional; a
-scorched street never forces a retry or becomes a failure screen. Quiet town does
-not choose or randomize the next incident: it separates debrief dismissal from
-explicit activation of the already-authored next call.
+scorched street never forces a retry or becomes a failure screen. The quiet
+interval does not choose or randomize the next incident: it separates debrief
+dismissal from the automatic dispatch of the already-authored next call.
 
 Stars describe visible, countable district buildings and outdoor props saved from
 the fire. One star means the quest is complete; two stars mean at least 65% of
@@ -82,15 +83,18 @@ new ADR says otherwise.
 - **One firefighter.** The player directly controls one character. Crew command,
   AI firefighters, and multi-unit tactics are not part of the current roadmap;
   they are distant stretch ideas that require a new explicit design decision.
-- **At most one incident at a time.** Between calls there is no active fire,
-  smoke beacon, or incident timer. Do not add simultaneous incidents, incident
-  choice, or dispatch strategy to the core loop.
+- **At most one incident at a time.** One global incident may be active across
+  the continuous world, even while the player explores another district. Between
+  calls there is a ten-second interval with no active fire, smoke beacon, or
+  incident timer. Do not add simultaneous incidents, incident choice, or dispatch
+  strategy to the core loop.
 - **Simple hose play.** On foot, the hose is ready to use. Aim and hold to spray.
   Water is unlimited for the core game. There is no manual hose hookup, finite
   tank, hose-reach cutoff, foam selection, or required hydrant-refill loop.
-- **Free roam is a pillar, not transit.** The city is somewhere a child wants to
-  drive around even with nothing on fire. Never shorten, gate, or skip the drive to
-  get the player to the fire faster.
+- **Free roam is a pillar, not transit.** The continuous world is somewhere a
+  child wants to drive around even with nothing on fire. Every district is open
+  from the first session; never shorten, gate, or skip the drive to get the player
+  to the fire faster.
 - **No hard harm or failure.** Collapse does not injure anyone, and the game does
   not award zero stars or present a failure screen.
 - **Positive, readable feedback.** Use icons, animation, sound, shape, and clear
@@ -124,6 +128,25 @@ Until that stick exists, a touch-primary device (phone or tablet without a
 mouse) must not tick the fire. It gets a computer glyph and one adult sentence,
 not a WASD scene the child cannot drive. Do not add a required second touch
 gesture, pinch-to-aim, or a phone-only verb without a new ADR.
+
+## Districts, Firehouses, and return
+
+Districts are ordinary connected places in one world, not locked levels or a
+mission-selection screen. A new player starts at Harbour Hill's Firehouse, has ten
+seconds to explore, then sees the first smoke. The route spends two incidents in
+each authored district before the smoke and arrow lead onward to the next district
+in an author-defined loop.
+
+Every district has a Firehouse: its safe local spawn, local Star Board, and a
+wordless wardrobe. Stars and completed quests belong to the district where they
+were earned. Cosmetics belong to the firefighter, are equipped at any Firehouse,
+and travel everywhere.
+
+Refresh and reopening start the player at the Firehouse in the active incident's
+district. The unfinished incident restarts from its authored ignition and remains
+the one active task; it is not cancelled, replaced, or resumed from the former
+pose. A corrupt or unavailable save falls back safely to a fresh Harbour Hill
+Firehouse start.
 
 ## Why the player walks
 
@@ -164,6 +187,7 @@ The controlling decisions are [ADR-005](adr/005-third-person-apparatus-control.m
 [ADR-006](adr/006-arcade-tone-for-younger-players.md),
 [ADR-007](adr/007-ages-5-plus-control-floor.md),
 [ADR-008](adr/008-quest-outcomes-and-countable-stars.md),
-[ADR-009](adr/009-no-second-required-verb.md), and
-[ADR-011](adr/011-supported-platform-matrix.md). The implementation plan is
+[ADR-009](adr/009-no-second-required-verb.md),
+[ADR-011](adr/011-supported-platform-matrix.md), and
+[ADR-012](adr/012-open-district-world-and-home-bases.md). The implementation plan is
 [M3 — Drive, Dismount, Douse](m3-pivot-issues.md).
