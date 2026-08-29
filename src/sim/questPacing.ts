@@ -12,7 +12,13 @@
  * of the district's shift rather than of any one fire.
  */
 
-import { checkFields, readObject, readEnum, readPositiveNumber } from './contentValidation';
+import {
+  checkFields,
+  readObject,
+  readEnum,
+  readPositiveNumber,
+  readRangedNumber,
+} from './contentValidation';
 
 /**
  * The shift-curve classification accepted by M4.
@@ -32,17 +38,35 @@ export interface QuestPacing {
    * (ADR-008). Never an input to stars, progression, rewards, or failure.
    */
   readonly parTimeSeconds: number;
+  /**
+   * Relative cooling from the normal unlimited hose flow. It belongs to the
+   * incident pacing contract rather than the hose: a teaching fire can hold
+   * its readable flame long enough to practice without making later calls or
+   * propane cylinders harder. Omitted legacy content stays at 1.
+   */
+  readonly waterSuppressionMultiplier: number;
 }
 
 const REQUIRED_FIELDS = ['tempo', 'parTimeSeconds'] as const;
+const OPTIONAL_FIELDS = ['waterSuppressionMultiplier'] as const;
 
 export function validateQuestPacing(value: unknown, path: string, problems: string[]): QuestPacing {
   const object = readObject(value, path, problems);
-  if (!object) return { tempo: 'standard', parTimeSeconds: 1 };
-  checkFields(object, path, REQUIRED_FIELDS, problems);
+  if (!object) return { tempo: 'standard', parTimeSeconds: 1, waterSuppressionMultiplier: 1 };
+  checkFields(object, path, REQUIRED_FIELDS, problems, OPTIONAL_FIELDS);
   return {
     tempo: readEnum(object.tempo, `${path}.tempo`, QUEST_TEMPOS, problems),
     parTimeSeconds: readPositiveNumber(object.parTimeSeconds, `${path}.parTimeSeconds`, problems),
+    waterSuppressionMultiplier:
+      object.waterSuppressionMultiplier === undefined
+        ? 1
+        : readRangedNumber(
+            object.waterSuppressionMultiplier,
+            `${path}.waterSuppressionMultiplier`,
+            0.1,
+            1,
+            problems,
+          ),
   };
 }
 

@@ -252,6 +252,9 @@ annotation; it is never shown as an instruction and never gates completion.
 - `parTimeSeconds` — adult and developer telemetry only. ADR-008 keeps it out of
   stars, progression, rewards, and failure; there is deliberately no authored
   field that can end an incident on a clock.
+- `waterSuppressionMultiplier` — optional `0.1`–`1` effective-cooling multiplier,
+  defaulting to `1`. It lets an authored teaching fire remain visible long enough
+  to practice at the normal unlimited hose flow without retuning every incident.
 
 ### Who owns what
 

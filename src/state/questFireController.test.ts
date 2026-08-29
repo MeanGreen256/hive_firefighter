@@ -3,14 +3,28 @@ import { CellState } from '@sim/cellGrid';
 import { IncidentEventType, PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { materials } from '@sim/materials';
 import { getQuestForSite } from '@sim/quests';
+import { getWaterLitres } from '@render/hoseWater';
 import { COLLAPSE_WARNING_SECONDS, StructuralEventType } from '@sim/structuralCollapse';
-import { createQuestFireController } from './questFireController';
+import { createQuestFireController, type QuestFireController } from './questFireController';
 import { SessionStatus } from './sessionStats';
 
 function controllerFor(questSiteId: string) {
   const controller = createQuestFireController();
   controller.setQuest(getQuestForSite('harbour-hill', questSiteId));
   return controller;
+}
+
+/** Hold a correctly aimed hose at every live flame at the shipped 60 Hz flow. */
+function secondsUntilContained(controller: QuestFireController): number {
+  const frameSeconds = 1 / 60;
+  for (let frame = 1; frame <= 60 * 180; frame += 1) {
+    for (const cell of controller.getBurningCells()) {
+      controller.applyWater(cell.cellId, getWaterLitres(frameSeconds));
+    }
+    controller.advance(frameSeconds);
+    if (controller.store.getState().debrief !== null) return frame * frameSeconds;
+  }
+  throw new Error('Sustained aimed spray did not contain the incident');
 }
 
 describe('quest fire controller', () => {
@@ -167,6 +181,21 @@ describe('quest fire controller', () => {
 
     const fire = controller.getFire();
     expect(fire?.state.grid.cells[target?.cellId ?? '']?.state).not.toBe(CellState.Burning);
+  });
+
+  it('keeps the opening incident visible for twice the former sustained-spray duration', () => {
+    const baseline = createQuestFireController({ getWaterSuppressionMultiplier: () => 1 });
+    baseline.setQuest(getQuestForSite('harbour-hill', 'meadow-picnic'));
+    const tuned = controllerFor('meadow-picnic');
+
+    const baselineSeconds = secondsUntilContained(baseline);
+    const tunedSeconds = secondsUntilContained(tuned);
+
+    // Frame and fixed-timestep boundaries permit less than one tenth of a
+    // second of variance. The authored 0.57 multiplier must stay a genuine 2×
+    // teaching window at normal hose flow, not a looser "slower" feeling.
+    expect(tunedSeconds).toBeGreaterThanOrEqual(baselineSeconds * 1.95);
+    expect(tunedSeconds).toBeLessThanOrEqual(baselineSeconds * 2.05);
   });
 
   it('reports the incident over as soon as the last flame is out, even while cells are warm', () => {
