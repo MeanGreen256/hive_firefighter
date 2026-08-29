@@ -1,6 +1,6 @@
 # Performance acceptance
 
-Issue #224 makes performance review a two-part contract. Automated checks catch
+Issue #264 makes performance review a two-part contract. Automated checks catch
 repeatable regressions in the emitted payload and deterministic render scenes;
 real hardware runs decide whether the designed-for family laptop still feels
 good. A headless CI runner is not a substitute for the latter.
@@ -22,6 +22,7 @@ npm run build
 npm run budget:bundle
 npm run acceptance
 npm run acceptance:production -- --incidents=1
+npm test && npm run test:frame-pacing
 ```
 
 `budget:bundle` reads `dist/index.html`, measures every JS and CSS asset needed
@@ -45,6 +46,11 @@ console failures. Its 640×360 SwiftShader FPS floor only detects a stuck frame;
 it cannot prove a 60 FPS laptop experience. `acceptance:production` separately
 boots the built game and completes a real incident.
 
+The acceptance log and its optional `metrics.json` label every frame-rate value
+as a **software baseline, not target-device evidence**. CI must keep reporting
+that signal, because a new stalled renderer or expensive scene is still useful
+to catch. It must never be copied into the hardware evidence table below.
+
 ## Gameplay render resolution
 
 The WebGL canvas is capped at **one drawing pixel per CSS pixel**. A
@@ -60,31 +66,57 @@ needed and supplies stable thresholds and hysteresis; resolution must not pulse
 while a child drives or sprays. Browser acceptance emulates a DPR-2 display and
 fails if the real WebGL drawing buffer exceeds one pixel per CSS pixel.
 
-## Real-laptop run sheet
+## Target-device frame-pacing evidence
 
-For each release candidate, record a fresh result for at least one current
-integrated-GPU family laptop. Use Chrome, normal power mode, a 1920×1080 browser
-viewport (or the panel's native practical equivalent), with no DevTools open.
-Warm the scene for 15 seconds before capturing values from the development
-performance overlay. Do not copy numbers from CI or a remote browser.
+For each release candidate, record a fresh row for every scenario below on at
+least one representative 2019+ integrated-GPU family laptop from
+[ADR-011](adr/011-supported-platform-matrix.md). Use Chrome, normal power mode,
+a practical native 1920×1080 browser window (or the panel's native equivalent),
+and no DevTools open.
 
-| Scenario | How to reach it | Pass condition |
+The production profiler opens a visible, hardware-accelerated Chrome window and
+records browser version, general device class, GPU renderer, CSS and drawing
+buffer dimensions, DPR, and real `requestAnimationFrame` frame times. Start a
+scenario, warm it for at least 15 seconds, then confirm capture in the terminal:
+
+```sh
+npm run profile:frame-pacing -- --scenario=quiet-town --device-class="Apple M1 integrated GPU"
+```
+
+The command writes an uncommitted JSON evidence file under `artifacts/` and
+prints a Markdown row. Run it once for each scenario, changing `--scenario` to
+`on-foot`, `driving`, `spray`, and `incident-collapse`. A measurement is a pass
+only when sustained FPS is **at least 60**, p95 frame time is **at most 25 ms**,
+and p99 is **at most 50 ms** after warm-up. Do not copy numbers from CI, a
+remote browser, or a headless browser.
+
+| Scenario | How to reach it | Timed capture |
 | --- | --- | --- |
-| Startup | Fresh profile → first town frame | First useful frame within 5 s; no startup error or blank canvas |
-| Quiet town | Complete a call → drive for 60 s | Sustained ≥60 FPS, <80 draws, <2,000 particles, typical sim tick <3 ms |
-| Heavy incident | `?perfScene=spray&style=diorama`, then `ink` | Sustained ≥60 FPS, <80 draws, <2,000 particles, typical sim tick <3 ms |
-| Hazard / aftermath | `?perfScene=hazard` and `?perfScene=collapse` in both styles | No console error, no continuous shadow refresh, each shared render budget holds |
-| Shift transition | Finish a five-call shift, accept the next call, refresh once | No lasting hitch that prevents play; progress and one active incident remain correct |
-| Long session | Play/explore for 20 minutes | No steadily worsening frame time, memory exhaustion, or resource leak visible to the player |
+| Quiet town | Complete a call; explore the calm town | `--scenario=quiet-town` |
+| On foot | Dismount and walk through the district | `--scenario=on-foot` |
+| Driving | Drive normally through the district | `--scenario=driving` |
+| Active water spray | Aim at a live incident and hold the one action | `--scenario=spray` |
+| Incident / collapse | Play an incident through its visual collapse | `--scenario=incident-collapse` |
 
-Record browser version, operating system, CPU/GPU, display resolution, power
-mode, commit SHA, and the measured start/steady values. A repeatable miss is a
-release blocker for the designed-for surface; a one-off measurement anomaly
-should be rerun after closing other applications before it becomes a code claim.
+Startup, shift transition, and long-session checks remain release checks: first
+useful frame must arrive within five seconds, a five-call transition and refresh
+must keep progress and one incident correct, and a 20-minute play session must
+not visibly degrade. They do not replace the five timed frame-pacing rows.
+
+Record one result per scenario, plus the commit, device class, Chrome version,
+GPU renderer, CSS/drawing resolution, and DPR. A repeatable miss is a release
+blocker for the designed-for surface; rerun a one-off anomaly after closing
+other applications before treating it as a code claim.
+
+| Commit | Scenario | Device class | Chrome | CSS / drawing px / DPR | FPS | p95 ms | p99 ms | Result |
+| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |
+| _No current target-device evidence — do not claim browser-performance acceptance._ |  |  |  |  |  |  |  |  |
 
 ## Current hardware evidence
 
-No real-device result is fabricated in the repository. The 2026-08-28 baseline
-above is an emitted-bundle measurement from this commit; it is not a laptop FPS
-measurement. Add anonymized rows here only after an actual local run, keeping
-device identifiers general enough to avoid personal data.
+No real-device result is fabricated in the repository. The 2026-08-28 bundle
+baseline above and every CI row are software measurements, not laptop FPS
+measurements. Add anonymized rows only after an actual local run, keeping device
+identifiers general enough to avoid personal data. A release cannot claim
+browser-performance acceptance while the table has no current target-device
+rows.

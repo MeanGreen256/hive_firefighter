@@ -239,6 +239,8 @@ interface HudCssVariables extends CSSProperties {
   '--hud-muted': string;
   '--hud-accent': string;
   '--hud-control': string;
+  '--hud-success': string;
+  '--hud-warning': string;
 }
 
 /**
@@ -1227,6 +1229,8 @@ export default function FollowCameraScene() {
     '--hud-muted': visualStyle.hud.mutedText,
     '--hud-accent': visualStyle.hud.accent,
     '--hud-control': visualStyle.hud.control,
+    '--hud-success': visualStyle.hud.success,
+    '--hud-warning': visualStyle.hud.warning,
   };
 
   const approachBand = approach?.band ?? ApproachBand.Far;
@@ -1292,6 +1296,9 @@ export default function FollowCameraScene() {
           onNextQuest={takeNextQuest}
           onRetry={retrySameQuest}
           onNewFire={retryNewFire}
+          rewardUnlocked={progressProfile.unlockedRewardIds.some(
+            (rewardId) => !celebratedRewardIds.current.includes(rewardId),
+          )}
         />
       ) : null}
       {stationCelebration && !debriefOpen ? (

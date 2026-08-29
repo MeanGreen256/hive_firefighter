@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PROP_FOOTPRINTS, getDistrict } from '@sim/districts';
-import { buildCameraCollisionProxies } from './cameraCollisionProxies';
+import { buildCameraCollisionProxies } from './cameraCollisionProxyData';
 import { buildDistrictLayout } from './districtLayout';
 import { getPropPartsHeight } from './propKits';
 
