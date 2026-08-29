@@ -233,6 +233,7 @@ describe('progress profile', () => {
       incident: INCIDENT,
       outcome: null,
       wrappedShift: false,
+      quietElapsedSeconds: 0,
     });
     expect(store.getState().profile.director?.incident).toEqual(INCIDENT);
   });

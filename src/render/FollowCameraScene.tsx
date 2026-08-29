@@ -90,7 +90,6 @@ import { buildDistrictLayout } from './districtLayout';
 import {
   buildFirehouseStarBoard,
   getFirehouseStarBoardPosition,
-  isWithinFirehouseNextCallRange,
   type FirehouseStarBoardModel,
 } from './firehouseStarBoard';
 import { createHosePresentationState } from './hoseTargeting';
@@ -270,7 +269,7 @@ interface GameWorldProps {
   readonly onApproachChange: (approach: ApproachSample) => void;
   readonly performanceScene: PerformanceAcceptanceScene | null;
   readonly quietTown: boolean;
-  readonly onNextCallRangeChange: (available: boolean) => void;
+  readonly onQuietTownSecondsElapsed: (seconds: number) => void;
   readonly playFrozen: boolean;
   readonly restoredPlacement: ReturnType<typeof loadSessionPlacement>;
 }
@@ -295,7 +294,7 @@ function GameWorld({
   onApproachChange,
   performanceScene,
   quietTown,
-  onNextCallRangeChange,
+  onQuietTownSecondsElapsed,
   playFrozen,
   restoredPlacement,
 }: GameWorldProps) {
@@ -311,7 +310,7 @@ function GameWorld({
   );
   const scorchRinse = useMemo(() => createScorchRinseField(), []);
   const lastCanBoard = useRef(false);
-  const lastCanStartNextCall = useRef(false);
+  const quietTownElapsed = useRef(0);
   const boardingCheckElapsed = useRef(0);
   const worldSamples = useRef(0);
   const lastApproachBand = useRef<ApproachBandId | null>(null);
@@ -338,6 +337,21 @@ function GameWorld({
   const activeTarget = mode === 'driving' ? truckRef : firefighterRef;
 
   useFrame(({ clock }, delta) => {
+    // Quiet town is real free exploration, not a visit-to-the-firehouse gate.
+    // Count only visible, unpaused time and publish whole seconds, so the
+    // persisted director state stays compact and a background-frame spike
+    // cannot skip the interval.
+    if (quietTown && !playFrozen) {
+      quietTownElapsed.current += Math.min(delta, 0.25);
+      const elapsedSeconds = Math.floor(quietTownElapsed.current);
+      if (elapsedSeconds > 0) {
+        quietTownElapsed.current -= elapsedSeconds;
+        onQuietTownSecondsElapsed(elapsedSeconds);
+      }
+    } else if (!quietTown) {
+      quietTownElapsed.current = 0;
+    }
+
     // The siren gets an audience (#181): each wail stirs the flags, signs, and
     // foliage it passes, and startles birds off the roofs near it. Cosmetic
     // only — nothing scatters into a target, a counter, or an objective.
@@ -368,16 +382,6 @@ function GameWorld({
     if (canBoard !== lastCanBoard.current) {
       lastCanBoard.current = canBoard;
       onBoardingRangeChange(canBoard);
-    }
-
-    const canStartNextCall =
-      quietTown &&
-      mode === 'on-foot' &&
-      firefighter !== null &&
-      isWithinFirehouseNextCallRange(firefighter.position, FIREHOUSE_BOARD_POSITION);
-    if (canStartNextCall !== lastCanStartNextCall.current) {
-      lastCanStartNextCall.current = canStartNextCall;
-      onNextCallRangeChange(canStartNextCall);
     }
 
     // The HUD and the coach both read the world at the same 10 Hz the boarding
@@ -561,7 +565,7 @@ function GameWorld({
         model={starBoard}
         position={FIREHOUSE_BOARD_POSITION}
         visualStyle={visualStyle}
-        nextCallAvailable={quietTown}
+        nextCallAvailable={false}
       />
     </>
   );
@@ -574,7 +578,6 @@ export default function FollowCameraScene() {
   );
   const [sirenOn, setSirenOn] = useState(true);
   const [canBoard, setCanBoard] = useState(false);
-  const [canStartNextCall, setCanStartNextCall] = useState(false);
   const [questDirector, setQuestDirector] = useState<QuestDirector>(initialQuestDirector);
   const [latestBadgeId, setLatestBadgeId] = useState<string | null>(initialLatestQuestBadge);
   const [stationCelebration, setStationCelebration] = useState<StationCelebrationNotice | null>(
@@ -632,6 +635,11 @@ export default function FollowCameraScene() {
       current.state.phase === 'celebrating' ? current.enterQuietTown() : current,
     );
   }, [directedIncident, progressProfile, questDirector]);
+  const advanceQuietTown = useCallback((seconds: number) => {
+    setQuestDirector((current) =>
+      current.isQuietTown ? current.advanceQuietTown(seconds) : current,
+    );
+  }, []);
   const retrySameQuest = useCallback(() => {
     // A same-seed retry keeps the directed identity unchanged, so it needs the
     // controller's explicit reset before the director returns to active.
@@ -705,6 +713,9 @@ export default function FollowCameraScene() {
   useEffect(() => {
     if (!PERFORMANCE_SCENE) progressProfileStore.getState().saveDirector(questDirector.serialize());
   }, [questDirector]);
+  useEffect(() => {
+    if (!quietTown) setStationCelebration(null);
+  }, [quietTown]);
   useEffect(() => {
     if (questDirector.state.phase !== 'resolved') return;
     setQuestDirector((current) =>
@@ -923,13 +934,6 @@ export default function FollowCameraScene() {
     return () => fireAudioSystem.setSirenActive(false);
   }, [sirenOn]);
 
-  const beginNextCall = useCallback(() => {
-    if (!questDirector.isQuietTown) return;
-    setCanStartNextCall(false);
-    setStationCelebration(null);
-    setQuestDirector((current) => (current.isQuietTown ? current.activateNext() : current));
-  }, [questDirector]);
-
   /**
    * The whole game on one button (ADR-007 rule 1).
    *
@@ -1026,7 +1030,7 @@ export default function FollowCameraScene() {
       extinguished: fireSnapshot.extinguished,
       incidentStatus: fireSnapshot.status,
       canBoard,
-      canStartNextCall,
+      canStartNextCall: false,
       starScreenOpen: debriefOpen,
       stars: debriefOpen ? (fireSnapshot.debrief?.stars ?? null) : null,
       outcome: debriefOpen ? (fireSnapshot.debrief?.outcome ?? null) : null,
@@ -1039,7 +1043,6 @@ export default function FollowCameraScene() {
     });
   }, [
     canBoard,
-    canStartNextCall,
     debriefOpen,
     directedIncident,
     directedQuestSite,
@@ -1065,27 +1068,13 @@ export default function FollowCameraScene() {
     }
     if (frozen || debriefOpen) return;
     const targetCaptured = firefighterRef.current?.userData.targetCaptured === true;
-    if (quietTown && mode === 'on-foot' && canStartNextCall && !targetCaptured) {
-      beginNextCall();
-      return;
-    }
     const intent = getActionIntent({
       mode,
       canBoard,
       targetCaptured,
     });
     if (intent === 'transition') transitionPlayer();
-  }, [
-    beginNextCall,
-    canBoard,
-    canStartNextCall,
-    debriefOpen,
-    frozen,
-    mode,
-    pauseState.adultPaused,
-    quietTown,
-    transitionPlayer,
-  ]);
+  }, [canBoard, debriefOpen, frozen, mode, pauseState.adultPaused, transitionPlayer]);
 
   useEffect(() => {
     /**
@@ -1222,7 +1211,7 @@ export default function FollowCameraScene() {
             onApproachChange={setApproach}
             performanceScene={PERFORMANCE_SCENE}
             quietTown={quietTown}
-            onNextCallRangeChange={setCanStartNextCall}
+            onQuietTownSecondsElapsed={advanceQuietTown}
             playFrozen={frozen}
             restoredPlacement={RESTORED_PLACEMENT}
           />
@@ -1242,8 +1231,6 @@ export default function FollowCameraScene() {
         sirenOn={sirenOn}
         onToggleSiren={toggleSiren}
         quietTown={quietTown}
-        nextCallAvailable={canStartNextCall}
-        onNextCall={beginNextCall}
         onRestartGuide={restartOnboarding}
         onResetProgress={PERFORMANCE_SCENE ? undefined : resetProgress}
         onPause={PERFORMANCE_SCENE ? undefined : () => playPause.pauseForAdult()}

@@ -205,6 +205,8 @@ export interface QuestFireControllerOptions {
   readonly personalBestStorage?: StorageLike | null;
   /** Explicit test/dev seam; production defaults never enable the spike. */
   readonly residualHotspotSpike?: boolean;
+  /** Test seam for comparing an authored pacing change with its old baseline. */
+  readonly getWaterSuppressionMultiplier?: (questId: string) => number;
 }
 
 export function isResidualHotspotSpikeEnabled(search?: string): boolean {
@@ -236,6 +238,9 @@ export function createQuestFireController(
       ? getBrowserPersonalBestStorage()
       : options.personalBestStorage,
   );
+  const getWaterSuppressionMultiplier =
+    options.getWaterSuppressionMultiplier ??
+    ((questId: string) => getQuestPacing(questId).waterSuppressionMultiplier);
 
   const countCells = (state: FireSimulationState) => {
     let burning = 0;
@@ -489,8 +494,9 @@ export function createQuestFireController(
         : null;
       const cellId = hazardPlacement?.cellId ?? targetId.replace(/^cell:/, '');
       if (!fire.state.grid.cells[cellId]) return null;
-      const result = applySuppression(fire.state, cellId, litres, SuppressionAgent.Water);
-      const hazardEvents = coolHazardsAtCell(hazards, cellId, litres);
+      const effectiveLitres = litres * getWaterSuppressionMultiplier(fire.quest.id);
+      const result = applySuppression(fire.state, cellId, effectiveLitres, SuppressionAgent.Water);
+      const hazardEvents = coolHazardsAtCell(hazards, cellId, effectiveLitres);
       pendingSimulationEvents.push(...hazardEvents);
       if (result.contacts.length > 0 || hazardPlacement) waterUsedLitres += litres;
       runner.setState(fire.state);

@@ -16,6 +16,13 @@ import {
 export const QUEST_DIRECTOR_SERIAL_VERSION = 1 as const;
 
 /**
+ * A child gets a real, fire-free roam between calls, then the known next
+ * incident dispatches itself. The integer-second clock makes the interval
+ * deterministic and preserves its remaining time through a refresh.
+ */
+export const QUIET_TOWN_DISPATCH_DELAY_SECONDS = 20;
+
+/**
  * `next` is the durable wire name for the quiet-town state. It predates the
  * free-roam interval, so keeping it preserves every saved V1 profile while the
  * public director API names the child-facing state explicitly.
@@ -44,6 +51,8 @@ export interface QuestDirectorState {
   readonly outcome: SessionOutcome | null;
   /** True only when next crossed the authored fifth-to-first shift boundary. */
   readonly wrappedShift: boolean;
+  /** Completed seconds of the current quiet-town interval; zero outside `next`. */
+  readonly quietElapsedSeconds: number;
 }
 
 export type QuestDirectorSerialized = QuestDirectorState;
@@ -101,6 +110,7 @@ function inactiveState(): QuestDirectorState {
     incident: null,
     outcome: null,
     wrappedShift: false,
+    quietElapsedSeconds: 0,
   });
 }
 
@@ -132,6 +142,7 @@ function readSerializedState(order: QuestShiftOrder, value: unknown): QuestDirec
   const phase = candidate.phase;
   const outcome = candidate.outcome;
   const wrappedShift = candidate.wrappedShift;
+  const quietElapsedSeconds = candidate.quietElapsedSeconds ?? 0;
   if (
     candidate.version !== QUEST_DIRECTOR_SERIAL_VERSION ||
     (phase !== 'inactive' &&
@@ -139,12 +150,20 @@ function readSerializedState(order: QuestShiftOrder, value: unknown): QuestDirec
       phase !== 'resolved' &&
       phase !== 'celebrating' &&
       phase !== 'next') ||
-    typeof wrappedShift !== 'boolean'
+    typeof wrappedShift !== 'boolean' ||
+    typeof quietElapsedSeconds !== 'number' ||
+    !Number.isSafeInteger(quietElapsedSeconds) ||
+    quietElapsedSeconds < 0
   ) {
     throw new Error('Quest director resume data has an unsupported shape');
   }
   if (phase === 'inactive') {
-    if (candidate.incident !== null || outcome !== null || wrappedShift) {
+    if (
+      candidate.incident !== null ||
+      outcome !== null ||
+      wrappedShift ||
+      quietElapsedSeconds !== 0
+    ) {
       throw new Error('Inactive quest director resume data must not contain an incident');
     }
     return inactiveState();
@@ -190,12 +209,16 @@ function readSerializedState(order: QuestShiftOrder, value: unknown): QuestDirec
   if ((phase === 'resolved' || phase === 'celebrating') && !isOutcome(outcome)) {
     throw new Error('A terminal incident must retain a complete outcome');
   }
+  if (phase !== 'next' && quietElapsedSeconds !== 0) {
+    throw new Error('Only a quiet-town director snapshot can retain elapsed quiet time');
+  }
   return cloneState({
     version: QUEST_DIRECTOR_SERIAL_VERSION,
     phase,
     incident: expected,
     outcome: isOutcome(outcome) ? outcome : null,
     wrappedShift,
+    quietElapsedSeconds,
   });
 }
 
@@ -232,17 +255,27 @@ export class QuestDirector {
       incident: createIncident(this.order, 0, slotIndex),
       outcome: null,
       wrappedShift: false,
+      quietElapsedSeconds: 0,
     });
   }
 
   resolve(outcome: SessionOutcome): QuestDirector {
     assertTransition(this.state.phase === 'active', 'resolve an incident', this.state.phase);
-    return new QuestDirector(this.order, { ...this.state, phase: 'resolved', outcome });
+    return new QuestDirector(this.order, {
+      ...this.state,
+      phase: 'resolved',
+      outcome,
+      quietElapsedSeconds: 0,
+    });
   }
 
   beginCelebration(): QuestDirector {
     assertTransition(this.state.phase === 'resolved', 'begin celebrating', this.state.phase);
-    return new QuestDirector(this.order, { ...this.state, phase: 'celebrating' });
+    return new QuestDirector(this.order, {
+      ...this.state,
+      phase: 'celebrating',
+      quietElapsedSeconds: 0,
+    });
   }
 
   retrySameSeed(): QuestDirector {
@@ -261,6 +294,7 @@ export class QuestDirector {
         incident.attempt + 1,
       ),
       outcome: null,
+      quietElapsedSeconds: 0,
     });
   }
 
@@ -280,6 +314,7 @@ export class QuestDirector {
         incident.attempt + 1,
       ),
       outcome: null,
+      quietElapsedSeconds: 0,
     });
   }
 
@@ -301,6 +336,7 @@ export class QuestDirector {
       incident: createIncident(this.order, nextShift, nextSlot),
       outcome: null,
       wrappedShift: wraps,
+      quietElapsedSeconds: 0,
     });
   }
 
@@ -311,7 +347,29 @@ export class QuestDirector {
 
   activateNext(): QuestDirector {
     assertTransition(this.state.phase === 'next', 'activate the next incident', this.state.phase);
-    return new QuestDirector(this.order, { ...this.state, phase: 'active', wrappedShift: false });
+    return new QuestDirector(this.order, {
+      ...this.state,
+      phase: 'active',
+      wrappedShift: false,
+      quietElapsedSeconds: 0,
+    });
+  }
+
+  /**
+   * Advances active, visible quiet-town time in whole seconds. A scene supplies
+   * the clock, so a hidden/adult-paused tab does not accidentally dispatch a
+   * fire, while the state remains fully serializable for a refresh.
+   */
+  advanceQuietTown(seconds: number): QuestDirector {
+    assertTransition(this.state.phase === 'next', 'advance quiet town', this.state.phase);
+    if (!Number.isSafeInteger(seconds) || seconds < 0) {
+      throw new RangeError(
+        `Quiet-town seconds must be a non-negative integer, got ${String(seconds)}`,
+      );
+    }
+    const elapsed = this.state.quietElapsedSeconds + seconds;
+    if (elapsed >= QUIET_TOWN_DISPATCH_DELAY_SECONDS) return this.activateNext();
+    return new QuestDirector(this.order, { ...this.state, quietElapsedSeconds: elapsed });
   }
 
   serialize(): QuestDirectorSerialized {

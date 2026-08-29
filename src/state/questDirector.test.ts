@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createQuestDirector,
+  QUIET_TOWN_DISPATCH_DELAY_SECONDS,
   remixQuestSeed,
   resumeQuestDirector,
   type QuestDirector,
@@ -53,20 +54,24 @@ describe('QuestDirector', () => {
     expect(pending.activateNext().activeIncident).toMatchObject({ questId: 'two', slot: 1 });
   });
 
-  it('stays fire-free for an unbounded quiet interval until activation is explicit', () => {
+  it('keeps a deterministic fire-free interval, resumes it, then dispatches exactly one queued call', () => {
     const quiet = celebrating(createQuestDirector(ORDER).start()).enterQuietTown();
-    const serialized = quiet.serialize();
+    const nearlyReady = quiet.advanceQuietTown(QUIET_TOWN_DISPATCH_DELAY_SECONDS - 1);
+    expect(nearlyReady.state).toMatchObject({
+      phase: 'next',
+      quietElapsedSeconds: QUIET_TOWN_DISPATCH_DELAY_SECONDS - 1,
+    });
+    expect(nearlyReady.activeIncident).toBeNull();
+    expect(nearlyReady.queuedIncident?.questId).toBe('two');
 
-    // Time is deliberately not an input to the director. Sixty seconds of
-    // browser frames therefore cannot activate the queued call.
-    let resumed = quiet;
-    for (let tenth = 0; tenth < 600; tenth += 1) {
-      resumed = resumeQuestDirector(ORDER, resumed.serialize());
-    }
+    // The snapshot is written during free roam. Refreshing cannot reset the
+    // interval or create a second active incident.
+    const resumed = resumeQuestDirector(ORDER, nearlyReady.serialize());
+    const dispatched = resumed.advanceQuietTown(1);
 
-    expect(resumed.serialize()).toEqual(serialized);
-    expect(resumed.activeIncident).toBeNull();
-    expect(resumed.queuedIncident?.questId).toBe('two');
+    expect(dispatched.state).toMatchObject({ phase: 'active', quietElapsedSeconds: 0 });
+    expect(dispatched.activeIncident).toMatchObject({ questId: 'two', slot: 1 });
+    expect(() => dispatched.advanceQuietTown(1)).toThrow(/Cannot advance quiet town/);
   });
 
   it('keeps same-seed retries exact and makes new-fire retries deterministic', () => {

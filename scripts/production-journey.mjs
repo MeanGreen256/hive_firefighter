@@ -11,7 +11,8 @@
  * serves that build, opens it at `/` with no query string and an empty profile,
  * and plays it with the keys a child has: drive to the smoke, hop out, hold the
  * button until the fire is out, take the stars, roam a town with nothing on
- * fire, start the next call from the firehouse, and come back after a refresh
+ * fire, wait through a real quiet-town roam until the next call dispatches,
+ * and come back after a refresh
  * with the shift still where it was.
  *
  * Everything it asserts is something a player would notice.
@@ -40,7 +41,7 @@ import {
   browserTargetFromEnvironment,
   executableCandidatesForTarget,
 } from './lib/browserTargets.mjs';
-import { JourneyPlayer, quietTownTravelPlan } from './lib/journeyPlayer.mjs';
+import { JourneyPlayer } from './lib/journeyPlayer.mjs';
 
 const rootDirectory = fileURLToPath(new URL('..', import.meta.url));
 const artifactDirectory = process.env.ACCEPTANCE_ARTIFACT_DIR;
@@ -74,6 +75,8 @@ const HOSE_REACH_METERS = 9;
 const DEFAULT_SETTLE_SECONDS = 10;
 /** Seconds of fighting one incident gets, before the settle grace above. */
 const DEFAULT_INCIDENT_SECONDS = 600;
+/** The game dispatches after 20 seconds; leave room for slow software WebGL. */
+const QUIET_TOWN_DISPATCH_TIMEOUT_MS = 45_000;
 /**
  * Software WebGL can defer the context-lost event while its driver drains a
  * frame. The recovered canvas is still a strong signal that it happened, so
@@ -524,7 +527,7 @@ async function checkGraphicsRecovery(player, session, sessionId) {
   );
 }
 
-/** Take the stars and land in the quiet town the next call is started from. */
+/** Take the stars and land in the quiet town before the next automatic call. */
 async function leaveTheStarScreen(player) {
   await player.releaseAll();
   await player.press(' ');
@@ -536,10 +539,10 @@ async function leaveTheStarScreen(player) {
 }
 
 /**
- * Free roam with nothing on fire (#212), then the one thing that starts the
- * next call.
+ * Free roam with nothing on fire, then verify the deterministic automatic
+ * dispatch. The game must not hide a bell, menu, or extra input in the gap.
  */
-async function roamAndStartNextCall(player, session, sessionId, index) {
+async function roamUntilAutomaticDispatch(player, session, sessionId, index) {
   const quiet = await player.observe();
   check(
     quiet.burningCellCount === 0,
@@ -547,65 +550,24 @@ async function roamAndStartNextCall(player, session, sessionId, index) {
   );
   const page = await session.evaluate(pageStateExpression(), sessionId);
   check(
-    page.nextCallControls === 1,
-    `the quiet town offers exactly one next-call control (found ${page.nextCallControls})`,
+    page.nextCallControls === 0 && page.offeredNextCallControls === 0,
+    `quiet town offers no manual next-call control (found ${page.nextCallControls})`,
   );
 
-  // Get back in the truck and drive: the quiet interval is a place, not a menu.
-  // A refresh restores quiet-town progression but boots the player in the cab,
-  // so only walk and board when the current mode actually needs it.
-  let driving = quiet;
-  if (quietTownTravelPlan(quiet) === 'board') {
-    // Inside `BOARDING_RANGE` with room to spare, so arriving is boarding.
-    await player.walkTo(quiet.truck, { arriveMeters: 2, label: 'the truck', timeoutMs: 30_000 });
-    await player.press(' ');
-    driving = await player.waitFor(
-      'the player to board the truck in the quiet town',
-      (state) => state.mode === 'driving',
-      10_000,
-    );
-  }
-  const roamedFrom = driving.truck;
-  const firehouseMeters = Math.hypot(
-    roamedFrom.x - quiet.firehouse.x,
-    roamedFrom.z - quiet.firehouse.z,
+  // Wait long enough to prove the gap is real before checking the dispatch.
+  // Input is deliberately unnecessary: a new player can simply explore.
+  await wait(5_000);
+  const duringRoam = await player.observe();
+  check(
+    duringRoam.quietTown && duringRoam.burningCellCount === 0,
+    'the town remains fire-free during the quiet exploration interval',
   );
-  await player.driveTo(
-    { x: quiet.firehouse.x, z: quiet.firehouse.z },
-    { arriveMeters: 9, label: 'the firehouse', timeoutMs: 240_000 },
-  );
-  const parked = await player.observe();
-  const roamedMeters = Math.hypot(parked.truck.x - roamedFrom.x, parked.truck.z - roamedFrom.z);
-  // Some calls end within sight of the firehouse, and a short drive there says
-  // nothing either way; the claim is only tested when there was a drive to do.
-  if (firehouseMeters >= 20) {
-    check(roamedMeters >= 12, 'the player can drive across town with no incident active');
-  } else {
-    note(`the firehouse was ${firehouseMeters.toFixed(0)} m away, too close to test free roam`);
-  }
-  check(parked.quietTown, 'the town stays fire-free for the whole drive between calls');
   await capture(session, sessionId, `quiet-town-${index + 1}`);
 
-  await player.press(' ');
-  await player.waitFor('the firefighter to leave the cab', (s) => s.mode === 'on-foot', 10_000);
-  await player.walkTo(
-    { x: quiet.firehouse.x, z: quiet.firehouse.z },
-    { arriveMeters: 3, label: 'the firehouse bell', timeoutMs: 40_000 },
-  );
-  const offered = await player.waitFor(
-    'the next call to be offered at the firehouse',
-    (state) => state.canStartNextCall,
-    20_000,
-  );
-  check(
-    offered.canStartNextCall,
-    `the next call is offered at the firehouse after call ${index + 1}`,
-  );
-  await player.press(' ');
   return player.waitFor(
-    'the next call to start',
+    'the next call to dispatch automatically',
     (state) => !state.quietTown && state.questId !== null,
-    20_000,
+    QUIET_TOWN_DISPATCH_TIMEOUT_MS,
   );
 }
 
@@ -837,7 +799,7 @@ try {
     }
 
     const last = index === options.incidents - 1;
-    const next = await roamAndStartNextCall(player, session, sessionId, index);
+    const next = await roamUntilAutomaticDispatch(player, session, sessionId, index);
     // Only a run that played a whole roster can say anything about the shift
     // wrapping; a one-incident run is a smoke test of the same journey.
     if (last && options.incidents >= next.slotCount) {

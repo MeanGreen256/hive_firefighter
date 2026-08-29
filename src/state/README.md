@@ -119,8 +119,9 @@ advances deterministically to another seed.
 durable V1 phase name remains `next` for existing profiles, while
 `enterQuietTown`, `isQuietTown`, and `queuedIncident` make the runtime contract
 explicit: the next authored identity is saved, but it is not an active incident
-and cannot reach the fire controller until `activateNext()` is called. Wall time
-never advances that lifecycle boundary.
+until 20 seconds of visible, unpaused quiet-town time have elapsed. The scene
+feeds whole seconds to `advanceQuietTown()`, so a refresh preserves the remaining
+deterministic interval and a hidden/adult-paused tab never starts a fire.
 
 #100 deleted `simDebugController.ts` and `hoseController.ts` with the M2 view
 they hosted. The Sim Lab overlay went with them: it inspected cells and tuned
