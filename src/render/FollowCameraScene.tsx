@@ -108,6 +108,7 @@ import {
   type PlayerMode,
 } from './mountDismount';
 import type { BeaconPoint } from './questBeacon';
+import { resolveGameplayDpr } from './renderResolution';
 
 const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
 const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
@@ -1203,7 +1204,7 @@ export default function FollowCameraScene() {
         <Canvas
           shadows="percentage"
           gl={{ antialias: true }}
-          dpr={[1, 2]}
+          dpr={resolveGameplayDpr(window.devicePixelRatio)}
           onCreated={configureStaticShadows}
         >
           <GameWorld

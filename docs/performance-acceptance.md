@@ -45,6 +45,21 @@ console failures. Its 640×360 SwiftShader FPS floor only detects a stuck frame;
 it cannot prove a 60 FPS laptop experience. `acceptance:production` separately
 boots the built game and completes a real incident.
 
+## Gameplay render resolution
+
+The WebGL canvas is capped at **one drawing pixel per CSS pixel**. A
+1920×1080 gameplay window therefore stays a 1920×1080 drawing buffer even when
+the display reports device-pixel ratio 2; it does not silently become a 4K
+render target. Antialiasing remains enabled, preserving clean silhouettes while
+removing high-density supersampling that the designed-for integrated GPU cannot
+afford.
+
+The policy preserves a browser-provided DPR below 1. Adaptive changes during a
+session are deliberately deferred until real-device evidence shows they are
+needed and supplies stable thresholds and hysteresis; resolution must not pulse
+while a child drives or sprays. Browser acceptance emulates a DPR-2 display and
+fails if the real WebGL drawing buffer exceeds one pixel per CSS pixel.
+
 ## Real-laptop run sheet
 
 For each release candidate, record a fresh result for at least one current
