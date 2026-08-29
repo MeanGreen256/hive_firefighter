@@ -15,6 +15,7 @@ export const BROWSER_TARGETS = Object.freeze({
       'google-chrome-stable',
       'chromium',
       'chromium-browser',
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     ]),
   }),
   edge: Object.freeze({

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo } from 'react';
 import type { Group } from 'three';
-import { buildCameraCollisionProxies } from './cameraCollisionProxies';
+import { buildCameraCollisionProxies } from './cameraCollisionProxyData';
 import type { DistrictLayout } from './districtLayout';
 
 export function CameraCollisionProxies({

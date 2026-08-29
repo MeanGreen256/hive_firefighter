@@ -1257,6 +1257,9 @@ export default function FollowCameraScene() {
           onNextQuest={takeNextQuest}
           onRetry={retrySameQuest}
           onNewFire={retryNewFire}
+          rewardUnlocked={progressProfile.unlockedRewardIds.some(
+            (rewardId) => !celebratedRewardIds.current.includes(rewardId),
+          )}
         />
       ) : null}
       {stationCelebration && !debriefOpen ? (

@@ -47,7 +47,12 @@ describe('SessionDebriefPanel', () => {
       expect(html).toMatch(/debrief-panel__primary[^>]*aria-label="Continue"/);
       expect(html).toMatch(/debrief-panel__secondary[^>]*aria-label="Replay this fire"/);
       expect(html).toContain(`debrief-heading--${outcome}`);
-      expect(html).toContain('buildings before');
+      expect(html).toContain('buildings were on fire');
+      expect(html).toContain('debrief-object--burning');
+      expect(html).toContain(
+        outcome === SessionStatus.Scorched ? 'debrief-object--lost' : 'debrief-object--saved',
+      );
+      expect(html).toMatch(/data-action="continue"/);
       expect(html).not.toContain('Personal best');
       expect(html).not.toContain('120');
       expect(html).not.toContain('10 L');
@@ -67,5 +72,27 @@ describe('SessionDebriefPanel', () => {
     expect(html).toContain('debrief-new-best');
     expect(html).toContain('aria-label="New best"');
     expect(html).not.toContain('Personal best');
+  });
+
+  it('only shows the distinct badge-and-sparkle reward reveal when this fire unlocks one', () => {
+    const unlocked = renderToStaticMarkup(
+      <SessionDebriefPanel
+        debrief={debrief(SessionStatus.Contained)}
+        onRetry={() => undefined}
+        onNewFire={() => undefined}
+        rewardUnlocked
+      />,
+    );
+    const ordinary = renderToStaticMarkup(
+      <SessionDebriefPanel
+        debrief={debrief(SessionStatus.Contained)}
+        onRetry={() => undefined}
+        onNewFire={() => undefined}
+      />,
+    );
+
+    expect(unlocked).toContain('debrief-reward');
+    expect(unlocked).toContain('New reward unlocked');
+    expect(ordinary).not.toContain('debrief-reward');
   });
 });

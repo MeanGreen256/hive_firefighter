@@ -45,6 +45,7 @@ export function chromeExecutable() {
       'google-chrome-stable',
       'chromium',
       'chromium-browser',
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     ].filter(Boolean),
   );
 }

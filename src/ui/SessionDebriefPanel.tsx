@@ -3,10 +3,12 @@ import { SessionStatus, type SessionDebrief } from '../state/sessionStats';
 import {
   ArrowIcon,
   BuildingIcon,
+  BurningBuildingIcon,
   ContinueIcon,
   NewFireIcon,
-  OutcomeIcon,
   ReplayIcon,
+  RewardBadgeIcon,
+  SavedBuildingIcon,
   ScenarioIcon,
   SparkleIcon,
   StarIcon,
@@ -38,26 +40,25 @@ function ObjectSnapshot({ debrief }: { readonly debrief: SessionDebrief }) {
   return (
     <section
       className="debrief-snapshot"
-      aria-label={`${debrief.objects.total} buildings before. ${debrief.objects.saved} saved and ${debrief.objects.lost} scorched after.`}
+      aria-label={`${debrief.objects.total} buildings were on fire. ${debrief.objects.saved} are safe and ${debrief.objects.lost} are scorched.`}
     >
       <div className="debrief-snapshot__before" aria-hidden="true">
         {before.map((_, index) => (
-          <BuildingIcon key={index} className="debrief-object" />
+          <BurningBuildingIcon key={index} className="debrief-object debrief-object--burning" />
         ))}
       </div>
       <ArrowIcon className="debrief-snapshot__arrow" aria-hidden="true" />
-      <div className="debrief-snapshot__after" aria-hidden="true">
-        {after.map((state, index) => (
-          <BuildingIcon
-            key={index}
-            scorched={state === 'scorched'}
-            className={
-              state === 'saved'
-                ? 'debrief-object debrief-object--saved'
-                : 'debrief-object debrief-object--lost'
-            }
-          />
-        ))}
+      <div className="debrief-snapshot__result">
+        <div className="debrief-snapshot__after" aria-hidden="true">
+          {after.map((state, index) =>
+            state === 'saved' ? (
+              <SavedBuildingIcon key={index} className="debrief-object debrief-object--saved" />
+            ) : (
+              <BuildingIcon key={index} scorched className="debrief-object debrief-object--lost" />
+            ),
+          )}
+        </div>
+        <StarReveal stars={debrief.stars} />
       </div>
     </section>
   );
@@ -76,6 +77,8 @@ export interface SessionDebriefPanelProps {
   readonly onRetry: () => void;
   readonly onNewFire: () => void;
   readonly onNextQuest?: () => void;
+  /** A cosmetic became available from this exact completed incident. */
+  readonly rewardUnlocked?: boolean;
   readonly scenarioOptions?: readonly DebriefScenarioOption[];
   readonly onScenarioChange?: (scenarioId: string) => void;
 }
@@ -85,6 +88,7 @@ export function SessionDebriefPanel({
   onRetry,
   onNewFire,
   onNextQuest,
+  rewardUnlocked = false,
   scenarioOptions,
   onScenarioChange,
 }: SessionDebriefPanelProps) {
@@ -154,8 +158,7 @@ export function SessionDebriefPanel({
 
   if (!debrief) return null;
 
-  const outcome = scorched ? 'scorched' : 'contained';
-  const title = scorched ? 'Fire out' : 'Fire contained';
+  const title = scorched ? 'Fire is out; the building is scorched' : 'Fire is out; building saved';
 
   return (
     <dialog
@@ -165,14 +168,23 @@ export function SessionDebriefPanel({
       aria-labelledby="debrief-title"
       onCancel={(event) => event.preventDefault()}
     >
-      <header className={`debrief-heading debrief-heading--${outcome}`}>
+      <header
+        className={
+          scorched
+            ? 'debrief-heading debrief-heading--scorched'
+            : 'debrief-heading debrief-heading--contained'
+        }
+      >
         <h1 id="debrief-title" className="debrief-screen-reader-only">
           {title}
         </h1>
         <div className="debrief-outcome" role="img" aria-label={title}>
-          <OutcomeIcon outcome={outcome} aria-hidden="true" />
+          {scorched ? (
+            <BuildingIcon scorched aria-hidden="true" />
+          ) : (
+            <SavedBuildingIcon aria-hidden="true" />
+          )}
         </div>
-        <StarReveal stars={debrief.stars} />
       </header>
 
       <ObjectSnapshot debrief={debrief} />
@@ -181,6 +193,13 @@ export function SessionDebriefPanel({
         <div className="debrief-new-best" role="img" aria-label="New best">
           <SparkleIcon aria-hidden="true" />
           <SparkleIcon aria-hidden="true" />
+          <SparkleIcon aria-hidden="true" />
+        </div>
+      ) : null}
+
+      {rewardUnlocked ? (
+        <div className="debrief-reward" role="img" aria-label="New reward unlocked">
+          <RewardBadgeIcon aria-hidden="true" />
           <SparkleIcon aria-hidden="true" />
         </div>
       ) : null}
@@ -208,6 +227,7 @@ export function SessionDebriefPanel({
           type="button"
           className="debrief-panel__primary"
           aria-label="Continue"
+          data-action="continue"
           onClick={advance}
         >
           <ContinueIcon aria-hidden="true" />
