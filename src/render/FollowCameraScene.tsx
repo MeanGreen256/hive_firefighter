@@ -42,6 +42,10 @@ import {
   loadSessionPlacement,
   saveSessionPlacement,
 } from '../state/sessionPlacement';
+import {
+  createBrowserSessionPlacementSaveScheduler,
+  createSessionPlacementSaver,
+} from '../state/sessionPlacementSaver';
 import { getBrowserPersonalBestStorage, PERSONAL_BESTS_STORAGE_KEY } from '../state/personalBests';
 import { styleStore } from '@styles/styleStore';
 import { STYLES, type Style } from '@styles/styles';
@@ -77,6 +81,7 @@ import { AmbientDistrict } from './AmbientDistrict';
 import { WorldReactions } from './WorldReactionsLayer';
 import { PerformanceSampler } from './PerformanceSampler';
 import { CityDistrict } from './CityDistrict';
+import { CameraCollisionProxies } from './CameraCollisionProxies';
 import { ExteriorFire } from './ExteriorFire';
 import { ExteriorIncidentEffects } from './ExteriorIncidentEffects';
 import { SmokeBeacon } from './SmokeBeacon';
@@ -315,7 +320,16 @@ function GameWorld({
   const worldSamples = useRef(0);
   const lastApproachBand = useRef<ApproachBandId | null>(null);
   const telemetryElapsed = useRef(0);
-  const placementElapsed = useRef(0);
+  const placementSaver = useMemo(
+    () =>
+      SESSION_PLACEMENT_STORAGE
+        ? createSessionPlacementSaver(
+            SESSION_PLACEMENT_STORAGE,
+            createBrowserSessionPlacementSaveScheduler(),
+          )
+        : null,
+    [],
+  );
   const approachTruckPosition: readonly [number, number, number] = [activeQuestSite.x - 28, 0, 0];
   const incidentTruckPosition: readonly [number, number, number] = [
     activeQuestSite.x - 5,
@@ -447,12 +461,8 @@ function GameWorld({
       });
     }
 
-    if (playFrozen || !SESSION_PLACEMENT_STORAGE) return;
-    placementElapsed.current += 0.1;
-    if (placementElapsed.current < 1) return;
-    placementElapsed.current = 0;
-    saveSessionPlacement(
-      SESSION_PLACEMENT_STORAGE,
+    if (playFrozen || !placementSaver) return;
+    placementSaver.note(
       createSessionPlacement(
         mode,
         { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
@@ -462,6 +472,8 @@ function GameWorld({
       ),
     );
   });
+
+  useEffect(() => () => placementSaver?.dispose(), [placementSaver]);
 
   return (
     <>
@@ -475,6 +487,7 @@ function GameWorld({
         orbitEnabled={mode === 'driving'}
         speedRatio={truckSpeedRatio}
       />
+      <CameraCollisionProxies layout={DISTRICT_LAYOUT} proxyRef={collisionRoot} />
       <ArcadeTruck
         targetRef={truckRef}
         visualStyle={visualStyle}
@@ -546,15 +559,13 @@ function GameWorld({
         visualStyle={visualStyle}
       />
       <WaypointArrow subjectRef={activeTarget} target={beaconTarget} visualStyle={visualStyle} />
-      <group ref={collisionRoot}>
-        <CityDistrict
-          layout={DISTRICT_LAYOUT}
-          visualStyle={visualStyle}
-          activeQuestSite={activeQuestSite}
-          incidentCameraActive={mode === 'on-foot'}
-          reactions={worldReactions}
-        />
-      </group>
+      <CityDistrict
+        layout={DISTRICT_LAYOUT}
+        visualStyle={visualStyle}
+        activeQuestSite={activeQuestSite}
+        incidentCameraActive={mode === 'on-foot'}
+        reactions={worldReactions}
+      />
       <AmbientDistrict
         district={DISTRICT}
         visualStyle={visualStyle}

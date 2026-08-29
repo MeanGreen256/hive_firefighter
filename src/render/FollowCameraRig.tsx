@@ -83,7 +83,6 @@ function resolveCollision(
 
   if (desiredDistance > Number.EPSILON && collisionRoot) {
     direction.multiplyScalar(1 / desiredDistance);
-    collisionRoot.updateWorldMatrix(true, true);
     raycaster.set(pivot, direction);
     raycaster.near = 0;
     raycaster.far = desiredDistance;
@@ -295,28 +294,22 @@ export function FollowCameraRig({
       .addScaledVector(orbitForward.current, -horizontalDistance)
       .addScaledVector(right.current, currentProfile.shoulderOffset)
       .addScaledVector(WORLD_UP, verticalDistance);
+    if (camera.position.lengthSq() === 0) {
+      camera.position.copy(desiredCameraPosition.current);
+    } else {
+      dampVector(camera.position, desiredCameraPosition.current, POSITION_DAMPING, delta);
+    }
+    // One bounded query against the static camera proxies per frame. The old
+    // rig queried the full rendered city twice, once before and once after
+    // damping; the final damped position is the only position the camera uses.
     resolveCollision(
       currentPivot.current,
-      desiredCameraPosition.current,
+      camera.position,
       collisionRoot?.current ?? null,
       groundHeightCallback.current,
       raycaster.current,
       collisionDirection.current,
     );
-
-    if (camera.position.lengthSq() === 0) {
-      camera.position.copy(desiredCameraPosition.current);
-    } else {
-      dampVector(camera.position, desiredCameraPosition.current, POSITION_DAMPING, delta);
-      resolveCollision(
-        currentPivot.current,
-        camera.position,
-        collisionRoot?.current ?? null,
-        groundHeightCallback.current,
-        raycaster.current,
-        collisionDirection.current,
-      );
-    }
 
     lookAt.current
       .copy(currentPivot.current)
