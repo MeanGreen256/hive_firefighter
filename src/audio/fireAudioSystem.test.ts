@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createCellGrid } from '@sim/cellGrid';
 import { createFireSimulation, igniteCell } from '@sim/fireSimulation';
 import { createFireAudioSystem } from './fireAudioSystem';
@@ -6,6 +6,12 @@ import { createHazardSimulation, IncidentEventType } from '@sim/hazards';
 import { createStructuralSimulation } from '@sim/structuralCollapse';
 import type { StorageLike } from '../state/personalBests';
 import { AUDIO_PREFERENCES_STORAGE_KEY } from './audioPreferences';
+
+function prepareAllLoops(audio: ReturnType<typeof createFireAudioSystem>): void {
+  while (!audio.prepareNextLoop()) {
+    // Production calls this once per idle slice. A test can finish the queue.
+  }
+}
 
 function createMemoryStorage(): StorageLike {
   const items = new Map<string, string>();
@@ -104,6 +110,7 @@ describe('fire audio autoplay guard', () => {
 
     audio.setSirenActive(true);
     expect(targetGains).toEqual([]);
+    prepareAllLoops(audio);
 
     await expect(audio.enable()).resolves.toBe(true);
     expect(targetGains).toContain(0.08);
@@ -114,6 +121,7 @@ describe('fire audio autoplay guard', () => {
     const audio = createFireAudioSystem(() => createRunningContextDouble(targetGains));
 
     expect(targetGains).not.toContain(0.018);
+    prepareAllLoops(audio);
     await expect(audio.enable()).resolves.toBe(true);
     expect(targetGains).toContain(0.018);
   });
@@ -123,6 +131,7 @@ describe('fire audio autoplay guard', () => {
     const audio = createFireAudioSystem(() => createRunningContextDouble(targetGains));
 
     audio.syncAmbient({ distanceToWater: 0, distanceToBird: 0 });
+    prepareAllLoops(audio);
     await expect(audio.enable()).resolves.toBe(true);
 
     expect(targetGains).toContain(0.052);
@@ -153,8 +162,22 @@ describe('fire audio autoplay guard', () => {
     audio.syncFire(state);
 
     expect(targetGains).toEqual([]);
+    prepareAllLoops(audio);
     await expect(audio.enable()).resolves.toBe(true);
     expect(targetGains.some((gain) => gain > 0 && gain < 0.7)).toBe(true);
+  });
+
+  it('does not generate the procedural loop set in the input-critical enable path (#261)', async () => {
+    const createLoopSamples = vi.fn(() => new Float32Array(1));
+    const audio = createFireAudioSystem(() => createRunningContextDouble([]), null, {
+      createLoopSamples,
+    });
+
+    await expect(audio.enable()).resolves.toBe(true);
+    expect(createLoopSamples).not.toHaveBeenCalled();
+
+    prepareAllLoops(audio);
+    expect(createLoopSamples).toHaveBeenCalledTimes(7);
   });
 });
 
@@ -182,6 +205,7 @@ describe('remembered audio preferences', () => {
 
     const targetGains: number[] = [];
     const resumed = createFireAudioSystem(() => createRunningContextDouble(targetGains), storage);
+    prepareAllLoops(resumed);
     await expect(resumed.enable()).resolves.toBe(true);
 
     // The master gain is the first thing initialize() schedules.
