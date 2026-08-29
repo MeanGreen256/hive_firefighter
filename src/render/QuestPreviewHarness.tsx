@@ -230,6 +230,8 @@ interface HudCssVariables extends CSSProperties {
   '--hud-muted': string;
   '--hud-accent': string;
   '--hud-control': string;
+  '--hud-success': string;
+  '--hud-warning': string;
 }
 
 function QuestPreviewErrorScreen({ message }: { readonly message: string }) {
@@ -314,6 +316,8 @@ function ResolvedQuestPreview({ request, rebuildToken, onRebuild }: ResolvedPrev
     '--hud-muted': visualStyle.hud.mutedText,
     '--hud-accent': visualStyle.hud.accent,
     '--hud-control': visualStyle.hud.control,
+    '--hud-success': visualStyle.hud.success,
+    '--hud-warning': visualStyle.hud.warning,
   };
 
   return (

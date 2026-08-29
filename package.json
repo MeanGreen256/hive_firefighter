@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "check": "npm run typecheck && npm run lint",
-    "test": "vitest run && npm run test:frame-pacing",
+    "test": "vitest run",
     "acceptance:content": "vitest run src/perf/contentAcceptance.test.ts",
     "acceptance:update": "node scripts/update-preview-baselines.mjs",
     "acceptance": "npm run acceptance:content && node scripts/acceptance-browser.mjs",

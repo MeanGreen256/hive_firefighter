@@ -142,7 +142,7 @@
 }
 
 .debrief-snapshot__before {
-  color: #f36d3e;
+  color: var(--hud-warning);
 }
 
 .debrief-snapshot__result {
@@ -167,7 +167,7 @@
 }
 
 .debrief-object--burning {
-  fill: color-mix(in srgb, #f36d3e 26%, transparent);
+  fill: color-mix(in srgb, var(--hud-warning) 26%, transparent);
 }
 
 .debrief-object--lost {

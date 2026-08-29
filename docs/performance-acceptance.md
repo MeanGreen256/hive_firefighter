@@ -22,7 +22,7 @@ npm run build
 npm run budget:bundle
 npm run acceptance
 npm run acceptance:production -- --incidents=1
-npm run test:frame-pacing
+npm test && npm run test:frame-pacing
 ```
 
 `budget:bundle` reads `dist/index.html`, measures every JS and CSS asset needed

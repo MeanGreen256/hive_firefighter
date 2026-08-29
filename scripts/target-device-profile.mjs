@@ -275,13 +275,15 @@ try {
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);
   const status = evidence.pass ? 'PASS' : 'FAIL';
+  const drawing =
+    `${details.canvas.cssWidth}×${details.canvas.cssHeight} / ` +
+    `${details.canvas.drawingWidth}×${details.canvas.drawingHeight} / DPR ${details.devicePixelRatio}`;
   process.stdout.write(
     `${status}: ${summary.sustainedFps.toFixed(1)} FPS; p50 ${summary.p50FrameMs.toFixed(2)} ms; ` +
       `p95 ${summary.p95FrameMs.toFixed(2)} ms; p99 ${summary.p99FrameMs.toFixed(2)} ms.\n` +
       `Evidence: ${outputPath}\n` +
-      `Markdown row: | ${options.scenario} | ${options.deviceClass} | ${browserVersion.product ?? 'unknown'} | ` +
-      `${details.canvas.cssWidth}×${details.canvas.cssHeight} / DPR ${details.devicePixelRatio} | ` +
-      `${summary.sustainedFps.toFixed(1)} | ${summary.p95FrameMs.toFixed(2)} | ${summary.p99FrameMs.toFixed(2)} | ${status} |\n`,
+      `Markdown row: | ${evidence.commit} | ${options.scenario} | ${options.deviceClass} | ${browserVersion.product ?? 'unknown'} | ` +
+      `${drawing} | ${summary.sustainedFps.toFixed(1)} | ${summary.p95FrameMs.toFixed(2)} | ${summary.p99FrameMs.toFixed(2)} | ${status} |\n`,
   );
   if (!evidence.pass) process.exitCode = 1;
 } finally {
