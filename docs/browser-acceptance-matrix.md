@@ -10,20 +10,26 @@ Firefox, and Safari rows remain human checks rather than a fake browser shim.
 The pull-request CI job runs the production bundle against a fresh Chrome
 profile at 854×480. That smaller desktop viewport is intentional: GitHub-hosted
 Linux renders WebGL in software. The fast smoke checks the built entry point,
-first sampled frame, blank/fallback state, browser and network errors, initial
-incident, and audio unlock after a legitimate key. The manual journey adds
-WebGL recovery, hidden-tab pause/resume, refresh, quiet roaming, and retained
-progress. Both record the DevTools browser product and fail if it is not the
-requested target.
+the visible quiet Firehouse start, blank/fallback state, browser and network
+errors, automatic first dispatch, and audio unlock after a legitimate key. It
+runs once more with local and session storage denied before the app loads, so a
+privacy-restricted browser proves the same in-memory fallback a family gets.
+That restricted row intentionally proves a playable session rather than reload
+retention: a browser that refuses storage cannot keep progress after it closes.
+The manual journey adds WebGL recovery, hidden-tab pause/resume, two Honeycomb
+Hills calls, an ordinary road crossing to Sunflower Valley, refresh, and
+retained local-board progress. Both record the DevTools browser product and
+fail if it is not the requested target.
 
 | Surface | Browser/input | Production proof | Gate |
 | --- | --- | --- | --- |
 | Designed for | Chrome desktop, production boot | `npm run acceptance:production:smoke -- --skip-build` | Pull request |
-| Designed for | Chrome desktop, keyboard journey | `npm run acceptance:production -- --incidents=1` | Release candidate / investigation |
-| Same engine | Edge desktop, keyboard | `ACCEPTANCE_BROWSER=edge BROWSER_PATH=/path/to/edge npm run acceptance:production -- --incidents=1` | Release candidate |
+| Designed for | Chrome desktop, privacy-restricted keyboard boot | `npm run acceptance:production:smoke -- --skip-build --blocked-storage` | Pull request |
+| Designed for | Chrome desktop, keyboard journey | `npm run acceptance:production` | Release candidate / investigation |
+| Same engine | Edge desktop, keyboard smoke | `ACCEPTANCE_BROWSER=edge BROWSER_PATH=/path/to/edge npm run acceptance:production:smoke -- --skip-build` | Release candidate |
 | Designed for | Chrome desktop, standard-mapping USB/Bluetooth gamepad | Physical check below | Release candidate |
 
-Run the five-incident version before a hosted release:
+Run the three-call cross-district journey before a hosted release:
 
 ```sh
 npm run acceptance:production
