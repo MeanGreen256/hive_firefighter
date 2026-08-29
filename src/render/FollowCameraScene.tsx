@@ -945,6 +945,42 @@ export default function FollowCameraScene() {
   const debriefOpen = fireSnapshot.debrief !== null && questDirector.state.phase === 'celebrating';
   useEffect(() => installGameObservation(), []);
   /**
+   * Procedural loop generation is deterministic but expensive enough to make
+   * the first drive/dismount gesture stutter. Start after the initial paint
+   * and take one loop per idle slice; this never creates an AudioContext or
+   * starts playback, so browser autoplay rules remain intact (#261).
+   */
+  useEffect(() => {
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    let cancelled = false;
+    let idleHandle: number | null = null;
+    let fallbackHandle: number | null = null;
+
+    const scheduleNext = (): void => {
+      if (cancelled) return;
+      if (idleWindow.requestIdleCallback) {
+        idleHandle = idleWindow.requestIdleCallback(prepareOne, { timeout: 1_000 });
+      } else {
+        fallbackHandle = window.setTimeout(prepareOne, 16);
+      }
+    };
+    const prepareOne = (): void => {
+      if (cancelled || fireAudioSystem.prepareNextLoop()) return;
+      scheduleNext();
+    };
+    const frameHandle = requestAnimationFrame(scheduleNext);
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frameHandle);
+      if (idleHandle !== null) idleWindow.cancelIdleCallback?.(idleHandle);
+      if (fallbackHandle !== null) window.clearTimeout(fallbackHandle);
+    };
+  }, []);
+  /**
    * Sound starts when play starts (#221).
    *
    * The first key of the first drive, or the first tap on the canvas, is the

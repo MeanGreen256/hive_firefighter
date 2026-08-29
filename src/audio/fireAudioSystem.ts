@@ -43,6 +43,18 @@ export interface FireAudioSnapshot {
 
 export type AudioContextFactory = () => AudioContext;
 
+/**
+ * The loop samples are deterministic, so they can be generated before an
+ * AudioContext exists. Keeping that work out of the autoplay gesture avoids a
+ * large first-input allocation and still respects browser autoplay policy.
+ */
+export interface FireAudioSystemOptions {
+  /** Injectable for focused timing-regression tests. */
+  readonly createLoopSamples?: (seconds: number, sampleRate: number, seed: number) => Float32Array;
+  /** AudioBuffers may be resampled by a context; 48 kHz is a common native rate. */
+  readonly preparedLoopSampleRate?: number;
+}
+
 interface FireVoices {
   crackleGains: readonly GainNode[];
   roarGain: GainNode;
@@ -53,13 +65,32 @@ interface FireVoices {
   birdAmbienceGain: GainNode;
 }
 
-function createNoiseBuffer(context: BaseAudioContext, seconds: number, seed: number): AudioBuffer {
-  const buffer = context.createBuffer(
-    1,
-    Math.floor(context.sampleRate * seconds),
-    context.sampleRate,
-  );
-  const samples = buffer.getChannelData(0);
+interface PreparedNoiseSamples {
+  readonly sampleRate: number;
+  readonly samples: Float32Array;
+}
+
+interface LoopSampleSpec {
+  readonly key: string;
+  readonly seconds: number;
+  readonly seed: number;
+}
+
+const LOOP_SAMPLE_SPECS = {
+  crackleLow: { key: 'crackle-low', seconds: 1.6, seed: 0x1a2b3c4d },
+  crackleMid: { key: 'crackle-mid', seconds: 1.6, seed: 0x2b3c4d5e },
+  crackleHigh: { key: 'crackle-high', seconds: 1.6, seed: 0x3c4d5e6f },
+  roar: { key: 'roar', seconds: 1.6, seed: 0x4d5e6f70 },
+  town: { key: 'town', seconds: 3.2, seed: 0x7a6b5c4d },
+  water: { key: 'water', seconds: 1.6, seed: 0x6d3a5b21 },
+  birds: { key: 'birds', seconds: 1.6, seed: 0x3b7c1f95 },
+} as const satisfies Record<string, LoopSampleSpec>;
+const LOOP_SAMPLE_LIST = Object.values(LOOP_SAMPLE_SPECS);
+
+const DEFAULT_PREPARED_LOOP_SAMPLE_RATE = 48_000;
+
+function createNoiseSamples(seconds: number, sampleRate: number, seed: number): Float32Array {
+  const samples = new Float32Array(Math.floor(sampleRate * seconds));
   let state = seed >>> 0;
   for (let index = 0; index < samples.length; index += 1) {
     state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
@@ -67,6 +98,19 @@ function createNoiseBuffer(context: BaseAudioContext, seconds: number, seed: num
     // Sparse short spikes make the loop read as crackle rather than static.
     samples[index] = index % 3072 < 22 ? white * 0.95 : white * 0.22;
   }
+  return samples;
+}
+
+function createNoiseBuffer(
+  context: BaseAudioContext,
+  seconds: number,
+  seed: number,
+  prepared?: PreparedNoiseSamples,
+): AudioBuffer {
+  const sampleRate = prepared?.sampleRate ?? context.sampleRate;
+  const samples = prepared?.samples ?? createNoiseSamples(seconds, sampleRate, seed);
+  const buffer = context.createBuffer(1, samples.length, sampleRate);
+  buffer.getChannelData(0).set(samples);
   return buffer;
 }
 
@@ -83,6 +127,10 @@ function scheduleGain(gain: GainNode, value: number, now: number): void {
 export function createFireAudioSystem(
   createContext: AudioContextFactory = () => new AudioContext(),
   storage: StorageLike | null = null,
+  {
+    createLoopSamples = createNoiseSamples,
+    preparedLoopSampleRate = DEFAULT_PREPARED_LOOP_SAMPLE_RATE,
+  }: FireAudioSystemOptions = {},
 ) {
   const preferences = readAudioPreferences(storage);
   const store: StoreApi<FireAudioSnapshot> = createStore(() => ({
@@ -105,6 +153,7 @@ export function createFireAudioSystem(
   const nextWorldReactionTime = new Map<WorldReactionSound, number>();
   let nextPropanePulseTime = 0;
   let nextCollapseCreakTime = 0;
+  const preparedLoopSamples = new Map<string, PreparedNoiseSamples>();
 
   const applyMasterGain = (): void => {
     if (!context || !masterGain) return;
@@ -112,10 +161,12 @@ export function createFireAudioSystem(
     scheduleGain(masterGain, snapshot.muted ? 0 : snapshot.volume, context.currentTime);
   };
 
-  const makeLoop = (filterFrequency: number, seed: number, output: AudioNode): GainNode => {
+  const makeLoop = (filterFrequency: number, spec: LoopSampleSpec, output: AudioNode): GainNode => {
     if (!context) throw new Error('Audio context is unavailable');
     const source = context.createBufferSource();
-    source.buffer = createNoiseBuffer(context, 1.6, seed);
+    const prepared = preparedLoopSamples.get(spec.key);
+    if (!prepared) throw new Error(`Audio loop "${spec.key}" has not been prepared`);
+    source.buffer = createNoiseBuffer(context, spec.seconds, spec.seed, prepared);
     source.loop = true;
     const filter = context.createBiquadFilter();
     filter.type = 'bandpass';
@@ -149,7 +200,10 @@ export function createFireAudioSystem(
   const makeTownAmbience = (output: AudioNode): GainNode => {
     if (!context) throw new Error('Audio context is unavailable');
     const source = context.createBufferSource();
-    source.buffer = createNoiseBuffer(context, 3.2, 0x7a6b5c4d);
+    const spec = LOOP_SAMPLE_SPECS.town;
+    const prepared = preparedLoopSamples.get(spec.key);
+    if (!prepared) throw new Error('Town ambience has not been prepared');
+    source.buffer = createNoiseBuffer(context, spec.seconds, spec.seed, prepared);
     source.loop = true;
     const filter = context.createBiquadFilter();
     filter.type = 'lowpass';
@@ -181,22 +235,22 @@ export function createFireAudioSystem(
   };
 
   const initialize = (): void => {
-    if (!context) throw new Error('Audio context is unavailable');
+    if (!context || voices || preparedLoopSamples.size !== LOOP_SAMPLE_LIST.length) return;
     masterGain = context.createGain();
     masterGain.connect(context.destination);
     voices = {
       crackleGains: [
-        makeLoop(950, 0x1a2b3c4d, masterGain),
-        makeLoop(1850, 0x2b3c4d5e, masterGain),
-        makeLoop(3400, 0x3c4d5e6f, masterGain),
+        makeLoop(950, LOOP_SAMPLE_SPECS.crackleLow, masterGain),
+        makeLoop(1850, LOOP_SAMPLE_SPECS.crackleMid, masterGain),
+        makeLoop(3400, LOOP_SAMPLE_SPECS.crackleHigh, masterGain),
       ],
-      roarGain: makeLoop(115, 0x4d5e6f70, masterGain),
+      roarGain: makeLoop(115, LOOP_SAMPLE_SPECS.roar, masterGain),
       sirenGain: makeSiren(masterGain),
       townAmbienceGain: makeTownAmbience(masterGain),
       // These remain deliberately quiet; fire and hazard voices own the
       // foreground, while these loops give a route a sense of place.
-      waterAmbienceGain: makeLoop(240, 0x6d3a5b21, masterGain),
-      birdAmbienceGain: makeLoop(2800, 0x3b7c1f95, masterGain),
+      waterAmbienceGain: makeLoop(240, LOOP_SAMPLE_SPECS.water, masterGain),
+      birdAmbienceGain: makeLoop(2800, LOOP_SAMPLE_SPECS.birds, masterGain),
     };
     applyMasterGain();
     applyMix();
@@ -257,21 +311,37 @@ export function createFireAudioSystem(
   return {
     store,
     /**
+     * Prepare one loop outside input handling. It intentionally creates no
+     * AudioContext and is idempotent, making it safe to call from idle work.
+     *
+     * `true` means every loop is ready; a context that was unlocked before
+     * preparation completed begins its cached mix as soon as this returns true.
+     */
+    prepareNextLoop: (): boolean => {
+      const next = LOOP_SAMPLE_LIST.find((spec) => !preparedLoopSamples.has(spec.key));
+      if (next) {
+        preparedLoopSamples.set(next.key, {
+          sampleRate: preparedLoopSampleRate,
+          samples: createLoopSamples(next.seconds, preparedLoopSampleRate, next.seed),
+        });
+      }
+      if (preparedLoopSamples.size === LOOP_SAMPLE_LIST.length) initialize();
+      return preparedLoopSamples.size === LOOP_SAMPLE_LIST.length;
+    },
+    /**
      * Call only from a user interaction handler; this is the autoplay gate.
      *
-     * Everything the mix has been told while the game was silent — the siren,
-     * the fire, the ambience, the adult's mute — is already held in this
-     * closure, and `initialize()` applies all of it before the first sample
-     * plays. Unlocking late therefore sounds like the moment it unlocked in,
-     * not like a session starting over (#221).
+     * This does no procedural sample generation. If idle preparation has not
+     * completed yet, the context unlocks silently and the cached mix begins as
+     * soon as the final idle slice is ready.
      */
     enable: async (): Promise<boolean> => {
       try {
         if (!context) {
           context = createContext();
-          initialize();
         }
         if (context.state === 'suspended') await context.resume();
+        initialize();
         const running = context.state === 'running';
         store.setState({
           enabled: running,
