@@ -65,6 +65,14 @@
       "width": 9
     }
   ],
+  "transitions": [
+    {
+      "id": "main-street-to-sunflower-valley",
+      "targetDistrictId": "sunflower-valley",
+      "edge": "east",
+      "roadId": "main-street"
+    }
+  ],
   "buildings": [
     {
       "id": "house-larch",

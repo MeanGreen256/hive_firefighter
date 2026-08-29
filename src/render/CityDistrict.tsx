@@ -435,7 +435,8 @@ export function CityDistrict({
 }: {
   readonly layout: DistrictLayout;
   readonly visualStyle: Style;
-  readonly activeQuestSite: DistrictQuestSite;
+  /** Null when the one global incident belongs to another streamed district. */
+  readonly activeQuestSite: DistrictQuestSite | null;
   readonly incidentCameraActive: boolean;
   /** Free-roam stir the light props read; they never write to it (#181). */
   readonly reactions: WorldReactionField;
@@ -585,14 +586,16 @@ export function CityDistrict({
         />
       ))}
 
-      <mesh
-        name="active-quest-marker"
-        position={[activeQuestSite.x, QUEST_MARKER_Y, activeQuestSite.z]}
-        rotation={[-Math.PI / 2, 0, 0]}
-      >
-        <ringGeometry args={[QUEST_MARKER_RADIUS * 0.72, QUEST_MARKER_RADIUS, 28]} />
-        <meshBasicMaterial color={city.questMarker} transparent opacity={0.85} />
-      </mesh>
+      {activeQuestSite ? (
+        <mesh
+          name="active-quest-marker"
+          position={[activeQuestSite.x, QUEST_MARKER_Y, activeQuestSite.z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <ringGeometry args={[QUEST_MARKER_RADIUS * 0.72, QUEST_MARKER_RADIUS, 28]} />
+          <meshBasicMaterial color={city.questMarker} transparent opacity={0.85} />
+        </mesh>
+      ) : null}
     </group>
   );
 }
