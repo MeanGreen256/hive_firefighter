@@ -17,10 +17,12 @@ export function shouldRenderIncidentPropPart({
 }: {
   readonly placement: DistrictPropPlacement;
   readonly partIndex: number;
-  readonly activeQuestSite: DistrictQuestSite;
+  readonly activeQuestSite: DistrictQuestSite | null;
   readonly incidentCameraActive: boolean;
 }): boolean {
-  if (!incidentCameraActive || placement.type !== 'tree' || partIndex === 0) return true;
+  if (!activeQuestSite || !incidentCameraActive || placement.type !== 'tree' || partIndex === 0) {
+    return true;
+  }
 
   const offsetX = placement.position[0] - activeQuestSite.x;
   const offsetZ = placement.position[2] - activeQuestSite.z;

@@ -65,6 +65,14 @@
       "width": 8
     }
   ],
+  "transitions": [
+    {
+      "id": "festival-road-to-harbour-hill",
+      "targetDistrictId": "harbour-hill",
+      "edge": "west",
+      "roadId": "festival-road"
+    }
+  ],
   "buildings": [
     {
       "id": "valley-firehouse",

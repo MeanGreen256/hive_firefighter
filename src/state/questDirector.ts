@@ -259,6 +259,22 @@ export class QuestDirector {
     });
   }
 
+  /**
+   * Holds a known next call without lighting it. World routing uses this for
+   * the ten-second fire-free interval before a district is scheduled.
+   */
+  queue(slotIndex = 0): QuestDirector {
+    assertTransition(this.state.phase === 'inactive', 'queue a shift', this.state.phase);
+    return new QuestDirector(this.order, {
+      version: QUEST_DIRECTOR_SERIAL_VERSION,
+      phase: 'next',
+      incident: createIncident(this.order, 0, slotIndex),
+      outcome: null,
+      wrappedShift: false,
+      quietElapsedSeconds: 0,
+    });
+  }
+
   resolve(outcome: SessionOutcome): QuestDirector {
     assertTransition(this.state.phase === 'active', 'resolve an incident', this.state.phase);
     return new QuestDirector(this.order, {

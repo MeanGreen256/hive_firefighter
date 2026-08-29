@@ -1,14 +1,19 @@
 /**
- * Durable, quest-level progression for the Firehouse Star Board (#167).
+ * Durable district-aware progression for Firehouse Star Boards (ADR-012).
  *
- * Personal bests deliberately remain per quest seed. This profile owns the
- * things which must survive replays: a child's quest history, completed
- * shifts, cosmetic unlocks, and the active QuestDirector snapshot.
+ * Quest records and ledgers belong to their authored district. Cosmetic rewards
+ * stay profile-wide, while the world route owns the single global incident.
  */
 import { createStore, type StoreApi } from 'zustand/vanilla';
+import { DEFAULT_DISTRICT_ID, isDistrictId } from '@sim/districts';
 import type { DirectedIncident, QuestDirectorSerialized } from './questDirector';
 import type { SessionDebrief, StarRating } from './sessionStats';
 import type { StorageLike } from './personalBests';
+import {
+  createWorldRouteDirector,
+  resumeWorldRouteDirector,
+  type WorldRouteDirectorSerialized,
+} from './worldRouteDirector';
 import {
   isRewardId,
   REWARD_IDS,
@@ -17,63 +22,62 @@ import {
   type RewardMetric,
 } from '@sim/questRewards';
 
-export const PROGRESS_PROFILE_VERSION = 1 as const;
-export const PROGRESS_PROFILE_STORAGE_KEY = 'hive-firefighter:progress-profile:v1';
+export const PROGRESS_PROFILE_VERSION = 2 as const;
+export const PROGRESS_PROFILE_STORAGE_KEY = 'hive-firefighter:progress-profile:v2';
+const LEGACY_PROGRESS_PROFILE_STORAGE_KEY = 'hive-firefighter:progress-profile:v1';
 export const QUESTS_PER_SHIFT = 5;
 
-/**
- * Reward ids, kinds, icons, and thresholds are content (#171):
- * `content/rewards.json`, loaded by `@sim/questRewards`. This module keeps the
- * unlock *logic* — which countable progression facts a requirement reads — so
- * adding or retuning a cosmetic reward is a content edit, not a code edit.
- */
 export { REWARD_IDS, isRewardId, rewards } from '@sim/questRewards';
 export type { RewardId } from '@sim/questRewards';
 
-/** Authored requirement counts, restated as a lookup for callers and tests. */
 export const REWARD_THRESHOLDS: Readonly<Record<RewardId, number>> = Object.freeze(
   Object.fromEntries(REWARD_IDS.map((rewardId) => [rewardId, rewards[rewardId].requires.atLeast])),
 ) as Readonly<Record<RewardId, number>>;
 
 export interface QuestProgressRecord {
-  /** Highest ADR-008 star result ever earned for this authored quest. */
   readonly bestStars: StarRating | null;
-  /** Most visible authored objects saved in a completed run. */
   readonly bestSavedObjects: number;
-  /** Unique directed runs that reached a terminal result. */
   readonly attempts: number;
-  /** One per authored quest slot, never increased by a replay. */
   readonly completedCount: number;
-  /** One per authored quest slot that has ever been contained. */
   readonly containedCount: number;
 }
 
-interface ProgressLedgerV1 {
-  /** Internal durable event IDs prevent a resumed debrief from being credited twice. */
+export interface ProgressLedger {
+  /** Durable run identities make terminal debrief credit exactly-once. */
   readonly attemptIds: Readonly<Record<string, true>>;
   readonly completedIncidentIds: Readonly<Record<string, true>>;
   readonly containedIncidentIds: Readonly<Record<string, true>>;
   readonly completedShiftIds: Readonly<Record<string, true>>;
 }
 
-export interface ProgressProfileV1 {
-  readonly version: typeof PROGRESS_PROFILE_VERSION;
+/** One Firehouse's stars, completed-shift count, and non-farmable ledger. */
+export interface DistrictProgress {
   readonly quests: Readonly<Record<string, QuestProgressRecord>>;
   readonly completedShiftCount: number;
-  readonly unlockedRewardIds: readonly RewardId[];
-  /** Null means the next load begins the authored first incident. */
-  readonly director: QuestDirectorSerialized | null;
-  /** Version-one implementation detail retained to make terminal updates idempotent. */
-  readonly ledger: ProgressLedgerV1;
+  readonly ledger: ProgressLedger;
 }
 
+export interface ProgressProfileV2 {
+  readonly version: typeof PROGRESS_PROFILE_VERSION;
+  /** The district currently rendered; refresh returns to the route's Firehouse. */
+  readonly currentDistrictId: string;
+  readonly districts: Readonly<Record<string, DistrictProgress>>;
+  /** Cosmetics are global and travel with the firefighter. */
+  readonly unlockedRewardIds: readonly RewardId[];
+  /** The one global incident plus every district's dormant local shift cursor. */
+  readonly world: WorldRouteDirectorSerialized;
+}
+
+/** Retained alias keeps callers on the profile concept rather than a schema number. */
+export type ProgressProfile = ProgressProfileV2;
+
 export interface ProgressProfileStoreState {
-  readonly profile: ProgressProfileV1;
-  recordQuestResult(incident: DirectedIncident, debrief: SessionDebrief): ProgressProfileV1;
-  saveDirector(snapshot: QuestDirectorSerialized | null): ProgressProfileV1;
-  refresh(): ProgressProfileV1;
-  /** Development-only callers may expose this behind an adult/dev affordance. */
-  reset(): ProgressProfileV1;
+  readonly profile: ProgressProfile;
+  recordQuestResult(incident: DirectedIncident, debrief: SessionDebrief): ProgressProfile;
+  saveWorldRoute(snapshot: WorldRouteDirectorSerialized): ProgressProfile;
+  setCurrentDistrict(districtId: string): ProgressProfile;
+  refresh(): ProgressProfile;
+  reset(): ProgressProfile;
 }
 
 function isNonNegativeInteger(value: unknown): value is number {
@@ -84,7 +88,7 @@ function isStarRating(value: unknown): value is StarRating {
   return value === 1 || value === 2 || value === 3;
 }
 
-function emptyLedger(): ProgressLedgerV1 {
+function emptyLedger(): ProgressLedger {
   return Object.freeze({
     attemptIds: Object.freeze({}),
     completedIncidentIds: Object.freeze({}),
@@ -93,18 +97,36 @@ function emptyLedger(): ProgressLedgerV1 {
   });
 }
 
-export function createEmptyProgressProfile(): ProgressProfileV1 {
+function emptyQuestRecord(): QuestProgressRecord {
   return Object.freeze({
-    version: PROGRESS_PROFILE_VERSION,
+    bestStars: null,
+    bestSavedObjects: 0,
+    attempts: 0,
+    completedCount: 0,
+    containedCount: 0,
+  });
+}
+
+export function createEmptyDistrictProgress(): DistrictProgress {
+  return Object.freeze({
     quests: Object.freeze({}),
     completedShiftCount: 0,
-    unlockedRewardIds: Object.freeze([]),
-    director: null,
     ledger: emptyLedger(),
   });
 }
 
-function cloneLedger(ledger: ProgressLedgerV1): ProgressLedgerV1 {
+export function createEmptyProgressProfile(): ProgressProfile {
+  const world = createWorldRouteDirector().serialize();
+  return Object.freeze({
+    version: PROGRESS_PROFILE_VERSION,
+    currentDistrictId: world.scheduledDistrictId,
+    districts: Object.freeze({ [DEFAULT_DISTRICT_ID]: createEmptyDistrictProgress() }),
+    unlockedRewardIds: Object.freeze([]),
+    world,
+  });
+}
+
+function cloneLedger(ledger: ProgressLedger): ProgressLedger {
   return Object.freeze({
     attemptIds: Object.freeze({ ...ledger.attemptIds }),
     completedIncidentIds: Object.freeze({ ...ledger.completedIncidentIds }),
@@ -113,32 +135,60 @@ function cloneLedger(ledger: ProgressLedgerV1): ProgressLedgerV1 {
   });
 }
 
-function cloneDirector(value: QuestDirectorSerialized | null): QuestDirectorSerialized | null {
-  if (value === null) return null;
+function cloneDistrictProgress(progress: DistrictProgress): DistrictProgress {
   return Object.freeze({
-    ...value,
-    incident:
-      value.incident === null
-        ? null
-        : Object.freeze({ ...value.incident, attempt: value.incident.attempt ?? 0 }),
-  });
-}
-
-function cloneProfile(profile: ProgressProfileV1): ProgressProfileV1 {
-  return Object.freeze({
-    ...profile,
     quests: Object.freeze(
       Object.fromEntries(
-        Object.entries(profile.quests).map(([questId, record]) => [
+        Object.entries(progress.quests).map(([questId, record]) => [
           questId,
           Object.freeze({ ...record }),
         ]),
       ),
     ),
-    unlockedRewardIds: Object.freeze([...profile.unlockedRewardIds]),
-    director: cloneDirector(profile.director),
-    ledger: cloneLedger(profile.ledger),
+    completedShiftCount: progress.completedShiftCount,
+    ledger: cloneLedger(progress.ledger),
   });
+}
+
+function cloneWorld(world: WorldRouteDirectorSerialized): WorldRouteDirectorSerialized {
+  return resumeWorldRouteDirector(world).serialize();
+}
+
+function cloneProfile(profile: ProgressProfile): ProgressProfile {
+  return Object.freeze({
+    ...profile,
+    districts: Object.freeze(
+      Object.fromEntries(
+        Object.entries(profile.districts).map(([districtId, progress]) => [
+          districtId,
+          cloneDistrictProgress(progress),
+        ]),
+      ),
+    ),
+    unlockedRewardIds: Object.freeze([...profile.unlockedRewardIds]),
+    world: cloneWorld(profile.world),
+  });
+}
+
+export function getDistrictProgress(
+  profile: ProgressProfile,
+  districtId: string,
+): DistrictProgress {
+  return profile.districts[districtId] ?? createEmptyDistrictProgress();
+}
+
+export function getCompletedShiftCount(profile: ProgressProfile): number {
+  return Object.values(profile.districts).reduce(
+    (count, district) => count + district.completedShiftCount,
+    0,
+  );
+}
+
+export function getCompletedQuestCount(profile: ProgressProfile): number {
+  return Object.values(profile.districts).reduce(
+    (count, district) => count + Object.keys(district.quests).length,
+    0,
+  );
 }
 
 function readQuestRecord(value: unknown): QuestProgressRecord | null {
@@ -175,7 +225,7 @@ function readBooleanRecord(value: unknown): Readonly<Record<string, true>> {
   );
 }
 
-function readLedger(value: unknown): ProgressLedgerV1 {
+function readLedger(value: unknown): ProgressLedger {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return emptyLedger();
   const candidate = value as Record<string, unknown>;
   return Object.freeze({
@@ -183,6 +233,30 @@ function readLedger(value: unknown): ProgressLedgerV1 {
     completedIncidentIds: readBooleanRecord(candidate.completedIncidentIds),
     containedIncidentIds: readBooleanRecord(candidate.containedIncidentIds),
     completedShiftIds: readBooleanRecord(candidate.completedShiftIds),
+  });
+}
+
+function readQuestRecords(value: unknown): Readonly<Record<string, QuestProgressRecord>> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return Object.freeze({});
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).flatMap(([questId, record]) => {
+        const parsed = questId.trim() === '' ? null : readQuestRecord(record);
+        return parsed === null ? [] : [[questId, parsed]];
+      }),
+    ),
+  );
+}
+
+function readDistrictProgress(value: unknown): DistrictProgress | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  return Object.freeze({
+    quests: readQuestRecords(candidate.quests),
+    completedShiftCount: isNonNegativeInteger(candidate.completedShiftCount)
+      ? candidate.completedShiftCount
+      : 0,
+    ledger: readLedger(candidate.ledger),
   });
 }
 
@@ -215,61 +289,101 @@ function isSerializedDirector(value: unknown): value is QuestDirectorSerialized 
   );
 }
 
-/**
- * Reads only the V1 shape. Older, incomplete, corrupt, and future versions
- * deliberately start fresh: their data cannot prove ADR-008 completion facts.
- */
-export function parseProgressProfile(value: unknown): ProgressProfileV1 {
-  if (typeof value !== 'object' || value === null || Array.isArray(value))
+function readRewardIds(value: unknown): readonly RewardId[] {
+  return Object.freeze(
+    Array.isArray(value)
+      ? [...new Set(value.filter((rewardId): rewardId is RewardId => isRewardId(rewardId)))]
+      : [],
+  );
+}
+
+const INCIDENTS_PER_LEGACY_ROUTE_PAIR = 2;
+
+function migrateLegacyProfile(candidate: Record<string, unknown>): ProgressProfile {
+  const legacyDirector = isSerializedDirector(candidate.director) ? candidate.director : null;
+  const legacyDistrict: DistrictProgress = Object.freeze({
+    quests: readQuestRecords(candidate.quests),
+    completedShiftCount: isNonNegativeInteger(candidate.completedShiftCount)
+      ? candidate.completedShiftCount
+      : 0,
+    ledger: readLedger(candidate.ledger),
+  });
+  const freshWorld = createWorldRouteDirector().serialize();
+  let world = freshWorld;
+  if (legacyDirector?.incident?.districtId === DEFAULT_DISTRICT_ID) {
+    const migrated = Object.freeze({
+      ...freshWorld,
+      callsInDistrict: legacyDirector.incident.slot % INCIDENTS_PER_LEGACY_ROUTE_PAIR,
+      directors: Object.freeze({ ...freshWorld.directors, [DEFAULT_DISTRICT_ID]: legacyDirector }),
+    });
+    try {
+      world = cloneWorld(migrated);
+    } catch {
+      // An old-but-unresumable director never erases its honest earned records.
+    }
+  }
+  return Object.freeze({
+    version: PROGRESS_PROFILE_VERSION,
+    currentDistrictId: world.scheduledDistrictId,
+    districts: Object.freeze({ [DEFAULT_DISTRICT_ID]: legacyDistrict }),
+    unlockedRewardIds: readRewardIds(candidate.unlockedRewardIds),
+    world,
+  });
+}
+
+/** Parses V2 and migrates a valid V1 Harbour Hill profile without inventing progress. */
+export function parseProgressProfile(value: unknown): ProgressProfile {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return createEmptyProgressProfile();
+  }
   const candidate = value as Record<string, unknown>;
+  if (candidate.version === 1) return migrateLegacyProfile(candidate);
   if (candidate.version !== PROGRESS_PROFILE_VERSION) return createEmptyProgressProfile();
-  const quests =
-    typeof candidate.quests === 'object' &&
-    candidate.quests !== null &&
-    !Array.isArray(candidate.quests)
+
+  const districts =
+    typeof candidate.districts === 'object' &&
+    candidate.districts !== null &&
+    !Array.isArray(candidate.districts)
       ? Object.fromEntries(
-          Object.entries(candidate.quests as Record<string, unknown>).flatMap(
-            ([questId, record]) => {
-              const parsed = questId.trim() === '' ? null : readQuestRecord(record);
-              return parsed === null ? [] : [[questId, parsed]];
+          Object.entries(candidate.districts as Record<string, unknown>).flatMap(
+            ([districtId, district]) => {
+              const parsed = isDistrictId(districtId) ? readDistrictProgress(district) : null;
+              return parsed === null ? [] : [[districtId, parsed]];
             },
           ),
         )
       : {};
-  const unlockedRewardIds = Array.isArray(candidate.unlockedRewardIds)
-    ? [
-        ...new Set(
-          candidate.unlockedRewardIds.filter((value): value is RewardId => isRewardId(value)),
-        ),
-      ]
-    : [];
-  const director = isSerializedDirector(candidate.director)
-    ? cloneDirector(candidate.director)
-    : null;
+  let world: WorldRouteDirectorSerialized;
+  try {
+    world = cloneWorld(candidate.world as WorldRouteDirectorSerialized);
+  } catch {
+    world = createWorldRouteDirector().serialize();
+  }
+  // Refresh always returns to the Firehouse for the one queued/active world call.
   return Object.freeze({
     version: PROGRESS_PROFILE_VERSION,
-    quests: Object.freeze(quests),
-    completedShiftCount: isNonNegativeInteger(candidate.completedShiftCount)
-      ? candidate.completedShiftCount
-      : 0,
-    unlockedRewardIds: Object.freeze(unlockedRewardIds),
-    director,
-    ledger: readLedger(candidate.ledger),
+    currentDistrictId: world.scheduledDistrictId,
+    districts: Object.freeze(districts),
+    unlockedRewardIds: readRewardIds(candidate.unlockedRewardIds),
+    world,
   });
 }
 
-export function loadProgressProfile(storage: StorageLike | null): ProgressProfileV1 {
+export function loadProgressProfile(storage: StorageLike | null): ProgressProfile {
   if (!storage) return createEmptyProgressProfile();
   try {
-    const raw = storage.getItem(PROGRESS_PROFILE_STORAGE_KEY);
-    return raw === null ? createEmptyProgressProfile() : parseProgressProfile(JSON.parse(raw));
+    const current = storage.getItem(PROGRESS_PROFILE_STORAGE_KEY);
+    if (current !== null) return parseProgressProfile(JSON.parse(current));
+    const legacy = storage.getItem(LEGACY_PROGRESS_PROFILE_STORAGE_KEY);
+    return legacy === null
+      ? createEmptyProgressProfile()
+      : parseProgressProfile(JSON.parse(legacy));
   } catch {
     return createEmptyProgressProfile();
   }
 }
 
-function persistProgressProfile(storage: StorageLike | null, profile: ProgressProfileV1): void {
+function persistProgressProfile(storage: StorageLike | null, profile: ProgressProfile): void {
   if (!storage) return;
   try {
     storage.setItem(PROGRESS_PROFILE_STORAGE_KEY, JSON.stringify(profile));
@@ -290,56 +404,53 @@ function shiftId(incident: DirectedIncident): string {
   return `${encodeURIComponent(incident.districtId)}:${incident.shift}`;
 }
 
-function emptyQuestRecord(): QuestProgressRecord {
-  return Object.freeze({
-    bestStars: null,
-    bestSavedObjects: 0,
-    attempts: 0,
-    completedCount: 0,
-    containedCount: 0,
-  });
+function allDistrictProgress(profile: ProgressProfile): readonly DistrictProgress[] {
+  return Object.values(profile.districts);
 }
 
-/**
- * The only progression facts a reward requirement may read. Every one is a
- * durable count of completed work; time, water, and fuel are deliberately
- * absent, because ADR-008 keeps them out of stars and rewards alike.
- */
-const REWARD_METRIC_READERS: Readonly<
-  Record<
-    RewardMetric,
-    (profile: Pick<ProgressProfileV1, 'quests' | 'completedShiftCount'>) => number
-  >
-> = Object.freeze({
-  'completed-shifts': (profile) => profile.completedShiftCount,
-  'total-best-stars': (profile) =>
-    Object.values(profile.quests).reduce((total, record) => total + (record.bestStars ?? 0), 0),
-  'mastery-quests': (profile) =>
-    Object.values(profile.quests).filter((record) => record.bestStars === 3).length,
-});
+const REWARD_METRIC_READERS: Readonly<Record<RewardMetric, (profile: ProgressProfile) => number>> =
+  Object.freeze({
+    'completed-shifts': getCompletedShiftCount,
+    'total-best-stars': (profile) =>
+      allDistrictProgress(profile).reduce(
+        (total, district) =>
+          total +
+          Object.values(district.quests).reduce(
+            (districtTotal, record) => districtTotal + (record.bestStars ?? 0),
+            0,
+          ),
+        0,
+      ),
+    'mastery-quests': (profile) =>
+      allDistrictProgress(profile).reduce(
+        (total, district) =>
+          total + Object.values(district.quests).filter((record) => record.bestStars === 3).length,
+        0,
+      ),
+  });
 
-function rewardIdsFor(
-  profile: Pick<ProgressProfileV1, 'quests' | 'completedShiftCount'>,
-): RewardId[] {
+function rewardIdsFor(profile: ProgressProfile): RewardId[] {
   return REWARD_IDS.filter((rewardId) => {
     const { metric, atLeast } = rewards[rewardId].requires;
     return REWARD_METRIC_READERS[metric](profile) >= atLeast;
   });
 }
 
-/**
- * Credits one terminal debrief. A repeat invocation for the same resumed
- * director/debrief is a no-op; replays receive a distinct director attempt but
- * can never farm completion, shift, or reward totals.
- */
 export function recordQuestResult(
-  profile: ProgressProfileV1,
+  profile: ProgressProfile,
   incident: DirectedIncident,
   debrief: SessionDebrief,
-): ProgressProfileV1 {
-  if (debrief.scenarioId !== incident.questId || debrief.seed !== incident.seed) return profile;
-  const previous = profile.quests[incident.questId] ?? emptyQuestRecord();
-  const ledger = cloneLedger(profile.ledger);
+): ProgressProfile {
+  if (
+    !isDistrictId(incident.districtId) ||
+    debrief.scenarioId !== incident.questId ||
+    debrief.seed !== incident.seed
+  ) {
+    return profile;
+  }
+  const district = getDistrictProgress(profile, incident.districtId);
+  const previous = district.quests[incident.questId] ?? emptyQuestRecord();
+  const ledger = cloneLedger(district.ledger);
   const nextAttemptId = attemptId(incident);
   const nextIncidentId = incidentId(incident);
   const nextShiftId = shiftId(incident);
@@ -349,7 +460,6 @@ export function recordQuestResult(
     debrief.outcome === 'contained' && ledger.containedIncidentIds[nextIncidentId] !== true;
   const firstShiftCompletion =
     incident.slot === QUESTS_PER_SHIFT - 1 && ledger.completedShiftIds[nextShiftId] !== true;
-
   const improvesBest =
     previous.bestStars === null ||
     debrief.stars > previous.bestStars ||
@@ -364,17 +474,20 @@ export function recordQuestResult(
     return profile;
   }
 
-  const questRecord: QuestProgressRecord = Object.freeze({
-    bestStars:
-      previous.bestStars === null || debrief.stars > previous.bestStars
-        ? debrief.stars
-        : previous.bestStars,
-    bestSavedObjects: Math.max(previous.bestSavedObjects, debrief.objects.saved),
-    attempts: previous.attempts + (firstAttempt ? 1 : 0),
-    completedCount: previous.completedCount + (firstCompletion ? 1 : 0),
-    containedCount: previous.containedCount + (firstContained ? 1 : 0),
+  const quests = Object.freeze({
+    ...district.quests,
+    [incident.questId]: Object.freeze({
+      bestStars:
+        previous.bestStars === null || debrief.stars > previous.bestStars
+          ? debrief.stars
+          : previous.bestStars,
+      bestSavedObjects: Math.max(previous.bestSavedObjects, debrief.objects.saved),
+      attempts: previous.attempts + (firstAttempt ? 1 : 0),
+      completedCount: previous.completedCount + (firstCompletion ? 1 : 0),
+      containedCount: previous.containedCount + (firstContained ? 1 : 0),
+    }),
   });
-  const nextLedger: ProgressLedgerV1 = Object.freeze({
+  const nextLedger: ProgressLedger = Object.freeze({
     attemptIds: Object.freeze({
       ...ledger.attemptIds,
       ...(firstAttempt ? { [nextAttemptId]: true } : {}),
@@ -392,22 +505,36 @@ export function recordQuestResult(
       ...(firstShiftCompletion ? { [nextShiftId]: true } : {}),
     }),
   });
-  const nextWithoutRewards: ProgressProfileV1 = Object.freeze({
-    ...profile,
-    quests: Object.freeze({ ...profile.quests, [incident.questId]: questRecord }),
-    completedShiftCount: profile.completedShiftCount + (firstShiftCompletion ? 1 : 0),
+  const nextDistrict = Object.freeze({
+    quests,
+    completedShiftCount: district.completedShiftCount + (firstShiftCompletion ? 1 : 0),
     ledger: nextLedger,
   });
+  const nextWithoutRewards: ProgressProfile = Object.freeze({
+    ...profile,
+    districts: Object.freeze({ ...profile.districts, [incident.districtId]: nextDistrict }),
+  });
   const rewardSet = new Set([...profile.unlockedRewardIds, ...rewardIdsFor(nextWithoutRewards)]);
-  const unlockedRewardIds = Object.freeze(REWARD_IDS.filter((rewardId) => rewardSet.has(rewardId)));
-  return Object.freeze({ ...nextWithoutRewards, unlockedRewardIds });
+  return Object.freeze({
+    ...nextWithoutRewards,
+    unlockedRewardIds: Object.freeze(REWARD_IDS.filter((rewardId) => rewardSet.has(rewardId))),
+  });
 }
 
-export function saveQuestDirector(
-  profile: ProgressProfileV1,
-  snapshot: QuestDirectorSerialized | null,
-): ProgressProfileV1 {
-  return Object.freeze({ ...cloneProfile(profile), director: cloneDirector(snapshot) });
+export function saveWorldRoute(
+  profile: ProgressProfile,
+  snapshot: WorldRouteDirectorSerialized,
+): ProgressProfile {
+  try {
+    return Object.freeze({ ...cloneProfile(profile), world: cloneWorld(snapshot) });
+  } catch {
+    return profile;
+  }
+}
+
+export function setCurrentDistrict(profile: ProgressProfile, districtId: string): ProgressProfile {
+  if (!isDistrictId(districtId) || profile.currentDistrictId === districtId) return profile;
+  return Object.freeze({ ...cloneProfile(profile), currentDistrictId: districtId });
 }
 
 export function createProgressProfileStore(
@@ -421,8 +548,14 @@ export function createProgressProfileStore(
       set({ profile });
       return profile;
     },
-    saveDirector: (snapshot) => {
-      const profile = saveQuestDirector(get().profile, snapshot);
+    saveWorldRoute: (snapshot) => {
+      const profile = saveWorldRoute(get().profile, snapshot);
+      persistProgressProfile(storage, profile);
+      set({ profile });
+      return profile;
+    },
+    setCurrentDistrict: (districtId) => {
+      const profile = setCurrentDistrict(get().profile, districtId);
       persistProgressProfile(storage, profile);
       set({ profile });
       return profile;
@@ -449,5 +582,4 @@ export function getBrowserProgressStorage(): StorageLike | null {
   }
 }
 
-/** Reactive singleton for the scene and Firehouse Star Board. */
 export const progressProfileStore = createProgressProfileStore(getBrowserProgressStorage());
