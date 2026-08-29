@@ -1,0 +1,370 @@
+{
+  "name": "Sunflower Valley",
+  "bounds": { "minX": -64, "maxX": 64, "minZ": -64, "maxZ": 64 },
+  "truckStart": { "x": -48, "z": -32, "yawDegrees": 180 },
+  "firehouse": {
+    "buildingId": "valley-firehouse",
+    "spawn": { "x": -48, "z": -32, "yawDegrees": 180 },
+    "roadId": "north-road",
+    "starBoard": { "x": -40, "z": -40, "yawDegrees": 0 },
+    "wardrobe": { "x": -42, "z": -55, "yawDegrees": 90 }
+  },
+  "roads": [
+    {
+      "id": "north-road",
+      "name": "North Road",
+      "axis": "x",
+      "offset": -32,
+      "from": -64,
+      "to": 64,
+      "width": 8
+    },
+    {
+      "id": "festival-road",
+      "name": "Festival Road",
+      "axis": "x",
+      "offset": 0,
+      "from": -64,
+      "to": 64,
+      "width": 8
+    },
+    {
+      "id": "orchard-road",
+      "name": "Orchard Road",
+      "axis": "x",
+      "offset": 32,
+      "from": -64,
+      "to": 64,
+      "width": 8
+    },
+    {
+      "id": "west-avenue",
+      "name": "West Avenue",
+      "axis": "z",
+      "offset": -32,
+      "from": -64,
+      "to": 64,
+      "width": 8
+    },
+    {
+      "id": "center-lane",
+      "name": "Center Lane",
+      "axis": "z",
+      "offset": 0,
+      "from": -64,
+      "to": 64,
+      "width": 8
+    },
+    {
+      "id": "east-avenue",
+      "name": "East Avenue",
+      "axis": "z",
+      "offset": 32,
+      "from": -64,
+      "to": 64,
+      "width": 8
+    }
+  ],
+  "buildings": [
+    {
+      "id": "valley-firehouse",
+      "name": "Sunflower Valley Firehouse",
+      "use": "civic",
+      "x": -48,
+      "z": -48,
+      "width": 14,
+      "depth": 11,
+      "height": 8,
+      "landmark": "bell-tower",
+      "art": { "route": "civic", "facade": "civic-station", "facing": "south" }
+    },
+    {
+      "id": "market-shed",
+      "name": "Morning Market Shed",
+      "use": "shop",
+      "x": -16,
+      "z": -48,
+      "width": 10,
+      "depth": 9,
+      "height": 6,
+      "art": { "route": "civic", "facade": "shop-market", "facing": "south" }
+    },
+    {
+      "id": "maker-shed",
+      "name": "Kite Maker Shed",
+      "use": "workshop",
+      "x": 16,
+      "z": -48,
+      "width": 12,
+      "depth": 9,
+      "height": 7,
+      "art": { "route": "harbour", "facade": "workshop-barn", "facing": "south" }
+    },
+    {
+      "id": "sunflower-tower",
+      "name": "Sunflower Water Tower",
+      "use": "tower",
+      "x": 48,
+      "z": -48,
+      "width": 8,
+      "depth": 8,
+      "height": 14,
+      "landmark": "water-tower",
+      "art": { "route": "garden", "facing": "south" }
+    },
+    {
+      "id": "meadow-cottage",
+      "name": "Meadow Cottage",
+      "use": "house",
+      "x": -48,
+      "z": 16,
+      "width": 10,
+      "depth": 8,
+      "height": 5,
+      "art": { "route": "garden", "facade": "house-garden", "facing": "north" }
+    },
+    {
+      "id": "pavilion",
+      "name": "Valley Pavilion",
+      "use": "civic",
+      "x": -16,
+      "z": -16,
+      "width": 12,
+      "depth": 9,
+      "height": 7,
+      "art": { "route": "civic", "facade": "civic-arched", "facing": "north" }
+    },
+    {
+      "id": "ridge-workshop",
+      "name": "Ridge Workshop",
+      "use": "workshop",
+      "x": 44,
+      "z": -16,
+      "width": 14,
+      "depth": 10,
+      "height": 8,
+      "landmark": "big-sign",
+      "art": { "route": "harbour", "facade": "workshop-service", "facing": "west" }
+    },
+    {
+      "id": "orchard-cottage",
+      "name": "Orchard Cottage",
+      "use": "house",
+      "x": -48,
+      "z": 48,
+      "width": 10,
+      "depth": 8,
+      "height": 5,
+      "art": { "route": "garden", "facade": "house-garden", "facing": "north" }
+    },
+    {
+      "id": "grove-cottage",
+      "name": "Grove Cottage",
+      "use": "house",
+      "x": -16,
+      "z": 48,
+      "width": 10,
+      "depth": 8,
+      "height": 5,
+      "art": { "route": "garden", "facade": "house-bay", "facing": "north" }
+    },
+    {
+      "id": "sunflower-shop",
+      "name": "Sunflower Sweet Shop",
+      "use": "shop",
+      "x": 16,
+      "z": 16,
+      "width": 10,
+      "depth": 9,
+      "height": 6,
+      "art": { "route": "harbour", "facade": "shop-striped", "facing": "north" }
+    },
+    {
+      "id": "garden-house",
+      "name": "Garden House",
+      "use": "house",
+      "x": 16,
+      "z": 48,
+      "width": 10,
+      "depth": 8,
+      "height": 5,
+      "art": { "route": "garden", "facade": "house-bay", "facing": "north" }
+    },
+    {
+      "id": "festival-hall",
+      "name": "Festival Hall",
+      "use": "civic",
+      "x": 48,
+      "z": 48,
+      "width": 14,
+      "depth": 10,
+      "height": 8,
+      "art": { "route": "civic", "facade": "civic-arched", "facing": "north" }
+    }
+  ],
+  "parks": [
+    {
+      "id": "orchard-green",
+      "name": "Orchard Green",
+      "x": -12,
+      "z": 16,
+      "width": 10,
+      "depth": 10,
+      "kit": { "route": "garden", "variant": "garden-beds" }
+    },
+    {
+      "id": "pavilion-lawn",
+      "name": "Pavilion Lawn",
+      "x": 16,
+      "z": -16,
+      "width": 12,
+      "depth": 8,
+      "kit": { "route": "garden", "variant": "play-lawn" }
+    },
+    {
+      "id": "sunflower-meadow",
+      "name": "Sunflower Meadow",
+      "x": 48,
+      "z": 16,
+      "width": 10,
+      "depth": 10,
+      "kit": { "route": "harbour", "variant": "bandstand" }
+    }
+  ],
+  "waterBodies": [],
+  "props": [
+    { "id": "firehouse-tree", "type": "tree", "x": -40, "z": -40 },
+    { "id": "market-hedge", "type": "hedge", "x": -8, "z": -42 },
+    { "id": "market-tree", "type": "tree", "x": -8, "z": -50 },
+    { "id": "market-bench", "type": "bench", "x": -6, "z": -45 },
+    { "id": "maker-tree", "type": "tree", "x": 24, "z": -42 },
+    { "id": "pavilion-hedge", "type": "hedge", "x": -8, "z": -8 },
+    { "id": "pavilion-tree", "type": "tree", "x": -8, "z": -16 },
+    { "id": "pavilion-bench", "type": "bench", "x": -8, "z": -22 },
+    { "id": "orchard-hedge", "type": "hedge", "x": -6, "z": 16 },
+    { "id": "orchard-tree", "type": "tree", "x": -6, "z": 10 },
+    { "id": "orchard-bench", "type": "bench", "x": -6, "z": 22 },
+    { "id": "play-frame", "type": "play-structure", "x": 16, "z": -16 },
+    { "id": "meadow-tree", "type": "tree", "x": -40, "z": 22 },
+    { "id": "ridge-hedge", "type": "hedge", "x": 40, "z": -8 },
+    { "id": "ridge-tree", "type": "tree", "x": 54, "z": -8 },
+    { "id": "ridge-bench", "type": "bench", "x": 54, "z": -16 },
+    { "id": "sunflower-hedge", "type": "hedge", "x": 8, "z": 24 },
+    { "id": "sunflower-tree", "type": "tree", "x": 8, "z": 16 },
+    { "id": "sunflower-bench", "type": "bench", "x": 8, "z": 10 },
+    { "id": "meadow-pinwheel", "type": "pinwheel", "x": 54, "z": 22 }
+  ],
+  "ambient": [
+    { "id": "garden-butterfly", "type": "butterfly", "x": -12, "z": 16 },
+    { "id": "garden-flag", "type": "flag", "x": -12, "z": 22 },
+    { "id": "garden-foliage", "type": "foliage", "x": 16, "z": -16 },
+    { "id": "station-flag", "type": "flag", "x": -44, "z": -39 },
+    { "id": "market-sign", "type": "rotating-sign", "x": -8, "z": -47 },
+    { "id": "pavilion-sign", "type": "rotating-sign", "x": -8, "z": 20 },
+    { "id": "ridge-foliage", "type": "foliage", "x": 55, "z": -10 },
+    { "id": "sunflower-butterfly", "type": "butterfly", "x": 48, "z": 16 },
+    { "id": "maker-flag", "type": "flag", "x": 24, "z": -40 }
+  ],
+  "explorationRoutes": [
+    {
+      "id": "garden",
+      "name": "Orchard Loop",
+      "landmarkId": "sunflower-tower",
+      "stops": [
+        {
+          "anchorId": "orchard-green",
+          "cue": "butterflies by the apple beds",
+          "propIds": ["orchard-tree"],
+          "ambientIds": ["garden-butterfly"]
+        },
+        {
+          "anchorId": "pavilion-lawn",
+          "cue": "the bright play lawn",
+          "propIds": ["play-frame"],
+          "ambientIds": ["garden-foliage"]
+        },
+        {
+          "anchorId": "meadow-cottage",
+          "cue": "the cottage under the trees",
+          "propIds": ["meadow-tree"],
+          "ambientIds": ["garden-flag"]
+        }
+      ]
+    },
+    {
+      "id": "civic",
+      "name": "Festival Loop",
+      "landmarkId": "valley-firehouse",
+      "stops": [
+        {
+          "anchorId": "valley-firehouse",
+          "cue": "the bell tower yard",
+          "propIds": ["firehouse-tree"],
+          "ambientIds": ["station-flag"]
+        },
+        {
+          "anchorId": "market-shed",
+          "cue": "the turning market sign",
+          "propIds": ["market-tree"],
+          "ambientIds": ["market-sign"]
+        },
+        {
+          "anchorId": "pavilion",
+          "cue": "the pavilion hedge",
+          "propIds": ["pavilion-tree"],
+          "ambientIds": ["pavilion-sign"]
+        }
+      ]
+    },
+    {
+      "id": "harbour",
+      "name": "Ridge Loop",
+      "landmarkId": "ridge-workshop",
+      "stops": [
+        {
+          "anchorId": "ridge-workshop",
+          "cue": "the tall workshop sign",
+          "propIds": ["ridge-tree"],
+          "ambientIds": ["ridge-foliage"]
+        },
+        {
+          "anchorId": "sunflower-meadow",
+          "cue": "the round meadow stage",
+          "propIds": ["meadow-pinwheel"],
+          "ambientIds": ["sunflower-butterfly"]
+        },
+        {
+          "anchorId": "maker-shed",
+          "cue": "the kite maker flag",
+          "propIds": ["maker-tree"],
+          "ambientIds": ["maker-flag"]
+        }
+      ]
+    }
+  ],
+  "questSites": [
+    {
+      "id": "market-morning",
+      "name": "Morning market corner",
+      "x": -16,
+      "z": -36,
+      "anchorId": "market-shed"
+    },
+    { "id": "pavilion-green", "name": "Pavilion green", "x": -16, "z": 0, "anchorId": "pavilion" },
+    { "id": "orchard-gate", "name": "Orchard gate", "x": 0, "z": 16, "anchorId": "orchard-green" },
+    {
+      "id": "ridge-yard",
+      "name": "Ridge workshop yard",
+      "x": 44,
+      "z": 0,
+      "anchorId": "ridge-workshop"
+    },
+    {
+      "id": "sunflower-row",
+      "name": "Sunflower shop row",
+      "x": 16,
+      "z": 32,
+      "anchorId": "sunflower-shop"
+    }
+  ]
+}

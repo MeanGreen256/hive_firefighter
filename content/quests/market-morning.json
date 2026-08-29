@@ -1,0 +1,21 @@
+{
+  "name": "Morning Market Spark",
+  "simulation": {
+    "district": "sunflower-valley",
+    "questSite": "market-morning",
+    "subjects": ["market-shed", "market-hedge", "market-tree"],
+    "ignitions": [{ "target": "market-hedge", "burnable": "hedge-row" }],
+    "hazards": [],
+    "seed": 2301,
+    "wind": { "direction": { "x": 0, "y": 0, "z": 0 }, "strength": 0 }
+  },
+  "presentation": {
+    "situation": "quiet-spark",
+    "badge": "spark",
+    "spectacle": "gentle",
+    "intro": "quiet-arrival",
+    "celebration": "cheer",
+    "approach": "street-side"
+  },
+  "pacing": { "tempo": "calm", "parTimeSeconds": 100, "waterSuppressionMultiplier": 0.57 }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "Orchard Gate Two Fronts",
+  "simulation": {
+    "district": "sunflower-valley",
+    "questSite": "orchard-gate",
+    "subjects": ["orchard-hedge", "orchard-tree", "orchard-bench"],
+    "ignitions": [
+      { "target": "orchard-hedge", "burnable": "hedge-row" },
+      { "target": "orchard-tree", "burnable": "canopy" }
+    ],
+    "hazards": [],
+    "seed": 2303,
+    "wind": { "direction": { "x": 1, "y": 0, "z": 0 }, "strength": 0.35 }
+  },
+  "presentation": {
+    "situation": "two-fronts",
+    "badge": "fronts",
+    "spectacle": "lively",
+    "intro": "smoke-column",
+    "celebration": "fanfare",
+    "approach": "street-side"
+  },
+  "pacing": { "tempo": "standard", "parTimeSeconds": 85 }
+}
