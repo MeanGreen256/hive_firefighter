@@ -144,6 +144,7 @@ const vite = spawn(
 let chrome;
 let session;
 const report = [];
+const softwareBaseline = 'software-rendered CI baseline; not target-device performance evidence';
 
 try {
   await waitForServer(baseUrl, vite);
@@ -269,12 +270,13 @@ try {
       if (problems.length > 0) throw new Error(problems.join('\n'));
       report.push({
         key,
+        measurement: softwareBaseline,
         ...snapshot.metrics,
         distinctFrameColors,
         shadowAutoUpdate: snapshot.shadowAutoUpdate,
       });
       process.stdout.write(
-        `${key}: ${snapshot.metrics.drawCalls} draws, ${snapshot.metrics.triangles} triangles, ${snapshot.metrics.fps.toFixed(1)} fps, ${distinctFrameColors} colors\n`,
+        `${key} [software baseline, not target-device evidence]: ${snapshot.metrics.drawCalls} draws, ${snapshot.metrics.triangles} triangles, ${snapshot.metrics.fps.toFixed(1)} fps, ${distinctFrameColors} colors\n`,
       );
     } catch (error) {
       throw new Error(`${key}: ${error instanceof Error ? error.message : String(error)}`);
@@ -303,12 +305,13 @@ try {
       if (problems.length > 0) throw new Error(problems.join('\n'));
       report.push({
         key,
+        measurement: softwareBaseline,
         ...snapshot.metrics,
         distinctFrameColors,
         shadowAutoUpdate: snapshot.shadowAutoUpdate,
       });
       process.stdout.write(
-        `${key}: ${scenario.questId} seed ${scenario.seed}, ${snapshot.metrics.drawCalls} draws, ${snapshot.metrics.triangles} triangles, ${distinctFrameColors} colors\n`,
+        `${key} [software baseline, not target-device evidence]: ${scenario.questId} seed ${scenario.seed}, ${snapshot.metrics.drawCalls} draws, ${snapshot.metrics.triangles} triangles, ${distinctFrameColors} colors\n`,
       );
     } catch (error) {
       throw new Error(`${key}: ${error instanceof Error ? error.message : String(error)}`);

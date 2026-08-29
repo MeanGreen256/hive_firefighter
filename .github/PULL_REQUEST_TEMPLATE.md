@@ -17,6 +17,7 @@ Closes #
 - [ ] No hardcoded colour literals in `src/render/` — colours come from the style system
 - [ ] Nothing in `src/sim/` imports Three.js or React
 - [ ] Perf budget respected: 60fps, < 80 draw calls, < 2000 particles, sim tick < 3ms
+- [ ] If this changes gameplay rendering, attached current target-device frame-pacing evidence (60 FPS; p95 ≤25 ms; p99 ≤50 ms), not CI SwiftShader FPS
 - [ ] New content is data in `content/`, not constants in code
 - [ ] The issue's "Done when" condition is actually met
 

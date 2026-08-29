@@ -36,8 +36,11 @@ it claims to measure, so a fixture silently drifting onto another incident fails
 the same way a budget regression does.
 
 Set `ACCEPTANCE_ARTIFACT_DIR=artifacts/acceptance` to retain each PNG screenshot
-and a machine-readable `metrics.json` report. CI uploads these artifacts when a
-gate fails.
+and a machine-readable `metrics.json` report. Every FPS value in that report is
+explicitly a software-rendered CI baseline, not target-device performance
+evidence; use the visible production profiler in
+[`performance-acceptance.md`](performance-acceptance.md) for that. CI uploads
+these artifacts when a gate fails.
 
 ## What fails a pull request
 

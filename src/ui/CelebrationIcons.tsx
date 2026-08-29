@@ -40,6 +40,38 @@ export function BuildingIcon({
   );
 }
 
+/** A concrete before-image: this is the building the player has just saved. */
+export function BurningBuildingIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M10 57h44V24L32 7 10 24z" />
+      <path d="M24 57V38h16v19M20 28h4M40 28h4" />
+      <path d="M32 35c-7-7 1-13 1-21 7 7 12 13 9 20-2 5-7 7-10 7-5 0-8-3-8-7 0-4 3-7 5-10 0 5 2 7 3 11Z" />
+    </Icon>
+  );
+}
+
+/** The after-image uses a check on the same building, not an abstract outcome mark. */
+export function SavedBuildingIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M10 57h44V24L32 7 10 24z" />
+      <path d="M24 57V38h16v19M20 28h4M40 28h4" />
+      <path d="m21 31 6 6 15-15" />
+    </Icon>
+  );
+}
+
+/** A reward is a separate, concrete badge rather than another unexplained sparkle. */
+export function RewardBadgeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M32 6 51 13v15c0 13-8 23-19 29-11-6-19-16-19-29V13z" />
+      <path d="m32 18 3.5 7.5 8.2 1-6.1 5.6 1.6 8.1-7.2-3.9-7.2 3.9 1.6-8.1-6.1-5.6 8.2-1z" />
+    </Icon>
+  );
+}
+
 export function OutcomeIcon({
   outcome,
   ...props
