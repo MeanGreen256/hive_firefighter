@@ -1,0 +1,21 @@
+{
+  "name": "Sunflower Shop Awning",
+  "simulation": {
+    "district": "sunflower-valley",
+    "questSite": "sunflower-row",
+    "subjects": ["sunflower-shop", "sunflower-hedge", "sunflower-tree"],
+    "ignitions": [{ "target": "sunflower-shop", "burnable": "awning" }],
+    "hazards": [],
+    "seed": 2305,
+    "wind": { "direction": { "x": -1, "y": 0, "z": 0 }, "strength": 0.65 }
+  },
+  "presentation": {
+    "situation": "porch-climb",
+    "badge": "roof",
+    "spectacle": "dramatic",
+    "intro": "smoke-column",
+    "celebration": "parade",
+    "approach": "around-the-back"
+  },
+  "pacing": { "tempo": "spectacle", "parTimeSeconds": 75 }
+}

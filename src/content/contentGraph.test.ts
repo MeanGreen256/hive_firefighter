@@ -38,8 +38,11 @@ function rewardsWith(
 
 describe('cross-file authored content graph', () => {
   it('accepts every shipped district, quest, shift, reward, and visual style', () => {
-    expect(collectContentGraphProblems(createAuthoredContentGraph())).toEqual([]);
-    expect(assertContentGraph().quests).toHaveLength(6);
+    const authored = createAuthoredContentGraph();
+    expect(collectContentGraphProblems(authored)).toEqual([]);
+    expect(assertContentGraph().quests).toHaveLength(
+      authored.districts.reduce((count, district) => count + district.questSites.length, 0),
+    );
   });
 
   it('reports independent source-qualified failures together', () => {
@@ -241,33 +244,41 @@ describe('cross-file authored content graph', () => {
   });
 
   it('rejects unreachable reward thresholds against active shift mastery', () => {
-    expect(() =>
-      assertContentGraph(
-        graph({
-          rewards: rewardsWith((current) =>
-            current.map((reward) =>
-              reward.requires.metric === 'mastery-quests'
-                ? { ...reward, requires: { ...reward.requires, atLeast: 7 } }
-                : reward,
-            ),
-          ),
-        }),
-      ),
-    ).toThrow(/mastery-5\.requires\.atLeast 7 cannot be reached.*tops out at 6/);
+    const authored = createAuthoredContentGraph();
+    const masteryCap = authored.quests.length;
+    const starCap = masteryCap * 3;
 
     expect(() =>
       assertContentGraph(
         graph({
           rewards: rewardsWith((current) =>
             current.map((reward) =>
-              reward.requires.metric === 'total-best-stars'
-                ? { ...reward, requires: { ...reward.requires, atLeast: 19 } }
+              reward.id === 'mastery-5'
+                ? { ...reward, requires: { ...reward.requires, atLeast: masteryCap + 1 } }
                 : reward,
             ),
           ),
         }),
       ),
-    ).toThrow(/total-best-stars tops out at 18/);
+    ).toThrow(
+      new RegExp(
+        `mastery-5\\.requires\\.atLeast ${String(masteryCap + 1)} cannot be reached.*tops out at ${String(masteryCap)}`,
+      ),
+    );
+
+    expect(() =>
+      assertContentGraph(
+        graph({
+          rewards: rewardsWith((current) =>
+            current.map((reward) =>
+              reward.id === 'stars-15'
+                ? { ...reward, requires: { ...reward.requires, atLeast: starCap + 1 } }
+                : reward,
+            ),
+          ),
+        }),
+      ),
+    ).toThrow(new RegExp(`total-best-stars tops out at ${String(starCap)}`));
   });
 
   it('rejects duplicate ids, duplicated cosmetics, and unordered progression thresholds', () => {

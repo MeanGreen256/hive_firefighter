@@ -1,0 +1,21 @@
+{
+  "name": "Ridge Workshop Propane",
+  "simulation": {
+    "district": "sunflower-valley",
+    "questSite": "ridge-yard",
+    "subjects": ["ridge-workshop", "ridge-hedge", "ridge-tree"],
+    "ignitions": [{ "target": "ridge-workshop", "burnable": "barn-door" }],
+    "hazards": [{ "id": "ridge-propane", "type": "propane", "position": { "x": 44, "z": -8 } }],
+    "seed": 2304,
+    "wind": { "direction": { "x": 0, "y": 0, "z": 0 }, "strength": 0.45 }
+  },
+  "presentation": {
+    "situation": "propane-urgency",
+    "badge": "shield",
+    "spectacle": "dramatic",
+    "intro": "alarm-flare",
+    "celebration": "fanfare",
+    "approach": "around-the-back"
+  },
+  "pacing": { "tempo": "hazard", "parTimeSeconds": 80 }
+}

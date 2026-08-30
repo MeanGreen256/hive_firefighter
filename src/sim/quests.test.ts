@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import bakeryQuest from '../../content/quests/bakery-awning.json' with { type: 'json' };
 import { CellState } from './cellGrid';
-import { getDistrict } from './districts';
+import { DISTRICTS, getDistrict } from './districts';
 import { buildExteriorShell, getShellCellWorldPosition, getSubjectCellIds } from './exteriorShell';
 import {
   FIRE_TICK_SECONDS,
@@ -94,12 +94,15 @@ function secondsUntilAlight(questSiteId: string, subjectId: string, limitSeconds
 }
 
 describe('quest loading', () => {
-  it('authors exactly one quest for every quest site in the district', () => {
-    const district = getDistrict('harbour-hill');
-    for (const site of district.questSites) {
-      expect(hasQuestForSite(district.id, site.id)).toBe(true);
+  it('authors exactly one quest for every quest site in every district', () => {
+    for (const district of DISTRICTS) {
+      for (const site of district.questSites) {
+        expect(hasQuestForSite(district.id, site.id)).toBe(true);
+      }
     }
-    expect(QUESTS).toHaveLength(district.questSites.length);
+    expect(QUESTS).toHaveLength(
+      DISTRICTS.reduce((count, district) => count + district.questSites.length, 0),
+    );
   });
 
   it('rejects a quest whose subject is not in the district', () => {
