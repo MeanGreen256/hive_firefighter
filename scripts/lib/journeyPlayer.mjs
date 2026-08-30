@@ -504,7 +504,12 @@ export class JourneyPlayer {
    * runner cannot resolve from a cell centre and a nozzle height.
    */
   async sweepSprayAt(fire, { timeoutMs = 30_000 } = {}) {
-    const state = await this.observe();
+    // A long road route can leave the truck facing away from the fire. Turn
+    // the firefighter's body first; free aim then sweeps a small useful cone
+    // instead of spending the incident turning through ninety degrees while
+    // the flames are allowed to finish themselves.
+    let state = await this.lookAt(fire, { timeoutMs: Math.min(timeoutMs, 15_000) });
+    if (!state.targetCaptured) state = await this.observe();
     const horizontal = Math.max(0.01, Math.hypot(fire.x - state.player.x, fire.z - state.player.z));
     const desiredYaw = Math.atan2(-(fire.x - state.player.x), -(fire.z - state.player.z));
     const baseYaw = normalizeAngle(desiredYaw - state.playerYawRadians);
