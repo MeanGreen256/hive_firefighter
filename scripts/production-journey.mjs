@@ -22,7 +22,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,7 +41,8 @@ import {
   browserTargetFromEnvironment,
   executableCandidatesForTarget,
 } from './lib/browserTargets.mjs';
-import { JourneyPlayer, quietTownTravelPlan, standOffPoint } from './lib/journeyPlayer.mjs';
+import { JourneyPlayer, quietTownTravelPlan } from './lib/journeyPlayer.mjs';
+import { routeAlongRoads } from './lib/roadRouting.mjs';
 
 const rootDirectory = fileURLToPath(new URL('..', import.meta.url));
 const artifactDirectory = process.env.ACCEPTANCE_ARTIFACT_DIR;
@@ -181,6 +182,23 @@ async function runBuild() {
 }
 
 /**
+ * Content defines every drivable street. Read that public authored graph only
+ * to choose road intersections; movement still happens entirely through the
+ * production game's keys, collision, and observation window.
+ */
+async function roadWaypointsForIncident(incident, truck) {
+  const source = await readFile(
+    join(rootDirectory, 'content', 'districts', `${incident.districtId}.json`),
+    'utf8',
+  );
+  const district = JSON.parse(source);
+  if (!Array.isArray(district.roads)) {
+    throw new Error(`District ${JSON.stringify(incident.districtId)} has no authored road graph`);
+  }
+  return routeAlongRoads(truck, incident.questSite, district.roads);
+}
+
+/**
  * One incident, played from the cab to the stars.
  *
  * The shape of it is the shape of the game: follow the smoke, get out, put the
@@ -207,16 +225,18 @@ async function playIncident(player, session, sessionId, index) {
     `incident ${index + 1} (${incident.questId}) starts with a fire to put out`,
   );
 
-  // The fire point can be inside a park or beside a building. A child parks at
-  // the visible edge of hose range, not on the flames, so use the same
-  // approach point rather than asking the truck to collide with the scenery.
+  // The fire point can be inside a park or beside a building. Follow the
+  // authored street graph to its nearest reachable point, rather than asking
+  // the truck to collide with scenery on a direct line through the district.
   const driveStart = await player.observe();
-  const parkingSpot = standOffPoint(incident.questSite, driveStart.truck, 14);
-  await player.driveTo(parkingSpot, {
-    arriveMeters: 2,
-    label: incident.questName,
-    timeoutMs: 240_000,
-  });
+  const waypoints = await roadWaypointsForIncident(incident, driveStart.truck);
+  for (const [waypointIndex, waypoint] of waypoints.entries()) {
+    await player.driveTo(waypoint, {
+      arriveMeters: 2,
+      label: `${incident.questName} road ${waypointIndex + 1}/${waypoints.length}`,
+      timeoutMs: 240_000,
+    });
+  }
   const arrived = await player.observe();
   check(
     arrived.distanceToQuestMeters <= 16,
