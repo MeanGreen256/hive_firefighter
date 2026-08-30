@@ -16,7 +16,7 @@ fixtures pointing at the wrong quest.
 ```sh
 npm run acceptance:production:smoke                # fast production boot gate
 npm run acceptance:production:smoke -- --skip-build
-npm run acceptance:production                      # a whole five-call shift
+npm run acceptance:production                      # the cross-district production journey
 npm run acceptance:production -- --incidents=1     # the first-play journey only
 npm run acceptance:production -- --skip-build      # reuse the existing dist/
 npm run acceptance:production -- --incident-seconds=900   # more time per call
@@ -43,17 +43,20 @@ Chromium DevTools harness does not claim to test engines it never launched.
 1. `npm run build`, then serves `dist/` with `vite preview`. No development
    server, no module graph, no `import.meta.env.DEV` branches.
 2. Opens `/` with no query string in a browser profile with nothing in it.
-3. Checks the build is silent until somebody interacts with it, then that the
+3. Checks the build starts in a genuinely fire-free quiet interval at the
+   Firehouse, stays silent until somebody interacts with it, then checks the
    first key of the first drive starts the sound (#221) — the autoplay gate is
    a browser policy, so only a browser can prove the shipped bundle gets past
    it.
 4. Plays: drive to the smoke, press the action button to get out, walk to a
    hosing distance, aim with the game's own free aim until the stream has the
    fire, hold the button, take the stars.
-5. Roams the fire-free town, drives to the firehouse, and starts the next call
-   from the one control that offers it.
-6. Refreshes mid-shift and checks the stars, rewards, slot, and finished guide
-   all came back.
+5. Roams through the first quiet interval until the next automatic call, then
+   completes both Honeycomb Hills calls. It drives the authored road boundary
+   into Sunflower Valley using only steering keys, verifies that its local
+   board is still empty, and waits for that district's first automatic call.
+6. Refreshes after the Sunflower Valley call and checks the local district
+   board, stars, rewards, slot, and finished guide all came back.
 
 Every input is a key or a mouse drag a player has. Nothing calls into the game
 to move, ignite, extinguish, or advance anything.
@@ -67,9 +70,9 @@ a window and not a door:
 - **Read-only.** One method, `read`, returning a copy. Nothing on it starts,
   skips, or completes anything; if it did, the run would stop being evidence
   about the real game.
-- **Only what is already on screen.** Where the truck is, whether anything is
-  burning, how many stars the star screen shows. It is a machine-readable
-  spelling of the HUD.
+- **Only what is already on screen.** Where the truck is, which district board
+  is open, whether anything is burning, and how many stars the star screen
+  shows. It is a machine-readable spelling of the HUD.
 - **Shipped, not gated.** A hook that only exists in development would prove
   nothing about production, which is the whole point.
 

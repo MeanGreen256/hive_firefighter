@@ -51,6 +51,8 @@ export interface OnboardingGuide {
   readonly store: StoreApi<OnboardingGuideSnapshot>;
   /** The 10 Hz world sample. Ignored once the guide is finished. */
   report(sample: OnboardingWorldSample): void;
+  /** A frame of real water contact, before a debrief can freeze world samples. */
+  noteFireContact(seconds: number): void;
   /** An incident ended with its star screen up: the readable half of success. */
   noteIncidentComplete(): void;
   /** The adult skip on the card. Finishes the guide without a success. */
@@ -81,6 +83,7 @@ export function createOnboardingGuide(
   // undo without reaching into the world to zero a counter it does not own.
   let contactSecondsAtStart = 0;
   let latestContactSeconds = 0;
+  let directContactSeconds = 0;
 
   const settle = (step: OnboardingStepId): void => {
     if (step === store.getState().step) return;
@@ -105,6 +108,14 @@ export function createOnboardingGuide(
         }),
       );
     },
+    noteFireContact(seconds) {
+      if (!store.getState().teaching || !Number.isFinite(seconds) || seconds <= 0) return;
+      // A normal 10 Hz world observation sees this frame's hose result one
+      // frame later. If that same splash opens the debrief, that later sample
+      // never arrives; the hose is the source of truth for this durable fact.
+      directContactSeconds += seconds;
+      hitFire ||= directContactSeconds >= ONBOARDING_EFFECTIVE_HIT_SECONDS;
+    },
     noteIncidentComplete() {
       sawIncidentComplete = true;
       // The star screen is the last thing owed. A player who put the fire out
@@ -119,6 +130,7 @@ export function createOnboardingGuide(
       hitFire = false;
       sawIncidentComplete = false;
       contactSecondsAtStart = latestContactSeconds;
+      directContactSeconds = 0;
       clearOnboardingCompletion(storage);
       store.setState({ step: OnboardingStep.Drive, teaching: true });
     },

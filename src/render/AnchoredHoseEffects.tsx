@@ -84,6 +84,8 @@ export interface AnchoredHoseEffectsProps {
   readonly reactions: WorldReactionField;
   /** Per-cell scorch washing, presentation only. */
   readonly rinse: ScorchRinseField;
+  /** The guide records real water contact at the same frame the hose applies it. */
+  readonly onFireContact?: (seconds: number) => void;
   /** Development acceptance scene: draw the verb without consuming its target. */
   readonly forceSpraying?: boolean;
 }
@@ -104,6 +106,7 @@ export function AnchoredHoseEffects({
   surfaces,
   reactions,
   rinse,
+  onFireContact,
   forceSpraying = false,
 }: AnchoredHoseEffectsProps) {
   const { gl } = useThree();
@@ -382,6 +385,7 @@ export function AnchoredHoseEffects({
           (typeof character.userData.fireContactSeconds === 'number'
             ? character.userData.fireContactSeconds
             : 0) + waterDelta;
+        onFireContact?.(waterDelta);
         fireAudioSystem.handleWaterApplication(result);
         const scalded = result.contacts.some((contact) =>
           isHotWaterContact({ heat: contact.heatBefore }),

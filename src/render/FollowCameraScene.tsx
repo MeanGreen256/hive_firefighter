@@ -283,6 +283,8 @@ interface GameWorldProps {
   readonly onWardrobeRangeChange: (inRange: boolean) => void;
   /** Null once the player has been taught, so nothing is sampled for nobody. */
   readonly onOnboardingSample: ((sample: OnboardingWorldSample) => void) | null;
+  /** Direct hose contact prevents the final successful frame racing the 10 Hz sample. */
+  readonly onOnboardingFireContact: (seconds: number) => void;
   readonly onApproachChange: (approach: ApproachSample) => void;
   readonly performanceScene: PerformanceAcceptanceScene | null;
   readonly quietTown: boolean;
@@ -314,6 +316,7 @@ function GameWorld({
   onBoardingRangeChange,
   onWardrobeRangeChange,
   onOnboardingSample,
+  onOnboardingFireContact,
   onApproachChange,
   performanceScene,
   quietTown,
@@ -451,28 +454,16 @@ function GameWorld({
     // check does, and publish to React only when what they say changes — the
     // approach meter is four bands wide, so an entire drive across the district
     // costs three renders rather than three hundred.
-    if (!truck || !activeQuestSite) return;
+    if (!truck) return;
     const subject = mode === 'driving' ? truck : (firefighter ?? truck);
-    const distanceToQuestMeters = Math.hypot(
-      subject.position.x - activeQuestSite.x,
-      subject.position.z - activeQuestSite.z,
-    );
-
-    const band = getApproachBand(distanceToQuestMeters, lastApproachBand.current);
-    // Development telemetry wants live metres, which no band change can carry.
-    // It is the only reason anything here publishes on a timer, and it is
-    // compiled out of the bundle a player downloads.
-    telemetryElapsed.current += 0.1;
-    const telemetryDue = import.meta.env.DEV && telemetryElapsed.current >= 0.5;
-    if (band !== lastApproachBand.current || telemetryDue) {
-      if (telemetryDue) telemetryElapsed.current = 0;
-      lastApproachBand.current = band;
-      onApproachChange({ band, distanceMeters: distanceToQuestMeters });
-    }
+    const distanceToQuestMeters = activeQuestSite
+      ? Math.hypot(subject.position.x - activeQuestSite.x, subject.position.z - activeQuestSite.z)
+      : Number.POSITIVE_INFINITY;
 
     // The shipped game's read-only window (#219). It carries what a player can
     // already see, at the rate the HUD already samples, so a browser can play
-    // the production bundle without a development harness underneath it.
+    // the production bundle without a development harness underneath it. A
+    // quiet town has no quest marker but is still an observable playable world.
     reportGameObservation({
       samples: (worldSamples.current += 1),
       fire: nearestSuppressionTarget(
@@ -494,6 +485,20 @@ function GameWorld({
       targetCaptured: firefighter?.userData.targetCaptured === true,
       spraying: firefighter?.userData.spraying === true,
     });
+
+    if (!activeQuestSite) return;
+
+    const band = getApproachBand(distanceToQuestMeters, lastApproachBand.current);
+    // Development telemetry wants live metres, which no band change can carry.
+    // It is the only reason anything here publishes on a timer, and it is
+    // compiled out of the bundle a player downloads.
+    telemetryElapsed.current += 0.1;
+    const telemetryDue = import.meta.env.DEV && telemetryElapsed.current >= 0.5;
+    if (band !== lastApproachBand.current || telemetryDue) {
+      if (telemetryDue) telemetryElapsed.current = 0;
+      lastApproachBand.current = band;
+      onApproachChange({ band, distanceMeters: distanceToQuestMeters });
+    }
 
     if (onOnboardingSample) {
       const [startX, , startZ] = districtLayout.truckStart.position;
@@ -625,6 +630,7 @@ function GameWorld({
         surfaces={worldSurfaces}
         reactions={worldReactions}
         rinse={scorchRinse}
+        onFireContact={onOnboardingFireContact}
         forceSpraying={performanceScene?.id === 'spray'}
       />
       <WorldReactions field={worldReactions} visualStyle={visualStyle} />
@@ -876,6 +882,10 @@ export default function FollowCameraScene() {
   const restartOnboarding = useCallback(() => onboardingGuide.restart(), []);
   const reportOnboarding = useCallback(
     (sample: OnboardingWorldSample) => onboardingGuide.report(sample),
+    [],
+  );
+  const noteOnboardingFireContact = useCallback(
+    (seconds: number) => onboardingGuide.noteFireContact(seconds),
     [],
   );
 
@@ -1149,6 +1159,8 @@ export default function FollowCameraScene() {
       onboardingStep: onboarding.step,
       completedShiftCount: getCompletedShiftCount(progressProfile),
       completedQuestCount: getCompletedQuestCount(progressProfile),
+      districtCompletedShiftCount: currentDistrictProgress.completedShiftCount,
+      districtCompletedQuestCount: Object.keys(currentDistrictProgress.quests).length,
       unlockedRewardCount: progressProfile.unlockedRewardIds.length,
       paused: frozen,
       pauseReason: pauseReasonFor(pauseState),
@@ -1158,6 +1170,8 @@ export default function FollowCameraScene() {
     currentDistrict,
     currentFirehouseBoardPosition,
     debriefOpen,
+    currentDistrictProgress.completedShiftCount,
+    currentDistrictProgress.quests,
     directedIncident,
     directedQuestSite,
     fireSnapshot,
@@ -1232,10 +1246,17 @@ export default function FollowCameraScene() {
       if (down.has(key)) return;
       down.add(key);
       if (frozen) {
-        if (pauseState.adultPaused && key === ' ') pressAction();
+        if (pauseState.adultPaused && key === ' ') {
+          event.preventDefault();
+          pressAction();
+        }
         return;
       }
       if (key === ' ') {
+        // Space is the game's action button even when a grown-ups control
+        // still has browser focus. Without suppressing the native button
+        // activation, one resume press can also click that focused control.
+        event.preventDefault();
         pressAction();
       } else if (key === 'e' && !debriefOpen && (mode === 'driving' || canBoard)) {
         event.preventDefault();
@@ -1346,6 +1367,7 @@ export default function FollowCameraScene() {
             onBoardingRangeChange={setCanBoard}
             onWardrobeRangeChange={setWardrobeInRange}
             onOnboardingSample={teaching && !quietTown ? reportOnboarding : null}
+            onOnboardingFireContact={noteOnboardingFireContact}
             onApproachChange={setApproach}
             performanceScene={PERFORMANCE_SCENE}
             quietTown={quietTown}
