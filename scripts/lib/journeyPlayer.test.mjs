@@ -178,3 +178,33 @@ describe('crossing an authored district boundary', () => {
     ]);
   });
 });
+
+describe('walking to a contextual control', () => {
+  it('stops at the game-reported boarding range instead of guessing a truck radius', async () => {
+    let observations = 0;
+    const session = createSession({
+      evaluate: async () => {
+        observations += 1;
+        return {
+          mode: 'on-foot',
+          canBoard: observations > 1,
+          player: { x: 0, z: 0 },
+          playerYawRadians: 0,
+          truck: { x: 0, z: -10 },
+        };
+      },
+    });
+    const player = new JourneyPlayer(session, 'session-1');
+
+    const arrived = await player.walkTo(
+      { x: 0, z: -10 },
+      { arriveMeters: 0.5, arrivedWhen: (state) => state.canBoard },
+    );
+
+    expect(arrived.canBoard).toBe(true);
+    expect(session.keyEvents().map((event) => `${event.type}:${event.key}`)).toEqual([
+      'keyDown:w',
+      'keyUp:w',
+    ]);
+  });
+});
