@@ -23,4 +23,12 @@ describe('authored road routing', () => {
       { x: 10, z: 34 },
     ]);
   });
+
+  it('takes turn-in points on both corners of a bridged road route', () => {
+    expect(routeAlongRoads({ x: 10, z: 34 }, { x: 72, z: 0 }, roads)).toEqual([
+      { x: 24, z: 34 },
+      { x: 34, z: 10 },
+      { x: 64, z: 0 },
+    ]);
+  });
 });

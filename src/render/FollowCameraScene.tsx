@@ -283,6 +283,8 @@ interface GameWorldProps {
   readonly onWardrobeRangeChange: (inRange: boolean) => void;
   /** Null once the player has been taught, so nothing is sampled for nobody. */
   readonly onOnboardingSample: ((sample: OnboardingWorldSample) => void) | null;
+  /** Direct hose contact prevents the final successful frame racing the 10 Hz sample. */
+  readonly onOnboardingFireContact: (seconds: number) => void;
   readonly onApproachChange: (approach: ApproachSample) => void;
   readonly performanceScene: PerformanceAcceptanceScene | null;
   readonly quietTown: boolean;
@@ -314,6 +316,7 @@ function GameWorld({
   onBoardingRangeChange,
   onWardrobeRangeChange,
   onOnboardingSample,
+  onOnboardingFireContact,
   onApproachChange,
   performanceScene,
   quietTown,
@@ -627,6 +630,7 @@ function GameWorld({
         surfaces={worldSurfaces}
         reactions={worldReactions}
         rinse={scorchRinse}
+        onFireContact={onOnboardingFireContact}
         forceSpraying={performanceScene?.id === 'spray'}
       />
       <WorldReactions field={worldReactions} visualStyle={visualStyle} />
@@ -878,6 +882,10 @@ export default function FollowCameraScene() {
   const restartOnboarding = useCallback(() => onboardingGuide.restart(), []);
   const reportOnboarding = useCallback(
     (sample: OnboardingWorldSample) => onboardingGuide.report(sample),
+    [],
+  );
+  const noteOnboardingFireContact = useCallback(
+    (seconds: number) => onboardingGuide.noteFireContact(seconds),
     [],
   );
 
@@ -1359,6 +1367,7 @@ export default function FollowCameraScene() {
             onBoardingRangeChange={setCanBoard}
             onWardrobeRangeChange={setWardrobeInRange}
             onOnboardingSample={teaching && !quietTown ? reportOnboarding : null}
+            onOnboardingFireContact={noteOnboardingFireContact}
             onApproachChange={setApproach}
             performanceScene={PERFORMANCE_SCENE}
             quietTown={quietTown}
