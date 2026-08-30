@@ -74,6 +74,13 @@ describe('onboarding guide', () => {
     expect(guide.store.getState()).toEqual({ step: OnboardingStep.Done, teaching: false });
   });
 
+  it('keeps a final real hose contact when its frame opens the stars', () => {
+    const guide = createOnboardingGuide(createStorage());
+    guide.noteFireContact(ONBOARDING_EFFECTIVE_HIT_SECONDS);
+    guide.noteIncidentComplete();
+    expect(guide.store.getState()).toEqual({ step: OnboardingStep.Done, teaching: false });
+  });
+
   it('does not finish on stars the player had no hand in', () => {
     const guide = createOnboardingGuide(createStorage());
     guide.report(AT_THE_FIRE);

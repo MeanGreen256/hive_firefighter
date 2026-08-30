@@ -79,6 +79,22 @@ function turnInPoint(from, intersection) {
 }
 
 /**
+ * Replace each road junction with the point where a vehicle begins its turn.
+ * The following target lies on the outgoing road, so normal steering carves a
+ * visible corner instead of trying to pivot through scenery at its far edge.
+ */
+function turnInRoute(start, junctions, destination) {
+  const waypoints = [];
+  let previous = start;
+  for (const junction of junctions) {
+    appendWaypoint(waypoints, turnInPoint(previous, junction));
+    previous = junction;
+  }
+  appendWaypoint(waypoints, destination);
+  return waypoints;
+}
+
+/**
  * Route between the closest start and destination roads through intersections.
  * All shipped district roads are a connected orthogonal street graph; a clear
  * error is still better than silently driving through scenery if a new map
@@ -87,21 +103,14 @@ function turnInPoint(from, intersection) {
 export function routeAlongRoads(from, target, roads) {
   const start = closestRoad(from, roads);
   const destination = closestRoad(target, roads);
-  const waypoints = [];
 
   if (start.road.id === destination.road.id) {
-    appendWaypoint(waypoints, destination.projection);
-    return waypoints;
+    return [destination.projection];
   }
 
   const directIntersection = roadIntersection(start.road, destination.road);
   if (directIntersection !== null) {
-    // Do not ask an arcade vehicle to stop on the crossing and then pivot.
-    // It naturally carves a gentle corner towards the following road point,
-    // so give it a lead-in on the road it is already travelling.
-    appendWaypoint(waypoints, turnInPoint(start.projection, directIntersection));
-    appendWaypoint(waypoints, destination.projection);
-    return waypoints;
+    return turnInRoute(start.projection, [directIntersection], destination.projection);
   }
 
   let bridge = null;
@@ -125,8 +134,5 @@ export function routeAlongRoads(from, target, roads) {
       `No authored road route links ${JSON.stringify(start.road.id)} to ${JSON.stringify(destination.road.id)}`,
     );
   }
-  appendWaypoint(waypoints, bridge.entry);
-  appendWaypoint(waypoints, bridge.exit);
-  appendWaypoint(waypoints, destination.projection);
-  return waypoints;
+  return turnInRoute(start.projection, [bridge.entry, bridge.exit], destination.projection);
 }

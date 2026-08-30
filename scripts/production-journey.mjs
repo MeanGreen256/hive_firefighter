@@ -186,16 +186,20 @@ async function runBuild() {
  * to choose road intersections; movement still happens entirely through the
  * production game's keys, collision, and observation window.
  */
-async function roadWaypointsForIncident(incident, truck) {
+async function roadWaypointsForTarget(districtId, truck, target) {
   const source = await readFile(
-    join(rootDirectory, 'content', 'districts', `${incident.districtId}.json`),
+    join(rootDirectory, 'content', 'districts', `${districtId}.json`),
     'utf8',
   );
   const district = JSON.parse(source);
   if (!Array.isArray(district.roads)) {
-    throw new Error(`District ${JSON.stringify(incident.districtId)} has no authored road graph`);
+    throw new Error(`District ${JSON.stringify(districtId)} has no authored road graph`);
   }
-  return routeAlongRoads(truck, incident.questSite, district.roads);
+  return routeAlongRoads(truck, target, district.roads);
+}
+
+async function roadWaypointsForIncident(incident, truck) {
+  return roadWaypointsForTarget(incident.districtId, truck, incident.questSite);
 }
 
 /**
@@ -859,8 +863,22 @@ try {
         quiet.districtId === 'harbour-hill' && quiet.districtCompletedQuestCount >= 2,
         'Harbour Hill keeps its own two completed station badges before travel',
       );
+      const boundaryTarget = { x: 72, z: 0 };
+      const beforeBoundary = await player.observe();
+      const boundaryWaypoints = await roadWaypointsForTarget(
+        beforeBoundary.districtId,
+        beforeBoundary.truck,
+        boundaryTarget,
+      );
+      for (const [waypointIndex, waypoint] of boundaryWaypoints.entries()) {
+        await player.driveTo(waypoint, {
+          arriveMeters: 2,
+          label: `Harbour Hill Main Street road ${waypointIndex + 1}/${boundaryWaypoints.length}`,
+          timeoutMs: 240_000,
+        });
+      }
       const crossed = await player.driveAcrossDistrictBoundary(
-        { x: 72, z: 0 },
+        boundaryTarget,
         {
           destinationDistrictId: 'sunflower-valley',
           label: 'Harbour Hill Main Street into Sunflower Valley',
