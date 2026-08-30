@@ -18,6 +18,8 @@ describe('game observation window', () => {
     const observation = readGameObservation();
     expect(observation.districtId).toBe('');
     expect(observation.questId).toBeNull();
+    expect(observation.districtCompletedShiftCount).toBe(0);
+    expect(observation.districtCompletedQuestCount).toBe(0);
     expect(observation.samples).toBe(0);
     expect(observation.paused).toBe(false);
     expect(observation.pauseReason).toBe('none');

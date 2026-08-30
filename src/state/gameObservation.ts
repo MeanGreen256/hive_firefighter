@@ -90,6 +90,9 @@ export interface GameObservation {
   readonly onboardingStep: string;
   readonly completedShiftCount: number;
   readonly completedQuestCount: number;
+  /** The currently loaded Firehouse board, separate from global cosmetics. */
+  readonly districtCompletedShiftCount: number;
+  readonly districtCompletedQuestCount: number;
   readonly unlockedRewardCount: number;
   readonly audio: GameObservationAudio;
   /**
@@ -140,6 +143,8 @@ const INITIAL: GameObservation = {
   onboardingStep: '',
   completedShiftCount: 0,
   completedQuestCount: 0,
+  districtCompletedShiftCount: 0,
+  districtCompletedQuestCount: 0,
   unlockedRewardCount: 0,
   audio: { enabled: false, muted: false, gestureRequired: false },
   renderer: 'starting',

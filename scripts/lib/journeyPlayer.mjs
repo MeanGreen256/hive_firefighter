@@ -333,6 +333,44 @@ export class JourneyPlayer {
   }
 
   /**
+   * Continue ordinary driving through an authored road boundary until the
+   * production scene reports the reciprocal district. This is intentionally
+   * not a teleport or a private game API: it only holds the same steering keys
+   * used by `driveTo` and reads the child-visible district name afterwards.
+   */
+  async driveAcrossDistrictBoundary(
+    target,
+    { destinationDistrictId, timeoutMs = 90_000, label = 'district boundary' } = {},
+  ) {
+    if (!destinationDistrictId) throw new Error('A boundary drive needs a destination district id');
+    const deadline = Date.now() + timeoutMs;
+    try {
+      while (Date.now() < deadline) {
+        const observation = await this.observe();
+        if (observation.districtId === destinationDistrictId) return observation;
+        if (observation.mode !== 'driving') {
+          throw new Error(`The player left the cab while driving through ${label}`);
+        }
+        const headingError = normalizeAngle(
+          Math.atan2(-(target.x - observation.truck.x), -(target.z - observation.truck.z)) -
+            observation.truckYawRadians,
+        );
+        const keys = ['w'];
+        if (headingError > 0.06) keys.push('a');
+        else if (headingError < -0.06) keys.push('d');
+        await this.hold(keys);
+        await wait(90);
+      }
+    } finally {
+      await this.releaseAll();
+    }
+    const stopped = await this.observe();
+    throw new Error(
+      `Timed out driving through ${label}; still in ${JSON.stringify(stopped.districtId)}`,
+    );
+  }
+
+  /**
    * Walk to a place on foot.
    *
    * A/D turn the character and W/S move relative to its body. The runner uses
