@@ -877,13 +877,10 @@ try {
           timeoutMs: 240_000,
         });
       }
-      const crossed = await player.driveAcrossDistrictBoundary(
-        boundaryTarget,
-        {
-          destinationDistrictId: 'sunflower-valley',
-          label: 'Harbour Hill Main Street into Sunflower Valley',
-        },
-      );
+      const crossed = await player.driveAcrossDistrictBoundary(boundaryTarget, {
+        destinationDistrictId: 'sunflower-valley',
+        label: 'Harbour Hill Main Street into Sunflower Valley',
+      });
       check(
         crossed.districtId === 'sunflower-valley' && crossed.districtCompletedQuestCount === 0,
         'crossing an ordinary road loads Sunflower Valley with an independent empty Star Board',
