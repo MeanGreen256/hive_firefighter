@@ -3,6 +3,7 @@ import {
   headingErrorToward,
   JourneyPlayer,
   quietTownTravelPlan,
+  standOffPoint,
   travelKeys,
 } from './journeyPlayer.mjs';
 
@@ -41,6 +42,12 @@ describe('production journey tank controls', () => {
     const almostSouth = { ...facingNorth, playerYawRadians: Math.PI - 0.05 };
     expect(headingErrorToward(almostSouth, { x: 0.5, z: 10 })).toBeGreaterThan(0);
     expect(headingErrorToward(almostSouth, { x: -1, z: 10 })).toBeLessThan(0);
+  });
+});
+
+describe('incident parking', () => {
+  it('stops the truck at the reachable edge of the hose range rather than on a fire point', () => {
+    expect(standOffPoint({ x: 0, z: 0 }, { x: 0, z: -20 }, 14)).toEqual({ x: 0, z: -14 });
   });
 });
 

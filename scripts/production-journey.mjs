@@ -41,7 +41,7 @@ import {
   browserTargetFromEnvironment,
   executableCandidatesForTarget,
 } from './lib/browserTargets.mjs';
-import { JourneyPlayer, quietTownTravelPlan } from './lib/journeyPlayer.mjs';
+import { JourneyPlayer, quietTownTravelPlan, standOffPoint } from './lib/journeyPlayer.mjs';
 
 const rootDirectory = fileURLToPath(new URL('..', import.meta.url));
 const artifactDirectory = process.env.ACCEPTANCE_ARTIFACT_DIR;
@@ -207,8 +207,13 @@ async function playIncident(player, session, sessionId, index) {
     `incident ${index + 1} (${incident.questId}) starts with a fire to put out`,
   );
 
-  await player.driveTo(incident.questSite, {
-    arriveMeters: 11,
+  // The fire point can be inside a park or beside a building. A child parks at
+  // the visible edge of hose range, not on the flames, so use the same
+  // approach point rather than asking the truck to collide with the scenery.
+  const driveStart = await player.observe();
+  const parkingSpot = standOffPoint(incident.questSite, driveStart.truck, 14);
+  await player.driveTo(parkingSpot, {
+    arriveMeters: 2,
     label: incident.questName,
     timeoutMs: 240_000,
   });
