@@ -17,9 +17,9 @@ describe('authored road routing', () => {
     expect(roadIntersection(roads[2], roads[1])).toEqual({ x: -34, z: 34 });
   });
 
-  it('routes from the Firehouse avenue to a bandstand through a street crossing', () => {
+  it('starts a truck turn before the street crossing so its arc stays on the road', () => {
     expect(routeAlongRoads({ x: -33, z: -12 }, { x: 10, z: 44 }, roads)).toEqual([
-      { x: -34, z: 34 },
+      { x: -34, z: 24 },
       { x: 10, z: 34 },
     ]);
   });
