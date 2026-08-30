@@ -6,8 +6,12 @@ import {
   type DistrictTransition,
 } from '@sim/districts';
 
-/** The controller clamps at the authored edge, so this catches one normal frame there. */
-export const DISTRICT_TRANSITION_TRIGGER_METERS = 1;
+/**
+ * The truck's 1.05 m collision radius stops its centre just inside the
+ * authored edge. This catches that ordinary last driving frame (and the
+ * smaller firefighter) without making a boundary feel like a doorway.
+ */
+export const DISTRICT_TRANSITION_TRIGGER_METERS = 1.1;
 /** Arrival lands inside the destination to prevent immediately crossing back. */
 export const DISTRICT_TRANSITION_ARRIVAL_INSET_METERS = 6;
 

@@ -18,6 +18,17 @@ describe('district boundary travel', () => {
     });
   });
 
+  it('accepts the truck centre at its collision-limited road edge', () => {
+    const harbour = getDistrict('harbour-hill');
+    expect(
+      resolveDistrictTravel(harbour, {
+        x: 64 - 1.05,
+        z: 0,
+        yaw: Math.PI / 2,
+      })?.toDistrictId,
+    ).toBe('sunflower-valley');
+  });
+
   it('does not switch districts at an unrelated boundary or before the road edge', () => {
     const harbour = getDistrict('harbour-hill');
     expect(getReachedDistrictTransition(harbour, { x: 64, z: 20, yaw: 0 })).toBeNull();
