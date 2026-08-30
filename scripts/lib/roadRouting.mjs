@@ -62,6 +62,23 @@ function appendWaypoint(waypoints, point) {
 }
 
 /**
+ * A truck cannot make a square ninety-degree turn at a road centre crossing.
+ * Start its turn inside the incoming street instead: that is both how a
+ * player takes the visible corner and how the arcade truck avoids swinging
+ * into scenery on the far side of the junction. Ten metres is just under the
+ * full-speed turning radius, while still leaving room on every authored road.
+ */
+function turnInPoint(from, intersection) {
+  const length = distance(from, intersection);
+  if (length <= 12) return intersection;
+  const lead = Math.min(10, length - 2);
+  return {
+    x: intersection.x - ((intersection.x - from.x) / length) * lead,
+    z: intersection.z - ((intersection.z - from.z) / length) * lead,
+  };
+}
+
+/**
  * Route between the closest start and destination roads through intersections.
  * All shipped district roads are a connected orthogonal street graph; a clear
  * error is still better than silently driving through scenery if a new map
@@ -79,7 +96,10 @@ export function routeAlongRoads(from, target, roads) {
 
   const directIntersection = roadIntersection(start.road, destination.road);
   if (directIntersection !== null) {
-    appendWaypoint(waypoints, directIntersection);
+    // Do not ask an arcade vehicle to stop on the crossing and then pivot.
+    // It naturally carves a gentle corner towards the following road point,
+    // so give it a lead-in on the road it is already travelling.
+    appendWaypoint(waypoints, turnInPoint(start.projection, directIntersection));
     appendWaypoint(waypoints, destination.projection);
     return waypoints;
   }
