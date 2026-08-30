@@ -33,9 +33,14 @@ const rootDirectory = fileURLToPath(new URL('..', import.meta.url));
 const artifactDirectory = process.env.ACCEPTANCE_ARTIFACT_DIR;
 const viewport = { width: 854, height: 480 };
 const frameTimeoutMs = 45_000;
+const automaticDispatchTimeoutMs = 45_000;
 const minimumFrameColors = 8;
-const skipBuild = process.argv.slice(2).includes('--skip-build');
-const unknownArguments = process.argv.slice(2).filter((argument) => argument !== '--skip-build');
+const arguments_ = process.argv.slice(2);
+const skipBuild = arguments_.includes('--skip-build');
+const blockStorage = arguments_.includes('--blocked-storage');
+const unknownArguments = arguments_.filter(
+  (argument) => argument !== '--skip-build' && argument !== '--blocked-storage',
+);
 if (unknownArguments.length > 0) throw new Error(`Unknown option ${unknownArguments[0]}`);
 
 const timeline = [];
@@ -70,6 +75,15 @@ function pageSnapshotExpression() {
       developmentUi: document.querySelectorAll('.dev-telemetry, .perf-overlay, [aria-label="Quest preview telemetry"]').length,
       errorOverlay: Boolean(document.querySelector('vite-error-overlay')),
       fallbackVisible: Boolean(document.querySelector('.startup-fallback')),
+      storageAccessible: (() => {
+        try {
+          void window.localStorage;
+          void window.sessionStorage;
+          return true;
+        } catch {
+          return false;
+        }
+      })(),
       searchString: window.location.search
     };
   })()`;
@@ -105,13 +119,32 @@ async function waitForAudio(session, sessionId) {
 }
 
 async function waitForAutomaticCall(session, sessionId) {
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + automaticDispatchTimeoutMs;
   while (Date.now() < deadline) {
     const snapshot = await session.evaluate(pageSnapshotExpression(), sessionId);
     if (snapshot.state?.quietTown === false && snapshot.state?.questId !== null) return snapshot;
     await wait(120);
   }
   return null;
+}
+
+/**
+ * A private window or a family browser's privacy setting can reject both Web
+ * Storage surfaces. Install that policy before the app module graph evaluates,
+ * so every store takes the same in-memory fallback it would on the device.
+ */
+async function blockBrowserStorage(session, sessionId) {
+  await session.command(
+    'Page.addScriptToEvaluateOnNewDocument',
+    {
+      source: `(() => {
+        const denied = () => { throw new DOMException('Storage is blocked for this profile', 'SecurityError'); };
+        Object.defineProperty(window, 'localStorage', { configurable: true, get: denied });
+        Object.defineProperty(window, 'sessionStorage', { configurable: true, get: denied });
+      })();`,
+    },
+    sessionId,
+  );
 }
 
 if (!skipBuild) await runBuild();
@@ -191,6 +224,10 @@ try {
       sessionId,
     ),
   ]);
+  if (blockStorage) {
+    await blockBrowserStorage(session, sessionId);
+    timeline.push('  ·  browser storage is denied before the production app boots');
+  }
 
   session.resetDiagnostics();
   const startedAt = Date.now();
@@ -200,6 +237,12 @@ try {
   check(!booted.errorOverlay, 'no build or runtime error overlay is visible');
   check(!booted.fallbackVisible, 'the production scene starts instead of a fallback');
   check(booted.developmentUi === 0, 'no development-only UI ships in the production bundle');
+  if (blockStorage) {
+    check(
+      booted.storageAccessible === false,
+      'a storage-restricted profile uses the in-memory game session instead of failing to boot',
+    );
+  }
   check(
     booted.state.quietTown && booted.state.questId === null && booted.state.burningCellCount === 0,
     `a fresh profile begins at the Firehouse in a genuinely fire-free quiet interval (quiet ${String(booted.state.quietTown)}, quest ${String(booted.state.questId)}, ${String(booted.state.burningCellCount)} burning)`,
