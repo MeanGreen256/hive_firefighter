@@ -377,7 +377,10 @@ export class JourneyPlayer {
    * the same published facing a player sees, pivots when the target is well off
    * axis, and moves while making smaller corrections.
    */
-  async walkTo(target, { arriveMeters = 6, timeoutMs = 45_000, label = 'the target' } = {}) {
+  async walkTo(
+    target,
+    { arriveMeters = 6, timeoutMs = 45_000, label = 'the target', arrivedWhen = null } = {},
+  ) {
     const deadline = Date.now() + timeoutMs;
     try {
       while (Date.now() < deadline) {
@@ -386,7 +389,7 @@ export class JourneyPlayer {
           throw new Error(`The player is not on foot while walking to ${label}`);
         }
         const distance = distanceBetween(observation.player, target);
-        if (distance <= arriveMeters) {
+        if (distance <= arriveMeters || arrivedWhen?.(observation) === true) {
           await this.releaseAll();
           return observation;
         }

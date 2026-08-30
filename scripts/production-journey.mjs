@@ -554,8 +554,11 @@ async function leaveTheStarScreen(player) {
 async function returnToCabForNextCall(player) {
   const state = await player.observe();
   if (quietTownTravelPlan(state) === 'drive') return state;
-  await player.walkTo(state.truck, { arriveMeters: 4, label: 'the fire truck between calls' });
-  await player.waitFor('the fire truck boarding range', (sample) => sample.canBoard, 5_000);
+  await player.walkTo(state.truck, {
+    arriveMeters: 0.5,
+    label: 'the fire truck between calls',
+    arrivedWhen: (sample) => sample.canBoard,
+  });
   await player.press(' ');
   return player.waitFor(
     'the firefighter to board the truck',
