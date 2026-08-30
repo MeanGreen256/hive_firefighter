@@ -43,6 +43,34 @@ describe('district loading', () => {
     expect(() => getDistrict('nowhere')).toThrow(/Unknown district/);
   });
 
+  it('requires each authored boundary to reach a road edge and name a reciprocal district', () => {
+    const harbour = getDistrict('harbour-hill');
+    expect(harbour.transitions).toContainEqual({
+      id: 'main-street-to-sunflower-valley',
+      targetDistrictId: 'sunflower-valley',
+      edge: 'east',
+      roadId: 'main-street',
+    });
+
+    const noEdgeRoad = cloneHarbourHill();
+    (noEdgeRoad.transitions as Record<string, unknown>[])[0] = {
+      ...(noEdgeRoad.transitions as Record<string, unknown>[])[0],
+      roadId: 'west-avenue',
+    };
+    expect(() => validateDistrictDefinition(noEdgeRoad, 'no-edge-road')).toThrow(
+      /must reach its east boundary/,
+    );
+
+    const disconnected = cloneHarbourHill();
+    (disconnected.transitions as Record<string, unknown>[])[0] = {
+      ...(disconnected.transitions as Record<string, unknown>[])[0],
+      targetDistrictId: 'not-authored',
+    };
+    expect(() =>
+      loadDistrictDefinitions({ 'harbour-hill.json': { default: disconnected } }),
+    ).toThrow(/names no authored district/);
+  });
+
   it('rejects a directory with no districts', () => {
     expect(() => loadDistrictDefinitions({})).toThrow(DistrictValidationError);
   });

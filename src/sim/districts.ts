@@ -337,6 +337,21 @@ export interface DistrictFirehouse {
   readonly wardrobe: DistrictPose;
 }
 
+/** The outward edge crossed by an ordinary road; never a menu or action prompt. */
+export const DISTRICT_BOUNDARY_EDGES = ['north', 'east', 'south', 'west'] as const;
+export type DistrictBoundaryEdge = (typeof DISTRICT_BOUNDARY_EDGES)[number];
+
+/**
+ * A traversable, road-led connection to another authored district (ADR-012).
+ * The reciprocal link supplies the arrival road in the destination district.
+ */
+export interface DistrictTransition {
+  readonly id: string;
+  readonly targetDistrictId: string;
+  readonly edge: DistrictBoundaryEdge;
+  readonly roadId: string;
+}
+
 export interface DistrictDefinition {
   readonly id: string;
   readonly name: string;
@@ -344,6 +359,7 @@ export interface DistrictDefinition {
   readonly truckStart: DistrictPose;
   readonly firehouse: DistrictFirehouse;
   readonly roads: readonly DistrictRoad[];
+  readonly transitions: readonly DistrictTransition[];
   readonly buildings: readonly DistrictBuilding[];
   readonly parks: readonly DistrictPark[];
   readonly waterBodies: readonly DistrictWaterBody[];
@@ -370,6 +386,7 @@ const ROOT_FIELDS = [
   'truckStart',
   'firehouse',
   'roads',
+  'transitions',
   'buildings',
   'parks',
   'waterBodies',
@@ -663,6 +680,28 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   );
   if (roads.length === 0) problems.push(`${id}.roads must contain at least one road`);
 
+  const transitions = readPlacementArray(
+    root.transitions,
+    `${id}.transitions`,
+    problems,
+    (object, path, transitionProblems): DistrictTransition => {
+      checkFields(object, path, ['id', 'targetDistrictId', 'edge', 'roadId'], transitionProblems);
+      return {
+        id: readString(object.id, `${path}.id`, transitionProblems),
+        targetDistrictId: readString(
+          object.targetDistrictId,
+          `${path}.targetDistrictId`,
+          transitionProblems,
+        ),
+        edge: readEnum(object.edge, `${path}.edge`, DISTRICT_BOUNDARY_EDGES, transitionProblems),
+        roadId: readString(object.roadId, `${path}.roadId`, transitionProblems),
+      };
+    },
+  );
+  if (transitions.length === 0) {
+    problems.push(`${id}.transitions must contain at least one traversable district boundary`);
+  }
+
   const buildings = readPlacementArray(
     root.buildings,
     `${id}.buildings`,
@@ -907,6 +946,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   );
 
   validateUniqueIds(roads, `${id}.roads`, problems);
+  validateUniqueIds(transitions, `${id}.transitions`, problems);
   validateUniqueIds(buildings, `${id}.buildings`, problems);
   validateUniqueIds(parks, `${id}.parks`, problems);
   validateUniqueIds(waterBodies, `${id}.waterBodies`, problems);
@@ -920,6 +960,25 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
   roadRects.forEach((rect, index) => {
     if (!isRectInsideBounds(rect, bounds)) {
       problems.push(`${id}.roads[${index}] leaves the district bounds`);
+    }
+  });
+
+  transitions.forEach((transition, index) => {
+    const path = `${id}.transitions[${String(index)}]`;
+    const road = roads.find((candidate) => candidate.id === transition.roadId);
+    if (!road) {
+      problems.push(`${path}.roadId ${JSON.stringify(transition.roadId)} names no road`);
+      return;
+    }
+    const reachesBoundary =
+      (transition.edge === 'west' && road.axis === 'x' && road.from <= bounds.minX) ||
+      (transition.edge === 'east' && road.axis === 'x' && road.to >= bounds.maxX) ||
+      (transition.edge === 'north' && road.axis === 'z' && road.from <= bounds.minZ) ||
+      (transition.edge === 'south' && road.axis === 'z' && road.to >= bounds.maxZ);
+    if (!reachesBoundary) {
+      problems.push(
+        `${path}.roadId ${JSON.stringify(transition.roadId)} must reach its ${transition.edge} boundary`,
+      );
     }
   });
 
@@ -1174,6 +1233,7 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     truckStart,
     firehouse,
     roads,
+    transitions,
     buildings,
     parks,
     waterBodies,
@@ -1199,6 +1259,28 @@ export function loadDistrictDefinitions(
     .sort((left, right) => left.id.localeCompare(right.id));
   if (districts.length === 0) {
     throw new DistrictValidationError('content/districts', ['at least one district is required']);
+  }
+  const byId = new Map(districts.map((district) => [district.id, district]));
+  const connectionProblems: string[] = [];
+  for (const district of districts) {
+    district.transitions.forEach((transition, index) => {
+      const path = `${district.id}.transitions[${String(index)}]`;
+      const target = byId.get(transition.targetDistrictId);
+      if (!target) {
+        connectionProblems.push(
+          `${path}.targetDistrictId ${JSON.stringify(transition.targetDistrictId)} names no authored district`,
+        );
+        return;
+      }
+      if (!target.transitions.some((returnLink) => returnLink.targetDistrictId === district.id)) {
+        connectionProblems.push(
+          `${path}.targetDistrictId ${JSON.stringify(transition.targetDistrictId)} has no reciprocal boundary back to ${JSON.stringify(district.id)}`,
+        );
+      }
+    });
+  }
+  if (connectionProblems.length > 0) {
+    throw new DistrictValidationError('content/districts', connectionProblems);
   }
   return districts;
 }

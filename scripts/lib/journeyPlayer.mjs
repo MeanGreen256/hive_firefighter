@@ -333,13 +333,54 @@ export class JourneyPlayer {
   }
 
   /**
+   * Continue ordinary driving through an authored road boundary until the
+   * production scene reports the reciprocal district. This is intentionally
+   * not a teleport or a private game API: it only holds the same steering keys
+   * used by `driveTo` and reads the child-visible district name afterwards.
+   */
+  async driveAcrossDistrictBoundary(
+    target,
+    { destinationDistrictId, timeoutMs = 90_000, label = 'district boundary' } = {},
+  ) {
+    if (!destinationDistrictId) throw new Error('A boundary drive needs a destination district id');
+    const deadline = Date.now() + timeoutMs;
+    try {
+      while (Date.now() < deadline) {
+        const observation = await this.observe();
+        if (observation.districtId === destinationDistrictId) return observation;
+        if (observation.mode !== 'driving') {
+          throw new Error(`The player left the cab while driving through ${label}`);
+        }
+        const headingError = normalizeAngle(
+          Math.atan2(-(target.x - observation.truck.x), -(target.z - observation.truck.z)) -
+            observation.truckYawRadians,
+        );
+        const keys = ['w'];
+        if (headingError > 0.06) keys.push('a');
+        else if (headingError < -0.06) keys.push('d');
+        await this.hold(keys);
+        await wait(90);
+      }
+    } finally {
+      await this.releaseAll();
+    }
+    const stopped = await this.observe();
+    throw new Error(
+      `Timed out driving through ${label}; still in ${JSON.stringify(stopped.districtId)}`,
+    );
+  }
+
+  /**
    * Walk to a place on foot.
    *
    * A/D turn the character and W/S move relative to its body. The runner uses
    * the same published facing a player sees, pivots when the target is well off
    * axis, and moves while making smaller corrections.
    */
-  async walkTo(target, { arriveMeters = 6, timeoutMs = 45_000, label = 'the target' } = {}) {
+  async walkTo(
+    target,
+    { arriveMeters = 6, timeoutMs = 45_000, label = 'the target', arrivedWhen = null } = {},
+  ) {
     const deadline = Date.now() + timeoutMs;
     try {
       while (Date.now() < deadline) {
@@ -348,7 +389,7 @@ export class JourneyPlayer {
           throw new Error(`The player is not on foot while walking to ${label}`);
         }
         const distance = distanceBetween(observation.player, target);
-        if (distance <= arriveMeters) {
+        if (distance <= arriveMeters || arrivedWhen?.(observation) === true) {
           await this.releaseAll();
           return observation;
         }
@@ -463,7 +504,12 @@ export class JourneyPlayer {
    * runner cannot resolve from a cell centre and a nozzle height.
    */
   async sweepSprayAt(fire, { timeoutMs = 30_000 } = {}) {
-    const state = await this.observe();
+    // A long road route can leave the truck facing away from the fire. Turn
+    // the firefighter's body first; free aim then sweeps a small useful cone
+    // instead of spending the incident turning through ninety degrees while
+    // the flames are allowed to finish themselves.
+    let state = await this.lookAt(fire, { timeoutMs: Math.min(timeoutMs, 15_000) });
+    if (!state.targetCaptured) state = await this.observe();
     const horizontal = Math.max(0.01, Math.hypot(fire.x - state.player.x, fire.z - state.player.z));
     const desiredYaw = Math.atan2(-(fire.x - state.player.x), -(fire.z - state.player.z));
     const baseYaw = normalizeAngle(desiredYaw - state.playerYawRadians);

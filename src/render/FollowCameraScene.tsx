@@ -16,19 +16,29 @@ import {
   getAudioActivationOutcome,
   startAudioOnFirstInteraction,
 } from '../audio/audioActivation';
-import { DEFAULT_DISTRICT_ID, getDistrict, type DistrictQuestSite } from '@sim/districts';
+import {
+  DEFAULT_DISTRICT_ID,
+  getDistrict,
+  type DistrictDefinition,
+  type DistrictQuestSite,
+} from '@sim/districts';
 import { getQuest, getQuestsForDistrict } from '@sim/quests';
 import type { ShellPoint } from '@sim/exteriorShell';
 import { CellState } from '@sim/cellGrid';
 import { PROPANE_COUNTDOWN_HEAT, PropaneHazardState } from '@sim/hazards';
 import { questFireController } from '../state/questFireController';
+import { getQuestShiftOrder } from '../state/questOrder';
 import {
-  createQuestDirector,
-  resumeQuestDirector,
-  type QuestDirector,
-} from '../state/questDirector';
-import { getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
-import { progressProfileStore } from '../state/progressProfile';
+  getCompletedQuestCount,
+  getCompletedShiftCount,
+  getDistrictProgress,
+  progressProfileStore,
+} from '../state/progressProfile';
+import {
+  createWorldRouteDirector,
+  resumeWorldRouteDirector,
+  type WorldRouteDirector,
+} from '../state/worldRouteDirector';
 import {
   resolveFirefighterCosmetics,
   wardrobeLoadoutStore,
@@ -118,18 +128,12 @@ import {
 } from './mountDismount';
 import type { BeaconPoint } from './questBeacon';
 import { resolveGameplayDpr } from './renderResolution';
+import {
+  resolveDistrictTravel,
+  type DistrictTravelPose,
+  type DistrictTravelResult,
+} from './districtTravel';
 
-const DISTRICT = getDistrict(DEFAULT_DISTRICT_ID);
-const DISTRICT_LAYOUT = buildDistrictLayout(DISTRICT);
-const FIREHOUSE_BOARD_POSITION = getFirehouseStarBoardPosition(DISTRICT);
-const FIREHOUSE_SPAWN = getFirehouseRestartSpawn(DISTRICT);
-const DISTRICT_QUEST_IDS = getQuestsForDistrict(DISTRICT.id).map((quest) => quest.id);
-/** What the hose can land on when nothing in front of the player is alight (#181). */
-const WORLD_SURFACES = buildWorldSurfaceIndex(DISTRICT_LAYOUT);
-/** Where the siren has an audience worth hearing scatter. */
-const AMBIENT_BIRD_POSITIONS = (DISTRICT.ambient ?? [])
-  .filter((placement) => placement.type === 'bird')
-  .map((placement) => ({ x: placement.x, z: placement.z }));
 const PERFORMANCE_SCENE = import.meta.env.DEV
   ? performanceSceneFromSearch(window.location.search)
   : null;
@@ -138,47 +142,39 @@ const PERFORMANCE_SCENE = import.meta.env.DEV
  * incident it opens never depends on where the child's rotating shift has
  * reached. Ordinary play always reads the authored district shift.
  */
-const SHIFT_ORDER = PERFORMANCE_SCENE ? getPerformanceBenchmarkShiftOrder() : QUEST_SHIFT_ORDER;
 const SESSION_PLACEMENT_STORAGE = PERFORMANCE_SCENE ? null : getBrowserSessionPlacementStorage();
 function initialDirectorSlot(): number {
   return PERFORMANCE_SCENE ? getPerformanceSceneIncident(PERFORMANCE_SCENE).slot : 0;
 }
 
-/** Resume an in-progress fire safely; a completed debrief resumes in quiet town. */
-function initialQuestDirector(): QuestDirector {
-  const fresh = createQuestDirector(SHIFT_ORDER);
-  if (PERFORMANCE_SCENE) return fresh.start(initialDirectorSlot());
-  const serialized = progressProfileStore.getState().profile.director;
-  if (serialized === null) return fresh.start();
-  try {
-    const resumed = resumeQuestDirector(SHIFT_ORDER, serialized);
-    if (resumed.state.phase === 'active') return resumed;
-    if (resumed.isQuietTown) return resumed;
-    if (resumed.state.phase === 'resolved') return resumed.beginCelebration().enterQuietTown();
-    if (resumed.state.phase === 'celebrating') return resumed.enterQuietTown();
-  } catch {
-    // An old or mismatched authored order must never block a child from playing.
+/** Resume one global incident safely; a fresh family gets ten quiet seconds first. */
+function initialWorldRouteDirector(): WorldRouteDirector {
+  if (PERFORMANCE_SCENE) {
+    return createWorldRouteDirector({
+      routeDistrictIds: [DEFAULT_DISTRICT_ID],
+      getOrder: () => getPerformanceBenchmarkShiftOrder(),
+    }).startImmediately(initialDirectorSlot());
   }
-  return fresh.start();
+  const serialized = progressProfileStore.getState().profile.world;
+  try {
+    const resumed = resumeWorldRouteDirector(serialized);
+    if (resumed.currentState.phase === 'resolved') {
+      return resumed.beginCelebration().enterQuietTown();
+    }
+    if (resumed.currentState.phase === 'celebrating') return resumed.enterQuietTown();
+    return resumed;
+  } catch {
+    // Corrupt or changed authored data must never block a child from playing.
+  }
+  return createWorldRouteDirector();
 }
 
 /** A resumed shift keeps pointing at its most recently finished station sticker. */
-function initialLatestQuestBadge(): string | null {
+function initialLatestQuestBadge(world: WorldRouteDirector): string | null {
   const profile = progressProfileStore.getState().profile;
-  const saved = profile.director;
-  if (!saved?.incident) return null;
-
-  let finishedShift = saved.incident.shift;
-  let finishedSlot = saved.incident.slot;
-  if (saved.phase !== 'resolved' && saved.phase !== 'celebrating') {
-    if (finishedSlot > 0) finishedSlot -= 1;
-    else if (finishedShift > 0) {
-      finishedShift -= 1;
-      finishedSlot = getQuestShiftSlots(SHIFT_ORDER, finishedShift).length - 1;
-    } else return null;
-  }
-  const questId = getQuestShiftSlots(SHIFT_ORDER, finishedShift)[finishedSlot]?.questId;
-  return questId && (profile.quests[questId]?.completedCount ?? 0) > 0 ? questId : null;
+  const incident = world.incident;
+  const districtProgress = getDistrictProgress(profile, incident.districtId);
+  return districtProgress.quests[incident.questId]?.completedCount ? incident.questId : null;
 }
 
 /** Bake the static district shadow map once; moving heroes use contact blobs. */
@@ -193,7 +189,13 @@ function configureStaticShadows({ gl }: RootState) {
  * Widening it needs an explicit projection rebuild; three keeps using the old
  * projection matrix otherwise, and nothing outside the default box casts.
  */
-function CityShadowSun({ color }: { readonly color: string }) {
+function CityShadowSun({
+  color,
+  district,
+}: {
+  readonly color: string;
+  readonly district: DistrictDefinition;
+}) {
   const sunRef = useRef<DirectionalLight>(null);
 
   useEffect(() => {
@@ -201,8 +203,8 @@ function CityShadowSun({ color }: { readonly color: string }) {
     if (!sun) return;
     const extent =
       Math.max(
-        DISTRICT.bounds.maxX - DISTRICT.bounds.minX,
-        DISTRICT.bounds.maxZ - DISTRICT.bounds.minZ,
+        district.bounds.maxX - district.bounds.minX,
+        district.bounds.maxZ - district.bounds.minZ,
       ) / 2;
     const shadowCamera = sun.shadow.camera;
     shadowCamera.left = -extent;
@@ -212,7 +214,7 @@ function CityShadowSun({ color }: { readonly color: string }) {
     shadowCamera.near = 1;
     shadowCamera.far = 260;
     shadowCamera.updateProjectionMatrix();
-  }, []);
+  }, [district]);
 
   return (
     <directionalLight
@@ -265,11 +267,14 @@ function nearestSuppressionTarget(
 }
 
 interface GameWorldProps {
+  readonly district: DistrictDefinition;
+  readonly initialPose: DistrictTravelPose | null;
   readonly visualStyle: Style;
   readonly starBoard: FirehouseStarBoardModel;
   readonly mode: PlayerMode;
   readonly sirenOn: boolean;
-  readonly activeQuestSite: DistrictQuestSite;
+  /** Null while the one global fire belongs to a different loaded district. */
+  readonly activeQuestSite: DistrictQuestSite | null;
   readonly beaconTarget: BeaconPoint | null;
   readonly truckRef: RefObject<Group | null>;
   readonly firefighterRef: RefObject<Group | null>;
@@ -278,6 +283,8 @@ interface GameWorldProps {
   readonly onWardrobeRangeChange: (inRange: boolean) => void;
   /** Null once the player has been taught, so nothing is sampled for nobody. */
   readonly onOnboardingSample: ((sample: OnboardingWorldSample) => void) | null;
+  /** Direct hose contact prevents the final successful frame racing the 10 Hz sample. */
+  readonly onOnboardingFireContact: (seconds: number) => void;
   readonly onApproachChange: (approach: ApproachSample) => void;
   readonly performanceScene: PerformanceAcceptanceScene | null;
   readonly quietTown: boolean;
@@ -286,6 +293,7 @@ interface GameWorldProps {
   readonly wardrobeInRange: boolean;
   readonly equippedFirefighter: ReturnType<typeof resolveFirefighterCosmetics>;
   readonly wardrobeSlot: FirefighterEquipSlot;
+  readonly onDistrictBoundaryCross: (travel: DistrictTravelResult) => void;
 }
 
 export interface ApproachSample {
@@ -294,6 +302,8 @@ export interface ApproachSample {
 }
 
 function GameWorld({
+  district,
+  initialPose,
   visualStyle,
   starBoard,
   mode,
@@ -306,6 +316,7 @@ function GameWorld({
   onBoardingRangeChange,
   onWardrobeRangeChange,
   onOnboardingSample,
+  onOnboardingFireContact,
   onApproachChange,
   performanceScene,
   quietTown,
@@ -314,7 +325,18 @@ function GameWorld({
   wardrobeInRange,
   equippedFirefighter,
   wardrobeSlot,
+  onDistrictBoundaryCross,
 }: GameWorldProps) {
+  const districtLayout = useMemo(() => buildDistrictLayout(district), [district]);
+  const firehouseSpawn = useMemo(() => getFirehouseRestartSpawn(district), [district]);
+  const worldSurfaces = useMemo(() => buildWorldSurfaceIndex(districtLayout), [districtLayout]);
+  const ambientBirdPositions = useMemo(
+    () =>
+      (district.ambient ?? [])
+        .filter((placement) => placement.type === 'bird')
+        .map((placement) => ({ x: placement.x, z: placement.z })),
+    [district],
+  );
   const collisionRoot = useRef<Group>(null);
   const hosePresentationRef = useRef(createHosePresentationState());
   const vfxQuality = useStore(vfxPreferenceStore, (state) => state.quality);
@@ -331,6 +353,7 @@ function GameWorld({
   const quietTownElapsed = useRef(0);
   const boardingCheckElapsed = useRef(0);
   const worldSamples = useRef(0);
+  const lastBoundaryTravel = useRef<string | null>(null);
   const lastApproachBand = useRef<ApproachBandId | null>(null);
   const telemetryElapsed = useRef(0);
   const placementSaver = useMemo(
@@ -343,17 +366,18 @@ function GameWorld({
         : null,
     [],
   );
-  const approachTruckPosition: readonly [number, number, number] = [activeQuestSite.x - 28, 0, 0];
+  const stagedQuestSite = activeQuestSite ?? district.questSites[0]!;
+  const approachTruckPosition: readonly [number, number, number] = [stagedQuestSite.x - 28, 0, 0];
   const incidentTruckPosition: readonly [number, number, number] = [
-    activeQuestSite.x - 5,
+    stagedQuestSite.x - 5,
     0,
-    activeQuestSite.z + 9,
+    stagedQuestSite.z + 9,
   ];
 
   // A new quest starts the approach over, so the next sample always publishes.
   useEffect(() => {
     lastApproachBand.current = null;
-  }, [activeQuestSite.id]);
+  }, [activeQuestSite?.id]);
   const profile = mode === 'driving' ? 'chase' : 'shoulder';
   const activeTarget = mode === 'driving' ? truckRef : firefighterRef;
 
@@ -382,7 +406,7 @@ function GameWorld({
         [sirenSource.position.x, sirenSource.position.y, sirenSource.position.z],
         clock.elapsedTime,
       );
-      const hasAudience = AMBIENT_BIRD_POSITIONS.some(
+      const hasAudience = ambientBirdPositions.some(
         (bird) =>
           Math.hypot(bird.x - sirenSource.position.x, bird.z - sirenSource.position.z) <=
           SIREN_DISTURBANCE_RADIUS_METERS,
@@ -395,6 +419,19 @@ function GameWorld({
     boardingCheckElapsed.current = 0;
     const truck = truckRef.current;
     const firefighter = firefighterRef.current;
+    const boundarySubject = mode === 'driving' ? truck : firefighter;
+    if (!PERFORMANCE_SCENE && boundarySubject) {
+      const crossed = resolveDistrictTravel(district, {
+        x: boundarySubject.position.x,
+        z: boundarySubject.position.z,
+        yaw: boundarySubject.rotation.y,
+      });
+      if (crossed && lastBoundaryTravel.current !== crossed.transitionId) {
+        lastBoundaryTravel.current = crossed.transitionId;
+        onDistrictBoundaryCross(crossed);
+        return;
+      }
+    }
     const canBoard =
       mode === 'on-foot' &&
       truck !== null &&
@@ -407,7 +444,7 @@ function GameWorld({
     const canUseWardrobe =
       mode === 'on-foot' &&
       firefighter !== null &&
-      isWithinFirehouseWardrobeRange(firefighter.position, DISTRICT.firehouse.wardrobe);
+      isWithinFirehouseWardrobeRange(firefighter.position, district.firehouse.wardrobe);
     if (canUseWardrobe !== lastWardrobeInRange.current) {
       lastWardrobeInRange.current = canUseWardrobe;
       onWardrobeRangeChange(canUseWardrobe);
@@ -419,26 +456,14 @@ function GameWorld({
     // costs three renders rather than three hundred.
     if (!truck) return;
     const subject = mode === 'driving' ? truck : (firefighter ?? truck);
-    const distanceToQuestMeters = Math.hypot(
-      subject.position.x - activeQuestSite.x,
-      subject.position.z - activeQuestSite.z,
-    );
-
-    const band = getApproachBand(distanceToQuestMeters, lastApproachBand.current);
-    // Development telemetry wants live metres, which no band change can carry.
-    // It is the only reason anything here publishes on a timer, and it is
-    // compiled out of the bundle a player downloads.
-    telemetryElapsed.current += 0.1;
-    const telemetryDue = import.meta.env.DEV && telemetryElapsed.current >= 0.5;
-    if (band !== lastApproachBand.current || telemetryDue) {
-      if (telemetryDue) telemetryElapsed.current = 0;
-      lastApproachBand.current = band;
-      onApproachChange({ band, distanceMeters: distanceToQuestMeters });
-    }
+    const distanceToQuestMeters = activeQuestSite
+      ? Math.hypot(subject.position.x - activeQuestSite.x, subject.position.z - activeQuestSite.z)
+      : Number.POSITIVE_INFINITY;
 
     // The shipped game's read-only window (#219). It carries what a player can
     // already see, at the rate the HUD already samples, so a browser can play
-    // the production bundle without a development harness underneath it.
+    // the production bundle without a development harness underneath it. A
+    // quiet town has no quest marker but is still an observable playable world.
     reportGameObservation({
       samples: (worldSamples.current += 1),
       fire: nearestSuppressionTarget(
@@ -461,8 +486,22 @@ function GameWorld({
       spraying: firefighter?.userData.spraying === true,
     });
 
+    if (!activeQuestSite) return;
+
+    const band = getApproachBand(distanceToQuestMeters, lastApproachBand.current);
+    // Development telemetry wants live metres, which no band change can carry.
+    // It is the only reason anything here publishes on a timer, and it is
+    // compiled out of the bundle a player downloads.
+    telemetryElapsed.current += 0.1;
+    const telemetryDue = import.meta.env.DEV && telemetryElapsed.current >= 0.5;
+    if (band !== lastApproachBand.current || telemetryDue) {
+      if (telemetryDue) telemetryElapsed.current = 0;
+      lastApproachBand.current = band;
+      onApproachChange({ band, distanceMeters: distanceToQuestMeters });
+    }
+
     if (onOnboardingSample) {
-      const [startX, , startZ] = DISTRICT_LAYOUT.truckStart.position;
+      const [startX, , startZ] = districtLayout.truckStart.position;
       // Reported every sample; the guide decides what has changed and publishes
       // to React only when the prompt itself does.
       onOnboardingSample({
@@ -527,7 +566,7 @@ function GameWorld({
     <>
       <color attach="background" args={[visualStyle.palette.scene.background]} />
       <ambientLight intensity={0.55} color={visualStyle.palette.scene.ambientLight} />
-      <CityShadowSun color={visualStyle.palette.scene.sunlight} />
+      <CityShadowSun color={visualStyle.palette.scene.sunlight} district={district} />
       <FollowCameraRig
         target={activeTarget}
         profile={profile}
@@ -535,7 +574,7 @@ function GameWorld({
         orbitEnabled={mode === 'driving'}
         speedRatio={truckSpeedRatio}
       />
-      <CameraCollisionProxies layout={DISTRICT_LAYOUT} proxyRef={collisionRoot} />
+      <CameraCollisionProxies layout={districtLayout} proxyRef={collisionRoot} />
       <ArcadeTruck
         targetRef={truckRef}
         visualStyle={visualStyle}
@@ -543,17 +582,21 @@ function GameWorld({
         stripeUnlocked={starBoard.rewards.truckStripe}
         enabled={mode === 'driving' && !playFrozen}
         sirenOn={sirenOn}
-        obstacles={DISTRICT_LAYOUT.obstacles}
-        movementBounds={DISTRICT_LAYOUT.movementBounds}
+        obstacles={districtLayout.obstacles}
+        movementBounds={districtLayout.movementBounds}
         initialPosition={
           performanceScene?.cameraStage === 'approach'
             ? approachTruckPosition
             : performanceScene?.cameraStage === 'incident'
               ? incidentTruckPosition
-              : FIREHOUSE_SPAWN.position
+              : initialPose
+                ? [initialPose.x, 0, initialPose.z]
+                : firehouseSpawn.position
         }
         initialYaw={
-          performanceScene?.cameraStage === 'approach' ? -Math.PI / 2 : FIREHOUSE_SPAWN.yaw
+          performanceScene?.cameraStage === 'approach'
+            ? -Math.PI / 2
+            : (initialPose?.yaw ?? firehouseSpawn.yaw)
         }
         speedRatioRef={truckSpeedRatio}
       />
@@ -565,16 +608,18 @@ function GameWorld({
         shoulderPatchUnlocked={equippedFirefighter.patch}
         enabled={mode === 'on-foot' && !playFrozen}
         visible={mode === 'on-foot'}
-        obstacles={DISTRICT_LAYOUT.obstacles}
+        obstacles={districtLayout.obstacles}
         initialPosition={
           performanceScene?.cameraStage === 'incident'
-            ? [activeQuestSite.x, 0, activeQuestSite.z + 10]
+            ? [stagedQuestSite.x, 0, stagedQuestSite.z + 10]
             : performanceScene?.cameraStage === 'approach'
               ? approachTruckPosition
-              : FIREHOUSE_SPAWN.position
+              : initialPose
+                ? [initialPose.x, 0, initialPose.z]
+                : firehouseSpawn.position
         }
-        initialYaw={FIREHOUSE_SPAWN.yaw}
-        movementBounds={DISTRICT_LAYOUT.movementBounds}
+        initialYaw={initialPose?.yaw ?? firehouseSpawn.yaw}
+        movementBounds={districtLayout.movementBounds}
       />
       <AnchoredHoseEffects
         characterRef={firefighterRef}
@@ -582,44 +627,49 @@ function GameWorld({
         enabled={mode === 'on-foot' && !playFrozen}
         visualStyle={visualStyle}
         fire={questFireController}
-        surfaces={WORLD_SURFACES}
+        surfaces={worldSurfaces}
         reactions={worldReactions}
         rinse={scorchRinse}
+        onFireContact={onOnboardingFireContact}
         forceSpraying={performanceScene?.id === 'spray'}
       />
       <WorldReactions field={worldReactions} visualStyle={visualStyle} />
-      <ExteriorFire
-        controller={questFireController}
-        questId={activeQuestSite.id}
-        visualStyle={visualStyle}
-        rinse={scorchRinse}
-      />
-      <ExteriorIncidentEffects
-        controller={questFireController}
-        questId={activeQuestSite.id}
-        visualStyle={visualStyle}
-      />
-      <SmokeBeacon
-        controller={questFireController}
-        target={beaconTarget}
-        visualStyle={visualStyle}
-      />
+      {activeQuestSite ? (
+        <>
+          <ExteriorFire
+            controller={questFireController}
+            questId={activeQuestSite.id}
+            visualStyle={visualStyle}
+            rinse={scorchRinse}
+          />
+          <ExteriorIncidentEffects
+            controller={questFireController}
+            questId={activeQuestSite.id}
+            visualStyle={visualStyle}
+          />
+          <SmokeBeacon
+            controller={questFireController}
+            target={beaconTarget}
+            visualStyle={visualStyle}
+          />
+        </>
+      ) : null}
       <WaypointArrow subjectRef={activeTarget} target={beaconTarget} visualStyle={visualStyle} />
       <CityDistrict
-        layout={DISTRICT_LAYOUT}
+        layout={districtLayout}
         visualStyle={visualStyle}
         activeQuestSite={activeQuestSite}
         incidentCameraActive={mode === 'on-foot'}
         reactions={worldReactions}
       />
       <AmbientDistrict
-        district={DISTRICT}
+        district={district}
         visualStyle={visualStyle}
         listenerRef={activeTarget}
         reactions={worldReactions}
       />
       <DistrictFirehouseHome
-        district={DISTRICT}
+        district={district}
         model={starBoard}
         visualStyle={visualStyle}
         wardrobeInRange={wardrobeInRange}
@@ -635,8 +685,11 @@ export default function FollowCameraScene() {
   const [sirenOn, setSirenOn] = useState(true);
   const [canBoard, setCanBoard] = useState(false);
   const [wardrobeInRange, setWardrobeInRange] = useState(false);
-  const [questDirector, setQuestDirector] = useState<QuestDirector>(initialQuestDirector);
-  const [latestBadgeId, setLatestBadgeId] = useState<string | null>(initialLatestQuestBadge);
+  const [worldDirector, setWorldDirector] = useState<WorldRouteDirector>(initialWorldRouteDirector);
+  const [latestBadgeId, setLatestBadgeId] = useState<string | null>(() =>
+    initialLatestQuestBadge(worldDirector),
+  );
+  const [arrivalPose, setArrivalPose] = useState<DistrictTravelPose | null>(null);
   const [stationCelebration, setStationCelebration] = useState<StationCelebrationNotice | null>(
     null,
   );
@@ -650,15 +703,26 @@ export default function FollowCameraScene() {
   const frozen = isSimulationFrozen(pauseState);
   const showPauseOverlay = shouldShowPauseOverlay(pauseState);
   const celebratedRewardIds = useRef(progressProfile.unlockedRewardIds);
-  const celebratedShiftCount = useRef(progressProfile.completedShiftCount);
+  const currentDistrict = getDistrict(
+    PERFORMANCE_SCENE ? DEFAULT_DISTRICT_ID : progressProfile.currentDistrictId,
+  );
+  const currentDistrictLayout = useMemo(
+    () => buildDistrictLayout(currentDistrict),
+    [currentDistrict],
+  );
+  const currentFirehouseBoardPosition = useMemo(
+    () => getFirehouseStarBoardPosition(currentDistrict),
+    [currentDistrict],
+  );
+  const currentDistrictProgress = getDistrictProgress(progressProfile, currentDistrict.id);
+  const celebratedShiftCount = useRef(currentDistrictProgress.completedShiftCount);
   const visualStyle = STYLES[activeStyleId];
-  // QuestDirector is the one product owner of authored order, retries, and
-  // shift wrap. The scene only translates its single directed incident into
-  // the existing district and fire-controller APIs.
-  const directedIncident = questDirector.state.incident;
-  if (!directedIncident) throw new Error('FollowCameraScene requires a directed incident');
+  // The world director is the one product owner of the active incident and the
+  // two-call district cycle. Rendering a different district never creates one.
+  const directedIncident = worldDirector.incident;
   const directedQuest = getQuest(directedIncident.questId);
-  const directedQuestSite = DISTRICT.questSites.find(
+  const incidentDistrict = getDistrict(directedIncident.districtId);
+  const directedQuestSite = incidentDistrict.questSites.find(
     (site) => site.id === directedQuest.questSiteId,
   );
   if (!directedQuestSite) {
@@ -666,22 +730,21 @@ export default function FollowCameraScene() {
       `Directed quest ${JSON.stringify(directedIncident.questId)} has no district site`,
     );
   }
-  const quietTown = questDirector.isQuietTown;
-  const aftermathQuest = quietTown && latestBadgeId ? getQuest(latestBadgeId) : directedQuest;
-  const worldQuestSite = DISTRICT.questSites.find((site) => site.id === aftermathQuest.questSiteId);
-  if (!worldQuestSite) {
-    throw new Error(`Quest ${JSON.stringify(aftermathQuest.id)} has no district site`);
-  }
+  const quietTown = worldDirector.isQuietTown;
+  const activeQuestSite =
+    !quietTown && currentDistrict.id === incidentDistrict.id ? directedQuestSite : null;
+  const currentDistrictQuestIds = getQuestsForDistrict(currentDistrict.id).map((quest) => quest.id);
   const takeNextQuest = useCallback(() => {
-    if (questDirector.state.phase !== 'celebrating') return;
+    if (worldDirector.currentState.phase !== 'celebrating') return;
 
-    const completedQuest = progressProfile.quests[directedIncident.questId];
+    const incidentProgress = getDistrictProgress(progressProfile, directedIncident.districtId);
+    const completedQuest = incidentProgress.quests[directedIncident.questId];
     const rewardUnlocked = progressProfile.unlockedRewardIds.some(
       (rewardId) => !celebratedRewardIds.current.includes(rewardId),
     );
-    const shiftComplete = progressProfile.completedShiftCount > celebratedShiftCount.current;
+    const shiftComplete = incidentProgress.completedShiftCount > celebratedShiftCount.current;
     celebratedRewardIds.current = progressProfile.unlockedRewardIds;
-    celebratedShiftCount.current = progressProfile.completedShiftCount;
+    celebratedShiftCount.current = incidentProgress.completedShiftCount;
     setLatestBadgeId(directedIncident.questId);
     setStationCelebration({
       id: `${directedIncident.questId}:${directedIncident.shift}:${directedIncident.attempt}`,
@@ -689,41 +752,50 @@ export default function FollowCameraScene() {
       stars: completedQuest?.bestStars ?? 0,
       rewardUnlocked,
     });
-    setQuestDirector((current) =>
-      current.state.phase === 'celebrating' ? current.enterQuietTown() : current,
+    setWorldDirector((current) =>
+      current.currentState.phase === 'celebrating' ? current.enterQuietTown() : current,
     );
-  }, [directedIncident, progressProfile, questDirector]);
+  }, [directedIncident, progressProfile, worldDirector]);
   const advanceQuietTown = useCallback((seconds: number) => {
-    setQuestDirector((current) =>
+    setWorldDirector((current) =>
       current.isQuietTown ? current.advanceQuietTown(seconds) : current,
     );
   }, []);
   const retrySameQuest = useCallback(() => {
     // A same-seed retry keeps the directed identity unchanged, so it needs the
     // controller's explicit reset before the director returns to active.
-    if (questDirector.state.phase !== 'celebrating') return;
+    if (worldDirector.currentState.phase !== 'celebrating') return;
     questFireController.restart();
-    setQuestDirector((current) =>
-      current.state.phase === 'celebrating' ? current.retrySameSeed() : current,
+    setWorldDirector((current) =>
+      current.currentState.phase === 'celebrating' ? current.retrySameSeed() : current,
     );
-  }, [questDirector]);
+  }, [worldDirector]);
   const retryNewFire = useCallback(() => {
-    if (questDirector.state.phase !== 'celebrating') return;
+    if (worldDirector.currentState.phase !== 'celebrating') return;
     // The new directed seed changes the bridge dependency and initializes the
     // controller with the director's deterministic seed in the effect below.
-    setQuestDirector((current) =>
-      current.state.phase === 'celebrating' ? current.retryNewSeed() : current,
+    setWorldDirector((current) =>
+      current.currentState.phase === 'celebrating' ? current.retryNewSeed() : current,
     );
-  }, [questDirector]);
+  }, [worldDirector]);
   const fireSnapshot = useStore(questFireController.store);
   const starBoard = useMemo(
     () =>
       buildFirehouseStarBoard(
-        DISTRICT_QUEST_IDS,
-        progressProfile,
+        currentDistrictQuestIds,
+        {
+          ...currentDistrictProgress,
+          unlockedRewardIds: progressProfile.unlockedRewardIds,
+        },
         fireSnapshot.debrief?.scenarioId ?? latestBadgeId,
       ),
-    [fireSnapshot.debrief?.scenarioId, latestBadgeId, progressProfile],
+    [
+      currentDistrictProgress,
+      currentDistrictQuestIds,
+      fireSnapshot.debrief?.scenarioId,
+      latestBadgeId,
+      progressProfile.unlockedRewardIds,
+    ],
   );
   const equippedFirefighter = resolveFirefighterCosmetics(wardrobeLoadout, {
     helmet: starBoard.rewards.helmetBadge,
@@ -736,7 +808,7 @@ export default function FollowCameraScene() {
   useEffect(() => {
     if (
       fireSnapshot.debrief === null ||
-      questDirector.state.phase !== 'active' ||
+      worldDirector.currentState.phase !== 'active' ||
       fireSnapshot.debrief.seed !== directedIncident.seed ||
       fireSnapshot.debrief.scenarioId !== directedIncident.questId
     ) {
@@ -745,10 +817,12 @@ export default function FollowCameraScene() {
     if (!PERFORMANCE_SCENE) {
       progressProfileStore.getState().recordQuestResult(directedIncident, fireSnapshot.debrief);
     }
-    setQuestDirector((current) =>
-      current.state.phase === 'active' ? current.resolve(fireSnapshot.debrief!.outcome) : current,
+    setWorldDirector((current) =>
+      current.currentState.phase === 'active'
+        ? current.resolve(fireSnapshot.debrief!.outcome)
+        : current,
     );
-  }, [directedIncident, fireSnapshot.debrief, questDirector]);
+  }, [directedIncident, fireSnapshot.debrief, worldDirector]);
   // Development-only proof that a `?perfScene=` route actually booted the
   // incident it claims to benchmark, so browser acceptance fails on a broken
   // route instead of on a screenshot nobody compares (#217).
@@ -769,17 +843,18 @@ export default function FollowCameraScene() {
   // wrappedShift before activation, so the end of a five-fire shift is never
   // ambiguous to a reload or development investigation.
   useEffect(() => {
-    if (!PERFORMANCE_SCENE) progressProfileStore.getState().saveDirector(questDirector.serialize());
-  }, [questDirector]);
+    if (!PERFORMANCE_SCENE)
+      progressProfileStore.getState().saveWorldRoute(worldDirector.serialize());
+  }, [worldDirector]);
   useEffect(() => {
     if (!quietTown) setStationCelebration(null);
   }, [quietTown]);
   useEffect(() => {
-    if (questDirector.state.phase !== 'resolved') return;
-    setQuestDirector((current) =>
-      current.state.phase === 'resolved' ? current.beginCelebration() : current,
+    if (worldDirector.currentState.phase !== 'resolved') return;
+    setWorldDirector((current) =>
+      current.currentState.phase === 'resolved' ? current.beginCelebration() : current,
     );
-  }, [questDirector]);
+  }, [worldDirector]);
   /**
    * How close the player is, sampled in the world rather than measured once
    * from the truck's parking space. The old placard's "74 m away" was computed
@@ -788,9 +863,9 @@ export default function FollowCameraScene() {
   const [approach, setApproach] = useState<ApproachSample | null>(null);
   // A new quest is a new distance; carrying "arrived" into it would light every
   // pip over a fire on the other side of town.
-  useEffect(() => setApproach(null), [worldQuestSite.id]);
+  useEffect(() => setApproach(null), [activeQuestSite?.id, currentDistrict.id]);
 
-  const beaconTarget = quietTown ? null : getBeaconTarget(directedQuestSite, fireSnapshot);
+  const beaconTarget = activeQuestSite ? getBeaconTarget(activeQuestSite, fireSnapshot) : null;
 
   /**
    * The guided first quest (#107). It starts on the first prompt rather than
@@ -807,6 +882,10 @@ export default function FollowCameraScene() {
   const restartOnboarding = useCallback(() => onboardingGuide.restart(), []);
   const reportOnboarding = useCallback(
     (sample: OnboardingWorldSample) => onboardingGuide.report(sample),
+    [],
+  );
+  const noteOnboardingFireContact = useCallback(
+    (seconds: number) => onboardingGuide.noteFireContact(seconds),
     [],
   );
 
@@ -918,8 +997,8 @@ export default function FollowCameraScene() {
     if (mode === 'driving') {
       const pose = getSafeDismountPose(
         { x: truck.position.x, z: truck.position.z, yaw: truck.rotation.y },
-        DISTRICT_LAYOUT.obstacles,
-        DISTRICT_LAYOUT.movementBounds,
+        currentDistrictLayout.obstacles,
+        currentDistrictLayout.movementBounds,
       );
       firefighter.position.set(pose.x, 0, pose.z);
       firefighter.rotation.y = pose.yaw;
@@ -932,9 +1011,15 @@ export default function FollowCameraScene() {
       setMode('driving');
       setCanBoard(false);
     }
-  }, [mode]);
+  }, [currentDistrictLayout, mode]);
 
   const toggleSiren = useCallback(() => setSirenOn((current) => !current), []);
+  const crossDistrictBoundary = useCallback((travel: DistrictTravelResult) => {
+    setArrivalPose(travel.pose);
+    setCanBoard(false);
+    setWardrobeInRange(false);
+    progressProfileStore.getState().setCurrentDistrict(travel.toDistrictId);
+  }, []);
   const resetProgress = useCallback(() => {
     progressProfileStore.getState().reset();
     wardrobeLoadoutStore.getState().reset();
@@ -952,9 +1037,17 @@ export default function FollowCameraScene() {
     celebratedRewardIds.current = [];
     celebratedShiftCount.current = 0;
     setLatestBadgeId(null);
+    setArrivalPose(null);
     setStationCelebration(null);
     questFireController.restart();
-    setQuestDirector(createQuestDirector(SHIFT_ORDER).start());
+    setWorldDirector(
+      PERFORMANCE_SCENE
+        ? createWorldRouteDirector({
+            routeDistrictIds: [DEFAULT_DISTRICT_ID],
+            getOrder: () => getPerformanceBenchmarkShiftOrder(),
+          }).startImmediately(initialDirectorSlot())
+        : createWorldRouteDirector(),
+    );
   }, []);
 
   useEffect(() => {
@@ -975,7 +1068,8 @@ export default function FollowCameraScene() {
    * which reads it itself — otherwise one press both dismisses the debrief and
    * moves the player.
    */
-  const debriefOpen = fireSnapshot.debrief !== null && questDirector.state.phase === 'celebrating';
+  const debriefOpen =
+    fireSnapshot.debrief !== null && worldDirector.currentState.phase === 'celebrating';
   useEffect(() => installGameObservation(), []);
   /**
    * Procedural loop generation is deterministic but expensive enough to make
@@ -1043,15 +1137,15 @@ export default function FollowCameraScene() {
   // the world, published when it changes rather than on a timer.
   useEffect(() => {
     reportGameObservation({
-      districtId: DISTRICT.id,
-      districtName: DISTRICT.name,
+      districtId: currentDistrict.id,
+      districtName: currentDistrict.name,
       questId: quietTown ? null : directedIncident.questId,
       questName: quietTown ? '' : directedQuestSite.name,
       questSiteId: quietTown ? null : directedQuestSite.id,
       questSite: quietTown ? null : { x: directedQuestSite.x, z: directedQuestSite.z },
-      firehouse: { x: FIREHOUSE_BOARD_POSITION[0], z: FIREHOUSE_BOARD_POSITION[2] },
+      firehouse: { x: currentFirehouseBoardPosition[0], z: currentFirehouseBoardPosition[2] },
       slot: directedIncident.slot,
-      slotCount: SHIFT_ORDER.slots.length,
+      slotCount: getQuestShiftOrder(directedIncident.districtId).slots.length,
       quietTown,
       burningCellCount: fireSnapshot.burningCellCount,
       heatingCellCount: fireSnapshot.heatingCellCount,
@@ -1063,15 +1157,21 @@ export default function FollowCameraScene() {
       stars: debriefOpen ? (fireSnapshot.debrief?.stars ?? null) : null,
       outcome: debriefOpen ? (fireSnapshot.debrief?.outcome ?? null) : null,
       onboardingStep: onboarding.step,
-      completedShiftCount: progressProfile.completedShiftCount,
-      completedQuestCount: Object.keys(progressProfile.quests).length,
+      completedShiftCount: getCompletedShiftCount(progressProfile),
+      completedQuestCount: getCompletedQuestCount(progressProfile),
+      districtCompletedShiftCount: currentDistrictProgress.completedShiftCount,
+      districtCompletedQuestCount: Object.keys(currentDistrictProgress.quests).length,
       unlockedRewardCount: progressProfile.unlockedRewardIds.length,
       paused: frozen,
       pauseReason: pauseReasonFor(pauseState),
     });
   }, [
     canBoard,
+    currentDistrict,
+    currentFirehouseBoardPosition,
     debriefOpen,
+    currentDistrictProgress.completedShiftCount,
+    currentDistrictProgress.quests,
     directedIncident,
     directedQuestSite,
     fireSnapshot,
@@ -1146,10 +1246,17 @@ export default function FollowCameraScene() {
       if (down.has(key)) return;
       down.add(key);
       if (frozen) {
-        if (pauseState.adultPaused && key === ' ') pressAction();
+        if (pauseState.adultPaused && key === ' ') {
+          event.preventDefault();
+          pressAction();
+        }
         return;
       }
       if (key === ' ') {
+        // Space is the game's action button even when a grown-ups control
+        // still has browser focus. Without suppressing the native button
+        // activation, one resume press can also click that focused control.
+        event.preventDefault();
         pressAction();
       } else if (key === 'e' && !debriefOpen && (mode === 'driving' || canBoard)) {
         event.preventDefault();
@@ -1245,11 +1352,14 @@ export default function FollowCameraScene() {
           onCreated={configureStaticShadows}
         >
           <GameWorld
+            key={currentDistrict.id}
+            district={currentDistrict}
+            initialPose={arrivalPose}
             visualStyle={visualStyle}
             starBoard={starBoard}
             mode={mode}
             sirenOn={sirenOn}
-            activeQuestSite={worldQuestSite}
+            activeQuestSite={activeQuestSite}
             beaconTarget={beaconTarget}
             truckRef={truckRef}
             firefighterRef={firefighterRef}
@@ -1257,6 +1367,7 @@ export default function FollowCameraScene() {
             onBoardingRangeChange={setCanBoard}
             onWardrobeRangeChange={setWardrobeInRange}
             onOnboardingSample={teaching && !quietTown ? reportOnboarding : null}
+            onOnboardingFireContact={noteOnboardingFireContact}
             onApproachChange={setApproach}
             performanceScene={PERFORMANCE_SCENE}
             quietTown={quietTown}
@@ -1265,6 +1376,7 @@ export default function FollowCameraScene() {
             wardrobeInRange={wardrobeInRange}
             equippedFirefighter={equippedFirefighter}
             wardrobeSlot={wardrobeLoadout.firefighter}
+            onDistrictBoundaryCross={crossDistrictBoundary}
           />
           <ContextLossGuard />
           {import.meta.env.DEV ? <PerformanceSampler /> : null}
@@ -1272,7 +1384,7 @@ export default function FollowCameraScene() {
       </div>
       <QuestFireAudioBridge />
       <WorldHud
-        districtName={DISTRICT.name}
+        districtName={currentDistrict.name}
         questName={directedQuestSite.name}
         onFoot={mode === 'on-foot'}
         approach={approachBand}
@@ -1308,9 +1420,9 @@ export default function FollowCameraScene() {
         <>
           <PerfOverlay />
           <DevTelemetry
-            districtName={DISTRICT.name}
+            districtName={currentDistrict.name}
             questIndex={directedIncident.slot}
-            questCount={SHIFT_ORDER.slots.length}
+            questCount={getQuestShiftOrder(directedIncident.districtId).slots.length}
             questName={quietTown ? 'Quiet town' : directedQuestSite.name}
             distanceMeters={approach?.distanceMeters ?? null}
             approach={approachBand}
@@ -1319,7 +1431,7 @@ export default function FollowCameraScene() {
             elapsedSeconds={fireSnapshot.elapsedSeconds}
             mode={mode}
             status={fireSnapshot.extinguished ? 'extinguished' : fireSnapshot.status}
-            completedShiftCount={progressProfile.completedShiftCount}
+            completedShiftCount={getCompletedShiftCount(progressProfile)}
             unlockedRewardCount={progressProfile.unlockedRewardIds.length}
             {...(PERFORMANCE_SCENE ? {} : { onResetProgress: resetProgress })}
           />
