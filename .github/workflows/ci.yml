@@ -67,10 +67,17 @@ jobs:
         env:
           ACCEPTANCE_ARTIFACT_DIR: artifacts/production-smoke
 
+      - name: Production smoke with blocked browser storage
+        run: npm run acceptance:production:smoke -- --skip-build --blocked-storage
+        env:
+          ACCEPTANCE_ARTIFACT_DIR: artifacts/production-smoke-blocked-storage
+
       - name: Upload production smoke evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: production-smoke
-          path: artifacts/production-smoke
+          path: |
+            artifacts/production-smoke
+            artifacts/production-smoke-blocked-storage
           if-no-files-found: ignore
