@@ -507,7 +507,6 @@ async function checkGraphicsRecovery(player, session, sessionId) {
       const lose = gl && gl.getExtension('WEBGL_lose_context');
       if (!lose) return false;
       lose.loseContext();
-      setTimeout(() => lose.restoreContext(), 250);
       return true;
     })()`,
     sessionId,
@@ -517,6 +516,10 @@ async function checkGraphicsRecovery(player, session, sessionId) {
     return;
   }
 
+  // The game deliberately replaces this canvas instead of waiting for the old
+  // context to restore. Keeping the staged context lost means the runner sees
+  // the child-visible recovery state, rather than racing a 250 ms restoration
+  // against the browser's asynchronous loss event.
   const noticed = await player
     .waitFor(
       'the game to notice the picture went',

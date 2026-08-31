@@ -133,6 +133,7 @@ import {
   type DistrictTravelPose,
   type DistrictTravelResult,
 } from './districtTravel';
+import { getDistrictRouteBeacon } from './districtGuidance';
 
 const PERFORMANCE_SCENE = import.meta.env.DEV
   ? performanceSceneFromSearch(window.location.search)
@@ -634,6 +635,13 @@ function GameWorld({
         forceSpraying={performanceScene?.id === 'spray'}
       />
       <WorldReactions field={worldReactions} visualStyle={visualStyle} />
+      {beaconTarget ? (
+        <SmokeBeacon
+          controller={questFireController}
+          target={beaconTarget}
+          visualStyle={visualStyle}
+        />
+      ) : null}
       {activeQuestSite ? (
         <>
           <ExteriorFire
@@ -645,11 +653,6 @@ function GameWorld({
           <ExteriorIncidentEffects
             controller={questFireController}
             questId={activeQuestSite.id}
-            visualStyle={visualStyle}
-          />
-          <SmokeBeacon
-            controller={questFireController}
-            target={beaconTarget}
             visualStyle={visualStyle}
           />
         </>
@@ -733,6 +736,10 @@ export default function FollowCameraScene() {
   const quietTown = worldDirector.isQuietTown;
   const activeQuestSite =
     !quietTown && currentDistrict.id === incidentDistrict.id ? directedQuestSite : null;
+  const remoteIncidentBeacon =
+    worldDirector.currentState.phase === 'active' && currentDistrict.id !== incidentDistrict.id
+      ? getDistrictRouteBeacon(currentDistrict, incidentDistrict.id)
+      : null;
   const currentDistrictQuestIds = getQuestsForDistrict(currentDistrict.id).map((quest) => quest.id);
   const takeNextQuest = useCallback(() => {
     if (worldDirector.currentState.phase !== 'celebrating') return;
@@ -865,7 +872,9 @@ export default function FollowCameraScene() {
   // pip over a fire on the other side of town.
   useEffect(() => setApproach(null), [activeQuestSite?.id, currentDistrict.id]);
 
-  const beaconTarget = activeQuestSite ? getBeaconTarget(activeQuestSite, fireSnapshot) : null;
+  const beaconTarget = activeQuestSite
+    ? getBeaconTarget(activeQuestSite, fireSnapshot)
+    : remoteIncidentBeacon;
 
   /**
    * The guided first quest (#107). It starts on the first prompt rather than
