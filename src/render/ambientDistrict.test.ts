@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getDistrict, PROP_FOOTPRINTS } from '@sim/districts';
 import { STYLES } from '@styles/styles';
-import { buildAmbientParts } from './AmbientDistrict';
+import { buildAmbientParts } from './ambientParts';
 import { buildDistrictLayout } from './districtLayout';
 
 describe('quiet-world exploration scenery', () => {
