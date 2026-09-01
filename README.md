@@ -5,13 +5,11 @@ built on a cell-based fire simulation where every burnable thing in the world
 runs the same system.
 
 > **Status:** playable alpha in development. The third-person, one-action game
-> loop and Harbour Hill's rotating five-call shifts are implemented. Real-child
-> observation remains an open acceptance gate for [M3](https://github.com/MeanGreen256/hive_firefighter/issues/101)
-> and [M4](https://github.com/MeanGreen256/hive_firefighter/issues/170); verified
-> hosting remains open work in
-> [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216) (public
-> Vercel URL, anyone with the link; the project is not connected yet). The
-> game is designed for a family laptop in Chrome (keyboard or gamepad). A
+> loop and Harbour Hill's rotating five-call shifts are implemented. The public
+> [Vercel production build](https://hive-firefighter.vercel.app) is available to
+> anyone with the link; current playthrough follow-ups are tracked by
+> [M3](https://github.com/MeanGreen256/hive_firefighter/issues/101). The game is
+> designed for a family laptop in Chrome (keyboard or gamepad). A
 > virtual stick for phones and tablets is later work —
 > [ADR-011](docs/adr/011-supported-platform-matrix.md). See the
 > [roadmap](#roadmap) and GitHub issues for the live status.
@@ -117,9 +115,9 @@ in [`docs/m1-closeout.md`](docs/m1-closeout.md).
 
 Vite · TypeScript · Three.js via React Three Fiber · Zustand.
 
-There is no verified playable URL yet. Production will be a **public Vercel
-deployment** — anyone with the link, no account — once an owner imports this
-repo in Vercel. Steps, rollback, and the blank to fill live in
+The playable production URL is [hive-firefighter.vercel.app](https://hive-firefighter.vercel.app).
+It is a **public Vercel deployment**: anyone with the link, no account needed.
+Hosting configuration, verification, and rollback guidance live in
 [`docs/hosting.md`](docs/hosting.md)
 ([#216](https://github.com/MeanGreen256/hive_firefighter/issues/216)).
 
