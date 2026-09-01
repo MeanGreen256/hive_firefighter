@@ -71,12 +71,13 @@ export function getFlameCellFrame(
   cellSize: number,
   elapsedSeconds: number,
   quality: VfxQuality,
+  intensity = 1,
 ): FlameCellFrame | null {
   if (state !== CellState.Burning && state !== CellState.Flashover) return null;
 
   const seed = stableUnitInterval(cellId);
   const flashover = state === CellState.Flashover;
-  const heatScale = flashover ? 1.34 : 1;
+  const heatScale = (flashover ? 1.34 : 1) * Math.min(1, Math.max(0, intensity));
   const motionScale = quality === 'reduced' ? 0.45 : 1;
   const phase = seed * Math.PI * 2;
   const lick = Math.sin(elapsedSeconds * (5.2 + seed * 1.7) + phase) * 0.1 * motionScale;
@@ -97,7 +98,7 @@ export function getFlameCellFrame(
       outerHeight * (0.72 + ((elapsedSeconds * 0.7 + seed) % 0.35)),
       Math.cos(phase + elapsedSeconds * 2.1) * cellSize * 0.24,
     ],
-    showSpark: quality === 'full',
+    showSpark: quality === 'full' && intensity >= 0.58,
   };
 }
 

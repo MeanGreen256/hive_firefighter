@@ -183,7 +183,7 @@ describe('quest fire controller', () => {
     expect(fire?.state.grid.cells[target?.cellId ?? '']?.state).not.toBe(CellState.Burning);
   });
 
-  it('keeps the opening incident visible for twice the former sustained-spray duration', () => {
+  it('keeps the opening incident visible for a sustained teaching window', () => {
     const baseline = createQuestFireController({ getWaterSuppressionMultiplier: () => 1 });
     baseline.setQuest(getQuestForSite('harbour-hill', 'meadow-picnic'));
     const tuned = controllerFor('meadow-picnic');
@@ -191,11 +191,13 @@ describe('quest fire controller', () => {
     const baselineSeconds = secondsUntilContained(baseline);
     const tunedSeconds = secondsUntilContained(tuned);
 
-    // Frame and fixed-timestep boundaries permit less than one tenth of a
-    // second of variance. The authored 0.57 multiplier must stay a genuine 2×
-    // teaching window at normal hose flow, not a looser "slower" feeling.
-    expect(tunedSeconds).toBeGreaterThanOrEqual(baselineSeconds * 1.95);
-    expect(tunedSeconds).toBeLessThanOrEqual(baselineSeconds * 2.05);
+    // The former direct-spray result is sub-second. At 0.18, the fire has room
+    // to develop naturally while a child practices and needs eight to nine
+    // seconds of sustained, correctly aimed spray. That is long enough to see
+    // the shrinking flame, without a timer, failure state, or extra control.
+    expect(baselineSeconds).toBeLessThan(1);
+    expect(tunedSeconds).toBeGreaterThanOrEqual(8);
+    expect(tunedSeconds).toBeLessThanOrEqual(9);
   });
 
   it('reports the incident over as soon as the last flame is out, even while cells are warm', () => {

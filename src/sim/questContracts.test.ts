@@ -103,7 +103,7 @@ describe('quest pacing contract', () => {
   });
 
   it('keeps authored water pacing within a playable positive range', () => {
-    expect(getQuestPacing('meadow-picnic').waterSuppressionMultiplier).toBe(0.57);
+    expect(getQuestPacing('meadow-picnic').waterSuppressionMultiplier).toBe(0.18);
     expect(() =>
       validateQuestContent(withBlock('pacing', { waterSuppressionMultiplier: 0 }), 'broken'),
     ).toThrow(/pacing\.waterSuppressionMultiplier must be between 0.1 and 1/);
