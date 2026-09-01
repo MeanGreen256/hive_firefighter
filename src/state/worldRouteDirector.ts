@@ -5,8 +5,14 @@
  * this owner keeps exactly one scheduled director. Its incident therefore
  * belongs to the world, not to whichever district happens to be rendered.
  */
-import { DEFAULT_DISTRICT_ID, DISTRICTS } from '@sim/districts';
-import { getQuestShiftOrder, type QuestShiftOrder } from '@sim/questShifts';
+import { DEFAULT_DISTRICT_ID, DISTRICTS, getDistrict } from '@sim/districts';
+import { getQuest } from '@sim/quests';
+import {
+  getQuestShiftCycle,
+  getQuestShiftOrder,
+  QUESTS_PER_SHIFT,
+  type QuestShiftOrder,
+} from '@sim/questShifts';
 import {
   createQuestDirector,
   resumeQuestDirector,
@@ -39,6 +45,109 @@ export interface WorldRouteDirectorOptions {
 interface ResolvedOptions {
   readonly routeDistrictIds: readonly string[];
   readonly getOrder: (districtId: string) => QuestShiftOrder;
+}
+
+/**
+ * A district is dispatch-ready only when every roster it can schedule is a
+ * complete five-call authored set, and each call still resolves to a site in
+ * that district. Content loaders normally guarantee this at boot; retaining
+ * the guard at route selection means a newly added, partial district is never
+ * made the child's required destination while its content is being completed.
+ */
+export interface DistrictIncidentEligibility {
+  readonly districtId: string;
+  readonly eligible: boolean;
+  readonly reason: string | null;
+}
+
+function ineligibleDistrict(districtId: string, reason: string): DistrictIncidentEligibility {
+  return Object.freeze({ districtId, eligible: false, reason });
+}
+
+export function getDistrictIncidentEligibility(
+  districtId: string,
+  getOrder: (districtId: string) => QuestShiftOrder = getQuestShiftOrder,
+): DistrictIncidentEligibility {
+  let district;
+  try {
+    district = getDistrict(districtId);
+  } catch {
+    return ineligibleDistrict(districtId, 'the district layout is not authored');
+  }
+
+  let order: QuestShiftOrder;
+  try {
+    order = getOrder(districtId);
+  } catch {
+    return ineligibleDistrict(districtId, 'the district has no valid five-call shift roster');
+  }
+  if (order.districtId !== districtId) {
+    return ineligibleDistrict(districtId, 'the shift roster belongs to another district');
+  }
+
+  for (const [rosterIndex, roster] of getQuestShiftCycle(order).entries()) {
+    if (roster.length !== QUESTS_PER_SHIFT) {
+      return ineligibleDistrict(
+        districtId,
+        `shift roster ${String(rosterIndex + 1)} does not contain ${String(QUESTS_PER_SHIFT)} calls`,
+      );
+    }
+    const seenQuestIds = new Set<string>();
+    for (const slot of roster) {
+      if (!Number.isSafeInteger(slot.seed)) {
+        return ineligibleDistrict(
+          districtId,
+          `shift roster ${String(rosterIndex + 1)} has an invalid incident seed`,
+        );
+      }
+      if (seenQuestIds.has(slot.questId)) {
+        return ineligibleDistrict(
+          districtId,
+          `shift roster ${String(rosterIndex + 1)} repeats ${JSON.stringify(slot.questId)}`,
+        );
+      }
+      seenQuestIds.add(slot.questId);
+
+      let quest;
+      try {
+        quest = getQuest(slot.questId);
+      } catch {
+        return ineligibleDistrict(
+          districtId,
+          `shift roster ${String(rosterIndex + 1)} names an unavailable incident`,
+        );
+      }
+      if (quest.districtId !== districtId) {
+        return ineligibleDistrict(
+          districtId,
+          `incident ${JSON.stringify(slot.questId)} belongs to another district`,
+        );
+      }
+      if (!district.questSites.some((site) => site.id === quest.questSiteId)) {
+        return ineligibleDistrict(
+          districtId,
+          `incident ${JSON.stringify(slot.questId)} has no playable quest site`,
+        );
+      }
+    }
+  }
+
+  return Object.freeze({ districtId, eligible: true, reason: null });
+}
+
+function nextEligibleRouteIndex(
+  routeDistrictIds: readonly string[],
+  startIndex: number,
+  getOrder: (districtId: string) => QuestShiftOrder,
+): number | null {
+  for (let offset = 0; offset < routeDistrictIds.length; offset += 1) {
+    const routeIndex = (startIndex + offset) % routeDistrictIds.length;
+    const districtId = routeDistrictIds[routeIndex];
+    if (districtId && getDistrictIncidentEligibility(districtId, getOrder).eligible) {
+      return routeIndex;
+    }
+  }
+  return null;
 }
 
 function authoredRouteDistrictIds(): readonly string[] {
@@ -100,11 +209,15 @@ function serializeDirector(director: QuestDirector): QuestDirectorSerialized {
 }
 
 function freshSnapshot(options: ResolvedOptions): WorldRouteDirectorSerialized {
-  const scheduledDistrictId = options.routeDistrictIds[0]!;
+  const routeIndex = nextEligibleRouteIndex(options.routeDistrictIds, 0, options.getOrder);
+  if (routeIndex === null) {
+    throw new Error('World route has no dispatch-ready district');
+  }
+  const scheduledDistrictId = options.routeDistrictIds[routeIndex]!;
   const queued = createQuestDirector(options.getOrder(scheduledDistrictId)).queue();
   return Object.freeze({
     version: WORLD_ROUTE_DIRECTOR_VERSION,
-    routeIndex: 0,
+    routeIndex,
     callsInDistrict: 0,
     scheduledDistrictId,
     directors: freezeDirectors({ [scheduledDistrictId]: serializeDirector(queued) }),
@@ -131,6 +244,12 @@ function readSnapshot(value: unknown, options: ResolvedOptions): WorldRouteDirec
   ) {
     throw new Error('World route resume data has an unsupported shape');
   }
+  // A profile saved before an in-progress district was finished must resume
+  // safely too. A fresh quiet interval is preferable to restoring a required
+  // fire whose roster can no longer be played.
+  if (!getDistrictIncidentEligibility(candidate.scheduledDistrictId, options.getOrder).eligible) {
+    return freshSnapshot(options);
+  }
 
   const directors: Record<string, QuestDirectorSerialized> = {};
   for (const [districtId, snapshot] of Object.entries(
@@ -141,6 +260,7 @@ function readSnapshot(value: unknown, options: ResolvedOptions): WorldRouteDirec
         `World route resume data contains foreign district ${JSON.stringify(districtId)}`,
       );
     }
+    if (!getDistrictIncidentEligibility(districtId, options.getOrder).eligible) continue;
     const resumed = resumeQuestDirector(options.getOrder(districtId), snapshot);
     if (
       districtId !== candidate.scheduledDistrictId &&
@@ -262,7 +382,22 @@ export class WorldRouteDirector {
       );
     }
 
-    const nextRouteIndex = (this.state.routeIndex + 1) % this.options.routeDistrictIds.length;
+    const nextRouteIndex = nextEligibleRouteIndex(
+      this.options.routeDistrictIds,
+      this.state.routeIndex + 1,
+      this.options.getOrder,
+    );
+    // The current district just completed a playable call, so its already
+    // queued local incident is the reliable fallback if every future route
+    // destination is still being authored.
+    if (nextRouteIndex === null || nextRouteIndex === this.state.routeIndex) {
+      return new WorldRouteDirector(
+        withDirector(this.state, this.state.scheduledDistrictId, current, {
+          callsInDistrict: 0,
+        }),
+        this.options,
+      );
+    }
     const nextDistrictId = this.options.routeDistrictIds[nextRouteIndex]!;
     const nextSnapshot = this.state.directors[nextDistrictId];
     const nextDirector = nextSnapshot
