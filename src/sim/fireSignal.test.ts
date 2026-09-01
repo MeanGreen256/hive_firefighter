@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CellState, createCellGrid } from './cellGrid';
 import { createFireSimulation, igniteCell } from './fireSimulation';
-import { getFireSignal } from './fireSignal';
+import { getAlightVisualIntensity, getFireSignal } from './fireSignal';
 import { createQuestFire, getQuestForSite } from './quests';
 
 function twoCellFire(leftMaterial: 'wood' | 'plastic', rightMaterial: 'wood' | 'plastic') {
@@ -39,6 +39,24 @@ describe('fire signal', () => {
     igniteCell(state, '0,0,0');
     igniteCell(state, '1,0,0');
     expect(getFireSignal(state).smokeTint).toBe('toxic');
+  });
+
+  it('makes an alight flame visibly shrink as water cools it before it goes out', () => {
+    const state = twoCellFire('wood', 'wood');
+    igniteCell(state, '0,0,0');
+    const cell = state.grid.cells['0,0,0']!;
+    const initialIntensity = getAlightVisualIntensity(cell);
+
+    // Wood extinguishes below 75% of its 300 heat ignition point. Keep this
+    // cell Burning but close to that threshold: this is the previously silent
+    // portion of a child's sustained spray.
+    cell.heat = 240;
+    const cooledIntensity = getAlightVisualIntensity(cell);
+
+    expect(cell.state).toBe(CellState.Burning);
+    expect(initialIntensity).toBe(1);
+    expect(cooledIntensity).toBeGreaterThan(0);
+    expect(cooledIntensity).toBeLessThan(initialIntensity);
   });
 
   it('resolves a tie the same way every time', () => {
