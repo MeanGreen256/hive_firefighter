@@ -4,10 +4,10 @@ Playable alpha is a **public Vercel URL**. Anyone with the link can open it in
 Chrome on a family laptop. There is no account, no password, and no child-identifying
 telemetry. That decision is [#216](https://github.com/MeanGreen256/hive_firefighter/issues/216).
 
-The canonical production URL is filled in here once an owner connects the Vercel
-project. Until that click happens, this file is the contract, not a live host.
+The Vercel project is connected to the GitHub repository and has a verified
+public production deployment.
 
-**Production URL:** _not connected yet._
+**Production URL:** [https://hive-firefighter.vercel.app](https://hive-firefighter.vercel.app)
 
 ## What Vercel is for
 
@@ -19,25 +19,23 @@ project. Until that click happens, this file is the contract, not a live host.
 Progress stays in the player's browser (`localStorage`). A different laptop is a
 different town. That is the product, not a bug.
 
-## Owner: connect the project
+## Project operations
 
-This repository must not invent tokens or a URL. One authorized owner does this:
+The project is owned by the **Hive Firefighter** Vercel workspace and connected
+to `MeanGreen256/hive_firefighter`. `main` is the production branch; Vercel uses
+the committed Vite configuration (`npm run build`, `dist`, Node 24).
 
-1. Open [vercel.com](https://vercel.com), sign in as the account that should own
-   this game, and **Import** `MeanGreen256/hive_firefighter`.
-2. Framework **Vite**, build `npm run build`, output `dist`, Node **24**.
-   `vercel.json` already says this.
-3. Production branch: `main`.
-4. **Deployment Protection:** off for Production so anyone with the link can
-   play. Leave Preview protected if you want; families should not receive
-   preview URLs.
-5. Confirm the production deployment loads the real WebGL town, the audio gate,
-   and a clean console — not a placeholder.
-6. Paste the `*.vercel.app` (or later custom domain) into:
-   - the **Production URL** line at the top of this file
-   - the README status / stack section
-   - the GitHub repo **Website** field
-7. Rollback is Vercel → Deployments → Promote a previous production deployment.
+The production URL responds without a login wall, loads the real WebGL town, and
+keeps audio behind a player gesture. Pull requests are connected for grown-up
+preview review only; families receive the production URL above.
+
+1. Keep Production public so anyone with the link can play. Preview protection
+   may remain enabled.
+2. Before sharing a changed production build, confirm that it loads the real
+   WebGL town, keeps audio behind a gesture, and has a clean browser console.
+3. If the hostname changes, update the **Production URL** above, the README, and
+   the GitHub repository Website field together.
+4. Rollback is Vercel → Deployments → Promote a previous production deployment.
    Do not hot-edit production from a laptop.
 
 Custom domains can wait. A parent can bookmark `*.vercel.app`.
