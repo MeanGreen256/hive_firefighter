@@ -36,6 +36,15 @@ describe('incident VFX plans', () => {
     expect(getFlameCellFrame('cell-a', CellState.Wetted, 1, 4, 'full')).toBeNull();
   });
 
+  it('shrinks a still-burning flame as suppression lowers its visual intensity', () => {
+    const full = getFlameCellFrame('cell-a', CellState.Burning, 1, 4, 'full', 1);
+    const cooling = getFlameCellFrame('cell-a', CellState.Burning, 1, 4, 'full', 0.4);
+
+    expect(cooling?.outerScale[1]).toBeLessThan(full?.outerScale[1] ?? 0);
+    expect(cooling?.coreScale[1]).toBeLessThan(full?.coreScale[1] ?? 0);
+    expect(cooling?.showSpark).toBe(false);
+  });
+
   it('gives heating, wet, burnt, and collapsed cells different silhouettes', () => {
     const states = [CellState.Heating, CellState.Wetted, CellState.Burnt, CellState.Collapsed];
     const frames = states.map((state) => getFireStateFrame('cell-a', state, 1, 0));

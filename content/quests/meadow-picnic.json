@@ -32,6 +32,6 @@
   "pacing": {
     "tempo": "calm",
     "parTimeSeconds": 100,
-    "waterSuppressionMultiplier": 0.57
+    "waterSuppressionMultiplier": 0.18
   }
 }

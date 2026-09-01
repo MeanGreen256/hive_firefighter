@@ -4,6 +4,7 @@ import { BackSide, Color, Matrix4, Vector3, type InstancedMesh } from 'three';
 import { useStore } from 'zustand';
 import { CellState } from '@sim/cellGrid';
 import { getShellCellWorldPosition } from '@sim/exteriorShell';
+import { getAlightVisualIntensity } from '@sim/fireSignal';
 import type { QuestFireController } from '../state/questFireController';
 import type { Style } from '@styles/styles';
 import { getFireAftermathFrame, getFlameCellFrame } from './incidentVfx';
@@ -115,6 +116,7 @@ export function ExteriorFire({
           fire.shell.cellSize,
           clock.elapsedTime,
           quality,
+          getAlightVisualIntensity(cell),
         );
         if (flame) {
           scratchPosition.set(world.x, world.y + flame.outerYOffset, world.z);
