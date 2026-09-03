@@ -17,11 +17,7 @@ export interface QuestDispatchReadiness {
   readonly reason: string | null;
 }
 
-function notReady(
-  districtId: string,
-  questId: string,
-  reason: string,
-): QuestDispatchReadiness {
+function notReady(districtId: string, questId: string, reason: string): QuestDispatchReadiness {
   return Object.freeze({ districtId, questId, ready: false, reason });
 }
 
