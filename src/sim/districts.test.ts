@@ -3,6 +3,7 @@ import harbourHill from '../../content/districts/harbour-hill.json' with { type:
 import {
   DISTRICTS,
   DistrictValidationError,
+  FIREHOUSE_STAR_BOARD_MOUNT_MAX_GAP,
   MAXIMUM_QUEST_SITE_ROAD_DISTANCE,
   MINIMUM_QUEST_SITES,
   MINIMUM_QUEST_SITE_SEPARATION,
@@ -14,6 +15,7 @@ import {
   getDistrict,
   getFirehouseBuilding,
   getFirehouseSpawn,
+  getFirehouseStarBoardWallAnchor,
   getNextQuestIndex,
   getPropRect,
   getQuestSiteDistanceFromStart,
@@ -559,6 +561,43 @@ describe('Firehouse home bases', () => {
     };
     expect(() => validateDistrictDefinition(inside, 'inside-wardrobe')).toThrow(
       /wardrobe is inside the station/,
+    );
+  });
+
+  it('mounts every authored Star Board to a Firehouse exterior wall', () => {
+    for (const district of DISTRICTS) {
+      const building = getFirehouseBuilding(district);
+      const anchor = getFirehouseStarBoardWallAnchor(building, district.firehouse.starBoard);
+      expect(anchor, district.id).not.toBeNull();
+      expect(anchor?.planeGap, district.id).toBeGreaterThan(0);
+      expect(anchor?.planeGap, district.id).toBeLessThanOrEqual(FIREHOUSE_STAR_BOARD_MOUNT_MAX_GAP);
+      expect(Math.abs(anchor?.along ?? Number.POSITIVE_INFINITY), district.id).toBeLessThanOrEqual(
+        (anchor?.span ?? 0) / 2,
+      );
+    }
+  });
+
+  it('rejects a Star Board that floats in the yard instead of mounting to the station', () => {
+    const floating = cloneHarbourHill();
+    (floating.firehouse as Record<string, unknown>).starBoard = {
+      x: -10,
+      z: -8,
+      yawDegrees: 0,
+    };
+    expect(() => validateDistrictDefinition(floating, 'floating-board')).toThrow(
+      /starBoard must mount to a Firehouse exterior wall/,
+    );
+  });
+
+  it('rejects a Star Board that faces along the wall instead of outward', () => {
+    const turned = cloneHarbourHill();
+    (turned.firehouse as Record<string, unknown>).starBoard = {
+      x: -18,
+      z: -12.36,
+      yawDegrees: 90,
+    };
+    expect(() => validateDistrictDefinition(turned, 'sideways-board')).toThrow(
+      /starBoard must mount to a Firehouse exterior wall and face outward/,
     );
   });
 });

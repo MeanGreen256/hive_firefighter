@@ -1,4 +1,10 @@
-import type { DistrictDefinition, DistrictPose } from '@sim/districts';
+import {
+  getFirehouseBuilding,
+  getFirehouseStarBoardWallAnchor,
+  type DistrictDefinition,
+  type DistrictPose,
+  type FirehouseWallAnchor,
+} from '@sim/districts';
 import { getQuestPresentation, type QuestBadgeShape } from '@sim/quests';
 import type { RewardId } from '../state/progressProfile';
 
@@ -24,6 +30,46 @@ export const FIREHOUSE_COSMETIC_REWARDS = Object.freeze({
 export const FIREHOUSE_NEXT_CALL_RANGE_METERS = 6;
 export const FIREHOUSE_WARDROBE_RANGE_METERS = 6;
 export const FIREHOUSE_STAR_BOARD_HEIGHT = 3.1;
+/** Outer plaque frame; the inner panel is slightly smaller. */
+export const FIREHOUSE_STAR_BOARD_WIDTH = 6.57;
+export const FIREHOUSE_STAR_BOARD_THICKNESS = 0.18;
+/** Bite into the wall so a rounded façade cannot open a visible gap. */
+export const FIREHOUSE_STAR_BOARD_WALL_OVERLAP = 0.04;
+export const FIREHOUSE_STAR_BOARD_MOUNT_STANDOFF =
+  FIREHOUSE_STAR_BOARD_THICKNESS / 2 - FIREHOUSE_STAR_BOARD_WALL_OVERLAP;
+
+export interface FirehouseStarBoardMount {
+  readonly position: readonly [number, number, number];
+  readonly yaw: number;
+  readonly face: FirehouseWallAnchor['face'];
+}
+
+function requireStarBoardAnchor(district: DistrictDefinition): FirehouseWallAnchor {
+  const building = getFirehouseBuilding(district);
+  const anchor = getFirehouseStarBoardWallAnchor(building, district.firehouse.starBoard);
+  if (!anchor) {
+    throw new Error(`District ${district.id} Star Board is not mounted to the Firehouse wall`);
+  }
+  return anchor;
+}
+
+/**
+ * Flush wall mount: the plaque's back sits on the Firehouse exterior, facing
+ * the yard. Authored x/z choose the wall and the along-wall offset; height and
+ * standoff are owned here so a later façade restyle can keep the same anchor.
+ */
+export function getFirehouseStarBoardMount(district: DistrictDefinition): FirehouseStarBoardMount {
+  const anchor = requireStarBoardAnchor(district);
+  return {
+    position: [
+      anchor.wallX + anchor.outwardX * FIREHOUSE_STAR_BOARD_MOUNT_STANDOFF,
+      FIREHOUSE_STAR_BOARD_HEIGHT,
+      anchor.wallZ + anchor.outwardZ * FIREHOUSE_STAR_BOARD_MOUNT_STANDOFF,
+    ],
+    yaw: Math.atan2(anchor.outwardX, anchor.outwardZ),
+    face: anchor.face,
+  };
+}
 
 export function isWithinFirehouseNextCallRange(
   subject: { readonly x: number; readonly z: number },
@@ -135,8 +181,7 @@ export function buildFirehouseStarBoard(
 export function getFirehouseStarBoardPosition(
   district: DistrictDefinition,
 ): readonly [number, number, number] {
-  const pose = district.firehouse.starBoard;
-  return [pose.x, FIREHOUSE_STAR_BOARD_HEIGHT, pose.z];
+  return getFirehouseStarBoardMount(district).position;
 }
 
 export function getFirehouseWardrobePosition(

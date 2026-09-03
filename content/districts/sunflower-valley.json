@@ -6,7 +6,7 @@
     "buildingId": "valley-firehouse",
     "spawn": { "x": -48, "z": -32, "yawDegrees": 180 },
     "roadId": "north-road",
-    "starBoard": { "x": -40, "z": -40, "yawDegrees": 0 },
+    "starBoard": { "x": -40.85, "z": -45.8, "yawDegrees": 90 },
     "wardrobe": { "x": -42, "z": -55, "yawDegrees": 90 }
   },
   "roads": [
