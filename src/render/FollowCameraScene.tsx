@@ -71,6 +71,7 @@ import {
 } from '@ui/gamepad';
 import { DevTelemetry } from '@ui/DevTelemetry';
 import { OnboardingCoach } from '@ui/OnboardingCoach';
+import { OnboardingStep } from '@ui/onboardingSteps';
 import { WorldHud } from '@ui/WorldHud';
 import { PauseOverlay } from '@ui/PauseOverlay';
 import { ApproachBand, getApproachBand, getFireBand, type ApproachBandId } from '@ui/worldGuidance';
@@ -99,7 +100,7 @@ import { ExteriorFire } from './ExteriorFire';
 import { ExteriorIncidentEffects } from './ExteriorIncidentEffects';
 import { SmokeBeacon } from './SmokeBeacon';
 import { WaypointArrow } from './WaypointArrow';
-import { getBeaconTarget } from './questBeacon';
+import { getBeaconTarget, OPENING_GUIDANCE_ARROW_OPACITY } from './questBeacon';
 import { FirefighterController } from './FirefighterController';
 import { DistrictFirehouseHome } from './FirehouseStarBoardView';
 import { FollowCameraRig } from './FollowCameraRig';
@@ -277,6 +278,8 @@ interface GameWorldProps {
   /** Null while the one global fire belongs to a different loaded district. */
   readonly activeQuestSite: DistrictQuestSite | null;
   readonly beaconTarget: BeaconPoint | null;
+  /** The opening drive prompt needs a visible fallback before smoke is learned. */
+  readonly openingObjectiveGuidance: boolean;
   readonly truckRef: RefObject<Group | null>;
   readonly firefighterRef: RefObject<Group | null>;
   readonly truckSpeedRatio: RefObject<number>;
@@ -311,6 +314,7 @@ function GameWorld({
   sirenOn,
   activeQuestSite,
   beaconTarget,
+  openingObjectiveGuidance,
   truckRef,
   firefighterRef,
   truckSpeedRatio,
@@ -657,7 +661,12 @@ function GameWorld({
           />
         </>
       ) : null}
-      <WaypointArrow subjectRef={activeTarget} target={beaconTarget} visualStyle={visualStyle} />
+      <WaypointArrow
+        subjectRef={activeTarget}
+        target={beaconTarget}
+        visualStyle={visualStyle}
+        visibilityFloor={openingObjectiveGuidance ? OPENING_GUIDANCE_ARROW_OPACITY : 0}
+      />
       <CityDistrict
         layout={districtLayout}
         visualStyle={visualStyle}
@@ -1370,6 +1379,9 @@ export default function FollowCameraScene() {
             sirenOn={sirenOn}
             activeQuestSite={activeQuestSite}
             beaconTarget={beaconTarget}
+            openingObjectiveGuidance={
+              teaching && !quietTown && onboarding.step === OnboardingStep.Drive
+            }
             truckRef={truckRef}
             firefighterRef={firefighterRef}
             truckSpeedRatio={truckSpeedRatio}

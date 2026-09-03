@@ -11,6 +11,7 @@ import {
   FULL_FIRE_CELL_COUNT,
   MAX_COLUMN_HEIGHT,
   MIN_COLUMN_HEIGHT,
+  OPENING_GUIDANCE_ARROW_OPACITY,
   getBeaconTarget,
   getFireSize,
   getSmokeColumnPlan,
@@ -193,6 +194,32 @@ describe('waypoint arrow', () => {
     });
     expect(lookingAtIt.angleRadians).toBeCloseTo(0);
     expect(lookingAtIt.opacity).toBe(0);
+  });
+
+  it('keeps the opening drive cue visible while the first fire is straight ahead', () => {
+    const state = getWaypointArrowState({
+      playerPosition: player,
+      cameraYawRadians: 0,
+      target: { x: 0, z: -80 },
+      elapsedSeconds: 0,
+      visibilityFloor: OPENING_GUIDANCE_ARROW_OPACITY,
+    });
+
+    expect(state.angleRadians).toBeCloseTo(0);
+    expect(state.opacity).toBe(OPENING_GUIDANCE_ARROW_OPACITY);
+  });
+
+  it('still hides the opening drive cue once the player is on scene', () => {
+    const state = getWaypointArrowState({
+      playerPosition: player,
+      ...turnedAway,
+      target: { x: 0, z: -ARROW_ON_SCENE_DISTANCE + 1 },
+      elapsedSeconds: 0,
+      visibilityFloor: OPENING_GUIDANCE_ARROW_OPACITY,
+    });
+
+    expect(state.onScene).toBe(true);
+    expect(state.opacity).toBe(0);
   });
 
   it('comes back at full strength once the fire is behind them', () => {
