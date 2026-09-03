@@ -52,11 +52,14 @@ export function WaypointArrow({
   subjectRef,
   target,
   visualStyle,
+  visibilityFloor = 0,
 }: {
   /** Whatever the player is currently driving or walking. */
   readonly subjectRef: RefObject<Group | null>;
   readonly target: BeaconPoint | null;
   readonly visualStyle: Style;
+  /** Temporary teaching cue that keeps the marker readable while on-screen. */
+  readonly visibilityFloor?: number;
 }) {
   const groupRef = useRef<Group>(null);
   const arrowRef = useRef<Mesh>(null);
@@ -89,6 +92,7 @@ export function WaypointArrow({
       cameraYawRadians: Math.atan2(-cameraForward.x, -cameraForward.z),
       target,
       elapsedSeconds: clock.elapsedTime,
+      visibilityFloor,
     });
 
     group.visible = state.opacity > 0.01;

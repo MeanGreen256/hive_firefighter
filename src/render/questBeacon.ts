@@ -47,6 +47,12 @@ export const ARROW_ON_SCENE_DISTANCE = 18;
 export const ARROW_FADE_DISTANCE = 30;
 export const ARROW_SLOW_PULSE_HZ = 0.7;
 export const ARROW_FAST_PULSE_HZ = 2.6;
+/**
+ * A first-time player has not yet learned that a smoke column is an incident.
+ * Keep the marker readable for that single opening prompt even when the column
+ * is directly ahead; the caller removes this floor as soon as the truck moves.
+ */
+export const OPENING_GUIDANCE_ARROW_OPACITY = 0.9;
 
 /**
  * The arrow is the recovery, not the navigation (#130).
@@ -244,6 +250,11 @@ export interface WaypointArrowInput {
   readonly cameraYawRadians: number;
   readonly target: BeaconPoint | null;
   readonly elapsedSeconds: number;
+  /**
+   * A temporary visual-teaching floor. It never overrides the on-scene hide,
+   * so the marker cannot cover a fire a player has already reached.
+   */
+  readonly visibilityFloor?: number;
 }
 
 /** A point on the view plane the marker is drawn at; `+y` is up, `+x` is right. */
@@ -324,10 +335,13 @@ export function getWaypointArrowState(input: WaypointArrowInput): WaypointArrowS
     (Math.abs(angleRadians) - ARROW_IN_VIEW_RADIANS) / (ARROW_LOST_RADIANS - ARROW_IN_VIEW_RADIANS),
   );
 
+  const normalOpacity = distanceFade * lostFade;
+  const visibilityFloor = clamp01(input.visibilityFloor ?? 0);
+
   return {
     angleRadians,
     placement: getWaypointArrowPlacement(angleRadians),
-    opacity: distanceFade * lostFade,
+    opacity: distance <= ARROW_ON_SCENE_DISTANCE ? 0 : Math.max(normalOpacity, visibilityFloor),
     pulse: 0.5 + 0.5 * Math.sin(input.elapsedSeconds * pulseHz * Math.PI * 2),
     distance,
     onScene: distance <= ARROW_ON_SCENE_DISTANCE,
