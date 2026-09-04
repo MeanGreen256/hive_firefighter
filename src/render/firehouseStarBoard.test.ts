@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { getDistrict } from '@sim/districts';
+import {
+  DISTRICTS,
+  getBuildingRect,
+  getDistrict,
+  getFirehouseBuilding,
+  getFirehouseStarBoardWallAnchor,
+  isPointInsideRect,
+} from '@sim/districts';
 import { getQuestsForDistrict } from '@sim/quests';
 import { getQuestPresentation } from '@sim/quests';
 import { getQuestShiftSlots, QUEST_SHIFT_ORDER } from '../state/questOrder';
@@ -7,7 +14,10 @@ import {
   buildFirehouseStarBoard,
   FIREHOUSE_COSMETIC_REWARDS,
   FIREHOUSE_NEXT_CALL_RANGE_METERS,
+  FIREHOUSE_STAR_BOARD_HEIGHT,
+  FIREHOUSE_STAR_BOARD_MOUNT_STANDOFF,
   getFirehousePoseYawRadians,
+  getFirehouseStarBoardMount,
   getFirehouseStarBoardPosition,
   isWithinFirehouseNextCallRange,
   isWithinFirehouseWardrobeRange,
@@ -124,6 +134,34 @@ describe('Firehouse Star Board', () => {
     expect(height).toBeGreaterThan(2);
     expect(z).toBeGreaterThan(firehouse.z + firehouse.depth / 2);
     expect(z).toBeLessThan(firehouse.z + firehouse.depth / 2 + 0.5);
+  });
+
+  it('mounts every district Star Board flush to its Firehouse wall', () => {
+    for (const district of DISTRICTS) {
+      const building = getFirehouseBuilding(district);
+      const anchor = getFirehouseStarBoardWallAnchor(building, district.firehouse.starBoard);
+      expect(anchor, district.id).not.toBeNull();
+      if (!anchor) continue;
+
+      const mount = getFirehouseStarBoardMount(district);
+      const [x, height, z] = mount.position;
+      const outward = (x - anchor.wallX) * anchor.outwardX + (z - anchor.wallZ) * anchor.outwardZ;
+
+      expect(height, district.id).toBe(FIREHOUSE_STAR_BOARD_HEIGHT);
+      expect(outward, district.id).toBeCloseTo(FIREHOUSE_STAR_BOARD_MOUNT_STANDOFF);
+      expect(mount.yaw, district.id).toBeCloseTo(Math.atan2(anchor.outwardX, anchor.outwardZ));
+      expect(isPointInsideRect({ x, z }, getBuildingRect(building)), district.id).toBe(false);
+      expect(
+        isWithinFirehouseNextCallRange(
+          {
+            x: x + anchor.outwardX * 2,
+            z: z + anchor.outwardZ * 2,
+          },
+          mount.position,
+        ),
+        district.id,
+      ).toBe(true);
+    }
   });
 
   it('honors each authored Firehouse yaw when placing visible yard furniture', () => {

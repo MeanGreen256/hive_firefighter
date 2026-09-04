@@ -97,7 +97,9 @@ Each district declares:
 
 - a display `name`, playable `bounds`, the `truckStart` pose, and a `firehouse`
   home base (ADR-012): civic `buildingId`, yard `spawn` matching `truckStart`,
-  nearby `roadId`, local `starBoard` placement, and a visible `wardrobe`;
+  nearby `roadId`, a `starBoard` pose mounted to a Firehouse exterior wall and
+  facing outward (a free-standing yard coordinate is rejected), and a visible
+  `wardrobe`;
 - `roads`, each an axis-aligned strip: the `axis` it runs along, its `offset` on
   the other axis, the `from`/`to` span, and a `width`;
 - `buildings` as footprints with a `use` (`house`, `shop`, `civic`, `workshop`,

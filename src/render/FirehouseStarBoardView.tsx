@@ -10,8 +10,11 @@ import type {
   QuestBadgeShape,
 } from './firehouseStarBoard';
 import {
+  FIREHOUSE_STAR_BOARD_HEIGHT,
+  FIREHOUSE_STAR_BOARD_THICKNESS,
+  FIREHOUSE_STAR_BOARD_WIDTH,
   getFirehousePoseYawRadians,
-  getFirehouseStarBoardPosition,
+  getFirehouseStarBoardMount,
   getFirehouseWardrobePosition,
 } from './firehouseStarBoard';
 import type { FirefighterEquipSlot } from '../state/wardrobeLoadout';
@@ -19,7 +22,8 @@ import type { FirefighterEquipSlot } from '../state/wardrobeLoadout';
 const BADGE_SPACING = 1.16;
 const BADGE_CENTER_Y = 0.18;
 const STAR_CENTER_Y = -0.48;
-const BOARD_WIDTH = 6.35;
+const BOARD_WIDTH = FIREHOUSE_STAR_BOARD_WIDTH - 0.22;
+const MOUNT_POST_X = FIREHOUSE_STAR_BOARD_WIDTH / 2 + 0.1;
 
 function badgeLayout(count: number): { readonly spacing: number; readonly origin: number } {
   const spacing = count <= 1 ? 0 : Math.min(BADGE_SPACING, (BOARD_WIDTH - 0.9) / (count - 1));
@@ -248,6 +252,41 @@ function NextCallBell({ visualStyle }: { readonly visualStyle: Style }) {
   );
 }
 
+function StarBoardWallMount({ visualStyle }: { readonly visualStyle: Style }) {
+  const civic = visualStyle.city.buildings.civic;
+  const groundY = -FIREHOUSE_STAR_BOARD_HEIGHT;
+  const postTopY = 0.95;
+  const postHeight = postTopY - groundY;
+  const postY = (postTopY + groundY) / 2;
+
+  return (
+    <group name="firehouse-star-board-mount">
+      <mesh position={[0, 0, -FIREHOUSE_STAR_BOARD_THICKNESS / 2 - 0.04]}>
+        <boxGeometry args={[FIREHOUSE_STAR_BOARD_WIDTH + 0.4, 2.05, 0.1]} />
+        <meshLambertMaterial color={civic.wall} />
+      </mesh>
+      {[-1.85, 1.85].map((x) => (
+        <mesh key={`bracket:${String(x)}`} position={[x, -0.7, -0.16]}>
+          <boxGeometry args={[0.32, 0.14, 0.28]} />
+          <meshLambertMaterial color={civic.trim} />
+        </mesh>
+      ))}
+      {[-MOUNT_POST_X, MOUNT_POST_X].map((x) => (
+        <group key={`post:${String(x)}`}>
+          <mesh position={[x, postY, -0.04]}>
+            <cylinderGeometry args={[0.07, 0.08, postHeight, 8]} />
+            <meshLambertMaterial color={civic.trim} />
+          </mesh>
+          <mesh position={[x, groundY + 0.05, 0]}>
+            <boxGeometry args={[0.28, 0.1, 0.3]} />
+            <meshLambertMaterial color={civic.trim} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 /**
  * One persistent, exterior station plaque. Badges and stars are instanced, so
  * fifteen mastery marks do not become fifteen extra city draw calls.
@@ -283,8 +322,9 @@ export function FirehouseStarBoard({
       position={position}
       userData={{ nonBlocking: true, cosmeticOnly: true }}
     >
+      <StarBoardWallMount visualStyle={visualStyle} />
       <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[BOARD_WIDTH + 0.22, 1.78, 0.18]} />
+        <boxGeometry args={[FIREHOUSE_STAR_BOARD_WIDTH, 1.78, FIREHOUSE_STAR_BOARD_THICKNESS]} />
         <meshLambertMaterial color={civic.trim} />
       </mesh>
       <mesh position={[0, 0, 0.1]}>
@@ -473,13 +513,12 @@ export function DistrictFirehouseHome({
   readonly wardrobeInRange?: boolean;
   readonly equipped: FirefighterEquipSlot;
 }) {
-  const boardPosition = getFirehouseStarBoardPosition(district);
+  const boardMount = getFirehouseStarBoardMount(district);
   const wardrobePosition = getFirehouseWardrobePosition(district);
-  const boardYaw = getFirehousePoseYawRadians(district.firehouse.starBoard);
   const wardrobeYaw = getFirehousePoseYawRadians(district.firehouse.wardrobe);
   return (
     <group key={district.id} name={`firehouse-home:${district.id}`}>
-      <group position={boardPosition} rotation={[0, boardYaw, 0]}>
+      <group position={boardMount.position} rotation={[0, boardMount.yaw, 0]}>
         <FirehouseStarBoard model={model} position={[0, 0, 0]} visualStyle={visualStyle} />
       </group>
       <group position={wardrobePosition} rotation={[0, wardrobeYaw, 0]}>

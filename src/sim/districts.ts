@@ -326,8 +326,8 @@ export interface DistrictQuestSite {
 }
 
 /**
- * Local home base for one district (ADR-012 / #256). Spawn, board, and wardrobe
- * are authored positions, not derived from a single Harbour Hill building id.
+ * Local home base for one district (ADR-012 / #256). Spawn and wardrobe are
+ * yard poses; the Star Board pose must mount to a Firehouse exterior wall.
  */
 export interface DistrictFirehouse {
   readonly buildingId: string;
@@ -404,6 +404,96 @@ const ROOT_FIELDS = [
 
 /** Board and wardrobe must sit in the station yard, not across town. */
 export const FIREHOUSE_AMENITY_MAX_DISTANCE = 16;
+
+/**
+ * How far a Star Board pose may stand off the Firehouse wall, in metres.
+ * Farther than this is a free-standing yard plaque, not a mount.
+ */
+export const FIREHOUSE_STAR_BOARD_MOUNT_MAX_GAP = 0.5;
+
+/** Outward faces of an axis-aligned footprint, matching `BUILDING_FACINGS`. */
+const BUILDING_WALLS: readonly {
+  readonly face: BuildingFacing;
+  readonly outwardX: number;
+  readonly outwardZ: number;
+}[] = [
+  { face: 'south', outwardX: 0, outwardZ: 1 },
+  { face: 'north', outwardX: 0, outwardZ: -1 },
+  { face: 'east', outwardX: 1, outwardZ: 0 },
+  { face: 'west', outwardX: -1, outwardZ: 0 },
+];
+
+/**
+ * Where an authored Star Board pose sits relative to one Firehouse wall.
+ * `wallX`/`wallZ` are the projection onto the wall plane; `planeGap` is metres
+ * outside that plane.
+ */
+export interface FirehouseWallAnchor {
+  readonly face: BuildingFacing;
+  readonly planeGap: number;
+  readonly along: number;
+  readonly span: number;
+  readonly wallX: number;
+  readonly wallZ: number;
+  readonly outwardX: number;
+  readonly outwardZ: number;
+}
+
+function projectPoseOntoBuildingWall(
+  building: DistrictBuilding,
+  pose: DistrictPoint,
+  wall: (typeof BUILDING_WALLS)[number],
+): FirehouseWallAnchor {
+  const halfWidth = building.width / 2;
+  const halfDepth = building.depth / 2;
+  const span = wall.outwardX === 0 ? building.width : building.depth;
+  const tangentX = wall.outwardZ;
+  const tangentZ = wall.outwardX;
+  const along = (pose.x - building.x) * tangentX + (pose.z - building.z) * tangentZ;
+  const wallX = building.x + wall.outwardX * halfWidth + along * tangentX;
+  const wallZ = building.z + wall.outwardZ * halfDepth + along * tangentZ;
+  const planeGap = (pose.x - wallX) * wall.outwardX + (pose.z - wallZ) * wall.outwardZ;
+  return {
+    face: wall.face,
+    planeGap,
+    along,
+    span,
+    wallX,
+    wallZ,
+    outwardX: wall.outwardX,
+    outwardZ: wall.outwardZ,
+  };
+}
+
+function yawFacesOutward(yawDegrees: number, outwardX: number, outwardZ: number): boolean {
+  const yaw = (yawDegrees * Math.PI) / 180;
+  return Math.sin(yaw) * outwardX + Math.cos(yaw) * outwardZ >= 0.95;
+}
+
+/**
+ * The Firehouse wall an authored Star Board pose mounts to, or `null` when the
+ * pose is a free-standing yard coordinate, past a corner, or facing the wall.
+ */
+export function getFirehouseStarBoardWallAnchor(
+  building: DistrictBuilding,
+  pose: DistrictPose,
+): FirehouseWallAnchor | null {
+  let nearest: FirehouseWallAnchor | null = null;
+  for (const wall of BUILDING_WALLS) {
+    const candidate = projectPoseOntoBuildingWall(building, pose, wall);
+    if (candidate.planeGap < 0) continue;
+    if (nearest === null || candidate.planeGap < nearest.planeGap) nearest = candidate;
+  }
+  if (
+    nearest === null ||
+    nearest.planeGap > FIREHOUSE_STAR_BOARD_MOUNT_MAX_GAP ||
+    Math.abs(nearest.along) > nearest.span / 2 ||
+    !yawFacesOutward(pose.yawDegrees, nearest.outwardX, nearest.outwardZ)
+  ) {
+    return null;
+  }
+  return nearest;
+}
 
 /** An axis-aligned XZ rectangle. Everything solid in a district reduces to one. */
 export interface DistrictRect {
@@ -1228,6 +1318,11 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
       firehouse.starBoard.z === firehouse.wardrobe.z
     ) {
       problems.push(`${id}.firehouse.wardrobe must not occupy the same point as starBoard`);
+    }
+    if (getFirehouseStarBoardWallAnchor(firehouseBuilding, firehouse.starBoard) === null) {
+      problems.push(
+        `${id}.firehouse.starBoard must mount to a Firehouse exterior wall and face outward; a yard coordinate leaves it floating`,
+      );
     }
   }
 
