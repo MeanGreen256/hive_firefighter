@@ -341,6 +341,14 @@ export interface DistrictFirehouse {
 export const DISTRICT_BOUNDARY_EDGES = ['north', 'east', 'south', 'west'] as const;
 export type DistrictBoundaryEdge = (typeof DISTRICT_BOUNDARY_EDGES)[number];
 
+/** The only edge a reciprocal road may use for an ordinary district crossing. */
+export function oppositeDistrictBoundaryEdge(edge: DistrictBoundaryEdge): DistrictBoundaryEdge {
+  if (edge === 'north') return 'south';
+  if (edge === 'south') return 'north';
+  if (edge === 'east') return 'west';
+  return 'east';
+}
+
 /**
  * A traversable, road-led connection to another authored district (ADR-012).
  * The reciprocal link supplies the arrival road in the destination district.
@@ -433,6 +441,40 @@ export function getRoadRect(road: DistrictRoad): DistrictRect {
   return road.axis === 'x'
     ? { minX: from, maxX: to, minZ: road.offset - halfWidth, maxZ: road.offset + halfWidth }
     : { minX: road.offset - halfWidth, maxX: road.offset + halfWidth, minZ: from, maxZ: to };
+}
+
+/**
+ * Returns whether two authored links describe the same continuous road.
+ *
+ * Keeping this in the data layer gives the loader and the live boundary
+ * resolver one definition of "reciprocal". A link that merely points back to
+ * the source district is not enough: it could land a player at an unrelated
+ * edge or an incomplete road.
+ */
+export function areDistrictTransitionsReciprocal(
+  source: DistrictDefinition,
+  transition: DistrictTransition,
+  destination: DistrictDefinition,
+  reciprocal: DistrictTransition,
+): boolean {
+  if (
+    transition.targetDistrictId !== destination.id ||
+    reciprocal.targetDistrictId !== source.id ||
+    reciprocal.edge !== oppositeDistrictBoundaryEdge(transition.edge)
+  ) {
+    return false;
+  }
+  const sourceRoad = source.roads.find((road) => road.id === transition.roadId);
+  const destinationRoad = destination.roads.find((road) => road.id === reciprocal.roadId);
+  if (!sourceRoad || !destinationRoad || sourceRoad.axis !== destinationRoad.axis) return false;
+
+  // The lateral road spans must overlap. This permits deliberately different
+  // road widths while rejecting a return road that is visibly elsewhere.
+  const sourceMin = sourceRoad.offset - sourceRoad.width / 2;
+  const sourceMax = sourceRoad.offset + sourceRoad.width / 2;
+  const destinationMin = destinationRoad.offset - destinationRoad.width / 2;
+  const destinationMax = destinationRoad.offset + destinationRoad.width / 2;
+  return sourceMin <= destinationMax && sourceMax >= destinationMin;
 }
 
 /**
@@ -1272,9 +1314,13 @@ export function loadDistrictDefinitions(
         );
         return;
       }
-      if (!target.transitions.some((returnLink) => returnLink.targetDistrictId === district.id)) {
+      if (
+        !target.transitions.some((returnLink) =>
+          areDistrictTransitionsReciprocal(district, transition, target, returnLink),
+        )
+      ) {
         connectionProblems.push(
-          `${path}.targetDistrictId ${JSON.stringify(transition.targetDistrictId)} has no reciprocal boundary back to ${JSON.stringify(district.id)}`,
+          `${path}.targetDistrictId ${JSON.stringify(transition.targetDistrictId)} has no compatible reciprocal road back to ${JSON.stringify(district.id)}`,
         );
       }
     });

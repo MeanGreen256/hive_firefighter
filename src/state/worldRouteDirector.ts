@@ -21,6 +21,7 @@ import {
   type QuestDirectorSerialized,
   type QuestDirectorState,
 } from './questDirector';
+import { getQuestDispatchReadiness } from './dispatchReadiness';
 import type { SessionOutcome } from './sessionStats';
 
 export const WORLD_ROUTE_DIRECTOR_VERSION = 1 as const;
@@ -123,10 +124,11 @@ export function getDistrictIncidentEligibility(
           `incident ${JSON.stringify(slot.questId)} belongs to another district`,
         );
       }
-      if (!district.questSites.some((site) => site.id === quest.questSiteId)) {
+      const readiness = getQuestDispatchReadiness(district, quest);
+      if (!readiness.ready) {
         return ineligibleDistrict(
           districtId,
-          `incident ${JSON.stringify(slot.questId)} has no playable quest site`,
+          `incident ${JSON.stringify(slot.questId)} is not dispatch-ready: ${readiness.reason}`,
         );
       }
     }

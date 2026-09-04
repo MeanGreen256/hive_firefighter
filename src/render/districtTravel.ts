@@ -1,5 +1,6 @@
 /** Pure boundary crossing for ADR-012's ordinary-road district travel. */
 import {
+  areDistrictTransitionsReciprocal,
   getDistrict,
   type DistrictBoundaryEdge,
   type DistrictDefinition,
@@ -110,8 +111,8 @@ export function resolveDistrictTravel(
   const transition = getReachedDistrictTransition(district, pose);
   if (!transition) return null;
   const destination = getDistrict(transition.targetDistrictId);
-  const reciprocal = destination.transitions.find(
-    (candidate) => candidate.targetDistrictId === district.id,
+  const reciprocal = destination.transitions.find((candidate) =>
+    areDistrictTransitionsReciprocal(district, transition, destination, candidate),
   );
   if (!reciprocal) return null;
   const destinationTravelPose = destinationPose(destination, reciprocal, pose.yaw);

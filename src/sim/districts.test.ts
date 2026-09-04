@@ -10,6 +10,7 @@ import {
   PROP_SCALE_MIN,
   distanceToRect,
   getActiveQuestSite,
+  areDistrictTransitionsReciprocal,
   getBuildingRect,
   getDistrict,
   getFirehouseBuilding,
@@ -69,6 +70,28 @@ describe('district loading', () => {
     expect(() =>
       loadDistrictDefinitions({ 'harbour-hill.json': { default: disconnected } }),
     ).toThrow(/names no authored district/);
+  });
+
+  it('requires a reciprocal road on the opposite edge with an overlapping lane', () => {
+    const harbour = getDistrict('harbour-hill');
+    const valley = getDistrict('sunflower-valley');
+    const outward = harbour.transitions[0]!;
+    const returnRoad = valley.transitions.find(
+      (transition) => transition.targetDistrictId === harbour.id,
+    )!;
+    expect(areDistrictTransitionsReciprocal(harbour, outward, valley, returnRoad)).toBe(true);
+    expect(
+      areDistrictTransitionsReciprocal(harbour, outward, valley, {
+        ...returnRoad,
+        edge: 'east',
+      }),
+    ).toBe(false);
+    expect(
+      areDistrictTransitionsReciprocal(harbour, outward, valley, {
+        ...returnRoad,
+        roadId: valley.roads.find((road) => road.id !== returnRoad.roadId)!.id,
+      }),
+    ).toBe(false);
   });
 
   it('rejects a directory with no districts', () => {
