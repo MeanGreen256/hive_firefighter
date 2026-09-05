@@ -19,6 +19,10 @@ export const GAMEPAD_BUTTONS = Object.freeze({
   board: Object.freeze([1, 2]),
   /** Optional: siren and lights. */
   siren: Object.freeze([3]),
+  /** Optional recovery menu; a wrong press only pauses the game. */
+  menu: Object.freeze([9]),
+  /** Optional reset request while the recovery menu is open. */
+  reset: Object.freeze([8]),
 });
 
 export type GamepadIntent = keyof typeof GAMEPAD_BUTTONS;

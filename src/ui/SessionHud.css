@@ -27,15 +27,20 @@
   text-align: center;
 }
 
-.debrief-screen-reader-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+.debrief-heading__labels h1 {
+  margin: 0;
+  color: var(--hud-text);
+  font-size: clamp(24px, 6vw, 36px);
+  letter-spacing: 0.02em;
+}
+
+.debrief-heading__labels p {
+  margin: 5px 0 0;
+  color: var(--hud-muted);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .debrief-outcome {
@@ -98,6 +103,26 @@
   min-height: 74px;
 }
 
+.debrief-stars-wrap,
+.debrief-snapshot__column {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+}
+
+.debrief-label {
+  color: var(--hud-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.debrief-stars__count {
+  color: var(--hud-success);
+  font-size: 13px;
+}
+
 .debrief-star {
   width: clamp(52px, 14vw, 78px);
   height: clamp(52px, 14vw, 78px);
@@ -151,6 +176,17 @@
   gap: 8px;
 }
 
+.debrief-snapshot__counts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px 10px;
+  color: var(--hud-text);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .debrief-snapshot__arrow {
   width: 28px;
   color: var(--hud-text);
@@ -183,6 +219,14 @@
   min-height: 45px;
   margin: -8px 0 10px;
   color: var(--hud-accent);
+}
+
+.debrief-new-best strong,
+.debrief-reward strong {
+  color: var(--hud-text);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .debrief-reward {
@@ -265,12 +309,16 @@
 
 .debrief-panel footer {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(130px, 1fr) repeat(3, auto);
   gap: 10px;
   margin-top: 18px;
 }
 
 .debrief-panel button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   min-height: 42px;
   padding: 8px 12px;
   border: 1px solid var(--hud-border);
@@ -282,6 +330,15 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+.debrief-panel__reset {
+  color: var(--hud-muted) !important;
+}
+
+.debrief-panel__reset--armed {
+  border-color: var(--hud-warning) !important;
+  color: var(--hud-text) !important;
 }
 
 .debrief-panel button svg {
@@ -324,6 +381,14 @@
 
   .debrief-panel footer {
     grid-template-columns: 1fr;
+  }
+
+  .debrief-snapshot {
+    grid-template-columns: 1fr;
+  }
+
+  .debrief-snapshot__arrow {
+    transform: rotate(90deg);
   }
 }
 

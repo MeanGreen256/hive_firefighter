@@ -50,6 +50,7 @@ import {
   playPause,
   shouldShowPauseOverlay,
 } from '../state/playPause';
+import { planLevelReset } from '../state/levelReset';
 import {
   clearSessionPlacement,
   createSessionPlacement,
@@ -702,6 +703,7 @@ export default function FollowCameraScene() {
     initialLatestQuestBadge(worldDirector),
   );
   const [arrivalPose, setArrivalPose] = useState<DistrictTravelPose | null>(null);
+  const [levelResetVersion, setLevelResetVersion] = useState(0);
   const [stationCelebration, setStationCelebration] = useState<StationCelebrationNotice | null>(
     null,
   );
@@ -1067,6 +1069,53 @@ export default function FollowCameraScene() {
         : createWorldRouteDirector(),
     );
   }, []);
+  const resetLevel = useCallback(() => {
+    const plan = planLevelReset(worldDirector);
+    const restartDistrict = getDistrict(plan.districtId);
+    const spawn = getFirehouseRestartSpawn(restartDistrict);
+    const pose = { x: spawn.position[0], z: spawn.position[2], yaw: spawn.yaw };
+
+    playPause.resume();
+    clearSessionPlacement(SESSION_PLACEMENT_STORAGE);
+    if (plan.restartActiveIncident) questFireController.restart();
+    else questFireController.stop();
+
+    // Update the live refs as well as remounting the keyed world. The immediate
+    // move prevents one stale placement sample from winning a same-district
+    // reset before React commits the fresh Firehouse scene.
+    for (const actor of [truckRef.current, firefighterRef.current]) {
+      if (!actor) continue;
+      actor.position.set(spawn.position[0], 0, spawn.position[2]);
+      actor.rotation.y = spawn.yaw;
+    }
+
+    setWorldDirector(plan.director);
+    progressProfileStore.getState().setCurrentDistrict(plan.districtId);
+    setArrivalPose(pose);
+    setLevelResetVersion((version) => version + 1);
+    setMode('driving');
+    setCanBoard(false);
+    setWardrobeInRange(false);
+    setApproach(null);
+    setStationCelebration(null);
+    if (
+      worldDirector.currentState.phase === 'resolved' ||
+      worldDirector.currentState.phase === 'celebrating'
+    ) {
+      celebratedRewardIds.current = progressProfile.unlockedRewardIds;
+      celebratedShiftCount.current = getDistrictProgress(
+        progressProfile,
+        directedIncident.districtId,
+      ).completedShiftCount;
+    }
+  }, [directedIncident.districtId, progressProfile, worldDirector]);
+
+  // The old keyed world flushes its throttled placement during unmount. Clear
+  // once more after that cleanup so a reset can never restore the stranded
+  // pose on a later browser refresh.
+  useEffect(() => {
+    if (levelResetVersion > 0) clearSessionPlacement(SESSION_PLACEMENT_STORAGE);
+  }, [levelResetVersion]);
 
   useEffect(() => {
     fireAudioSystem.setSirenActive(sirenOn);
@@ -1263,6 +1312,12 @@ export default function FollowCameraScene() {
       const key = event.key.toLowerCase();
       if (down.has(key)) return;
       down.add(key);
+      if (key === 'escape' && !debriefOpen && !pauseState.hidden) {
+        event.preventDefault();
+        if (pauseState.adultPaused) playPause.resume();
+        else playPause.pauseForAdult();
+        return;
+      }
       if (frozen) {
         if (pauseState.adultPaused && key === ' ') {
           event.preventDefault();
@@ -1303,6 +1358,7 @@ export default function FollowCameraScene() {
     frozen,
     mode,
     pauseState.adultPaused,
+    pauseState.hidden,
     pressAction,
     toggleSiren,
     transitionPlayer,
@@ -1317,9 +1373,18 @@ export default function FollowCameraScene() {
       board: createPressLatch(),
       siren: createPressLatch(),
       sound: createPressLatch(),
+      menu: createPressLatch(),
     };
     let frameId = requestAnimationFrame(function poll() {
       const gamepad = firstConnectedGamepad();
+      if (
+        readPress(latches.menu, isIntentHeld(gamepad, 'menu')) &&
+        !debriefOpen &&
+        !pauseState.hidden
+      ) {
+        if (pauseState.adultPaused) playPause.resume();
+        else playPause.pauseForAdult();
+      }
       if (readPress(latches.action, isIntentHeld(gamepad, 'action'))) pressAction();
       if (frozen) {
         frameId = requestAnimationFrame(poll);
@@ -1341,7 +1406,17 @@ export default function FollowCameraScene() {
       frameId = requestAnimationFrame(poll);
     });
     return () => cancelAnimationFrame(frameId);
-  }, [canBoard, debriefOpen, frozen, mode, pressAction, toggleSiren, transitionPlayer]);
+  }, [
+    canBoard,
+    debriefOpen,
+    frozen,
+    mode,
+    pauseState.adultPaused,
+    pauseState.hidden,
+    pressAction,
+    toggleSiren,
+    transitionPlayer,
+  ]);
 
   const sceneCssVariables: SceneCssVariables = {
     '--scene-saturation': visualStyle.postProcessing.saturation,
@@ -1370,7 +1445,7 @@ export default function FollowCameraScene() {
           onCreated={configureStaticShadows}
         >
           <GameWorld
-            key={currentDistrict.id}
+            key={`${currentDistrict.id}:${String(levelResetVersion)}`}
             district={currentDistrict}
             initialPose={arrivalPose}
             visualStyle={visualStyle}
@@ -1418,8 +1493,11 @@ export default function FollowCameraScene() {
         onRestartGuide={restartOnboarding}
         onResetProgress={PERFORMANCE_SCENE ? undefined : resetProgress}
         onPause={PERFORMANCE_SCENE ? undefined : () => playPause.pauseForAdult()}
+        onResetLevel={PERFORMANCE_SCENE ? undefined : resetLevel}
       />
-      {showPauseOverlay ? <PauseOverlay onResume={() => playPause.resume()} /> : null}
+      {showPauseOverlay ? (
+        <PauseOverlay onResume={() => playPause.resume()} onResetLevel={resetLevel} />
+      ) : null}
       {/* Hidden behind the star screen: one thing to look at at a time. */}
       {debriefOpen || !teaching ? null : (
         <OnboardingCoach step={onboarding.step} onSkip={skipOnboarding} />
@@ -1432,6 +1510,7 @@ export default function FollowCameraScene() {
           rewardUnlocked={progressProfile.unlockedRewardIds.some(
             (rewardId) => !celebratedRewardIds.current.includes(rewardId),
           )}
+          onResetLevel={resetLevel}
         />
       ) : null}
       {stationCelebration && !debriefOpen ? (

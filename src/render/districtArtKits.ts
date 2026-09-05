@@ -318,6 +318,54 @@ function buildShopFacade(frame: FacadeFrame, variant: FacadeVariant): DistrictAr
   return pieces;
 }
 
+const FIREHOUSE_WORDMARK = Object.freeze({
+  F: Object.freeze(['111', '100', '110', '100', '100']),
+  I: Object.freeze(['111', '010', '010', '010', '111']),
+  R: Object.freeze(['110', '101', '110', '101', '101']),
+  E: Object.freeze(['111', '100', '110', '100', '111']),
+});
+
+/** A geometry-authored sign stays legible without loading a runtime font. */
+function addFirehouseWordmark(pieces: DistrictArtPiece[], frame: FacadeFrame): void {
+  const letters = Object.entries(FIREHOUSE_WORDMARK);
+  const cell = Math.min(0.3, frame.span / 48);
+  const letterWidth = cell * 3;
+  const gap = cell * 0.8;
+  const totalWidth = letters.length * letterWidth + (letters.length - 1) * gap;
+  const signY = frame.building.height - 0.92;
+
+  pieces.push(
+    facadePiece(
+      frame,
+      'fire-station-sign',
+      'route-secondary',
+      [0, signY, 0.16],
+      [Math.max(5.2, totalWidth + 0.9), cell * 6.7, 0.24],
+    ),
+  );
+  for (const [letterIndex, [letter, rows]] of letters.entries()) {
+    for (const [row, cells] of rows.entries()) {
+      for (const [column, filled] of [...cells].entries()) {
+        if (filled !== '1') continue;
+        pieces.push(
+          facadePiece(
+            frame,
+            `fire-station-sign:${letter}:${String(row)}:${String(column)}`,
+            'trim',
+            [
+              -totalWidth / 2 + letterIndex * (letterWidth + gap) + (column + 0.5) * cell,
+              signY + (2 - row) * cell,
+              0.31,
+            ],
+            [cell * 0.82, cell * 0.82, 0.12],
+            { castShadow: false },
+          ),
+        );
+      }
+    }
+  }
+}
+
 function buildCivicFacade(frame: FacadeFrame, variant: FacadeVariant): DistrictArtPiece[] {
   const pieces: DistrictArtPiece[] = [];
   if (variant === 'civic-station') {
@@ -342,6 +390,44 @@ function buildCivicFacade(frame: FacadeFrame, variant: FacadeVariant): DistrictA
         ),
       );
     }
+    for (const y of [0.85, 1.75, 2.65, 3.55]) {
+      pieces.push(
+        facadePiece(
+          frame,
+          `apparatus-rail:${String(y)}`,
+          'trim',
+          [0, y, 0.2],
+          [doorWidth * 0.96, 0.14, 0.2],
+        ),
+      );
+    }
+    pieces.push(
+      facadePiece(
+        frame,
+        'apparatus-apron',
+        'pavement',
+        [0, 0.05, 2.25],
+        [doorWidth + 1.6, 0.1, 4.5],
+        { castShadow: false },
+      ),
+      facadePiece(
+        frame,
+        'bay-light:left',
+        'accent',
+        [-doorWidth * 0.62, 4.65, 0.24],
+        [0.42, 0.42, 0.42],
+        { shape: 'sphere', castShadow: false },
+      ),
+      facadePiece(
+        frame,
+        'bay-light:right',
+        'accent',
+        [doorWidth * 0.62, 4.65, 0.24],
+        [0.42, 0.42, 0.42],
+        { shape: 'sphere', castShadow: false },
+      ),
+    );
+    addFirehouseWordmark(pieces, frame);
   } else {
     addDoor(
       pieces,
@@ -360,15 +446,17 @@ function buildCivicFacade(frame: FacadeFrame, variant: FacadeVariant): DistrictA
   }
   addWindow(pieces, frame, 'window:left', -frame.span * 0.32, 2.2, frame.span * 0.16, 2.05);
   addWindow(pieces, frame, 'window:right', frame.span * 0.32, 2.2, frame.span * 0.16, 2.05);
-  pieces.push(
-    facadePiece(
-      frame,
-      'civic-band',
-      'route-primary',
-      [0, frame.building.height - 0.7, 0.08],
-      [frame.span + 0.25, 0.4, 0.28],
-    ),
-  );
+  if (variant !== 'civic-station') {
+    pieces.push(
+      facadePiece(
+        frame,
+        'civic-band',
+        'route-primary',
+        [0, frame.building.height - 0.7, 0.08],
+        [frame.span + 0.25, 0.4, 0.28],
+      ),
+    );
+  }
   return pieces;
 }
 
@@ -448,7 +536,50 @@ export function buildLandmarkKit(building: DistrictBuildingPlacement): DistrictA
   const top = building.height + 0.32;
   if (shape === 'bell-tower') {
     return [
-      landmarkPiece(building, shape, route, 'stage', 'box', 'trim', [0, top + 2, 0], [2.4, 4, 2.4]),
+      ...([-0.82, 0.82] as const).flatMap((x) =>
+        ([-0.82, 0.82] as const).map((z) =>
+          landmarkPiece(
+            building,
+            shape,
+            route,
+            `post:${String(x)}:${String(z)}`,
+            'box',
+            'trim',
+            [x, top + 2, z],
+            [0.34, 4, 0.34],
+          ),
+        ),
+      ),
+      landmarkPiece(
+        building,
+        shape,
+        route,
+        'bell-yoke',
+        'box',
+        'route-primary',
+        [0, top + 2.95, 0],
+        [2.15, 0.28, 0.38],
+      ),
+      landmarkPiece(
+        building,
+        shape,
+        route,
+        'bell',
+        'sphere',
+        'accent',
+        [0, top + 2.15, 0],
+        [1.25, 1.45, 0.72],
+      ),
+      landmarkPiece(
+        building,
+        shape,
+        route,
+        'bell-clapper',
+        'sphere',
+        'trim',
+        [0, top + 1.48, 0],
+        [0.28, 0.28, 0.28],
+      ),
       landmarkPiece(
         building,
         shape,

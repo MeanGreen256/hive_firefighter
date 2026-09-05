@@ -30,6 +30,12 @@ describe('gamepad intents', () => {
     expect(new Set(bound).size).toBe(bound.length);
   });
 
+  it('reserves the standard menu and back buttons for harmless recovery', () => {
+    expect(isIntentHeld(pad(9), 'menu')).toBe(true);
+    expect(isIntentHeld(pad(8), 'reset')).toBe(true);
+    expect(isIntentHeld(pad(0), 'menu')).toBe(false);
+  });
+
   it('reads nothing from a missing pad or a pad short of that button', () => {
     expect(isIntentHeld(null, 'action')).toBe(false);
     expect(isIntentHeld(pad(), 'siren')).toBe(false);

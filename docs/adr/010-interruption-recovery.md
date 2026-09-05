@@ -1,5 +1,11 @@
 # ADR-010: Interruption recovery is a harmless incident restart
 
+> **2026-09-05 follow-up (#297):** the same recovery contract is now available
+> in game as **Reset level**. Escape or the standard gamepad Menu button may
+> open the adult pause/recovery card; a normal action still resumes, and Reset
+> level requires confirmation. This remains optional assistance rather than a
+> third verb required to complete play.
+
 **Status:** Accepted
 **Date:** 2026-08-27
 

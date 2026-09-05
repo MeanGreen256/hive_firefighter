@@ -81,6 +81,13 @@ arrow lead back to it. This deliberately supersedes pose restoration as the
 multi-district resume rule: a Firehouse is a stable, child-readable place to
 restart from, while the task itself is never lost.
 
+The in-game **Reset level** action (#297) uses the same rule. It clears only the
+stranded pose, returns both actors to the scheduled district's authored spawn,
+and restarts an unfinished incident with the same identity and ignition. It
+does not erase stars, rewards, cosmetics, or completed calls; if a completion
+screen is already pending, it advances to the authored quiet-town interval
+instead of recording or replaying that result.
+
 Existing single-district profiles migrate to Harbour Hill's local records. They
 retain honestly earned global cosmetics and never receive invented completions.
 Unreadable, blocked, or corrupt storage safely falls back to a new Harbour Hill

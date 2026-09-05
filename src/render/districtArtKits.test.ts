@@ -58,6 +58,40 @@ describe('reusable district art kits', () => {
     ).toBe(true);
   });
 
+  it.each(['harbour-hill', 'sunflower-valley'] as const)(
+    'makes the %s Firehouse an unmistakable signed apparatus station',
+    (districtId) => {
+      const stationDistrict = getDistrict(districtId);
+      const stationLayout = buildDistrictLayout(stationDistrict);
+      const firehouse = stationLayout.buildings.find(
+        ({ id }) => id === stationDistrict.firehouse.buildingId,
+      );
+      expect(firehouse).toBeDefined();
+
+      const facade = buildFacadeKit(firehouse!);
+      const landmark = buildLandmarkKit(firehouse!);
+      expect(facade.map(({ id }) => id)).toEqual(
+        expect.arrayContaining([
+          `${firehouse!.id}:facade:apparatus-door`,
+          `${firehouse!.id}:facade:apparatus-apron`,
+          `${firehouse!.id}:facade:fire-station-sign`,
+          `${firehouse!.id}:facade:fire-station-sign:F:0:0`,
+          `${firehouse!.id}:facade:fire-station-sign:E:4:2`,
+        ]),
+      );
+      expect(facade.filter(({ id }) => id.includes('apparatus-rail'))).toHaveLength(4);
+      expect(facade.filter(({ id }) => id.includes('bay-light'))).toHaveLength(2);
+      expect(landmark.filter(({ id }) => id.includes('bell-tower:post'))).toHaveLength(4);
+      expect(landmark.map(({ id }) => id)).toEqual(
+        expect.arrayContaining([
+          `${firehouse!.id}:landmark:bell-tower:bell`,
+          `${firehouse!.id}:landmark:bell-tower:bell-clapper`,
+          `${firehouse!.id}:landmark:bell-tower:cap`,
+        ]),
+      );
+    },
+  );
+
   it('builds every landmark silhouette through the shared primitive vocabulary', () => {
     const landmarkBuildings = layout.buildings.filter((building) => building.landmark !== null);
     const pieces = landmarkBuildings.flatMap(buildLandmarkKit);

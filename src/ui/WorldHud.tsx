@@ -92,6 +92,11 @@ export interface WorldHudProps {
    * (#218). Grown-ups drawer only: a child must not be able to enter it.
    */
   readonly onPause?: (() => void) | undefined;
+  /**
+   * Returns both actors to the scheduled Firehouse and restarts only an
+   * unfinished incident. Unlike reset progress, this preserves every reward.
+   */
+  readonly onResetLevel?: (() => void) | undefined;
 }
 
 /**
@@ -127,6 +132,7 @@ export function WorldHud({
   onRestartGuide,
   onResetProgress,
   onPause,
+  onResetLevel,
 }: WorldHudProps) {
   const boardLabel = onFoot
     ? boardingAvailable
@@ -226,6 +232,7 @@ export function WorldHud({
           onRestartGuide={onRestartGuide}
           onResetProgress={onResetProgress}
           onPause={onPause}
+          onResetLevel={onResetLevel}
         />
       </details>
     </div>
@@ -247,14 +254,17 @@ function GrownUpsSettings({
   onRestartGuide,
   onResetProgress,
   onPause,
+  onResetLevel,
 }: {
   readonly onRestartGuide?: (() => void) | undefined;
   readonly onResetProgress?: (() => void) | undefined;
   readonly onPause?: (() => void) | undefined;
+  readonly onResetLevel?: (() => void) | undefined;
 }) {
   const styleId = useStore(styleStore, (state) => state.activeStyleId);
   const effectsPreference = useStore(vfxPreferenceStore, (state) => state.preference);
   const [resetArmed, setResetArmed] = useState(false);
+  const [levelResetArmed, setLevelResetArmed] = useState(false);
 
   return (
     <div className="world-hud__adults-settings">
@@ -310,6 +320,31 @@ function GrownUpsSettings({
         >
           <span aria-hidden="true">⏸</span> Pause
         </button>
+      ) : null}
+      {onResetLevel ? (
+        levelResetArmed ? (
+          <button
+            type="button"
+            className="world-hud__adults-action world-hud__adults-action--warning"
+            aria-label="Confirm reset level and return to the Firehouse"
+            onClick={() => {
+              onResetLevel();
+              setLevelResetArmed(false);
+            }}
+            onBlur={() => setLevelResetArmed(false)}
+          >
+            Yes, return to the Firehouse
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="world-hud__adults-action"
+            aria-label="Reset level and return to the Firehouse"
+            onClick={() => setLevelResetArmed(true)}
+          >
+            Reset level…
+          </button>
+        )
       ) : null}
       {onRestartGuide ? (
         <button

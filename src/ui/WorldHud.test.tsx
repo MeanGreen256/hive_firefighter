@@ -8,6 +8,7 @@ function renderQuietTown(
     onRestartGuide?: () => void;
     onResetProgress?: () => void;
     onPause?: () => void;
+    onResetLevel?: () => void;
   } = {},
 ): string {
   return renderToStaticMarkup(
@@ -25,6 +26,7 @@ function renderQuietTown(
       onRestartGuide={extras.onRestartGuide}
       onResetProgress={extras.onResetProgress}
       onPause={extras.onPause}
+      onResetLevel={extras.onResetLevel}
     />,
   );
 }
@@ -69,6 +71,18 @@ describe('WorldHud quiet town', () => {
     expect(html).not.toContain('world-hud__action world-hud__adults-action');
     const playBar = html.slice(0, html.indexOf('world-hud__adults'));
     expect(playBar).not.toContain('Pause the game');
+  });
+
+  it('keeps non-destructive level recovery separate from destructive profile reset (#297)', () => {
+    const html = renderQuietTown({
+      onResetLevel: vi.fn(),
+      onResetProgress: vi.fn(),
+    });
+    const drawer = html.slice(html.indexOf('world-hud__adults'));
+    expect(drawer).toContain('Reset level…');
+    expect(drawer).toContain('Reset progress…');
+    expect(drawer).toContain('return to the Firehouse');
+    expect(drawer).not.toContain('Yes, erase stars');
   });
 
   it('labels trackpad and mouse hose aiming as optional on foot', () => {
