@@ -322,16 +322,19 @@ const MIGRATION_BASELINE = [
     ],
   },
   {
+    // #302 turns the station facade and its fire shell toward the explicitly
+    // connected home road. The authored subject count and ignition stay fixed;
+    // this reviewed fuel trace records the corrected west-facing shell.
     id: 'firehouse-yard',
     seed: 1902,
     parTimeSeconds: 75,
     cellCount: 5819,
     ignitionCellIds: ['3,0,20'],
     samples: [
-      [1, 0, 265300],
-      [6, 0, 263544],
-      [11, 0, 258822],
-      [16, 1, 253697],
+      [1, 0, 258300],
+      [6, 0, 256544],
+      [11, 0, 251822],
+      [16, 1, 246697],
     ],
   },
   {

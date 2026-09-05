@@ -13,6 +13,7 @@ import {
   getActiveQuestSite,
   areDistrictTransitionsReciprocal,
   getBuildingRect,
+  getBuildingFaceTowardRoad,
   getDistrict,
   getFirehouseBuilding,
   getFirehouseSpawn,
@@ -560,10 +561,38 @@ describe('Firehouse home bases', () => {
   it('authors a civic station, yard spawn, local board, and wardrobe', () => {
     const district = validHarbourHill();
     const building = getFirehouseBuilding(district);
+    const road = district.roads.find(({ id }) => id === district.firehouse.roadId)!;
     expect(building.use).toBe('civic');
+    expect(building.art?.facade).toBe('civic-station');
+    expect(building.art?.facing).toBe(getBuildingFaceTowardRoad(building, road));
+    expect(building.landmark).toBe('bell-tower');
     expect(getFirehouseSpawn(district)).toEqual(district.truckStart);
     expect(district.firehouse.roadId).toBe('west-avenue');
     expect(district.firehouse.starBoard).not.toEqual(district.firehouse.wardrobe);
+  });
+
+  it('rejects a Firehouse facade that turns away from its connected road', () => {
+    const turned = cloneHarbourHill();
+    const buildings = turned.buildings as Record<string, unknown>[];
+    const firehouse = buildings.find(({ id }) => id === 'firehouse')!;
+    firehouse.art = { route: 'civic', facade: 'civic-station', facing: 'north' };
+    expect(() => validateDistrictDefinition(turned, 'turned-station')).toThrow(
+      /art\.facing must face its named Firehouse road/,
+    );
+  });
+
+  it('rejects a generic civic building without the Firehouse silhouette contract', () => {
+    const generic = cloneHarbourHill();
+    const buildings = generic.buildings as Record<string, unknown>[];
+    const firehouse = buildings.find(({ id }) => id === 'firehouse')!;
+    firehouse.art = { route: 'civic', facade: 'civic-arched', facing: 'west' };
+    firehouse.landmark = 'dome';
+    expect(() => validateDistrictDefinition(generic, 'generic-station')).toThrow(
+      /must use the civic-station facade/,
+    );
+    expect(() => validateDistrictDefinition(generic, 'generic-station')).toThrow(
+      /must use the bell-tower landmark/,
+    );
   });
 
   it('rejects a Firehouse whose spawn is not on its named road', () => {

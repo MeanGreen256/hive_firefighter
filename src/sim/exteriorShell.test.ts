@@ -4,6 +4,7 @@ import { getDistrict } from './districts';
 import {
   SHELL_INERT_MATERIAL,
   buildExteriorShell,
+  getBuildingFrontFace,
   getFrontFace,
   getShellCellWorldPosition,
   getSubjectCellIds,
@@ -30,6 +31,15 @@ describe('front face', () => {
     expect(getFrontFace(bakery, { x: bakery.x, z: bakery.z - 10 })).toBe('north');
     expect(getFrontFace(bakery, { x: bakery.x + 10, z: bakery.z })).toBe('east');
     expect(getFrontFace(bakery, { x: bakery.x - 10, z: bakery.z })).toBe('west');
+  });
+
+  it('faces the Firehouse toward its named home road when nearby streets tie', () => {
+    const firehouse = district.buildings.find(
+      (building) => building.id === district.firehouse.buildingId,
+    );
+    if (!firehouse) throw new Error('Harbour Hill lost its Firehouse');
+    expect(getBuildingFrontFace(district, firehouse)).toBe('west');
+    expect(firehouse.art?.facing).toBe('west');
   });
 });
 

@@ -20,14 +20,17 @@ For every authored district Firehouse:
 
 1. The Firehouse content entry uses the `civic-station` facade and
    `bell-tower` landmark.
-2. The generated facade contains the apparatus door, four horizontal bay
+2. The apparatus facade faces the Firehouse's explicitly connected road. A tie
+   between nearby streets must not let array order turn the recognizable front
+   into a hidden side wall.
+3. The generated facade contains the apparatus door, four horizontal bay
    rails, apron, two lights, sign backing, and all `FIRE` letter cells.
-3. The generated landmark contains four open tower posts, bell, clapper,
+4. The generated landmark contains four open tower posts, bell, clapper,
    crossbar, and roof cap.
-4. The art pieces remain scenic: the authored building footprint continues to
+5. The art pieces remain scenic: the authored building footprint continues to
    be the only Firehouse collision surface. Truck spawn, road connection,
    wardrobe, and Star Board validation remain district-owned.
-5. The additions stay inside the shared primitive instance layers; adding a
+6. The additions stay inside the shared primitive instance layers; adding a
    Firehouse does not add a bespoke material or draw call per decorative part.
 
 `src/render/districtArtKits.test.ts` enforces this contract for Harbour Hill and

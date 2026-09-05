@@ -195,7 +195,7 @@
       "depth": 11,
       "height": 8,
       "landmark": "bell-tower",
-      "art": { "route": "civic", "facade": "civic-station", "facing": "north" }
+      "art": { "route": "civic", "facade": "civic-station", "facing": "west" }
     },
     {
       "id": "house-station-cottage",
