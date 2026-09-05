@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getDistrict } from '@sim/districts';
+import { distanceToRect, getDistrict, getRoadRect } from '@sim/districts';
 import { getBuildingFrontFace } from '@sim/exteriorShell';
 import {
   buildDistrictArtKitLayout,
@@ -70,6 +70,8 @@ describe('reusable district art kits', () => {
 
       const facade = buildFacadeKit(firehouse!);
       const landmark = buildLandmarkKit(firehouse!);
+      const apparatusDoor = facade.find(({ id }) => id.endsWith(':facade:apparatus-door'))!;
+      const road = stationDistrict.roads.find(({ id }) => id === stationDistrict.firehouse.roadId)!;
       expect(facade.map(({ id }) => id)).toEqual(
         expect.arrayContaining([
           `${firehouse!.id}:facade:apparatus-door`,
@@ -81,6 +83,14 @@ describe('reusable district art kits', () => {
       );
       expect(facade.filter(({ id }) => id.includes('apparatus-rail'))).toHaveLength(4);
       expect(facade.filter(({ id }) => id.includes('bay-light'))).toHaveLength(2);
+      expect(
+        distanceToRect(
+          { x: apparatusDoor.position[0], z: apparatusDoor.position[2] },
+          getRoadRect(road),
+        ),
+      ).toBeLessThan(
+        distanceToRect({ x: firehouse!.position[0], z: firehouse!.position[2] }, getRoadRect(road)),
+      );
       expect(landmark.filter(({ id }) => id.includes('bell-tower:post'))).toHaveLength(4);
       expect(landmark.map(({ id }) => id)).toEqual(
         expect.arrayContaining([

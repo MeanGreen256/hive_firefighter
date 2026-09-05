@@ -145,6 +145,11 @@ export function getStreetReference(
   district: DistrictDefinition,
   building: DistrictBuilding,
 ): DistrictPoint {
+  if (building.id === district.firehouse.buildingId) {
+    const homeRoad = district.roads.find((road) => road.id === district.firehouse.roadId);
+    if (homeRoad) return closestPointOnRect(building, getRoadRect(homeRoad));
+  }
+
   let best: DistrictPoint = { x: building.x, z: building.z + 1 };
   let bestDistance = Number.POSITIVE_INFINITY;
 

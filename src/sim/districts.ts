@@ -617,6 +617,27 @@ export function distanceToRect(point: DistrictPoint, rect: DistrictRect): number
   return Math.hypot(dx, dz);
 }
 
+/**
+ * The building face that looks toward one explicitly named road.
+ *
+ * Most buildings can use the nearest street as a convenient default. A
+ * Firehouse cannot: when two roads are equally near, array order can otherwise
+ * turn its apparatus bay toward the wrong street and leave the connected-road
+ * approach looking like a blank wall.
+ */
+export function getBuildingFaceTowardRoad(
+  building: DistrictBuilding,
+  road: DistrictRoad,
+): BuildingFacing {
+  const roadRect = getRoadRect(road);
+  const roadX = Math.min(Math.max(building.x, roadRect.minX), roadRect.maxX);
+  const roadZ = Math.min(Math.max(building.z, roadRect.minZ), roadRect.maxZ);
+  const deltaX = roadX - building.x;
+  const deltaZ = roadZ - building.z;
+  if (Math.abs(deltaX) >= Math.abs(deltaZ)) return deltaX >= 0 ? 'east' : 'west';
+  return deltaZ >= 0 ? 'south' : 'north';
+}
+
 function isRectInsideBounds(rect: DistrictRect, bounds: DistrictBounds): boolean {
   return (
     rect.minX >= bounds.minX &&
@@ -1125,9 +1146,18 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     if (onRoad(rect)) {
       problems.push(`${id}.buildings[${index}] sits on a road and would block driving`);
     }
-    if (building.art && building.art.facing !== getNearestRoadFacing(building, roads)) {
+    const namedFirehouseRoad =
+      building.id === firehouse.buildingId
+        ? roads.find((road) => road.id === firehouse.roadId)
+        : undefined;
+    const expectedFacing = namedFirehouseRoad
+      ? getBuildingFaceTowardRoad(building, namedFirehouseRoad)
+      : getNearestRoadFacing(building, roads);
+    if (building.art && building.art.facing !== expectedFacing) {
       problems.push(
-        `${id}.buildings[${index}].art.facing must face its nearest road so facade art and fire volumes align`,
+        namedFirehouseRoad
+          ? `${id}.buildings[${index}].art.facing must face its named Firehouse road so facade art and fire volumes align`
+          : `${id}.buildings[${index}].art.facing must face its nearest road so facade art and fire volumes align`,
       );
     }
   });
@@ -1283,6 +1313,19 @@ export function validateDistrictDefinition(data: unknown, id: string): DistrictD
     !rectsOverlap(rectFromCenter(firehouse.spawn, 0.01, 0.01), getRoadRect(firehouseRoad))
   ) {
     problems.push(`${id}.firehouse.spawn must sit on ${JSON.stringify(firehouse.roadId)}`);
+  }
+
+  if (firehouseBuilding) {
+    if (firehouseBuilding.art?.facade !== 'civic-station') {
+      problems.push(
+        `${id}.firehouse building must use the civic-station facade, got ${String(firehouseBuilding.art?.facade)}`,
+      );
+    }
+    if (firehouseBuilding.landmark !== 'bell-tower') {
+      problems.push(
+        `${id}.firehouse building must use the bell-tower landmark, got ${String(firehouseBuilding.landmark)}`,
+      );
+    }
   }
 
   if (!posesMatch(firehouse.spawn, truckStart)) {

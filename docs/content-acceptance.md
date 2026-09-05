@@ -39,8 +39,10 @@ Set `ACCEPTANCE_ARTIFACT_DIR=artifacts/acceptance` to retain each PNG screenshot
 and a machine-readable `metrics.json` report. Every FPS value in that report is
 explicitly a software-rendered CI baseline, not target-device performance
 evidence; use the visible production profiler in
-[`performance-acceptance.md`](performance-acceptance.md) for that. CI uploads
-these artifacts when a gate fails.
+[`performance-acceptance.md`](performance-acceptance.md) for that. CI keeps the
+full matrix for 14 days on every run, including green pull requests, so a
+reviewer can inspect an intentional art change instead of treating a passing
+pixel-count gate as visual approval.
 
 ## What fails a pull request
 

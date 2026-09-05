@@ -49,13 +49,14 @@ jobs:
         env:
           ACCEPTANCE_ARTIFACT_DIR: artifacts/acceptance
 
-      - name: Upload acceptance evidence when a gate fails
-        if: failure()
+      - name: Upload visual acceptance evidence
+        if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
           name: content-visual-performance-acceptance
           path: artifacts/acceptance
           if-no-files-found: ignore
+          retention-days: 14
 
       # Boot the bundle a family downloads, not a development fixture. The
       # robot-driven journey is a manual release tool: at SwiftShader's 2–5 fps
