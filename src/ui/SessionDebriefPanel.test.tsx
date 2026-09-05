@@ -53,6 +53,15 @@ describe('SessionDebriefPanel', () => {
         outcome === SessionStatus.Scorched ? 'debrief-object--lost' : 'debrief-object--saved',
       );
       expect(html).toMatch(/data-action="continue"/);
+      expect(html).toContain('Fire out!');
+      expect(html).toContain(
+        outcome === SessionStatus.Scorched ? 'Building scorched' : 'Building saved',
+      );
+      expect(html).toContain('Property saved');
+      expect(html).toContain('Stars earned');
+      expect(html).toContain('Continue</span>');
+      expect(html).toContain('Replay</span>');
+      expect(html).toContain('New fire</span>');
       expect(html).not.toContain('Personal best');
       expect(html).not.toContain('120');
       expect(html).not.toContain('10 L');
@@ -93,6 +102,23 @@ describe('SessionDebriefPanel', () => {
 
     expect(unlocked).toContain('debrief-reward');
     expect(unlocked).toContain('New reward unlocked');
+    expect(unlocked).toContain('New reward!');
     expect(ordinary).not.toContain('debrief-reward');
+  });
+
+  it('offers non-destructive level recovery without competing with the primary continuation', () => {
+    const html = renderToStaticMarkup(
+      <SessionDebriefPanel
+        debrief={debrief(SessionStatus.Contained)}
+        onRetry={() => undefined}
+        onNewFire={() => undefined}
+        onNextQuest={() => undefined}
+        onResetLevel={() => undefined}
+      />,
+    );
+
+    expect(html).toContain('Reset level');
+    expect(html).toContain('return to the Firehouse');
+    expect(html.match(/debrief-panel__primary/g)).toHaveLength(1);
   });
 });

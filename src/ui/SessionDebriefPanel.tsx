@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { SessionStatus, type SessionDebrief } from '../state/sessionStats';
 import {
   ArrowIcon,
@@ -20,15 +20,19 @@ import './SessionHud.css';
 
 function StarReveal({ stars }: { readonly stars: SessionDebrief['stars'] }) {
   return (
-    <div className="debrief-stars" role="img" aria-label={`${stars} stars earned out of 3`}>
-      {[1, 2, 3].map((position) => (
-        <StarIcon
-          key={position}
-          className={position <= stars ? 'debrief-star debrief-star--earned' : 'debrief-star'}
-          style={{ '--star-delay': `${(position - 1) * 240}ms` } as CSSProperties}
-          aria-hidden="true"
-        />
-      ))}
+    <div className="debrief-stars-wrap">
+      <span className="debrief-label">Stars earned</span>
+      <div className="debrief-stars" role="img" aria-label={`${stars} stars earned out of 3`}>
+        {[1, 2, 3].map((position) => (
+          <StarIcon
+            key={position}
+            className={position <= stars ? 'debrief-star debrief-star--earned' : 'debrief-star'}
+            style={{ '--star-delay': `${(position - 1) * 240}ms` } as CSSProperties}
+            aria-hidden="true"
+          />
+        ))}
+      </div>
+      <strong className="debrief-stars__count">{stars} of 3</strong>
     </div>
   );
 }
@@ -42,13 +46,17 @@ function ObjectSnapshot({ debrief }: { readonly debrief: SessionDebrief }) {
       className="debrief-snapshot"
       aria-label={`${debrief.objects.total} buildings were on fire. ${debrief.objects.saved} are safe and ${debrief.objects.lost} are scorched.`}
     >
-      <div className="debrief-snapshot__before" aria-hidden="true">
-        {before.map((_, index) => (
-          <BurningBuildingIcon key={index} className="debrief-object debrief-object--burning" />
-        ))}
+      <div className="debrief-snapshot__column">
+        <span className="debrief-label">Fire started</span>
+        <div className="debrief-snapshot__before" aria-hidden="true">
+          {before.map((_, index) => (
+            <BurningBuildingIcon key={index} className="debrief-object debrief-object--burning" />
+          ))}
+        </div>
       </div>
       <ArrowIcon className="debrief-snapshot__arrow" aria-hidden="true" />
       <div className="debrief-snapshot__result">
+        <span className="debrief-label">Property saved</span>
         <div className="debrief-snapshot__after" aria-hidden="true">
           {after.map((state, index) =>
             state === 'saved' ? (
@@ -57,6 +65,10 @@ function ObjectSnapshot({ debrief }: { readonly debrief: SessionDebrief }) {
               <BuildingIcon key={index} scorched className="debrief-object debrief-object--lost" />
             ),
           )}
+        </div>
+        <div className="debrief-snapshot__counts">
+          <span>{debrief.objects.saved} saved</span>
+          <span>{debrief.objects.lost} scorched</span>
         </div>
         <StarReveal stars={debrief.stars} />
       </div>
@@ -77,6 +89,8 @@ export interface SessionDebriefPanelProps {
   readonly onRetry: () => void;
   readonly onNewFire: () => void;
   readonly onNextQuest?: () => void;
+  /** Non-destructive recovery to the scheduled Firehouse (#297). */
+  readonly onResetLevel?: () => void;
   /** A cosmetic became available from this exact completed incident. */
   readonly rewardUnlocked?: boolean;
   readonly scenarioOptions?: readonly DebriefScenarioOption[];
@@ -88,6 +102,7 @@ export function SessionDebriefPanel({
   onRetry,
   onNewFire,
   onNextQuest,
+  onResetLevel,
   rewardUnlocked = false,
   scenarioOptions,
   onScenarioChange,
@@ -95,6 +110,7 @@ export function SessionDebriefPanel({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const primaryButtonRef = useRef<HTMLButtonElement>(null);
   const didAdvanceRef = useRef(false);
+  const [resetLevelArmed, setResetLevelArmed] = useState(false);
   const scorched = debrief?.outcome === SessionStatus.Scorched;
   /** A single fresh input dismisses a result only once, even before state settles. */
   const advance = useCallback(() => {
@@ -106,6 +122,7 @@ export function SessionDebriefPanel({
 
   useEffect(() => {
     didAdvanceRef.current = false;
+    setResetLevelArmed(false);
   }, [debrief]);
 
   useEffect(() => {
@@ -158,7 +175,8 @@ export function SessionDebriefPanel({
 
   if (!debrief) return null;
 
-  const title = scorched ? 'Fire is out; the building is scorched' : 'Fire is out; building saved';
+  const outcomeLabel = scorched ? 'Building scorched' : 'Building saved';
+  const title = `Fire out — ${outcomeLabel.toLowerCase()}`;
 
   return (
     <dialog
@@ -175,15 +193,16 @@ export function SessionDebriefPanel({
             : 'debrief-heading debrief-heading--contained'
         }
       >
-        <h1 id="debrief-title" className="debrief-screen-reader-only">
-          {title}
-        </h1>
         <div className="debrief-outcome" role="img" aria-label={title}>
           {scorched ? (
             <BuildingIcon scorched aria-hidden="true" />
           ) : (
             <SavedBuildingIcon aria-hidden="true" />
           )}
+        </div>
+        <div className="debrief-heading__labels">
+          <h1 id="debrief-title">Fire out!</h1>
+          <p>{outcomeLabel}</p>
         </div>
       </header>
 
@@ -192,6 +211,7 @@ export function SessionDebriefPanel({
       {debrief.isNewPersonalBest ? (
         <div className="debrief-new-best" role="img" aria-label="New best">
           <SparkleIcon aria-hidden="true" />
+          <strong>New best!</strong>
           <SparkleIcon aria-hidden="true" />
           <SparkleIcon aria-hidden="true" />
         </div>
@@ -201,6 +221,7 @@ export function SessionDebriefPanel({
         <div className="debrief-reward" role="img" aria-label="New reward unlocked">
           <RewardBadgeIcon aria-hidden="true" />
           <SparkleIcon aria-hidden="true" />
+          <strong>New reward!</strong>
         </div>
       ) : null}
 
@@ -231,6 +252,7 @@ export function SessionDebriefPanel({
           onClick={advance}
         >
           <ContinueIcon aria-hidden="true" />
+          <span>Continue</span>
         </button>
         <button
           type="button"
@@ -239,6 +261,7 @@ export function SessionDebriefPanel({
           onClick={onRetry}
         >
           <ReplayIcon aria-hidden="true" />
+          <span>Replay</span>
         </button>
         <button
           type="button"
@@ -247,7 +270,31 @@ export function SessionDebriefPanel({
           onClick={onNewFire}
         >
           <NewFireIcon aria-hidden="true" />
+          <span>New fire</span>
         </button>
+        {onResetLevel ? (
+          <button
+            type="button"
+            className={
+              resetLevelArmed
+                ? 'debrief-panel__secondary debrief-panel__reset debrief-panel__reset--armed'
+                : 'debrief-panel__secondary debrief-panel__reset'
+            }
+            aria-label={
+              resetLevelArmed
+                ? 'Confirm reset level and return to the Firehouse'
+                : 'Reset level and return to the Firehouse'
+            }
+            onClick={() => {
+              if (resetLevelArmed) onResetLevel();
+              else setResetLevelArmed(true);
+            }}
+            onBlur={() => setResetLevelArmed(false)}
+          >
+            <span aria-hidden="true">↩</span>
+            <span>{resetLevelArmed ? 'Confirm reset' : 'Reset level…'}</span>
+          </button>
+        ) : null}
       </footer>
     </dialog>
   );

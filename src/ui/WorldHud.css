@@ -220,6 +220,10 @@
   border-color: var(--hud-accent);
 }
 
+.world-hud__adults-action--warning {
+  border-color: var(--hud-warning);
+}
+
 .world-hud__volume {
   margin-top: 8px;
 }

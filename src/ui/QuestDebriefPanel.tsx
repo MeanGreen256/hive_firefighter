@@ -7,11 +7,13 @@ export function QuestDebriefPanel({
   onRetry,
   onNewFire,
   rewardUnlocked = false,
+  onResetLevel,
 }: {
   readonly onNextQuest: () => void;
   readonly onRetry: () => void;
   readonly onNewFire: () => void;
   readonly rewardUnlocked?: boolean;
+  readonly onResetLevel?: () => void;
 }) {
   const debrief = useStore(questFireController.store, (snapshot) => snapshot.debrief);
   return (
@@ -21,6 +23,7 @@ export function QuestDebriefPanel({
       onNewFire={onNewFire}
       onNextQuest={onNextQuest}
       rewardUnlocked={rewardUnlocked}
+      {...(onResetLevel ? { onResetLevel } : {})}
     />
   );
 }
