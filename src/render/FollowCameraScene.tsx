@@ -11,6 +11,7 @@ import { Canvas, useFrame, type RootState } from '@react-three/fiber';
 import { useStore } from 'zustand';
 import type { DirectionalLight, Group } from 'three';
 import { fireAudioSystem } from '../audio/fireAudioSystem';
+import { WorldFillLight } from './WorldFillLight';
 import {
   AudioActivationSource,
   getAudioActivationOutcome,
@@ -570,7 +571,7 @@ function GameWorld({
   return (
     <>
       <color attach="background" args={[visualStyle.palette.scene.background]} />
-      <ambientLight intensity={0.55} color={visualStyle.palette.scene.ambientLight} />
+      <WorldFillLight visualStyle={visualStyle} />
       <CityShadowSun color={visualStyle.palette.scene.sunlight} district={district} />
       <FollowCameraRig
         target={activeTarget}

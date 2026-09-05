@@ -288,6 +288,7 @@ export interface Style {
   readonly id: StyleId;
   readonly label: string;
   readonly palette: StylePalette;
+  readonly lighting: { readonly ambientIntensity: number; readonly skyIntensity: number };
   readonly createMaterial: (surface: StyleSurface, materialId?: MaterialId) => MaterialAppearance;
   readonly cellVisuals: CellVisualAppearance;
   readonly stage: ModelStageAppearance;
@@ -400,6 +401,7 @@ const diorama: Style = {
   id: 'diorama',
   label: 'Toy diorama',
   palette: dioramaPalette,
+  lighting: { ambientIntensity: 0.4, skyIntensity: 0.8 },
   createMaterial: createMaterialFactory(dioramaPalette, {
     structureRoughness: 0.9,
     cellRoughness: 0.82,
@@ -583,6 +585,7 @@ const ink: Style = {
   id: 'ink',
   label: 'Cel-shaded ink',
   palette: inkPalette,
+  lighting: { ambientIntensity: 0.55, skyIntensity: 0 },
   createMaterial: createMaterialFactory(inkPalette, {
     structureRoughness: 1,
     cellRoughness: 1,

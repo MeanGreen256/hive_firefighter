@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Canvas, type RootState } from '@react-three/fiber';
+import { WorldFillLight } from './WorldFillLight';
 import { useStore } from 'zustand';
 import type { DirectionalLight, Group } from 'three';
 import { getDistrict, type DistrictDefinition, type DistrictQuestSite } from '@sim/districts';
@@ -147,7 +148,7 @@ function PreviewWorld({
   return (
     <>
       <color attach="background" args={[visualStyle.palette.scene.background]} />
-      <ambientLight intensity={0.55} color={visualStyle.palette.scene.ambientLight} />
+      <WorldFillLight visualStyle={visualStyle} />
       <PreviewShadowSun district={district} color={visualStyle.palette.scene.sunlight} />
       <FollowCameraRig
         target={target}
