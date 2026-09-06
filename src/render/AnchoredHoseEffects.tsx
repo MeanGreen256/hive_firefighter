@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
+  Color,
   Matrix4,
   Quaternion,
   Vector3,
@@ -111,6 +112,7 @@ export function AnchoredHoseEffects({
 }: AnchoredHoseEffectsProps) {
   const { gl } = useThree();
   const steamRemaining = useRef(0);
+  const steamContact = useRef<Vector3Tuple>([0, 0, 0]);
   const steamRef = useRef<Mesh>(null);
   const waterPiecesRef = useRef<InstancedMesh>(null);
   const quality = useStore(vfxPreferenceStore, (state) => state.quality);
@@ -120,6 +122,13 @@ export function AnchoredHoseEffects({
   const pieceScale = useMemo(() => new Vector3(), []);
   const pieceRotation = useMemo(() => new Quaternion(), []);
   const forwardAxis = useMemo(() => new Vector3(0, 0, 1), []);
+  const waterColors = useMemo(
+    () => ({
+      body: new Color(visualStyle.hose.stream),
+      highlight: new Color(visualStyle.hose.streamEdge),
+    }),
+    [visualStyle],
+  );
 
   const spaceHeld = useRef(false);
   const mouseHeld = useRef(false);
@@ -138,20 +147,22 @@ export function AnchoredHoseEffects({
     if (!mesh) return;
     mesh.visible = plan.visible;
     let index = 0;
-    const writePiece = (piece: WaterVfxPiece) => {
+    const writePiece = (piece: WaterVfxPiece, color: Color) => {
       piecePosition.set(...piece.position);
       pieceDirection.set(...piece.direction);
       pieceScale.set(...piece.scale);
       pieceRotation.setFromUnitVectors(forwardAxis, pieceDirection.normalize());
       pieceMatrix.compose(piecePosition, pieceRotation, pieceScale);
       mesh.setMatrixAt(index, pieceMatrix);
+      mesh.setColorAt(index, color);
       index += 1;
     };
-    plan.streamBeads.forEach(writePiece);
-    plan.sprayDroplets.forEach(writePiece);
-    plan.splashDroplets.forEach(writePiece);
+    plan.streamBeads.forEach((piece) => writePiece(piece, waterColors.body));
+    plan.sprayDroplets.forEach((piece) => writePiece(piece, waterColors.highlight));
+    plan.splashDroplets.forEach((piece) => writePiece(piece, waterColors.highlight));
     mesh.count = index;
     mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   };
 
   useEffect(() => {
@@ -269,6 +280,8 @@ export function AnchoredHoseEffects({
     const reticle = reticleRef.current;
 
     if (!enabled || !character) {
+      steamRemaining.current = 0;
+      if (steamRef.current) steamRef.current.visible = false;
       if (reticle) reticle.visible = false;
       if (waterPiecesRef.current) {
         waterPiecesRef.current.visible = false;
@@ -332,7 +345,7 @@ export function AnchoredHoseEffects({
       nozzlePosition,
       aimDirection,
       candidates,
-      previousTargetId.current,
+      freeAimStep.active ? null : previousTargetId.current,
       freeAimStep.assistStrength,
     );
     previousTargetId.current = resolution.targetId;
@@ -390,7 +403,10 @@ export function AnchoredHoseEffects({
         const scalded = result.contacts.some((contact) =>
           isHotWaterContact({ heat: contact.heatBefore }),
         );
-        if (scalded) steamRemaining.current = STEAM_PULSE_SECONDS;
+        if (scalded) {
+          steamRemaining.current = STEAM_PULSE_SECONDS;
+          steamContact.current = streamEnd;
+        }
       }
     }
 
@@ -399,7 +415,9 @@ export function AnchoredHoseEffects({
     if (steam) {
       const pulseRatio = steamRemaining.current / STEAM_PULSE_SECONDS;
       steam.visible = steamRemaining.current > 0;
-      steam.position.set(...streamEnd);
+      // Steam belongs to the hot surface, even after the player aims elsewhere.
+      steam.position.set(...steamContact.current);
+      steam.position.y += (1 - pulseRatio) * 0.45;
       steam.scale.setScalar(0.6 + (1 - pulseRatio) * 1.1);
       const material = steam.material as MeshBasicMaterial;
       material.opacity = 0.7 * pulseRatio;
@@ -440,13 +458,7 @@ export function AnchoredHoseEffects({
         renderOrder={8}
       >
         <sphereGeometry args={[1, 7, 5]} />
-        <meshBasicMaterial
-          color={visualStyle.hose.streamEdge}
-          transparent
-          opacity={0.92}
-          depthWrite={false}
-          toneMapped={false}
-        />
+        <meshBasicMaterial transparent opacity={0.92} depthWrite={false} toneMapped={false} />
       </instancedMesh>
       <group ref={reticleRef} visible={false}>
         <mesh>

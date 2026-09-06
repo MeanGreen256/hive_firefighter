@@ -218,6 +218,13 @@ export function resolveHoseAimTarget(
         : coneRadians;
     if (angle > allowedAngle) continue;
 
+    // A wider cone alone does not provide hysteresis: another cell nearer the
+    // centre would steal the jet every frame. Keep a valid lock until it leaves
+    // the release cone, goes out, or leaves hose range.
+    if (candidate.id === previousTargetId) {
+      return { targetId: candidate.id, aimPoint: candidate.position };
+    }
+
     if (!best || angle < best.angle || (angle === best.angle && distance < best.distance)) {
       best = { id: candidate.id, position: candidate.position, angle, distance };
     }

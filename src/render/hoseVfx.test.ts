@@ -14,6 +14,28 @@ const base = {
 };
 
 describe('hose VFX plans', () => {
+  for (const quality of ['full', 'reduced'] as const) {
+    it(`keeps a nine-metre jet connected with a forward-facing endpoint at ${quality} detail`, () => {
+      const plan = getWaterVfxPlan({
+        ...base,
+        start: [0, 1, 0],
+        end: [9, 1, 0],
+        quality,
+        spraying: true,
+        targetCaptured: true,
+      });
+      for (let index = 1; index < plan.streamBeads.length; index += 1) {
+        const previous = plan.streamBeads[index - 1]!;
+        const current = plan.streamBeads[index]!;
+        const separation = Math.hypot(
+          ...current.position.map((value, axis) => value - previous.position[axis]!),
+        );
+        expect(previous.scale[2] + current.scale[2]).toBeGreaterThan(separation);
+        expect(current.direction[0]).toBeGreaterThan(0.9);
+      }
+    });
+  }
+
   it('makes every water layer disappear when spray is off', () => {
     expect(getWaterVfxPlan({ ...base, spraying: false, targetCaptured: true })).toMatchObject({
       visible: false,

@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Canvas, type RootState } from '@react-three/fiber';
+import { WorldFillLight } from './WorldFillLight';
+import { findSprayPreviewPose } from './sprayPreviewPose';
 import { useStore } from 'zustand';
 import type { DirectionalLight, Group } from 'three';
 import { getDistrict, type DistrictDefinition, type DistrictQuestSite } from '@sim/districts';
 import { QUESTS, type QuestDefinition } from '@sim/quests';
 import {
+  collectReachableGround,
   diagnoseQuestSightlines,
   summarizeQuestSightlines,
 } from '../content/questSightlineDiagnostics';
@@ -142,12 +145,27 @@ function PreviewWorld({
     0,
     questSite.z + 10,
   ];
+  const sprayPose = useMemo(() => {
+    if (!state.forceSpraying) return null;
+    const targets = controller.getBurningCells().map((cell) => ({
+      id: `cell:${cell.cellId}`,
+      position: [cell.position.x, cell.position.y, cell.position.z] as const,
+    }));
+    return findSprayPreviewPose(
+      targets.flatMap((target) =>
+        collectReachableGround(district, { x: target.position[0], z: target.position[2] }),
+      ),
+      targets,
+      surfaces,
+      { x: questSite.x, z: questSite.z + 10 },
+    );
+  }, [controller, district, questSite, state.forceSpraying, surfaces]);
   const beaconTarget = getBeaconTarget(questSite, fireSnapshot);
 
   return (
     <>
       <color attach="background" args={[visualStyle.palette.scene.background]} />
-      <ambientLight intensity={0.55} color={visualStyle.palette.scene.ambientLight} />
+      <WorldFillLight visualStyle={visualStyle} />
       <PreviewShadowSun district={district} color={visualStyle.palette.scene.sunlight} />
       <FollowCameraRig
         target={target}
@@ -176,9 +194,12 @@ function PreviewWorld({
         visualStyle={visualStyle}
         enabled={false}
         visible={state.onFoot}
+        initialYaw={sprayPose?.forwardYawRadians ?? 0}
         obstacles={layout.obstacles}
         initialPosition={
-          state.cameraStage === 'approach' ? approachPosition : incidentFirefighterPosition
+          state.cameraStage === 'approach'
+            ? approachPosition
+            : (sprayPose?.position ?? incidentFirefighterPosition)
         }
         movementBounds={layout.movementBounds}
       />

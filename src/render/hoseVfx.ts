@@ -53,8 +53,9 @@ function samplePiece(
   length: number,
 ): WaterVfxPiece {
   const position = waterArcPoint(start, end, t);
-  const next = waterArcPoint(start, end, Math.min(1, t + 0.02));
-  return { position, direction: directionBetween(position, next), scale: [radius, radius, length] };
+  const previous = waterArcPoint(start, end, Math.max(0, t - 0.01));
+  const next = waterArcPoint(start, end, Math.min(1, t + 0.01));
+  return { position, direction: directionBetween(previous, next), scale: [radius, radius, length] };
 }
 
 export interface WaterVfxInput {
@@ -88,7 +89,20 @@ export function getWaterVfxPlan({
   const streamBeads = Array.from({ length: beadCount }, (_, index) => {
     const t = index / (beadCount - 1);
     const pulse = 0.82 + Math.sin(elapsedSeconds * 15 - t * 16) * 0.12;
-    return samplePiece(start, end, t, 0.065 * pulse, 0.24 + (1 - t) * 0.09);
+    // Sphere scales are radii. Cover the larger adjacent arc interval with
+    // overlap, so reduced detail and long shots still form one connected jet.
+    const position = waterArcPoint(start, end, t);
+    const spacing = Math.max(
+      ...[-1, 1].map((step) => {
+        const neighbor = waterArcPoint(
+          start,
+          end,
+          Math.max(0, Math.min(1, t + step / (beadCount - 1))),
+        );
+        return Math.hypot(...position.map((value, axis) => value - neighbor[axis]!));
+      }),
+    );
+    return samplePiece(start, end, t, 0.075 * pulse, Math.max(0.08, spacing * 0.62));
   });
 
   const dropletCount = quality === 'full' ? SPRAY_DROPLET_CAPACITY : 4;
