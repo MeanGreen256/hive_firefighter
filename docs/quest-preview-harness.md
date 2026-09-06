@@ -44,6 +44,12 @@ parameter present means ordinary play, unchanged.
 | `aftermath`            | A fixed, deterministic mix of wet, heated, burnt, and collapsed cells. |
 | `debrief`              | The quest driven to completion; the real star result panel is open.   |
 
+`active-spray` stages the firefighter on walkable ground around a live flame,
+facing it through the normal aim-assist rules. Candidate poses reject intervening
+scenery and prefer a comfortable five-metre view. If new content has no suitable
+pose, it retains the authored site framing; the all-quest pose regression test
+must pass before that content is accepted.
+
 `active-spray` visually sprays without extinguishing anything — same
 technique the `?perfScene=spray` render-budget scene uses (`forceSpraying`,
 `src/render/AnchoredHoseEffects.tsx`) — so the fire state stays exactly what

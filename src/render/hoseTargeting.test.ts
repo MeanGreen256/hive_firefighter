@@ -151,6 +151,30 @@ describe('hose aim assist', () => {
     expect(withMemory.targetId).toBe('held');
   });
 
+  it('keeps a valid lock when a neighboring flame crosses the aim centre, regardless of order', () => {
+    const held = candidateAtAngle('held', 0.15);
+    const neighbor = candidateAtAngle('neighbor', 0);
+    for (const candidates of [
+      [held, neighbor],
+      [neighbor, held],
+    ]) {
+      expect(resolveHoseAimTarget(nozzle, straightAhead, candidates, 'held').targetId).toBe('held');
+    }
+  });
+
+  it('acquires the next flame when the held flame goes out, leaves range, or leaves the release cone', () => {
+    const neighbor = candidateAtAngle('neighbor', 0);
+    for (const candidates of [
+      [neighbor],
+      [candidateAtAngle('held', 0, HOSE_AIM_MAX_RANGE_METERS + 1), neighbor],
+      [candidateAtAngle('held', Math.PI / 2), neighbor],
+    ]) {
+      expect(resolveHoseAimTarget(nozzle, straightAhead, candidates, 'held').targetId).toBe(
+        'neighbor',
+      );
+    }
+  });
+
   it('rests the reticle along the aim direction at the fallback distance when nothing qualifies', () => {
     const result = resolveHoseAimTarget(nozzle, straightAhead, [], null, 0.5);
     expect(result.targetId).toBeNull();
